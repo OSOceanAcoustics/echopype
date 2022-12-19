@@ -17,11 +17,135 @@ str2ops = {
 }
 
 
-# def _check_apply_mask_inputs(source_ds: xr.Dataset, var_name: str, mask, ):
-#     """
-#     Ensures that the inputs to the function ``apply_mask`` are
-#     appropriate.
-#     """
+def validate_and_collect_mask_input(
+    mask: Union[
+        Union[xr.DataArray, str, pathlib.Path], List[Union[xr.DataArray, str, pathlib.Path]]
+    ],
+    storage_options_mask: Union[dict, List[dict]],
+) -> Union[xr.DataArray, List[xr.DataArray]]:
+    """
+    Validate that the input ``mask`` and associated ``storage_options_mask`` are correctly
+    provided to ``apply_mask``. Additionally, form the mask input that should be used
+    in the core routine of ``apply_mask``.
+
+    Parameters
+    ----------
+    mask: xr.DataArray or str or pathlib.Path or list of xr.DataArray or str or pathlib.Path
+        The mask(s) to apply to the variable specified by ``var_name``. This input can be a
+        single input or list that corresponds to a DataArray or a path to a DataArray. If a path
+        is provided this should point to a zarr or netcdf file with only one array in it.
+    storage_options_mask: dict or list of dict, default={}
+        Any additional parameters for the storage backend, corresponding to the
+        path provided for ``mask``. If ``mask`` is a list, then this input should either
+        be a list of dictionaries or a single dictionary with storage options that
+        correspond to all elements in ``mask`` that are paths.
+
+    Returns
+    -------
+    xr.DataArray or list of xr.DataArray
+        If the ``mask`` input is a single value, then the corresponding DataArray will be
+        returned, else a list of DataArrays corresponding to the input masks will be returned
+
+    Raises
+    ------
+    RuntimeError
+        If ``mask`` is a single-element and ``storage_options_mask`` is not a single dict
+    TypeError
+        If ``storage_options_mask`` is not a list of dict or a dict
+    """
+
+    if isinstance(mask, list):
+
+        # if storage_options_mask is not a list create a list of
+        # length len(mask) with elements storage_options_mask
+        if not isinstance(storage_options_mask, list):
+
+            if not isinstance(storage_options_mask, dict):
+                raise TypeError("storage_options_mask must be a list of dict or a dict!")
+
+            storage_options_mask = [storage_options_mask] * len(mask)
+        else:
+            # ensure all element of storage_options_mask are a dict
+            if not all([isinstance(elem, dict) for elem in storage_options_mask]):
+                raise TypeError("storage_options_mask must be a list of dict or a dict!")
+
+        for mask_ind in range(len(mask)):
+
+            # validate the mask type or path (if it is provided)
+            mask_val, file_type = validate_source_ds_da(
+                mask[mask_ind], storage_options_mask[mask_ind]
+            )
+
+            # replace mask element path with its corresponding DataArray
+            if isinstance(mask_val, str):
+                # open up DataArray using mask path
+                mask[mask_ind] = xr.open_dataarray(
+                    mask_val, engine=file_type, chunks="auto", **storage_options_mask[mask_ind]
+                )
+
+    else:
+
+        if not isinstance(storage_options_mask, dict):
+            raise RuntimeError(
+                "The provided input storage_options_mask should be a single "
+                "dict because mask is a single value!"
+            )
+
+        # validate the mask type or path (if it is provided)
+        mask, file_type = validate_source_ds_da(mask, storage_options_mask)
+
+        if isinstance(mask, str):
+            # open up DataArray using mask path
+            mask = xr.open_dataarray(mask, engine=file_type, chunks="auto", **storage_options_mask)
+
+    return mask
+
+
+def _check_var_name_fill_value(
+    source_ds: xr.Dataset, var_name: str, fill_value: Union[int, float, np.ndarray, xr.DataArray]
+) -> None:
+    """
+    Ensures that the inputs ``var_name`` and ``fill_value`` for the function
+    ``apply_mask`` were appropriately provided.
+
+    Parameters
+    ----------
+    source_ds: xr.Dataset
+        A Dataset that contains the variable ``var_name``
+    var_name: str
+        The variable name in ``source_ds`` that the mask should be applied to
+    fill_value: int or float or np.ndarray or xr.DataArray
+        Specifies the value(s) at false indices
+
+    Raises
+    ------
+    TypeError
+        If ``var_name`` or ``fill_value`` are not an accepted type
+    RuntimeError
+        If the Dataset ``source_ds`` does not contain ``var_name``
+    RuntimeError
+        If ``fill_value`` is an array and not the same shape as ``var_name``
+    """
+
+    # check the type of var_name
+    if not isinstance(var_name, str):
+        raise TypeError("The input var_name must be a string!")
+
+    # ensure var_name is in source_ds
+    if var_name not in source_ds.variables:
+        raise RuntimeError("The Dataset source_ds does not contain the variable var_name!")
+
+    # check the type of fill_value
+    if not isinstance(fill_value, (int, float, np.ndarray, xr.DataArray)):
+        raise TypeError(
+            "The input fill_value must be of type int or " "float or np.ndarray or xr.DataArray!"
+        )
+
+    # make sure that fill_values is the same shape as var_name, if it is an array
+    if isinstance(fill_value, (np.ndarray, xr.DataArray)) and (
+        fill_value.shape != source_ds[var_name].shape
+    ):
+        raise RuntimeError("If fill_value is an array is must be of the same shape as var_name!")
 
 
 def apply_mask(
@@ -79,29 +203,11 @@ def apply_mask(
             source_ds, engine=file_type, chunks="auto", **storage_options_ds
         )
 
-    # TODO: check types of all inputs
+    # validate and form the mask input to be used downstream
+    mask = validate_and_collect_mask_input(mask, storage_options_mask)
 
-    # TODO: if mask is a list and storage_options_mask is not, create a list filled
-    #  with single dict provided only for those elements that are paths
-
-    mask_file_types = []  # TODO: create this!
-
-    if isinstance(mask, list) and any([isinstance(mask_elem, str) for mask_elem in mask]):
-        # TODO: create a test for this!
-        # if mask is a list of paths, open all paths up and put the Datarray in the list
-        for mask_ind in range(len(mask)):
-
-            if isinstance(mask[mask_ind], str):
-                mask[mask_ind] = xr.open_dataarray(
-                    mask[mask_ind],
-                    engine=mask_file_types[mask_ind],
-                    chunks="auto",
-                    **storage_options_mask[mask_ind]
-                )
-
-    # TODO: check that var_name is in source_ds
-
-    # TODO: if fill_value is an array, then make sure its dimensions match var_name variable
+    # ensure that var_name and fill_value were correctly provided
+    _check_var_name_fill_value(source_ds, var_name, fill_value)
 
     # obtain final mask to be applied to var_name
     if isinstance(mask, list):
@@ -113,7 +219,9 @@ def apply_mask(
     else:
         final_mask = mask
 
-    # TODO: make sure final_mask is the same shape as source_ds[var_name]
+    # sanity check to make sure final_mask is the same shape as source_ds[var_name]
+    if final_mask.shape != source_ds[var_name].shape:
+        raise RuntimeError("Final constructed mask is not the same shape as source_ds[var_name]!")
 
     # apply the mask to var_name
     var_name_masked = xr.where(final_mask, x=source_ds[var_name], y=fill_value, keep_attrs=True)
