@@ -11,7 +11,7 @@ def _check_mode_input_without_data(
 ) -> None:
     """
     Checks that the ``waveform_mode`` and ``encode_mode`` have
-    the correct values and that the pair of inputs are valid, without
+    the correct values and that the combination of input arguments are valid, without
     considering the actual data.
 
     Parameters
