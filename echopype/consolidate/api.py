@@ -219,7 +219,7 @@ def add_splitbeam_angle(
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
     pulse_compression: bool, False
-        States whether pulse compression should be used (only valid for
+        Whether pulse compression should be used (only valid for
         ``waveform_mode="BB"`` and ``encode_mode="complex"``)
 
     Returns
