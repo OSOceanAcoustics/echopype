@@ -2,8 +2,8 @@ import numpy as np
 import xarray as xr
 from scipy import signal
 
-from .cal_params import get_vend_cal_params_complex_EK80
 from ..echodata import EchoData
+from .cal_params import get_vend_cal_params_complex_EK80
 
 
 # TODO: can eliminate use of cal_obj for a few functions and just use echodata:
@@ -87,9 +87,7 @@ def get_tau_effective(ytx: np.array, fs_deci: float, waveform_mode: str):
         ptxa = abs(ytxa) ** 2
     elif waveform_mode == "CW":
         ptxa = np.abs(ytx) ** 2  # energy of transmit signal
-    return ptxa.sum() / (
-        ptxa.max() * fs_deci
-    )
+    return ptxa.sum() / (ptxa.max() * fs_deci)
 
 
 def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: float):
@@ -139,14 +137,13 @@ def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: 
         y_tmp, _ = tapered_chirp(**tx_params)
 
         # Filter and decimate chirp template
-        fs_deci = (
-            1 / echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
-        )
+        fs_deci = 1 / echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
         y_tmp, y_tmp_time = filter_decimate_chirp(echodata=echodata, fs=fs, y=y_tmp, ch_id=chan)
 
         # Compute effective pulse length
         tau_effective_tmp = get_tau_effective(
-            ytx=y_tmp, fs_deci=fs_deci, waveform_mode=waveform_mode)
+            ytx=y_tmp, fs_deci=fs_deci, waveform_mode=waveform_mode
+        )
 
         y_all[chan] = y_tmp
         y_time_all[chan] = y_tmp_time

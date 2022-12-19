@@ -4,10 +4,10 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import check_waveform_encode_mode
 from ..utils.log import _init_logger
-from .calibrate_base import CalibrateBase
 from .cal_params import get_cal_params_EK, get_gain_for_complex
+from .calibrate_base import CalibrateBase
+from .ek80_utils import compress_pulse, get_transmit_chirp
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
-from .ek80_utils import get_transmit_chirp, compress_pulse
 
 logger = _init_logger(__name__)
 
@@ -178,15 +178,19 @@ class CalibrateEK80(CalibrateEK):
 
         # load env and cal parameters
         self.env_params = get_env_params_EK80(
-            echodata=echodata, user_env_dict=env_params,
-            waveform_mode=waveform_mode, encode_mode=encode_mode
+            echodata=echodata,
+            user_env_dict=env_params,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
         )
 
         if cal_params is None:
             cal_params = {}
         self.cal_params = get_cal_params_EK(
-            echodata=echodata, user_cal_dict=cal_params,
-            waveform_mode=waveform_mode, encode_mode=encode_mode
+            echodata=echodata,
+            user_cal_dict=cal_params,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
         )
 
         # self.range_meter computed under self._compute_cal()
@@ -215,7 +219,8 @@ class CalibrateEK80(CalibrateEK):
         """
         # Transmit replica and effective pulse length
         chirp, _, tau_effective = get_transmit_chirp(
-            echodata=self.echodata, waveform_mode=waveform_mode, fs=self.fs, z_et=self.z_et)
+            echodata=self.echodata, waveform_mode=waveform_mode, fs=self.fs, z_et=self.z_et
+        )
 
         # use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
@@ -241,7 +246,9 @@ class CalibrateEK80(CalibrateEK):
             chan_sel = freq_center.dropna(dim="channel").channel
 
             # backscatter data
-            pc = compress_pulse(echodata=self.echodata, chirp=chirp, chan_BB=chan_sel)  # has beam dim
+            pc = compress_pulse(
+                echodata=self.echodata, chirp=chirp, chan_BB=chan_sel
+            )  # has beam dim
             prx = (
                 self.echodata["Sonar/Beam_group1"].beam.size
                 * np.abs(pc.mean(dim="beam")) ** 2
@@ -295,7 +302,8 @@ class CalibrateEK80(CalibrateEK):
 
             # use true center frequency to interpolate for gain factor
             gain = get_gain_for_complex(
-                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel)
+                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel
+            )
 
         else:
             # use nominal channel frequency for CW pulse
@@ -305,7 +313,8 @@ class CalibrateEK80(CalibrateEK):
 
             # use nominal channel frequency to select gain factor
             gain = get_gain_for_complex(
-                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel)
+                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel
+            )
 
         # Transmission loss
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))

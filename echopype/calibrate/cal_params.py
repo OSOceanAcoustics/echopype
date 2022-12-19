@@ -1,9 +1,9 @@
 from typing import List
+
 import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-
 
 CAL_PARAMS = {
     "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),
@@ -13,7 +13,7 @@ CAL_PARAMS = {
 
 def _check_param_chan_dep(p_val: List, da_chan: xr.DataArray):
     """
-    Check type and dimension of calibration parameters that should be 
+    Check type and dimension of calibration parameters that should be
     channel-dependent (i.e. frequency-dependent unless with duplicated frequency).
 
     Parameters
@@ -29,6 +29,8 @@ def _check_param_chan_dep(p_val: List, da_chan: xr.DataArray):
     ------
     A xr.DataArray that contains the parameter with coordinate ``chan``
     """
+
+
 #     # TODO: allow p to be xr.DataArray
 #     #   in this case the coorindate should be ``chan`` or ``frequency`` or ``frequency_nominal``
 #     #   and be identical to corresponding coordinate values in ``chan``
@@ -40,7 +42,7 @@ def _check_param_chan_dep(p_val: List, da_chan: xr.DataArray):
 
 def _get_param_from_user_or_echodata(p_name: str, user_cal_dict: dict, ed: EchoData):
     """
-    Triange getting parameter from either user input or an EchoData object.
+    Triangle getting parameter from either user input or an EchoData object.
 
     Parameter
     ---------
@@ -87,9 +89,7 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     # Get params from the Vendor_specific group
     for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
         # substitute if None in user input
-        out_dict[p] = (
-            user_cal_dict[p] if p in user_cal_dict else echodata["Vendor_specific"][p]
-        )
+        out_dict[p] = user_cal_dict[p] if p in user_cal_dict else echodata["Vendor_specific"][p]
 
     return out_dict
 
@@ -126,7 +126,8 @@ def get_cal_params_EK(
                 user_cal_dict[p]
                 if p in user_cal_dict
                 else get_vend_cal_params_power(
-                    echodata=echodata, param=p, waveform_mode=waveform_mode)
+                    echodata=echodata, param=p, waveform_mode=waveform_mode
+                )
             )
 
     # Other params
@@ -164,9 +165,7 @@ def get_vend_cal_params_complex_EK80(
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
-        return echodata["Vendor_specific"].attrs[
-            "%s %s decimation" % (channel_id, filter_name)
-        ]
+        return echodata["Vendor_specific"].attrs["%s %s decimation" % (channel_id, filter_name)]
 
 
 def get_vend_cal_params_power(echodata: EchoData, param: str, waveform_mode: str):
@@ -192,9 +191,7 @@ def get_vend_cal_params_power(echodata: EchoData, param: str, waveform_mode: str
         beam = echodata["Sonar/Beam_group1"]
 
     # indexes of frequencies that are for power, not complex
-    relevant_indexes = np.where(
-        np.isin(ds_vend["frequency_nominal"], beam["frequency_nominal"])
-    )[0]
+    relevant_indexes = np.where(np.isin(ds_vend["frequency_nominal"], beam["frequency_nominal"]))[0]
 
     # Find idx to select the corresponding param value
     # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
@@ -257,18 +254,16 @@ def get_gain_for_complex(
                     gain_vec = echodata["Vendor_specific"].gain.sel(cal_channel_id=ch_id)
                     gain_temp = (
                         gain_vec.interp(
-                            cal_frequency=echodata[
-                                "Vendor_specific"
-                            ].frequency_nominal.sel(channel=ch_id)
+                            cal_frequency=echodata["Vendor_specific"].frequency_nominal.sel(
+                                channel=ch_id
+                            )
                         ).drop(["cal_channel_id", "cal_frequency"])
                     ).expand_dims("channel")
                 # if no freq-dependent gain use CW gain
                 else:
                     gain_temp = (
                         gain_single.sel(channel=ch_id)
-                        .reindex_like(
-                            echodata["Sonar/Beam_group1"].backscatter_r, method="nearest"
-                        )
+                        .reindex_like(echodata["Sonar/Beam_group1"].backscatter_r, method="nearest")
                         .expand_dims("channel")
                     )
                 gain_temp.name = "gain"
