@@ -163,12 +163,12 @@ def _check_mode_input_with_data_EK80(
                 if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
                     raise RuntimeError(
                         "Complex data does not exist in Sonar/Beam_group1, "
-                        "input echodata object must be incorrectly constructed!"
+                        "input echodata object must have been incorrectly constructed!"
                     )
                 elif "backscatter_r" not in echodata["Sonar/Beam_group2"].variables:
                     raise RuntimeError(
                         "Power data does not exist in Sonar/Beam_group2, "
-                        "input echodata object must be incorrectly constructed!"
+                        "input echodata object must have been incorrectly constructed!"
                     )
                 else:
                     complex_ed_group = "Sonar/Beam_group1"
