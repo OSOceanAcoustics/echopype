@@ -25,18 +25,18 @@ def _check_mode_input_without_data(
     """
 
     if waveform_mode not in ["CW", "BB"]:
-        raise RuntimeError("The input waveform_mode must be either 'CW' or 'BB'!")
+        raise ValueError("The input waveform_mode must be either 'CW' or 'BB'!")
 
     if encode_mode not in ["complex", "power"]:
-        raise RuntimeError("The input encode_mode must be either 'complex' or 'power'!")
+        raise ValueError("The input encode_mode must be either 'complex' or 'power'!")
 
     # BB has complex data only, but CW can have complex or power data
     if (waveform_mode == "BB") and (encode_mode == "power"):
-        raise RuntimeError("encode_mode='power' not allowed when waveform_mode='BB'!")
+        raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
 
     # make sure that we have BB and complex inputs, if pulse compression is selected
     if pulse_compression and ((waveform_mode != "BB") or (encode_mode != "complex")):
-        raise RuntimeError(
+        raise ValueError(
             "Pulse compression can only be used with "
             "waveform_mode='BB' and encode_mode='complex'"
         )
