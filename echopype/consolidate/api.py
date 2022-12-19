@@ -195,7 +195,7 @@ def add_splitbeam_angle(
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
     This function calculates the alongship/athwartship angle using data stored
     in the beam groups of ``echodata``. In cases when angle data does not already exist
-    or cannot be computed from the data, an error is issued and no angle variables are 
+    or cannot be computed from the data, an error is issued and no angle variables are
     added to the dataset.
 
     Parameters
