@@ -276,56 +276,63 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
 
 
 @pytest.mark.parametrize(
-    ("n", "n_chan", "var_name", "mask", "mask_file", "is_delayed", "var_masked_truth"),
+    ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth"),
     [
-        (2, 1, "var1", np.identity(2), None, False, np.array([[1, 2.0], [2.0, 1]])),
-        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], [None, None],
+        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]])),
+        (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
+         False, np.array([[1, np.nan], [np.nan, 1]])),
+        (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
+                                                          coords={"channel": ["chan1"],
+                                                                  "ping_time": [0, 1],
+                                                                  "range_sample": [0, 1]}),
+         False, np.array([[1, np.nan], [np.nan, 1]])),
+        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], [None, None], 2.0,
          False, np.array([[2.0, 2.0], [2.0, 1]])),
-        (2, 1, "var1", np.identity(2), None, True, np.array([[1, 2.0], [2.0, 1]])),
-        (2, 1, "var1", np.identity(2), "test.zarr", True, np.array([[1, 2.0], [2.0, 1]])),
-        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", "test1.zarr"],
+        (2, 1, "var1", np.identity(2), None, 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", np.identity(2), "test.zarr", 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", "test1.zarr"], 2.0,
          False, np.array([[2.0, 2.0], [2.0, 1]])),
-        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", None],
+        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", None], 2.0,
          False, np.array([[2.0, 2.0], [2.0, 1]])),
     ],
-    ids=["single_mask", "list_mask_all_np", "single_mask_ds_delayed", "single_mask_as_path",
-         "list_mask_all_path", "list_mask_some_path"]
+    ids=["single_mask_default_fill", "single_mask_float_fill", "single_mask_np_array_fill",
+         "single_mask_DataArray_fill", "list_mask_all_np", "single_mask_ds_delayed",
+         "single_mask_as_path", "list_mask_all_path", "list_mask_some_path"]
 )
 def test_apply_mask(n: int, n_chan: int, var_name: str,
                     mask: Union[np.ndarray, List[np.ndarray]],
                     mask_file: Optional[Union[str, List[str]]],
+                    fill_value: Union[int, float, np.ndarray, xr.DataArray],
                     is_delayed: bool, var_masked_truth: np.ndarray):
     """
-
+    Ensures that ``apply_mask`` functions correctly.
 
     Parameters
     ----------
     n: int
-
+        The number of rows (``x``) and columns (``y``) of
+        each channel matrix
     n_chan: int
-
-    var_name: str
-
+        Determines the size of the ``channel`` coordinate
+    var_name: {"var1", "var2"}
+        The variable name in the mock Dataset to apply the mask to
     mask: np.ndarray or list of np.ndarray
-
+        The mask(s) that should be applied to ``var_name``
     mask_file: str or list of str, optional
         If provided, the ``mask`` input will be written to a temporary directory
         with file name ``mask_file``. This will then be used in ``apply_mask``.
-
     var_masked_truth: np.ndarray
-
+        The true value of ``var_name`` values after the mask has been applied
     is_delayed: bool
         If True, makes all variables in constructed mock Dataset Dask arrays,
         else they will be in-memory arrays
-
     """
 
-    # TODO: test different fill_value
-    fill_value = 2.0  # having this be a number, rather than nan makes for easier testing
-
+    # obtain mock Dataset containing var_name
     mock_ds = get_mock_source_ds_apply_mask(n, n_chan, is_delayed)
 
-    # intialize temp_dir
+    # initialize temp_dir
     temp_dir = None
 
     # make input numpy array masks into DataArrays
@@ -339,10 +346,13 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
 
         for mask_ind in range(len(mask)):
 
+            # form DataArray from given mask data
             mask_da = xr.DataArray(data=np.stack([mask[mask_ind] for i in range(n_chan)]),
                                    coords=mock_ds.coords, name='mask_' + str(mask_ind))
 
             if mask_file[mask_ind] is None:
+
+                # set mask value to the DataArray given
                 mask[mask_ind] = mask_da
             else:
 
@@ -350,14 +360,18 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
                 zarr_path = os.path.join(temp_dir.name, mask_file[mask_ind])
                 mask_da.to_dataset().to_zarr(zarr_path)
 
-                # set mask index to path
+                # set mask value to created path
                 mask[mask_ind] = zarr_path
 
     elif isinstance(mask, np.ndarray):
+
+        # form DataArray from given mask data
         mask_da = xr.DataArray(data=np.stack([mask for i in range(n_chan)]),
                                coords=mock_ds.coords, name='mask_0')
 
         if mask_file is None:
+
+            # set mask to the DataArray formed
             mask = mask_da
         else:
 
@@ -371,15 +385,15 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
             # set mask index to path
             mask = zarr_path
 
+    # create DataArray form of the known truth value
     var_masked_truth = xr.DataArray(data=np.stack([var_masked_truth for i in range(n_chan)]),
                                     coords=mock_ds[var_name].coords, attrs=mock_ds[var_name].attrs)
     var_masked_truth.name = mock_ds[var_name].name
 
+    # apply the mask to var_name
     masked_ds = echopype.mask.apply_mask(source_ds=mock_ds, var_name=var_name, mask=mask,
                                          fill_value=fill_value, storage_options_ds={},
                                          storage_options_mask={})
-
-    # TODO: check that masked_ds has the same structure as mock_ds
 
     # check that masked_ds[var_name] == var_masked_truth
     assert masked_ds[var_name].identical(var_masked_truth)
@@ -389,4 +403,5 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
         assert isinstance(masked_ds[var_name].data, dask.array.Array)
 
     if temp_dir:
+        # remove the temporary directory, if it was created
         temp_dir.cleanup()

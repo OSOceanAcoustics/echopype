@@ -209,6 +209,11 @@ def apply_mask(
     # ensure that var_name and fill_value were correctly provided
     _check_var_name_fill_value(source_ds, var_name, fill_value)
 
+    # select data only, if fill_value is a DataArray (necessary since
+    # xr.where(keep_attrs=True) is not functioning correctly)
+    if isinstance(fill_value, xr.DataArray):
+        fill_value = fill_value.data
+
     # obtain final mask to be applied to var_name
     if isinstance(mask, list):
         # perform a logical AND element-wise operation across the masks
