@@ -1,11 +1,13 @@
 import datetime
-from typing import Optional
+import pathlib
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
+from ..utils.io import validate_source_ds
 from .split_beam_angle import (
     _add_splitbeam_angle_to_ds,
     _get_splitbeam_angle_complex_BB_nopc,
@@ -185,11 +187,12 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
 
 
 def add_splitbeam_angle(
-    source_Sv: xr.Dataset,
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
     echodata: EchoData,
     waveform_mode: str,
     encode_mode: str,
     pulse_compression: bool = False,
+    storage_options: dict = {},
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
@@ -200,8 +203,9 @@ def add_splitbeam_angle(
 
     Parameters
     ----------
-    source_Sv: xr.Dataset
-        An Sv dataset for which the split-beam angles should be added to
+    source_Sv: xr.Dataset or str or pathlib.Path
+        The Sv Dataset or path to a file containing the Sv Dataset, which will have the
+        split-beam angle data added to it
     echodata: EchoData
         An ``EchoData`` object holding the raw data
     waveform_mode : {"CW", "BB"}
@@ -221,6 +225,9 @@ def add_splitbeam_angle(
     pulse_compression: bool, False
         Whether pulse compression should be used (only valid for
         ``waveform_mode="BB"`` and ``encode_mode="complex"``)
+    storage_options: dict, default={}
+        Any additional parameters for the storage backend, corresponding to the
+        path provided for ``source_Sv``
 
     Returns
     -------
@@ -260,6 +267,16 @@ def add_splitbeam_angle(
             "The sonar model that produced echodata does not have split-beam "
             "transducers, split-beam angles cannot be added to source_Sv!"
         )
+
+    # validate the source_Sv type or path (if it is provided)
+    source_Sv, file_type = validate_source_ds(source_Sv, storage_options)
+
+    if isinstance(source_Sv, str):
+        # TODO: In the future we can improve this by obtaining the variable names, channels,
+        #  and dimension lengths directly from source_Sv using zarr or netcdf4. This would
+        #  prevent the unnecessary loading in of the coordinates, which the below statement does.
+        # open up Dataset using source_Sv path
+        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks="auto", **storage_options)
 
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group path corresponding to encode_mode
