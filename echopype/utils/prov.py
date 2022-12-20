@@ -119,7 +119,9 @@ def source_files_vars(
         ),
     }
 
-    if meta_source_paths is not None:
+    if meta_source_paths is None or meta_source_paths == "":
+        files_vars["meta_source_files_var"] = None
+    else:
         meta_source_files = _source_files(meta_source_paths)
         files_vars["meta_source_files_var"] = {
             "meta_source_filenames": (
@@ -128,8 +130,6 @@ def source_files_vars(
                 {"long_name": "Metadata source filenames"},
             ),
         }
-    else:
-        files_vars["meta_source_files_var"] = None
 
     files_vars["source_files_coord"] = {
         "filenames": (
