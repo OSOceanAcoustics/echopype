@@ -295,6 +295,10 @@ def add_splitbeam_angle(
         # open up Dataset using source_Sv path
         source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
 
+    # raise not implemented error if source_Sv corresponds to MVBS
+    if source_Sv.attrs["processing_function"] == "preprocess.compute_MVBS":
+        raise NotImplementedError("Adding split-beam data to MVBS has not been implemented!")
+
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group path corresponding to encode_mode
     encode_mode_ed_group = retrieve_correct_beam_group(
