@@ -185,7 +185,7 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
 
 
 def add_splitbeam_angle(
-    ds: xr.Dataset,
+    source_Sv: xr.Dataset,
     echodata: EchoData,
     waveform_mode: str,
     encode_mode: str,
@@ -200,23 +200,23 @@ def add_splitbeam_angle(
 
     Parameters
     ----------
-    ds : xr.Dataset
+    source_Sv: xr.Dataset
         An Sv dataset for which the split-beam angles should be added to
-    echodata
-        An `EchoData` object holding the raw data
+    echodata: EchoData
+        An ``EchoData`` object holding the raw data
     waveform_mode : {"CW", "BB"}
         Type of transmit waveform
 
-        - `"CW"` for narrowband transmission,
+        - ``"CW"`` for narrowband transmission,
           returned echoes recorded either as complex or power/angle samples
-        - `"BB"` for broadband transmission,
+        - ``"BB"`` for broadband transmission,
           returned echoes recorded as complex samples
 
     encode_mode : {"complex", "power"}
         Type of encoded return echo data
 
-        - `"complex"` for complex samples
-        - `"power"` for power/angle samples, only allowed when
+        - ``"complex"`` for complex samples
+        - ``"power"`` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
     pulse_compression: bool, False
         Whether pulse compression should be used (only valid for
@@ -224,16 +224,17 @@ def add_splitbeam_angle(
 
     Returns
     -------
-    The input dataset ``ds`` with the split-beam angle data added
+    The input dataset ``source_Sv`` with the split-beam angle data added
 
     Raises
     ------
     RuntimeError
         If ``echodata`` has a sonar model that is not analogous to either EK60 or EK80
     RuntimeError
-        If the input ``ds`` does not have a ``channel`` dimension
+        If the input ``source_Sv`` does not have a ``channel`` dimension
     RuntimeError
-        If ``ds`` does not have appropriate dimension lengths in comparison to ``echodata`` data
+        If ``source_Sv`` does not have appropriate dimension lengths in
+        comparison to ``echodata`` data
     RuntimeError
         If the provided ``waveform_mode``, ``encode_mode``, and ``pulse_compression`` are not valid
     NotImplementedError
@@ -257,7 +258,7 @@ def add_splitbeam_angle(
     if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
         raise RuntimeError(
             "The sonar model that produced echodata does not have split-beam "
-            "transducers, split-beam angles cannot be added to ds!"
+            "transducers, split-beam angles cannot be added to source_Sv!"
         )
 
     # check that the appropriate waveform and encode mode have been given
@@ -266,20 +267,21 @@ def add_splitbeam_angle(
         echodata, waveform_mode, encode_mode, pulse_compression
     )
 
-    # check that ds at least has a channel dimension
-    if "channel" not in ds.variables:
-        raise RuntimeError("The input ds Dataset must have a channel dimension!")
+    # check that source_Sv at least has a channel dimension
+    if "channel" not in source_Sv.variables:
+        raise RuntimeError("The input source_Sv Dataset must have a channel dimension!")
 
-    # set ds_beam, select the same channels that are in ds (which is Sv)
-    ds_beam = echodata[encode_mode_ed_group].sel(channel=ds.channel.values)
+    # set ds_beam, select the same channels that are in source_Sv
+    ds_beam = echodata[encode_mode_ed_group].sel(channel=source_Sv.channel.values)
 
-    # fail if ds and ds_beam do not have the same lengths for ping_time, range_sample, and channel
+    # fail if source_Sv and ds_beam do not have the same lengths
+    # for ping_time, range_sample, and channel
     same_dim_lens = [
-        ds_beam.dims[dim] == ds.dims[dim] for dim in ["channel", "ping_time", "range_sample"]
+        ds_beam.dims[dim] == source_Sv.dims[dim] for dim in ["channel", "ping_time", "range_sample"]
     ]
     if not same_dim_lens:
         raise RuntimeError(
-            "Input ds does not have the same dimension " "lengths as all dimensions in ds_beam!"
+            "Input source_Sv does not have the same dimension lengths as all dimensions in ds_beam!"
         )
 
     # obtain split-beam angles from
@@ -296,7 +298,7 @@ def add_splitbeam_angle(
         else:  # without pulse compression
             theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)
 
-    # add theta_fc and phi_fc to ds input
-    ds = _add_splitbeam_angle_to_ds(theta_fc, phi_fc, ds)
+    # add theta_fc and phi_fc to source_Sv input
+    source_Sv = _add_splitbeam_angle_to_ds(theta_fc, phi_fc, source_Sv)
 
-    return ds
+    return source_Sv

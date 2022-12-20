@@ -271,7 +271,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode=waveform_mode, encode_mode=encode_mode)
 
     # add the split-beam angles to an empty Dataset
-    ds_Sv = ep.consolidate.add_splitbeam_angle(ds=ds_Sv, echodata=ed,
+    ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed,
                                                waveform_mode=waveform_mode,
                                                encode_mode=encode_mode,
                                                pulse_compression=pulse_compression)
