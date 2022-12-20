@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_waveform_encode_mode
+from ..echodata.simrad import retrieve_correct_beam_group
 from .split_beam_angle import (
     _add_splitbeam_angle_to_ds,
     _get_splitbeam_angle_complex_BB_nopc,
@@ -262,7 +262,7 @@ def add_splitbeam_angle(
 
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group path corresponding to encode_mode
-    encode_mode_ed_group = check_waveform_encode_mode(
+    encode_mode_ed_group = retrieve_correct_beam_group(
         echodata, waveform_mode, encode_mode, pulse_compression
     )
 

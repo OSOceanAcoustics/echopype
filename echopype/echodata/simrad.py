@@ -174,7 +174,7 @@ def _retrieve_correct_beam_group_EK80(
     return power_ed_group, complex_ed_group
 
 
-def check_waveform_encode_mode(
+def retrieve_correct_beam_group(
     echodata: EchoData, waveform_mode: str, encode_mode: str, pulse_compression: bool
 ) -> str:
     """
