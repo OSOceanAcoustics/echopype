@@ -201,7 +201,7 @@ def add_splitbeam_angle(
     Parameters
     ----------
     ds : xr.Dataset
-        An Sv or MVBS dataset for which the split-beam angles should be added to
+        An Sv dataset for which the split-beam angles should be added to
     echodata
         An `EchoData` object holding the raw data
     waveform_mode : {"CW", "BB"}
