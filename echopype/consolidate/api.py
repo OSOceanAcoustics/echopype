@@ -259,7 +259,7 @@ def add_splitbeam_angle(
 
     Notes
     -----
-    Split-beam angle data potentially exist for the the following echosounders depending on
+    Split-beam angle data potentially exist for the following echosounders depending on
     the instrument configuration and recording setting:
 
         - Simrad EK60 echosounder paired with split-beam transducers and
@@ -293,7 +293,7 @@ def add_splitbeam_angle(
         #  and dimension lengths directly from source_Sv using zarr or netcdf4. This would
         #  prevent the unnecessary loading in of the coordinates, which the below statement does.
         # open up Dataset using source_Sv path
-        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks="auto", **storage_options)
+        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
 
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group path corresponding to encode_mode

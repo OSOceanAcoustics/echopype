@@ -321,27 +321,24 @@ def _add_splitbeam_angle_to_ds(
     theta_fc.attrs["long_name"] = "split-beam alongship angle"
     phi_fc.attrs["long_name"] = "split-beam athwartship angle"
 
-    # assign names to split-beam angle data
-    theta_fc.name = "angle_alongship"
-    phi_fc.name = "angle_athwartship"
-
     if source_ds_path is not None:
 
-        # put the variables into a Dataset so they can be written at the same time
+        # put the variables into a Dataset, so they can be written at the same time
+        # add ds attributes to splitb_ds since they will be overwritten by to_netcdf/zarr
         splitb_ds = xr.Dataset(
             data_vars={"angle_alongship": theta_fc, "angle_athwartship": phi_fc},
             coords=theta_fc.coords,
+            attrs=ds.attrs,
         )
+
+        # release any resources linked to ds (necessary for to_netcdf)
+        ds.close()
 
         # write the split-beam angle data to the provided path
         if file_type == "netcdf4":
-            splitb_ds.to_netcdf(
-                path=source_ds_path, mode="a", encoding=splitb_ds.encoding, **storage_options
-            )
+            splitb_ds.to_netcdf(path=source_ds_path, mode="a", **storage_options)
         else:
-            splitb_ds.to_zarr(
-                store=source_ds_path, mode="a", encoding=splitb_ds.encoding, **storage_options
-            )
+            splitb_ds.to_zarr(store=source_ds_path, mode="a", **storage_options)
 
     else:
 
@@ -350,9 +347,11 @@ def _add_splitbeam_angle_to_ds(
         ds["angle_athwartship"] = phi_fc
 
     if return_dataset and (source_ds_path is not None):
+
         # open up and return Dataset in source_ds_path
-        return xr.open_dataset(source_ds_path, engine=file_type, chunks="auto", **storage_options)
+        return xr.open_dataset(source_ds_path, engine=file_type, chunks={}, **storage_options)
+
     elif return_dataset:
+
+        # return input dataset with split-beam angle data
         return ds
-    else:
-        return None

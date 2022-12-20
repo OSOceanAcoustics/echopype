@@ -246,7 +246,7 @@ def frequency_differencing(
 
     if isinstance(source_Sv, str):
         # open up Dataset using source_Sv path
-        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks="auto", **storage_options)
+        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
 
     # check the source_Sv with respect to channel and frequency_nominal
     _check_source_Sv_freq_diff(source_Sv, freqAB, chanAB)
