@@ -42,12 +42,13 @@ def _check_input_args_combination(
         )
 
 
-def _check_mode_input_with_data_EK60(
+def _retrieve_correct_beam_group_EK60(
     echodata: EchoData, waveform_mode: str, encode_mode: str
 ) -> Optional[str]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK60-like data supplied by ``echodata``.
+    with the EK60-like data supplied by ``echodata``. Additionally, select the
+    appropriate beam group corresponding to this input.
 
     Parameters
     ----------
@@ -85,12 +86,13 @@ def _check_mode_input_with_data_EK60(
     return power_ed_group
 
 
-def _check_mode_input_with_data_EK80(
+def _retrieve_correct_beam_group_EK80(
     echodata: EchoData, waveform_mode: str, encode_mode: str
 ) -> Tuple[Optional[str], Optional[str]]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK80-like data supplied by ``echodata``.
+    with the EK80-like data supplied by ``echodata``. Additionally, select the
+    appropriate beam group corresponding to this input.
 
     Parameters
     ----------
@@ -208,12 +210,12 @@ def check_waveform_encode_mode(
         complex_ed_group = None
 
         # check modes against data for EK60 and get power EchoData group
-        power_ed_group = _check_mode_input_with_data_EK60(echodata, waveform_mode, encode_mode)
+        power_ed_group = _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
 
         # check modes against data for EK80 and get power/complex EchoData groups
-        power_ed_group, complex_ed_group = _check_mode_input_with_data_EK80(
+        power_ed_group, complex_ed_group = _retrieve_correct_beam_group_EK80(
             echodata, waveform_mode, encode_mode
         )
 
