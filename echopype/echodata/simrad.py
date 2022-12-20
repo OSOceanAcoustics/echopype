@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from .echodata import EchoData
 
 
-def _check_mode_input_without_data(
+def _check_input_args_combination(
     waveform_mode: str, encode_mode: str, pulse_compression: bool
 ) -> None:
     """
@@ -200,7 +200,7 @@ def check_waveform_encode_mode(
     """
 
     # checks input and logic of modes without referencing data
-    _check_mode_input_without_data(waveform_mode, encode_mode, pulse_compression)
+    _check_input_args_combination(waveform_mode, encode_mode, pulse_compression)
 
     if echodata.sonar_model in ["EK60", "ES70"]:
 
