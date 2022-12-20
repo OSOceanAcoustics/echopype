@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 
 from ..echodata import EchoData
-from ..echodata.simrad import _check_input_args_combination, _check_mode_input_with_data_EK80
+from ..echodata.simrad import _check_input_args_combination, _retrieve_correct_beam_group_EK80
 from ..utils import uwa
 
 # TODO: create default dict with empty values but specific keys for out_dict
@@ -146,7 +146,7 @@ def get_env_params_EK80(
     _check_input_args_combination(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
     # Retrieve the correct beam group
-    power_ed_group, complex_ed_group = _check_mode_input_with_data_EK80(
+    power_ed_group, complex_ed_group = _retrieve_correct_beam_group_EK80(
         echodata, waveform_mode, encode_mode
     )
     if encode_mode == "complex":
