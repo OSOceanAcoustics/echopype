@@ -789,7 +789,15 @@ class EchoData:
             **self.open_kwargs,
         )
 
-    def to_netcdf(self, save_path: Optional["PathHint"] = None, **kwargs):
+    def to_netcdf(
+        self,
+        save_path: Optional["PathHint"] = None,
+        compress: bool = True,
+        overwrite: bool = False,
+        parallel: bool = False,
+        output_storage_options: Dict[str, str] = {},
+        **kwargs,
+    ):
         """Save content of EchoData to netCDF.
 
         Parameters
@@ -806,12 +814,33 @@ class EchoData:
             whether or not to use parallel processing. (Not yet implemented)
         output_storage_options : dict
             Additional keywords to pass to the filesystem class.
+        **kwargs : dict, optional
+            Extra arguments to `xr.Dataset.to_netcdf`: refer to
+            xarray's documentation for a list of all possible arguments.
         """
         from ..convert.api import to_file
 
-        return to_file(self, "netcdf4", save_path=save_path, **kwargs)
+        return to_file(
+            echodata=self,
+            engine="netcdf4",
+            save_path=save_path,
+            compress=compress,
+            overwrite=overwrite,
+            parallel=parallel,
+            output_storage_options=output_storage_options,
+            **kwargs,
+        )
 
-    def to_zarr(self, save_path: Optional["PathHint"] = None, **kwargs):
+    def to_zarr(
+        self,
+        save_path: Optional["PathHint"] = None,
+        compress: bool = True,
+        overwrite: bool = False,
+        parallel: bool = False,
+        output_storage_options: Dict[str, str] = {},
+        consolidated: bool = True,
+        **kwargs,
+    ):
         """Save content of EchoData to zarr.
 
         Parameters
@@ -828,10 +857,26 @@ class EchoData:
             whether or not to use parallel processing. (Not yet implemented)
         output_storage_options : dict
             Additional keywords to pass to the filesystem class.
+        consolidated : bool
+            Flag to consolidate zarr metadata.
+            Defaults to ``True``
+        **kwargs : dict, optional
+            Extra arguments to `xr.Dataset.to_zarr`: refer to
+            xarray's documentation for a list of all possible arguments.
         """
         from ..convert.api import to_file
 
-        return to_file(self, "zarr", save_path=save_path, **kwargs)
+        return to_file(
+            echodata=self,
+            engine="zarr",
+            save_path=save_path,
+            compress=compress,
+            overwrite=overwrite,
+            parallel=parallel,
+            output_storage_options=output_storage_options,
+            consolidated=consolidated,
+            **kwargs,
+        )
 
     # TODO: Remove below in future versions. They are for supporting old API calls.
     @property

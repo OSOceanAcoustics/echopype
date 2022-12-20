@@ -6,12 +6,12 @@ from typing import Optional, Tuple
 from .echodata import EchoData
 
 
-def _check_mode_input_without_data(
+def _check_input_args_combination(
     waveform_mode: str, encode_mode: str, pulse_compression: bool = None
 ) -> None:
     """
     Checks that the ``waveform_mode`` and ``encode_mode`` have
-    the correct values and that the pair of inputs are valid, without
+    the correct values and that the combination of input arguments are valid, without
     considering the actual data.
 
     Parameters
@@ -25,14 +25,14 @@ def _check_mode_input_without_data(
     """
 
     if waveform_mode not in ["CW", "BB"]:
-        raise RuntimeError("The input waveform_mode must be either 'CW' or 'BB'!")
+        raise ValueError("The input waveform_mode must be either 'CW' or 'BB'!")
 
     if encode_mode not in ["complex", "power"]:
-        raise RuntimeError("The input encode_mode must be either 'complex' or 'power'!")
+        raise ValueError("The input encode_mode must be either 'complex' or 'power'!")
 
     # BB has complex data only, but CW can have complex or power data
     if (waveform_mode == "BB") and (encode_mode == "power"):
-        raise RuntimeError("encode_mode='power' not allowed when waveform_mode='BB'!")
+        raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
 
     # make sure that we have BB and complex inputs, if pulse compression is selected
     if pulse_compression is not None:
@@ -43,12 +43,13 @@ def _check_mode_input_without_data(
             )
 
 
-def _check_mode_input_with_data_EK60(
+def _retrieve_correct_beam_group_EK60(
     echodata: EchoData, waveform_mode: str, encode_mode: str
 ) -> Optional[str]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK60-like data supplied by ``echodata``.
+    with the EK60-like data supplied by ``echodata``. Additionally, select the
+    appropriate beam group corresponding to this input.
 
     Parameters
     ----------
@@ -75,7 +76,6 @@ def _check_mode_input_with_data_EK60(
         raise RuntimeError("Incorrect encode_mode input provided!")
 
     # ensure that no complex data exists (this should never be triggered)
-    # TODO: is this necessary? I just wanted to provide a check against the data ...
     if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
         raise RuntimeError(
             "Provided echodata object does not correspond to an EK60-like "
@@ -87,12 +87,13 @@ def _check_mode_input_with_data_EK60(
     return power_ed_group
 
 
-def _check_mode_input_with_data_EK80(
+def _retrieve_correct_beam_group_EK80(
     echodata: EchoData, waveform_mode: str, encode_mode: str
 ) -> Tuple[Optional[str], Optional[str]]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK80-like data supplied by ``echodata``.
+    with the EK80-like data supplied by ``echodata``. Additionally, select the
+    appropriate beam group corresponding to this input.
 
     Parameters
     ----------
@@ -115,71 +116,66 @@ def _check_mode_input_with_data_EK80(
     power_ed_group = None
     complex_ed_group = None
 
-    # EK80-like sensors
-    if echodata.sonar_model in ["EK80", "ES80", "EA640"]:
+    if waveform_mode == "BB":
 
-        if waveform_mode == "BB":
-
-            # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
-            # when echodata contains CW power and BB complex samples, and frequency_start
-            # variable in Beam_group1
-            if waveform_mode == "BB" and "frequency_start" not in echodata["Sonar/Beam_group1"]:
-                raise RuntimeError("waveform_mode='BB', but broadband data not found!")
-            elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
-                raise RuntimeError("waveform_mode='BB', but complex data does not exist!")
-            elif echodata["Sonar/Beam_group2"] is not None:
-                power_ed_group = "Sonar/Beam_group2"
-                complex_ed_group = "Sonar/Beam_group1"
-            else:
-                complex_ed_group = "Sonar/Beam_group1"
-
+        # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
+        # when echodata contains CW power and BB complex samples, and frequency_start
+        # variable in Beam_group1
+        if waveform_mode == "BB" and "frequency_start" not in echodata["Sonar/Beam_group1"]:
+            raise RuntimeError("waveform_mode='BB', but broadband data not found!")
+        elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
+            raise RuntimeError("waveform_mode='BB', but complex data does not exist!")
+        elif echodata["Sonar/Beam_group2"] is not None:
+            power_ed_group = "Sonar/Beam_group2"
+            complex_ed_group = "Sonar/Beam_group1"
         else:
+            complex_ed_group = "Sonar/Beam_group1"
 
-            # CW can have complex or power data, so we just need to make sure that
-            # 1) complex samples always exist in Sonar/Beam_group1
-            # 2) power samples are in Sonar/Beam_group1 if only one beam group exists
-            # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
-            if echodata["Sonar/Beam_group2"] is None:
+    else:
 
-                if encode_mode == "power":
-                    # power samples must be in Sonar/Beam_group1 (thus no complex samples)
-                    if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
-                        raise RuntimeError(
-                            "Data provided does not correspond to encode_mode='power'!"
-                        )
-                    else:
-                        power_ed_group = "Sonar/Beam_group1"
-                elif encode_mode == "complex":
-                    # complex samples must be in Sonar/Beam_group1
-                    if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
-                        raise RuntimeError(
-                            "Data provided does not correspond to encode_mode='complex'!"
-                        )
-                    else:
-                        complex_ed_group = "Sonar/Beam_group1"
+        # CW can have complex or power data, so we just need to make sure that
+        # 1) complex samples always exist in Sonar/Beam_group1
+        # 2) power samples are in Sonar/Beam_group1 if only one beam group exists
+        # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
+        if echodata["Sonar/Beam_group2"] is None:
 
-            else:
-
-                # complex should be in Sonar/Beam_group1 and power in Sonar/Beam_group2
-                # the RuntimeErrors below should never be triggered
+            if encode_mode == "power":
+                # power samples must be in Sonar/Beam_group1 (thus no complex samples)
+                if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
+                    raise RuntimeError("Data provided does not correspond to encode_mode='power'!")
+                else:
+                    power_ed_group = "Sonar/Beam_group1"
+            elif encode_mode == "complex":
+                # complex samples must be in Sonar/Beam_group1
                 if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
                     raise RuntimeError(
-                        "Complex data does not exist in Sonar/Beam_group1, "
-                        "input echodata object must be incorrectly constructed!"
-                    )
-                elif "backscatter_r" not in echodata["Sonar/Beam_group2"].variables:
-                    raise RuntimeError(
-                        "Power data does not exist in Sonar/Beam_group2, "
-                        "input echodata object must be incorrectly constructed!"
+                        "Data provided does not correspond to encode_mode='complex'!"
                     )
                 else:
                     complex_ed_group = "Sonar/Beam_group1"
-                    power_ed_group = "Sonar/Beam_group2"
+
+        else:
+
+            # complex should be in Sonar/Beam_group1 and power in Sonar/Beam_group2
+            # the RuntimeErrors below should never be triggered
+            if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
+                raise RuntimeError(
+                    "Complex data does not exist in Sonar/Beam_group1, "
+                    "input echodata object must have been incorrectly constructed!"
+                )
+            elif "backscatter_r" not in echodata["Sonar/Beam_group2"].variables:
+                raise RuntimeError(
+                    "Power data does not exist in Sonar/Beam_group2, "
+                    "input echodata object must have been incorrectly constructed!"
+                )
+            else:
+                complex_ed_group = "Sonar/Beam_group1"
+                power_ed_group = "Sonar/Beam_group2"
 
     return power_ed_group, complex_ed_group
 
 
-def check_waveform_encode_mode(
+def retrieve_correct_beam_group(
     echodata: EchoData, waveform_mode: str, encode_mode: str, pulse_compression: bool
 ) -> str:
     """
@@ -207,7 +203,7 @@ def check_waveform_encode_mode(
     """
 
     # checks input and logic of modes without referencing data
-    _check_mode_input_without_data(waveform_mode, encode_mode, pulse_compression)
+    _check_input_args_combination(waveform_mode, encode_mode, pulse_compression)
 
     if echodata.sonar_model in ["EK60", "ES70"]:
 
@@ -215,12 +211,12 @@ def check_waveform_encode_mode(
         complex_ed_group = None
 
         # check modes against data for EK60 and get power EchoData group
-        power_ed_group = _check_mode_input_with_data_EK60(echodata, waveform_mode, encode_mode)
+        power_ed_group = _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
 
         # check modes against data for EK80 and get power/complex EchoData groups
-        power_ed_group, complex_ed_group = _check_mode_input_with_data_EK80(
+        power_ed_group, complex_ed_group = _retrieve_correct_beam_group_EK80(
             echodata, waveform_mode, encode_mode
         )
 

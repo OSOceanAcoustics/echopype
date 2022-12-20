@@ -26,7 +26,7 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
 ):
-    # TODO: change below to use echodata.simrad::_check_mode_input_without_data
+    # TODO: change below to use echodata.simrad::_check_input_args_combination
     #       for checking Simrad sonar models
 
     # Check on waveform_mode and encode_mode inputs

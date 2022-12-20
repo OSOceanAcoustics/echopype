@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_waveform_encode_mode
+from ..echodata.simrad import retrieve_correct_beam_group
 from .split_beam_angle import (
     _add_splitbeam_angle_to_ds,
     _get_splitbeam_angle_complex_BB_nopc,
@@ -194,8 +194,9 @@ def add_splitbeam_angle(
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
     This function calculates the alongship/athwartship angle using data stored
-    in the beam groups of ``echodata``. In cases when the data does not exist,
-    an error is issued and no angle variables are added to the dataset.
+    in the beam groups of ``echodata``. In cases when angle data does not already exist
+    or cannot be computed from the data, an error is issued and no angle variables are
+    added to the dataset.
 
     Parameters
     ----------
@@ -218,7 +219,7 @@ def add_splitbeam_angle(
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
     pulse_compression: bool, False
-        States whether pulse compression should be used (only valid for
+        Whether pulse compression should be used (only valid for
         ``waveform_mode="BB"`` and ``encode_mode="complex"``)
 
     Returns
@@ -261,7 +262,7 @@ def add_splitbeam_angle(
 
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group path corresponding to encode_mode
-    encode_mode_ed_group = check_waveform_encode_mode(
+    encode_mode_ed_group = retrieve_correct_beam_group(
         echodata, waveform_mode, encode_mode, pulse_compression
     )
 
@@ -282,20 +283,18 @@ def add_splitbeam_angle(
         )
 
     # obtain split-beam angles from
-    if (waveform_mode == "CW") and (encode_mode == "power") and (pulse_compression is False):
-        theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
-    elif (waveform_mode == "CW") and (encode_mode == "complex") and (pulse_compression is False):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
-    elif (waveform_mode == "BB") and (encode_mode == "complex") and (pulse_compression is False):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)
-    elif (waveform_mode == "BB") and (encode_mode == "complex") and (pulse_compression is True):
-        theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
+    # CW mode data
+    if waveform_mode == "CW":
+        if encode_mode == "power":  # power data
+            theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
+        else:  # complex data
+            theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
+    # BB mode data
     else:
-        raise RuntimeError(
-            f"Unable to compute split-beam angle data for "
-            f"waveform_mode = {waveform_mode}, encode_mode = {encode_mode}, "
-            f"and pulse_compression = {pulse_compression}!"
-        )
+        if pulse_compression:  # with pulse compression
+            theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
+        else:  # without pulse compression
+            theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)
 
     # add theta_fc and phi_fc to ds input
     ds = _add_splitbeam_angle_to_ds(theta_fc, phi_fc, ds)

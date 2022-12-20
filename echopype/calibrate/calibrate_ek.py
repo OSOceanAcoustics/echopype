@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_waveform_encode_mode
+from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK, get_gain_for_complex
 from .calibrate_base import CalibrateBase
@@ -154,13 +154,13 @@ class CalibrateEK60(CalibrateEK):
         self.compute_range_meter(waveform_mode="CW", encode_mode="power")
 
     def compute_Sv(self, **kwargs):
-        power_ed_group = check_waveform_encode_mode(
+        power_ed_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
         )
         return self._cal_power(cal_type="Sv", power_ed_group=power_ed_group)
 
     def compute_TS(self, **kwargs):
-        power_ed_group = check_waveform_encode_mode(
+        power_ed_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
         )
         return self._cal_power(cal_type="TS", power_ed_group=power_ed_group)
@@ -420,7 +420,7 @@ class CalibrateEK80(CalibrateEK):
             An xarray Dataset containing either Sv or TS.
         """
 
-        power_ed_group = check_waveform_encode_mode(
+        power_ed_group = retrieve_correct_beam_group(
             echodata=self.echodata,
             waveform_mode=waveform_mode,
             encode_mode=encode_mode,

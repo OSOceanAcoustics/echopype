@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 
 from ..echodata import EchoData
-from ..echodata.simrad import _check_mode_input_with_data_EK80, _check_mode_input_without_data
+from ..echodata.simrad import _check_mode_input_with_data_EK80, _check_input_args_combination
 from ..utils import uwa
 
 # TODO: create default dict with empty values but specific keys for out_dict
@@ -143,7 +143,7 @@ def get_env_params_EK80(
     A dictionary containing the calibration parameters.
     """
     # Verify input
-    _check_mode_input_without_data(waveform_mode=waveform_mode, encode_mode=encode_mode)
+    _check_input_args_combination(waveform_mode=waveform_mode, encode_mode=encode_mode)
 
     # Retrieve the correct beam group
     power_ed_group, complex_ed_group = _check_mode_input_with_data_EK80(
