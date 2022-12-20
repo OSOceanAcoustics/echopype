@@ -3,14 +3,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
-
 from _echopype_version import version as ECHOPYPE_VERSION
 from typing_extensions import Literal
+
+from .log import _init_logger
 
 # TODO: It'd be cleaner to use PathHint, but it leads to a circular import error
 # from ..core import PathHint
 
 ProcessType = Literal["conversion", "processing"]
+
+logger = _init_logger(__name__)
 
 
 def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
@@ -32,11 +35,47 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
     return prov_dict
 
 
-# TODO: Change [Any] in List and Tuple to [str, Path]?
-#   Can we do the same thing with np.ndarray?
+def _source_files(paths: Union[str, Path, List[Any], Tuple[Any], np.ndarray]):
+    """
+    Create sanitized list of string paths from heterogeneous path inputs.
+
+    Parameters
+    ----------
+    paths : Union[str, Path, List[str, Path], Tuple[str, Path], np.ndarray]
+        File paths as either a single path string or pathlib Path,
+        a sequence (tuple, list or np.ndarray) of strings or pathlib Paths,
+        or a mixed sequence that may contain another sequence as an element.
+
+    Returns
+    -------
+    paths_list : List[str]
+        List of file paths. Empty list if no source path element was parsed successfully.
+    """
+    sequence_types = (list, tuple, np.ndarray)
+    if isinstance(paths, (str, Path)):
+        return [str(paths)]
+    elif isinstance(paths, sequence_types):
+        paths_list = []
+        for p in paths:
+            if isinstance(p, (str, Path)):
+                paths_list.append(str(p))
+            elif isinstance(p, sequence_types):
+                paths_list += [str(pp) for pp in p if isinstance(pp, (str, Path))]
+            else:
+                logger.warning(
+                    f"Unrecognized file path element type, path element will not be written to (meta)source_file provenance attribute. {p}"  # noqa
+                )
+        return paths_list
+    else:
+        logger.warning(
+            f"Unrecognized file path element type, path element will not be written to (meta)source_file provenance attribute. {paths}"  # noqa
+        )
+        return []
+
+
 def source_files_vars(
     source_paths: Union[str, Path, List[Any], Tuple[Any], np.ndarray],
-    meta_source_paths: Union[None, str, Path, List[Any], Tuple[Any], np.ndarray] = None
+    meta_source_paths: Union[None, str, Path, List[Any], Tuple[Any], np.ndarray] = None,
 ) -> Dict[str, Dict[str, Tuple]]:
     """
     Create source_filenames and meta_source_filenames provenance
@@ -44,11 +83,15 @@ def source_files_vars(
 
     Parameters
     ----------
-    source_paths : Union[str, Path, List[Any], Tuple[Any], np.ndarray]
-        Source file paths as either a single path string or a sequence of Path-type paths
-    meta_source_paths : Union[None, str, Path, List[Any], Tuple[Any], np.ndarray]
-        Source file paths for metadata files (often as XML files),
-        as either a single path string or a sequence of Path-type paths
+    source_paths : Union[str, Path, List[str, Path], Tuple[str, Path], np.ndarray]
+        Source file paths as either a single path string or pathlib Path,
+        a sequence (tuple, list or np.ndarray) of strings or pathlib Paths,
+        or a mixed sequence that may contain another sequence as an element.
+    meta_source_paths : Union[None, str, Path, List[str, Path], Tuple[str, Path], np.ndarray]
+        Source file paths for metadata files (often as XML files), as either a
+        single path string or pathlib Path, a sequence (tuple, list or np.ndarray)
+        of strings or pathlib Paths, or a mixed sequence that may contain another
+        sequence as an element.
 
     Returns
     -------
@@ -64,31 +107,6 @@ def source_files_vars(
             Single-element dict containing a tuple for creating the
             filenames coordinate variable DataArray
     """
-
-    # TODO: It's probably cleaner to move this function outside the parent function
-    def _source_files(paths):
-        """Handle a plain string containing a single path, a single pathlib Path,
-        a sequence (tuple, list or np.ndarray) of strings or pathlib paths,
-        or a mix sequence that may contain another sequence as an element
-        """
-        sequence_types = (list, tuple, np.ndarray)
-        if isinstance(paths, (str, Path)):
-            return [str(paths)]
-        elif isinstance(paths, sequence_types):
-            # Assumes a list, tuple or np.ndarray sequence
-            paths_list = []
-            for p in paths:
-                if isinstance(p, (str, Path)):
-                    paths_list.append(str(p))
-                elif isinstance(p, sequence_types):
-                    paths_list += [str(pp) for pp in p if isinstance(pp, (str, Path))]
-                else:  # TODO: issue error
-                    print(f"Path element type not recognized. Skipping.\n{p}")
-            return paths_list
-        else:  # TODO: issue error
-            print(f"Path element type not recognized. Skipping.\n{paths}")
-            # TODO: Temporary. Error handling will replace this
-            return None
 
     source_files = _source_files(source_paths)
     files_vars = dict()
