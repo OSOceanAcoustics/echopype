@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from _echopype_version import version as ECHOPYPE_VERSION
@@ -8,10 +8,10 @@ from typing_extensions import Literal
 
 from .log import _init_logger
 
-# TODO: It'd be cleaner to use PathHint, but it leads to a circular import error
-# from ..core import PathHint
-
 ProcessType = Literal["conversion", "processing"]
+# Note that this PathHint is defined differently from the one in ..core
+PathHint = Union[str, Path]
+PathSequenceHint = Union[List[PathHint], Tuple[PathHint], np.ndarray[PathHint]]
 
 logger = _init_logger(__name__)
 
@@ -35,13 +35,13 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
     return prov_dict
 
 
-def _source_files(paths: Union[str, Path, List[Any], Tuple[Any], np.ndarray]):
+def _sanitize_source_files(paths: Union[PathHint, PathSequenceHint]):
     """
     Create sanitized list of string paths from heterogeneous path inputs.
 
     Parameters
     ----------
-    paths : Union[str, Path, List[str, Path], Tuple[str, Path], np.ndarray]
+    paths : Union[PathHint, PathSequenceHint]
         File paths as either a single path string or pathlib Path,
         a sequence (tuple, list or np.ndarray) of strings or pathlib Paths,
         or a mixed sequence that may contain another sequence as an element.
@@ -63,19 +63,21 @@ def _source_files(paths: Union[str, Path, List[Any], Tuple[Any], np.ndarray]):
                 paths_list += [str(pp) for pp in p if isinstance(pp, (str, Path))]
             else:
                 logger.warning(
-                    f"Unrecognized file path element type, path element will not be written to (meta)source_file provenance attribute. {p}"  # noqa
+                    "Unrecognized file path element type, path element will not be"
+                    f" written to (meta)source_file provenance attribute. {p}"
                 )
         return paths_list
     else:
         logger.warning(
-            f"Unrecognized file path element type, path element will not be written to (meta)source_file provenance attribute. {paths}"  # noqa
+            "Unrecognized file path element type, path element will not be"
+            f" written to (meta)source_file provenance attribute. {paths}"
         )
         return []
 
 
 def source_files_vars(
-    source_paths: Union[str, Path, List[Any], Tuple[Any], np.ndarray],
-    meta_source_paths: Union[None, str, Path, List[Any], Tuple[Any], np.ndarray] = None,
+    source_paths: Union[PathHint, PathSequenceHint],
+    meta_source_paths: Union[PathHint, PathSequenceHint] = None,
 ) -> Dict[str, Dict[str, Tuple]]:
     """
     Create source_filenames and meta_source_filenames provenance
@@ -83,11 +85,11 @@ def source_files_vars(
 
     Parameters
     ----------
-    source_paths : Union[str, Path, List[str, Path], Tuple[str, Path], np.ndarray]
+    source_paths : Union[PathHint, PathSequenceHint]
         Source file paths as either a single path string or pathlib Path,
         a sequence (tuple, list or np.ndarray) of strings or pathlib Paths,
         or a mixed sequence that may contain another sequence as an element.
-    meta_source_paths : Union[None, str, Path, List[str, Path], Tuple[str, Path], np.ndarray]
+    meta_source_paths : Union[PathHint, PathSequenceHint]
         Source file paths for metadata files (often as XML files), as either a
         single path string or pathlib Path, a sequence (tuple, list or np.ndarray)
         of strings or pathlib Paths, or a mixed sequence that may contain another
@@ -108,7 +110,7 @@ def source_files_vars(
             filenames coordinate variable DataArray
     """
 
-    source_files = _source_files(source_paths)
+    source_files = _sanitize_source_files(source_paths)
     files_vars = dict()
 
     files_vars["source_files_var"] = {
@@ -122,7 +124,7 @@ def source_files_vars(
     if meta_source_paths is None or meta_source_paths == "":
         files_vars["meta_source_files_var"] = None
     else:
-        meta_source_files = _source_files(meta_source_paths)
+        meta_source_files = _sanitize_source_files(meta_source_paths)
         files_vars["meta_source_files_var"] = {
             "meta_source_filenames": (
                 "filenames",
