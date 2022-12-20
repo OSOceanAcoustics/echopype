@@ -193,6 +193,7 @@ def add_splitbeam_angle(
     encode_mode: str,
     pulse_compression: bool = False,
     storage_options: dict = {},
+    return_dataset: bool = True,
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
@@ -228,10 +229,19 @@ def add_splitbeam_angle(
     storage_options: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_Sv``
+    return_dataset: bool, default=True
+        If True, ``source_Sv`` with the split-beam angle data added to it
+        will be returned, else it will not be returned. A value of ``False``
+        is useful in the situation where ``source_Sv`` is a path and the user
+        only wants to write the split-beam angle data to the path provided.
 
     Returns
     -------
-    The input dataset ``source_Sv`` with the split-beam angle data added
+    xr.Dataset or None
+        If ``return_dataset=False``, nothing will be returned. If ``return_dataset=True``
+        either the input dataset ``source_Sv`` or a lazy-loaded Dataset (obtained from
+        the path provided by ``source_Sv``) with the split-beam angle data added
+        will be returned.
 
     Raises
     ------
@@ -271,7 +281,14 @@ def add_splitbeam_angle(
     # validate the source_Sv type or path (if it is provided)
     source_Sv, file_type = validate_source_ds(source_Sv, storage_options)
 
+    # initialize source_Sv_path
+    source_Sv_path = None
+
     if isinstance(source_Sv, str):
+
+        # store source_Sv path so we can use it to write to later
+        source_Sv_path = source_Sv
+
         # TODO: In the future we can improve this by obtaining the variable names, channels,
         #  and dimension lengths directly from source_Sv using zarr or netcdf4. This would
         #  prevent the unnecessary loading in of the coordinates, which the below statement does.
@@ -316,6 +333,8 @@ def add_splitbeam_angle(
             theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)
 
     # add theta_fc and phi_fc to source_Sv input
-    source_Sv = _add_splitbeam_angle_to_ds(theta_fc, phi_fc, source_Sv)
+    source_Sv = _add_splitbeam_angle_to_ds(
+        theta_fc, phi_fc, source_Sv, return_dataset, source_Sv_path, file_type, storage_options
+    )
 
     return source_Sv

@@ -270,6 +270,8 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
     # compute Sv as it is required for the split-beam angle calculation
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode=waveform_mode, encode_mode=encode_mode)
 
+    # TODO: add a test for the case when source_Sv is a path
+
     # add the split-beam angles to an empty Dataset
     ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed,
                                                waveform_mode=waveform_mode,
