@@ -1,6 +1,9 @@
 from textwrap import dedent
 
+import os
 import fsspec
+from pathlib import Path
+import shutil
 
 from datatree import DataTree
 from zarr.errors import GroupNotFoundError
@@ -13,6 +16,8 @@ from echopype import open_converted
 import pytest
 import xarray as xr
 import numpy as np
+
+from utils import get_mock_echodata, check_consolidated
 
 
 @pytest.fixture(scope="module")
@@ -203,6 +208,10 @@ class TestEchoData:
     }
 
     @pytest.fixture(scope="class")
+    def mock_echodata(self):
+        return get_mock_echodata()
+
+    @pytest.fixture(scope="class")
     def converted_zarr(self, single_ek60_zarr):
         return single_ek60_zarr
 
@@ -310,6 +319,28 @@ class TestEchoData:
 
         assert result is None
         assert isinstance(ed_result, xr.Dataset)
+
+    @pytest.mark.parametrize("consolidated", [True, False])
+    def test_to_zarr_consolidated(self, mock_echodata, consolidated):
+        """
+        Tests to_zarr consolidation. Currently, this test uses a mock EchoData object that only
+        has attributes. The consolidated flag provided will be used in every to_zarr call (which 
+        is used to write each EchoData group to zarr_path). 
+        """
+        zarr_path = Path('test.zarr')
+        mock_echodata.to_zarr(str(zarr_path), consolidated=consolidated, overwrite=True)
+
+        check = True if consolidated else False
+        zmeta_path = zarr_path / ".zmetadata"
+
+        assert zmeta_path.exists() is check
+
+        if check is True:
+            check_consolidated(mock_echodata, zmeta_path)
+
+        # clean up the zarr file
+        shutil.rmtree(zarr_path)
+
 
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):
