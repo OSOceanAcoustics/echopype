@@ -266,7 +266,7 @@ def add_splitbeam_angle(
           configured to store angle data
         - Simrad EK80 echosounder paired with split-beam transducers and
           configured to store angle data
-          
+
     In most cases where the type of samples collected by the echosounder (power/angle samples
     or complex samples) and the transmit waveform (broadband or narrowband) are identical
     across all channels, the channels existing in ``source_Sv`` and ``echodata`` will be identical.
