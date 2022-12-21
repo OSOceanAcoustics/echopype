@@ -7,7 +7,7 @@ import xarray as xr
 
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
-from ..utils.io import validate_source_ds
+from ..utils.io import validate_source_ds_da
 from .split_beam_angle import (
     _add_splitbeam_angle_to_ds,
     _get_splitbeam_angle_complex_BB_nopc,
@@ -279,7 +279,7 @@ def add_splitbeam_angle(
         )
 
     # validate the source_Sv type or path (if it is provided)
-    source_Sv, file_type = validate_source_ds(source_Sv, storage_options)
+    source_Sv, file_type = validate_source_ds_da(source_Sv, storage_options)
 
     # initialize source_Sv_path
     source_Sv_path = None
