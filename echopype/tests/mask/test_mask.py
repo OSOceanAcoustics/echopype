@@ -10,7 +10,7 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import _check_source_Sv_freq_diff
+from echopype.mask.api import _check_source_Sv_freq_diff, validate_and_collect_mask_input
 
 from typing import List, Union, Optional
 
@@ -273,6 +273,110 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
 
     # test that the output DataArray is correctly names
     assert out.name == "mask"
+
+
+@pytest.mark.parametrize(
+    ("mask", "storage_options_mask", "n_mask"),
+    [
+        ("DataArray", {}, 5),
+        (["DataArray", "DataArray"], {}, 5),
+        (["DataArray", "DataArray"], [{}, {}], 5),
+        ("path/to/mask.zarr", {}, 5),
+        (["path/to/mask0.zarr", "path/to/mask1.zarr"], {}, 5),
+        (pathlib.Path("path/to/mask.zarr"), {}, 5),
+        (["DataArray", "path/to/mask0.zarr", pathlib.Path("path/to/mask1.zarr")], {}, 5)
+    ],
+    ids=["da", "list_da_single_storage", "list_da_list_storage", "str_path",
+         "list_str_path", "pathlib", "mixed_da_str_pathlib"]
+)
+def test_validate_and_collect_mask_input(mask: Union[Union[xr.DataArray, str, pathlib.Path],
+                                                     List[Union[xr.DataArray, str, pathlib.Path]]],
+                                         storage_options_mask: Union[dict, List[dict]],
+                                         n_mask: int):
+    """
+    Tests the allowable types for the mask input and corresponding storage options
+
+    Parameters
+    ----------
+    mask: str, pathlib.Path, or a list of these datatypes
+        If "DataArray", then a DataArray corresponding to a mask will be generated, else
+        the input defines a path to write a generated mask to
+    storage_options_mask: dict or list of dict, default={}
+        Any additional parameters for the storage backend, corresponding to the
+        path provided for ``mask``
+    n_mask: int
+        Determines the number of rows and columns the mask data will have
+
+    Notes
+    -----
+    The input for ``storage_options_mask`` will only contain the value `{}` or a list of
+    empty dictionaries as other options are already tested in `
+    `test_utils_io.py::test_validate_output_path`` and are therefore not included here.
+    """
+
+    def construct_mask_da(n_mask: int, mask_ind: int = 0) -> xr.DataArray:
+        """
+        Creates a DataArray representing a mask with the
+        values set as an identity matrix with size ``n_mask``.
+        """
+        return xr.DataArray(data=np.identity(n_mask),
+                            coords={"coord1": np.arange(n_mask), "coord2": np.arange(n_mask)},
+                            name='mask_' + str(mask_ind))
+
+    # initialize temporary directory
+    temp_dir = None
+
+    # TODO: consolidate the creation of the mask into one function
+    if isinstance(mask, list):
+
+        if any([elem != "DataArray" for elem in mask]):
+            # create temporary directory for mask_file
+            temp_dir = tempfile.TemporaryDirectory()
+
+        for ind, elem in enumerate(mask):
+
+            mask_da = construct_mask_da(n_mask=n_mask, mask_ind=ind)
+
+            if elem == "DataArray":
+
+                # assign DataArray to mask element
+                mask[ind] = mask_da
+
+            else:
+
+                # write DataArray to temporary directory
+                zarr_path = os.path.join(temp_dir.name, elem)
+                mask_da.to_dataset().to_zarr(zarr_path)
+
+                mask[ind] = zarr_path
+
+    else:
+
+        mask_da = construct_mask_da(n_mask=n_mask, mask_ind=0)
+
+        if mask == "DataArray":
+            mask = mask_da
+        else:
+            # create temporary directory for mask_file
+            temp_dir = tempfile.TemporaryDirectory()
+
+            # write DataArray to temporary directory
+            zarr_path = os.path.join(temp_dir.name, mask)
+            mask_da.to_dataset().to_zarr(zarr_path)
+
+            mask = zarr_path
+
+    mask_out = validate_and_collect_mask_input(mask=mask, storage_options_mask=storage_options_mask)
+
+    if isinstance(mask_out, list):
+        for ind, da in enumerate(mask_out):
+
+            # change the name of the mask
+            mask_da.name = "mask_" + str(ind)
+
+            assert da.identical(mask_da)
+    else:
+        assert mask_out.identical(mask_da)
 
 
 @pytest.mark.parametrize(
