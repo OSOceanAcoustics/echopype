@@ -268,7 +268,7 @@ def add_splitbeam_angle(
           configured to store angle data
 
     For EK80 broadband data, the split-beam angles can be estimated from the complex data.
-    The current implementation generates angles estimated *without* applying pulse compression. 
+    The current implementation generates angles estimated *without* applying pulse compression.
     Estimating the angle with pulse compression will be added in the near future.
     """
 
