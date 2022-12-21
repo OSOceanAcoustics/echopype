@@ -40,7 +40,7 @@ class CalibrateBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def _cal_power(self, cal_type, **kwargs):
+    def _cal_power_samples(self, cal_type, **kwargs):
         """Calibrate power data for EK60, EK80, and AZFP.
 
         Parameters

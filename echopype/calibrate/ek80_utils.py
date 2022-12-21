@@ -70,7 +70,7 @@ def filter_decimate_chirp(echodata: EchoData, fs: float, y: np.array, ch_id: str
     return ytx_pc_deci, ytx_pc_deci_time
 
 
-def get_tau_effective(ytx: np.array, fs_deci: float, waveform_mode: str):
+def get_tau_effective(echodata: EchoData, ytx: np.array, waveform_mode: str):
     """Compute effective pulse length.
 
     Parameters
@@ -83,6 +83,15 @@ def get_tau_effective(ytx: np.array, fs_deci: float, waveform_mode: str):
         ``CW`` for CW-mode samples, either recorded as complex or power samples
         ``BB`` for BB-mode samples, recorded as complex samples
     """
+    # TODO: change this to handle a dictionary of ytx with keys being the channel_id
+
+    # TODO: tau_effective_tmp has a ping_time dimension
+    # because fs_deci has a ping_time dimension,
+    # probably should be removed
+
+    chan = ytx.keys()
+    fs_deci = 1 / echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
+
     if waveform_mode == "BB":
         ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
         ptxa = np.abs(ytxa) ** 2
@@ -109,7 +118,6 @@ def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: 
 
     y_all = {}
     y_time_all = {}
-    tau_effective = {}
     for chan in echodata["Sonar/Beam_group1"].channel.values:
         # TODO: currently only deal with the case with
         # a fixed tx key param values within a channel
@@ -141,19 +149,10 @@ def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: 
         fs_deci = 1 / echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
         y_tmp, y_tmp_time = filter_decimate_chirp(echodata=echodata, fs=fs, y=y_tmp, ch_id=chan)
 
-        # Compute effective pulse length
-        tau_effective_tmp = get_tau_effective(
-            ytx=y_tmp, fs_deci=fs_deci, waveform_mode=waveform_mode
-        )
-        # TODO: tau_effective_tmp has a ping_time dimension
-        # because fs_deci has a ping_time dimension,
-        # probably should be removed
-
         y_all[chan] = y_tmp
         y_time_all[chan] = y_tmp_time
-        tau_effective[chan] = tau_effective_tmp
 
-    return y_all, y_time_all, tau_effective
+    return y_all, y_time_all
 
 
 def compress_pulse(echodata: EchoData, chirp, chan_BB=None):

@@ -33,7 +33,7 @@ class CalibrateAZFP(CalibrateBase):
         """
         self.range_meter = self.echodata.compute_range(self.env_params, azfp_cal_type=cal_type)
 
-    def _cal_power(self, cal_type, **kwargs):
+    def _cal_power_samples(self, cal_type, **kwargs):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
 
         The calibration formulae used here is based on Appendix G in
@@ -112,7 +112,7 @@ class CalibrateAZFP(CalibrateBase):
         return out.squeeze("beam", drop=True)
 
     def compute_Sv(self, **kwargs):
-        return self._cal_power(cal_type="Sv")
+        return self._cal_power_samples(cal_type="Sv")
 
     def compute_TS(self, **kwargs):
-        return self._cal_power(cal_type="TS")
+        return self._cal_power_samples(cal_type="TS")

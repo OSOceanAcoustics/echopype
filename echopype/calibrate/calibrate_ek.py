@@ -6,7 +6,7 @@ from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK, get_gain_for_complex
 from .calibrate_base import CalibrateBase
-from .ek80_utils import compress_pulse, get_transmit_chirp
+from .ek80_utils import compress_pulse, get_transmit_chirp, get_tau_effective
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
 
 logger = _init_logger(__name__)
@@ -48,7 +48,7 @@ class CalibrateEK(CalibrateBase):
             ek_encode_mode=encode_mode,
         )
 
-    def _cal_power(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
+    def _cal_power_samples(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
         """Calibrate power data from EK60 and EK80.
 
         Parameters
@@ -157,13 +157,13 @@ class CalibrateEK60(CalibrateEK):
         power_ed_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
         )
-        return self._cal_power(cal_type="Sv", power_ed_group=power_ed_group)
+        return self._cal_power_samples(cal_type="Sv", power_ed_group=power_ed_group)
 
     def compute_TS(self, **kwargs):
         power_ed_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
         )
-        return self._cal_power(cal_type="TS", power_ed_group=power_ed_group)
+        return self._cal_power_samples(cal_type="TS", power_ed_group=power_ed_group)
 
 
 class CalibrateEK80(CalibrateEK):
@@ -196,29 +196,22 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def _cal_complex(self, cal_type, waveform_mode) -> xr.Dataset:
-        """Calibrate complex data from EK80.
-
-        Parameters
-        ----------
-        cal_type : str
-            'Sv' for calculating volume backscattering strength, or
-            'TS' for calculating target strength
-        waveform_mode : {"CW", "BB"}
-            Type of transmit waveform.
-
-            - `"CW"` for narrowband transmission,
-              returned echoes recorded either as complex or power/angle samples
-            - `"BB"` for broadband transmission,
-              returned echoes recorded as complex samples
-
-        Returns
-        -------
-        xr.Dataset
-            The calibrated dataset containing Sv or TS
+    def _get_power_from_complex(self, waveform_mode):
         """
+        Get power from complex samples.
+        """
+
+        def _get_prx(sig):
+            return (
+                self.echodata["Sonar/Beam_group1"].beam.size
+                * np.abs(sig.mean(dim="beam")) ** 2
+                / (2 * np.sqrt(2)) ** 2
+                * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
+                / self.z_et
+            )
+
         # Transmit replica and effective pulse length
-        chirp, _, tau_effective = get_transmit_chirp(
+        chirp, _ = get_transmit_chirp(
             echodata=self.echodata, waveform_mode=waveform_mode, fs=self.fs, z_et=self.z_et
         )
 
@@ -245,17 +238,12 @@ class CalibrateEK80(CalibrateEK):
             # drop those that contain CW samples (nan in freq start/end)
             chan_sel = freq_center.dropna(dim="channel").channel
 
-            # backscatter data
+            # get power
             pc = compress_pulse(
                 echodata=self.echodata, chirp=chirp, chan_BB=chan_sel
             )  # has beam dim
-            prx = (
-                self.echodata["Sonar/Beam_group1"].beam.size
-                * np.abs(pc.mean(dim="beam")) ** 2
-                / (2 * np.sqrt(2)) ** 2
-                * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                / self.z_et
-            )
+            prx = _get_prx(pc)
+
         else:
             if freq_center is None:
                 # when only have CW complex samples
@@ -270,15 +258,36 @@ class CalibrateEK80(CalibrateEK):
                 self.echodata["Sonar/Beam_group1"]["backscatter_r"]
                 + 1j * self.echodata["Sonar/Beam_group1"]["backscatter_i"]
             )
-            prx = (
-                self.echodata["Sonar/Beam_group1"].beam.size
-                * np.abs(backscatter_cw.mean(dim="beam")) ** 2
-                / (2 * np.sqrt(2)) ** 2
-                * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                / self.z_et
-            )
-            prx.name = "received_power"
-            prx = prx.to_dataset()
+            prx = _get_prx(backscatter_cw)
+
+        prx.name = "received_power"
+        prx = prx.to_dataset()
+
+        return prx
+
+    def _cal_complex_samples(self, cal_type, waveform_mode) -> xr.Dataset:
+        """Calibrate complex data from EK80.
+
+        Parameters
+        ----------
+        cal_type : str
+            'Sv' for calculating volume backscattering strength, or
+            'TS' for calculating target strength
+        waveform_mode : {"CW", "BB"}
+            Type of transmit waveform.
+
+            - `"CW"` for narrowband transmission,
+              returned echoes recorded either as complex or power/angle samples
+            - `"BB"` for broadband transmission,
+              returned echoes recorded as complex samples
+
+        Returns
+        -------
+        xr.Dataset
+            The calibrated dataset containing Sv or TS
+        """
+        # Get power from complex samples
+        prx = self._get_power_from_complex(waveform_mode=waveform_mode)
 
         # Compute derived params
 
@@ -315,6 +324,11 @@ class CalibrateEK80(CalibrateEK):
             gain = get_gain_for_complex(
                 echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel
             )
+
+        # Compute effective pulse length
+        tau_effective = get_tau_effective(
+            echodata=self.echodata, ytx=chirp, waveform_mode=waveform_mode
+        )
 
         # Transmission loss
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
@@ -440,11 +454,11 @@ class CalibrateEK80(CalibrateEK):
         if flag_complex:
             # Complex samples can be BB or CW
             self.compute_range_meter(waveform_mode=waveform_mode, encode_mode=encode_mode)
-            ds_cal = self._cal_complex(cal_type=cal_type, waveform_mode=waveform_mode)
+            ds_cal = self._cal_complex_samples(cal_type=cal_type, waveform_mode=waveform_mode)
         else:
             # Power samples only make sense for CW mode data
             self.compute_range_meter(waveform_mode="CW", encode_mode=encode_mode)
-            ds_cal = self._cal_power(cal_type=cal_type, power_ed_group=power_ed_group)
+            ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=power_ed_group)
 
         return ds_cal
 
