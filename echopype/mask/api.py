@@ -80,7 +80,7 @@ def validate_and_collect_mask_input(
             if isinstance(mask_val, str):
                 # open up DataArray using mask path
                 mask[mask_ind] = xr.open_dataarray(
-                    mask_val, engine=file_type, chunks="auto", **storage_options_mask[mask_ind]
+                    mask_val, engine=file_type, chunks={}, **storage_options_mask[mask_ind]
                 )
 
     else:
@@ -96,7 +96,7 @@ def validate_and_collect_mask_input(
 
         if isinstance(mask, str):
             # open up DataArray using mask path
-            mask = xr.open_dataarray(mask, engine=file_type, chunks="auto", **storage_options_mask)
+            mask = xr.open_dataarray(mask, engine=file_type, chunks={}, **storage_options_mask)
 
     return mask
 
@@ -199,9 +199,7 @@ def apply_mask(
 
     if isinstance(source_ds, str):
         # open up Dataset using source_ds path
-        source_ds = xr.open_dataset(
-            source_ds, engine=file_type, chunks="auto", **storage_options_ds
-        )
+        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
 
     # validate and form the mask input to be used downstream
     mask = validate_and_collect_mask_input(mask, storage_options_mask)
@@ -471,7 +469,7 @@ def frequency_differencing(
 
     if isinstance(source_Sv, str):
         # open up Dataset using source_Sv path
-        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks="auto", **storage_options)
+        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
 
     # check the source_Sv with respect to channel and frequency_nominal
     _check_source_Sv_freq_diff(source_Sv, freqAB, chanAB)
