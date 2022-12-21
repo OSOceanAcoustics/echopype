@@ -150,10 +150,10 @@ def _check_var_name_fill_value(
 
 def apply_mask(
     source_ds: Union[xr.Dataset, str, pathlib.Path],
-    var_name: str,
     mask: Union[
         Union[xr.DataArray, str, pathlib.Path], List[Union[xr.DataArray, str, pathlib.Path]]
     ],
+    var_name: str = "Sv",
     fill_value: Union[int, float, np.ndarray, xr.DataArray] = np.nan,
     storage_options_ds: dict = {},
     storage_options_mask: Union[dict, List[dict]] = {},
@@ -166,13 +166,13 @@ def apply_mask(
     ----------
     source_ds: xr.Dataset, str, or pathlib.Path
         Points to a Dataset that contains the variable the mask should be applied to
-    var_name: str
-        The variable name in ``source_ds`` that the mask should be applied to
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
         The mask(s) to be applied. Can be a single input or list that corresponds to
         a DataArray or a path. If a path is provided this should point to a zarr or
         netcdf file with only one data variable in it.
-    fill_value: int or float or np.ndarray or xr.DataArray, default=np.nan
+    var_name: str, default="Sv"
+        The variable name in ``source_ds`` that the mask should be applied to
+    fill_value: int, float, np.ndarray, or xr.DataArray, default=np.nan
         Value(s) at masked indices
     storage_options_ds: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
