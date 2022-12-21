@@ -6,7 +6,7 @@ from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK, get_gain_for_complex
 from .calibrate_base import CalibrateBase
-from .ek80_utils import compress_pulse, get_transmit_chirp, get_tau_effective
+from .ek80_utils import compress_pulse, get_tau_effective, get_transmit_chirp
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
 
 logger = _init_logger(__name__)
