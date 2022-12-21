@@ -48,7 +48,7 @@ def validate_and_collect_mask_input(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         If ``mask`` is a single-element and ``storage_options_mask`` is not a single dict
     TypeError
         If ``storage_options_mask`` is not a list of dict or a dict
@@ -86,7 +86,7 @@ def validate_and_collect_mask_input(
     else:
 
         if not isinstance(storage_options_mask, dict):
-            raise RuntimeError(
+            raise ValueError(
                 "The provided input storage_options_mask should be a single "
                 "dict because mask is a single value!"
             )
@@ -121,9 +121,9 @@ def _check_var_name_fill_value(
     ------
     TypeError
         If ``var_name`` or ``fill_value`` are not an accepted type
-    RuntimeError
+    ValueError
         If the Dataset ``source_ds`` does not contain ``var_name``
-    RuntimeError
+    ValueError
         If ``fill_value`` is an array and not the same shape as ``var_name``
     """
 
@@ -133,7 +133,7 @@ def _check_var_name_fill_value(
 
     # ensure var_name is in source_ds
     if var_name not in source_ds.variables:
-        raise RuntimeError("The Dataset source_ds does not contain the variable var_name!")
+        raise ValueError("The Dataset source_ds does not contain the variable var_name!")
 
     # check the type of fill_value
     if not isinstance(fill_value, (int, float, np.ndarray, xr.DataArray)):
@@ -145,7 +145,7 @@ def _check_var_name_fill_value(
     if isinstance(fill_value, (np.ndarray, xr.DataArray)) and (
         fill_value.shape != source_ds[var_name].shape
     ):
-        raise RuntimeError("If fill_value is an array is must be of the same shape as var_name!")
+        raise ValueError("If fill_value is an array is must be of the same shape as var_name!")
 
 
 def apply_mask(
@@ -226,7 +226,7 @@ def apply_mask(
 
     # sanity check to make sure final_mask is the same shape as source_ds[var_name]
     if final_mask.shape != source_ds[var_name].shape:
-        raise RuntimeError("Final constructed mask is not the same shape as source_ds[var_name]!")
+        raise ValueError("Final constructed mask is not the same shape as source_ds[var_name]!")
 
     # apply the mask to var_name
     var_name_masked = xr.where(final_mask, x=source_ds[var_name], y=fill_value, keep_attrs=True)
@@ -270,26 +270,26 @@ def _check_freq_diff_non_data_inputs(
 
     # check that either freqAB or chanAB are provided and they are a list of length 2
     if (freqAB is None) and (chanAB is None):
-        raise RuntimeError("Either freqAB or chanAB must be given!")
+        raise ValueError("Either freqAB or chanAB must be given!")
     elif (freqAB is not None) and (chanAB is not None):
-        raise RuntimeError("Only freqAB or chanAB must be given, but not both!")
+        raise ValueError("Only freqAB or chanAB must be given, but not both!")
     elif freqAB is not None:
         if not isinstance(freqAB, list):
             raise TypeError("freqAB must be a list!")
         elif len(set(freqAB)) != 2:
-            raise RuntimeError("freqAB must be a list of length 2 with unique elements!")
+            raise ValueError("freqAB must be a list of length 2 with unique elements!")
     else:
         if not isinstance(chanAB, list):
             raise TypeError("chanAB must be a list!")
         elif len(set(chanAB)) != 2:
-            raise RuntimeError("chanAB must be a list of length 2 with unique elements!")
+            raise ValueError("chanAB must be a list of length 2 with unique elements!")
 
     # check that operator is a string and a valid operator
     if not isinstance(operator, str):
         raise TypeError("operator must be a string!")
     else:
         if operator not in [">", "<", "<=", ">=", "=="]:
-            raise RuntimeError("Invalid operator!")
+            raise ValueError("Invalid operator!")
 
     # ensure that diff is a float or an int
     if not isinstance(diff, (float, int)):
@@ -324,34 +324,34 @@ def _check_source_Sv_freq_diff(
 
     # check that channel and frequency nominal are in source_Sv
     if "channel" not in source_Sv.coords:
-        raise RuntimeError("The Dataset defined by source_Sv must have channel as a coordinate!")
+        raise ValueError("The Dataset defined by source_Sv must have channel as a coordinate!")
     elif "frequency_nominal" not in source_Sv.variables:
-        raise RuntimeError(
+        raise ValueError(
             "The Dataset defined by source_Sv must have frequency_nominal as a variable!"
         )
 
     # make sure that the channel and frequency_nominal values are not repeated in source_Sv
     if len(set(source_Sv.channel.values)) < source_Sv.channel.size:
-        raise RuntimeError(
-            "The provided source_Sv contains repeated channel values, " "this is not allowed!"
+        raise ValueError(
+            "The provided source_Sv contains repeated channel values, this is not allowed!"
         )
 
     if len(set(source_Sv.frequency_nominal.values)) < source_Sv.frequency_nominal.size:
-        raise RuntimeError(
+        raise ValueError(
             "The provided source_Sv contains repeated frequency_nominal "
             "values, this is not allowed!"
         )
 
     # check that the elements of freqAB are in frequency_nominal
     if (freqAB is not None) and (not all([freq in source_Sv.frequency_nominal for freq in freqAB])):
-        raise RuntimeError(
+        raise ValueError(
             "The provided list input freqAB contains values that "
             "are not in the frequency_nominal variable!"
         )
 
     # check that the elements of chanAB are in channel
     if (chanAB is not None) and (not all([chan in source_Sv.channel for chan in chanAB])):
-        raise RuntimeError(
+        raise ValueError(
             "The provided list input chanAB contains values that are "
             "not in the channel coordinate!"
         )
@@ -402,24 +402,24 @@ def frequency_differencing(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         If neither ``freqAB`` or ``chanAB`` are given
-    RuntimeError
+    ValueError
         If both ``freqAB`` and ``chanAB`` are given
     TypeError
         If any input is not of the correct type
-    RuntimeError
+    ValueError
         If either ``freqAB`` or ``chanAB`` are provided and the list
         does not contain 2 distinct elements
-    RuntimeError
+    ValueError
         If ``freqAB`` contains values that are not contained in ``frequency_nominal``
-    RuntimeError
+    ValueError
         If ``chanAB`` contains values that not contained in ``channel``
-    RuntimeError
+    ValueError
         If ``operator`` is not one of the following: ``">", "<", "<=", ">=", "=="``
-    RuntimeError
+    ValueError
         If the path provided for ``source_Sv`` is not a valid path
-    RuntimeError
+    ValueError
         If ``freqAB`` or ``chanAB`` is provided and the Dataset produced by ``source_Sv``
         does not contain the coordinate ``channel`` and variable ``frequency_nominal``
 
