@@ -30,10 +30,10 @@ def validate_and_collect_mask_input(
 
     Parameters
     ----------
-    mask: xr.DataArray or str or pathlib.Path or list of xr.DataArray or str or pathlib.Path
-        The mask(s) to apply to the variable specified by ``var_name``. This input can be a
-        single input or list that corresponds to a DataArray or a path to a DataArray. If a path
-        is provided this should point to a zarr or netcdf file with only one array in it.
+    mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
+        The mask(s) to be applied. 
+        Can be a single input or list that corresponds to a DataArray or a path. If a path
+        is provided this should point to a zarr or netcdf file with only one data variable in it.
     storage_options_mask: dict or list of dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``mask``. If ``mask`` is a list, then this input should either
@@ -164,16 +164,16 @@ def apply_mask(
 
     Parameters
     ----------
-    source_ds: xr.Dataset or str or pathlib.Path
+    source_ds: xr.Dataset, str, or pathlib.Path
         Points to a Dataset that contains the variable the mask should be applied to
     var_name: str
         The variable name in ``source_ds`` that the mask should be applied to
-    mask: xr.DataArray or str or pathlib.Path or list of xr.DataArray or str or pathlib.Path
-        The mask(s) to apply to the variable specified by ``var_name``. This input can be a
-        single input or list that corresponds to a DataArray or a path to a DataArray. If a path
-        is provided this should point to a zarr or netcdf file with only one array in it.
+    mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
+        The mask(s) to be applied. 
+        Can be a single input or list that corresponds to a DataArray or a path. If a path
+        is provided this should point to a zarr or netcdf file with only one data variable in it.
     fill_value: int or float or np.ndarray or xr.DataArray, default=np.nan
-        Specifies the value(s) at false indices
+        Value(s) at masked indices
     storage_options_ds: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_ds``

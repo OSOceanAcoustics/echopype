@@ -327,7 +327,7 @@ def validate_source_ds_da(
 
     Parameters
     ----------
-    source_ds_da: xr.Dataset or xr.DataArray or str or pathlib.Path
+    source_ds_da: xr.Dataset, xr.DataArray, str or pathlib.Path
         A source that points to a Dataset or DataArray. If the input is a path,
         it specifies the path to a zarr or netcdf file.
     storage_options: dict, optional
