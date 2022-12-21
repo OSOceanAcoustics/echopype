@@ -10,7 +10,7 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import _check_source_Sv_freq_diff, validate_and_collect_mask_input
+from echopype.mask.api import _check_source_Sv_freq_diff, validate_and_collect_mask_input, _check_var_name_fill_value
 
 from typing import List, Union, Optional
 
@@ -326,7 +326,8 @@ def test_validate_and_collect_mask_input(mask: Union[Union[xr.DataArray, str, pa
     # initialize temporary directory
     temp_dir = None
 
-    # TODO: consolidate the creation of the mask into one function
+    # TODO: consolidate the creation of the mask into one function so it
+    #  can also be used in test_apply_mask
     if isinstance(mask, list):
 
         if any([elem != "DataArray" for elem in mask]):
@@ -380,6 +381,62 @@ def test_validate_and_collect_mask_input(mask: Union[Union[xr.DataArray, str, pa
 
 
 @pytest.mark.parametrize(
+    ("n", "n_chan", "var_name", "fill_value"),
+    [
+        pytest.param(4, 2, 2.0, np.nan,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because the var_name is not a string.")),
+        pytest.param(4, 2, "var3", np.nan,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because mock_ds will "
+                                                    "not have var_name=var3 in it.")),
+        pytest.param(4, 2, "var1", "1.0",
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because fill_value is an incorrect type.")),
+        (4, 2, "var1", 1),
+        (4, 2, "var1", 1.0),
+        (2, 1, "var1", np.identity(2)[None, :]),
+        (2, 1, "var1", xr.DataArray(data=np.array([[[1.0, 0], [0, 1]]]),
+                                    coords={"channel": ["chan1"], "ping_time": [0, 1], "range_sample": [0, 1]})
+         ),
+        pytest.param(4, 2, "var1", np.identity(2),
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because fill_value is not the right shape.")),
+        pytest.param(4, 2, "var1",
+                     xr.DataArray(data=np.array([[1.0, 0], [0, 1]]),
+                                  coords={"ping_time": [0, 1], "range_sample": [0, 1]}),
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because fill_value is not the right shape.")),
+    ],
+    ids=["wrong_var_name_type", "no_var_name_ds", "wrong_fill_value_type", "fill_value_int",
+         "fill_value_float", "fill_value_np_array", "fill_value_DataArray",
+         "fill_value_np_array_wrong_shape", "fill_value_DataArray_wrong_shape"]
+)
+def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
+                                   fill_value: Union[int, float, np.ndarray, xr.DataArray]):
+    """
+    Ensures that the function ``_check_var_name_fill_value`` is behaving as expected.
+
+    Parameters
+    ----------
+    n: int
+        The number of rows (``x``) and columns (``y``) of
+        each channel matrix
+    n_chan: int
+        Determines the size of the ``channel`` coordinate
+    var_name: {"var1", "var2"}
+        The variable name in the mock Dataset to apply the mask to
+    fill_value: int, float, np.ndarray, or xr.DataArray
+        Value(s) at masked indices
+    """
+
+    # obtain mock Dataset containing var_name
+    mock_ds = get_mock_source_ds_apply_mask(n, n_chan, is_delayed=False)
+
+    _check_var_name_fill_value(source_ds=mock_ds, var_name=var_name, fill_value=fill_value)
+
+
+@pytest.mark.parametrize(
     ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth"),
     [
         (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]])),
@@ -426,6 +483,8 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     mask_file: str or list of str, optional
         If provided, the ``mask`` input will be written to a temporary directory
         with file name ``mask_file``. This will then be used in ``apply_mask``.
+    fill_value: int, float, np.ndarray, or xr.DataArray
+        Value(s) at masked indices
     var_masked_truth: np.ndarray
         The true value of ``var_name`` values after the mask has been applied
     is_delayed: bool
