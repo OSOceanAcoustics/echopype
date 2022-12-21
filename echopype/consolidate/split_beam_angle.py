@@ -63,7 +63,7 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
         phi_fc = compute_split_beam_beamtype1(angle_type="athwartship")
 
     else:
-        raise NotImplementedError("Computing split-beam angle is only available for beam_type=1!")
+        raise NotImplementedError("Computing physical split-beam angle is only available for data from split-beam transducers!")
 
     # drop the beam dimension in theta_fc and phi_fc, if it exists
     if "beam" in theta_fc.dims:
