@@ -142,6 +142,93 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     return mock_ds
 
 
+def create_input_mask(mask: Union[np.ndarray, List[np.ndarray]],
+                      mask_file: Optional[Union[str, List[str]]],
+                      mask_coords: Union[xr.core.coordinates.DataArrayCoordinates, dict], n_chan: int):
+    """
+    A helper function that correctly constructs the mask input, so it can be
+    used for ``apply_mask`` related tests.
+
+    Parameters
+    ----------
+    mask: np.ndarray or list of np.ndarray
+        The mask(s) that should be applied to ``var_name``
+    mask_file: str or list of str, optional
+        If provided, the ``mask`` input will be written to a temporary directory
+        with file name ``mask_file``. This will then be used in ``apply_mask``.
+    mask_coords: xr.core.coordinates.DataArrayCoordinates or dict
+        The DataArray coordinates that should be used for each mask DataArray created
+    n_chan: int
+        Determines the size of the ``channel`` coordinate
+    """
+
+    # initialize temp_dir
+    temp_dir = None
+
+    # make input numpy array masks into DataArrays
+    if isinstance(mask, list):
+
+        # initialize final mask
+        mask_out = []
+
+        # create temporary directory if mask_file is provided
+        if any([isinstance(elem, str) for elem in mask_file]):
+            # create temporary directory for mask_file
+            temp_dir = tempfile.TemporaryDirectory()
+
+        for mask_ind in range(len(mask)):
+
+            # form DataArray from given mask data
+            mask_da = xr.DataArray(data=[mask[mask_ind] for i in range(n_chan)],
+                                   coords=mask_coords, name='mask_' + str(mask_ind))
+
+            if mask_file[mask_ind] is None:
+
+                # set mask value to the DataArray given
+                mask_out.append(mask_da)
+            else:
+
+                # write DataArray to temporary directory
+                zarr_path = os.path.join(temp_dir.name, mask_file[mask_ind])
+                mask_da.to_dataset().to_zarr(zarr_path)
+
+                if isinstance(mask_file[mask_ind], pathlib.Path):
+                    # make zarr_path into a Path object
+                    zarr_path = pathlib.Path(zarr_path)
+
+                # set mask value to created path
+                mask_out.append(zarr_path)
+
+    elif isinstance(mask, np.ndarray):
+
+        # form DataArray from given mask data
+        mask_da = xr.DataArray(data=[mask for i in range(n_chan)],
+                               coords=mask_coords, name='mask_0')
+
+        if mask_file is None:
+
+            # set mask to the DataArray formed
+            mask_out = mask_da
+        else:
+
+            # create temporary directory for mask_file
+            temp_dir = tempfile.TemporaryDirectory()
+
+            # write DataArray to temporary directory
+            zarr_path = os.path.join(temp_dir.name, mask_file)
+            mask_da.to_dataset().to_zarr(zarr_path)
+
+            if isinstance(mask_file, pathlib.Path):
+                # make zarr_path into a Path object
+                zarr_path = pathlib.Path(zarr_path)
+
+            # set mask index to path
+            mask_out = zarr_path
+
+    return mask_out, temp_dir
+
+
+
 @pytest.mark.parametrize(
     ("n", "n_chan_freq", "add_chan", "add_freq_nom", "freqAB", "chanAB"),
     [
@@ -276,36 +363,44 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
 
 
 @pytest.mark.parametrize(
-    ("mask", "storage_options_mask", "n_mask"),
+    ("n", "n_chan", "mask_np", "mask_file", "storage_options_mask"),
     [
-        ("DataArray", {}, 5),
-        (["DataArray", "DataArray"], {}, 5),
-        (["DataArray", "DataArray"], [{}, {}], 5),
-        ("path/to/mask.zarr", {}, 5),
-        (["path/to/mask0.zarr", "path/to/mask1.zarr"], {}, 5),
-        (pathlib.Path("path/to/mask.zarr"), {}, 5),
-        (["DataArray", "path/to/mask0.zarr", pathlib.Path("path/to/mask1.zarr")], {}, 5)
+        (5, 1, np.identity(5), None, {}),
+        (5, 1, [np.identity(5), np.identity(5)], [None, None], {}),
+        (5, 1, [np.identity(5), np.identity(5)], [None, None], [{}, {}]),
+        (5, 1, np.identity(5), "path/to/mask.zarr", {}),
+        (5, 1, [np.identity(5), np.identity(5)], ["path/to/mask0.zarr", "path/to/mask1.zarr"], {}),
+        (5, 1, np.identity(5), pathlib.Path("path/to/mask.zarr"), {}),
+        (5, 1, [np.identity(5), np.identity(5), np.identity(5)],
+         [None, "path/to/mask0.zarr", pathlib.Path("path/to/mask1.zarr")], {})
     ],
-    ids=["da", "list_da_single_storage", "list_da_list_storage", "str_path",
-         "list_str_path", "pathlib", "mixed_da_str_pathlib"]
+    ids=["mask_da", "mask_list_da_single_storage", "mask_list_da_list_storage", "mask_str_path",
+         "mask_list_str_path", "mask_pathlib", "mask_mixed_da_str_pathlib"]
 )
-def test_validate_and_collect_mask_input(mask: Union[Union[xr.DataArray, str, pathlib.Path],
-                                                     List[Union[xr.DataArray, str, pathlib.Path]]],
-                                         storage_options_mask: Union[dict, List[dict]],
-                                         n_mask: int):
+def test_validate_and_collect_mask_input(
+        n: int,
+        n_chan: int,
+        mask_np: Union[np.ndarray, List[np.ndarray]],
+        mask_file: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]],
+        storage_options_mask: Union[dict, List[dict]]):
     """
-    Tests the allowable types for the mask input and corresponding storage options
+    Tests the allowable types for the mask input and corresponding storage options.
 
     Parameters
     ----------
-    mask: str, pathlib.Path, or a list of these datatypes
-        If "DataArray", then a DataArray corresponding to a mask will be generated, else
-        the input defines a path to write a generated mask to
+    n: int
+        The number of rows (``x``) and columns (``y``) of
+        each channel matrix
+    n_chan: int
+        Determines the size of the ``channel`` coordinate
+    mask_np: np.ndarray or list of np.ndarray
+        The mask(s) that should be applied to ``var_name``
+    mask_file: str or list of str, optional
+        If provided, the ``mask`` input will be written to a temporary directory
+        with file name ``mask_file``. This will then be used in ``apply_mask``.
     storage_options_mask: dict or list of dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``mask``
-    n_mask: int
-        Determines the number of rows and columns the mask data will have
 
     Notes
     -----
@@ -314,69 +409,31 @@ def test_validate_and_collect_mask_input(mask: Union[Union[xr.DataArray, str, pa
     `test_utils_io.py::test_validate_output_path`` and are therefore not included here.
     """
 
-    def construct_mask_da(n_mask: int, mask_ind: int = 0) -> xr.DataArray:
-        """
-        Creates a DataArray representing a mask with the
-        values set as an identity matrix with size ``n_mask``.
-        """
-        return xr.DataArray(data=np.identity(n_mask),
-                            coords={"coord1": np.arange(n_mask), "coord2": np.arange(n_mask)},
-                            name='mask_' + str(mask_ind))
+    # construct channel values
+    chan_vals = ['chan' + str(i) for i in range(1, n_chan + 1)]
 
-    # initialize temporary directory
-    temp_dir = None
+    # create coordinates that will be used by all DataArrays created
+    coords = {"channel": ("channel", chan_vals, {"long_name": "channel name"}),
+              "x": np.arange(n), "y": np.arange(n)}
 
-    # TODO: consolidate the creation of the mask into one function so it
-    #  can also be used in test_apply_mask
-    if isinstance(mask, list):
-
-        if any([elem != "DataArray" for elem in mask]):
-            # create temporary directory for mask_file
-            temp_dir = tempfile.TemporaryDirectory()
-
-        for ind, elem in enumerate(mask):
-
-            mask_da = construct_mask_da(n_mask=n_mask, mask_ind=ind)
-
-            if elem == "DataArray":
-
-                # assign DataArray to mask element
-                mask[ind] = mask_da
-
-            else:
-
-                # write DataArray to temporary directory
-                zarr_path = os.path.join(temp_dir.name, elem)
-                mask_da.to_dataset().to_zarr(zarr_path)
-
-                mask[ind] = zarr_path
-
-    else:
-
-        mask_da = construct_mask_da(n_mask=n_mask, mask_ind=0)
-
-        if mask == "DataArray":
-            mask = mask_da
-        else:
-            # create temporary directory for mask_file
-            temp_dir = tempfile.TemporaryDirectory()
-
-            # write DataArray to temporary directory
-            zarr_path = os.path.join(temp_dir.name, mask)
-            mask_da.to_dataset().to_zarr(zarr_path)
-
-            mask = zarr_path
+    # create input mask and obtain temporary directory, if it was created
+    mask, temp_dir = create_input_mask(mask_np, mask_file, coords, n_chan)
 
     mask_out = validate_and_collect_mask_input(mask=mask, storage_options_mask=storage_options_mask)
 
     if isinstance(mask_out, list):
         for ind, da in enumerate(mask_out):
 
-            # change the name of the mask
-            mask_da.name = "mask_" + str(ind)
+            # create known solution for mask
+            mask_da = xr.DataArray(data=[mask_np[ind] for i in range(n_chan)],
+                                   coords=coords, name='mask_' + str(ind))
 
             assert da.identical(mask_da)
     else:
+
+        # create known solution for mask
+        mask_da = xr.DataArray(data=[mask_np for i in range(n_chan)],
+                               coords=coords, name='mask_0')
         assert mask_out.identical(mask_da)
 
 
@@ -495,58 +552,8 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     # obtain mock Dataset containing var_name
     mock_ds = get_mock_source_ds_apply_mask(n, n_chan, is_delayed)
 
-    # initialize temp_dir
-    temp_dir = None
-
-    # make input numpy array masks into DataArrays
-    if isinstance(mask, list):
-
-        # create temporary directory if mask_file is provided
-        if any([isinstance(elem, str) for elem in mask_file]):
-
-            # create temporary directory for mask_file
-            temp_dir = tempfile.TemporaryDirectory()
-
-        for mask_ind in range(len(mask)):
-
-            # form DataArray from given mask data
-            mask_da = xr.DataArray(data=np.stack([mask[mask_ind] for i in range(n_chan)]),
-                                   coords=mock_ds.coords, name='mask_' + str(mask_ind))
-
-            if mask_file[mask_ind] is None:
-
-                # set mask value to the DataArray given
-                mask[mask_ind] = mask_da
-            else:
-
-                # write DataArray to temporary directory
-                zarr_path = os.path.join(temp_dir.name, mask_file[mask_ind])
-                mask_da.to_dataset().to_zarr(zarr_path)
-
-                # set mask value to created path
-                mask[mask_ind] = zarr_path
-
-    elif isinstance(mask, np.ndarray):
-
-        # form DataArray from given mask data
-        mask_da = xr.DataArray(data=np.stack([mask for i in range(n_chan)]),
-                               coords=mock_ds.coords, name='mask_0')
-
-        if mask_file is None:
-
-            # set mask to the DataArray formed
-            mask = mask_da
-        else:
-
-            # create temporary directory for mask_file
-            temp_dir = tempfile.TemporaryDirectory()
-
-            # write DataArray to temporary directory
-            zarr_path = os.path.join(temp_dir.name, mask_file)
-            mask_da.to_dataset().to_zarr(zarr_path)
-
-            # set mask index to path
-            mask = zarr_path
+    # create input mask and obtain temporary directory, if it was created
+    mask, temp_dir = create_input_mask(mask, mask_file, mock_ds.coords, n_chan)
 
     # create DataArray form of the known truth value
     var_masked_truth = xr.DataArray(data=np.stack([var_masked_truth for i in range(n_chan)]),

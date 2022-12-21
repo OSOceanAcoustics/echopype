@@ -77,7 +77,7 @@ def validate_and_collect_mask_input(
             )
 
             # replace mask element path with its corresponding DataArray
-            if isinstance(mask_val, str):
+            if isinstance(mask_val, (str, pathlib.Path)):
                 # open up DataArray using mask path
                 mask[mask_ind] = xr.open_dataarray(
                     mask_val, engine=file_type, chunks={}, **storage_options_mask[mask_ind]
@@ -94,7 +94,7 @@ def validate_and_collect_mask_input(
         # validate the mask type or path (if it is provided)
         mask, file_type = validate_source_ds_da(mask, storage_options_mask)
 
-        if isinstance(mask, str):
+        if isinstance(mask, (str, pathlib.Path)):
             # open up DataArray using mask path
             mask = xr.open_dataarray(mask, engine=file_type, chunks={}, **storage_options_mask)
 
