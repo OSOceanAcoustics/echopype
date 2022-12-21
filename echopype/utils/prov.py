@@ -2,6 +2,7 @@ from datetime import datetime as dt
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
+import numpy as np
 from _echopype_version import version as ECHOPYPE_VERSION
 from numpy.typing import NDArray
 from typing_extensions import Literal
@@ -43,7 +44,7 @@ def _sanitize_source_files(paths: Union[PathHint, PathSequenceHint]):
     ----------
     paths : Union[PathHint, PathSequenceHint]
         File paths as either a single path string or pathlib Path,
-        a sequence (tuple, list or NDArray) of strings or pathlib Paths,
+        a sequence (tuple, list or np.ndarray) of strings or pathlib Paths,
         or a mixed sequence that may contain another sequence as an element.
 
     Returns
@@ -51,7 +52,7 @@ def _sanitize_source_files(paths: Union[PathHint, PathSequenceHint]):
     paths_list : List[str]
         List of file paths. Empty list if no source path element was parsed successfully.
     """
-    sequence_types = (list, tuple, NDArray)
+    sequence_types = (list, tuple, np.ndarray)
     if isinstance(paths, (str, Path)):
         return [str(paths)]
     elif isinstance(paths, sequence_types):
@@ -87,11 +88,11 @@ def source_files_vars(
     ----------
     source_paths : Union[PathHint, PathSequenceHint]
         Source file paths as either a single path string or pathlib Path,
-        a sequence (tuple, list or NDArray) of strings or pathlib Paths,
+        a sequence (tuple, list or np.ndarray) of strings or pathlib Paths,
         or a mixed sequence that may contain another sequence as an element.
     meta_source_paths : Union[PathHint, PathSequenceHint]
         Source file paths for metadata files (often as XML files), as either a
-        single path string or pathlib Path, a sequence (tuple, list or NDArray)
+        single path string or pathlib Path, a sequence (tuple, list or np.ndarray)
         of strings or pathlib Paths, or a mixed sequence that may contain another
         sequence as an element.
 
@@ -107,7 +108,7 @@ def source_files_vars(
             meta_source_filenames xarray DataArray with filenames dimension
         source_files_coord : Dict[str, Tuple]
             Single-element dict containing a tuple for creating the
-            filenames coordinate variable DataArray
+            filenames coordinate variable xarray DataArray
     """
 
     source_files = _sanitize_source_files(source_paths)
