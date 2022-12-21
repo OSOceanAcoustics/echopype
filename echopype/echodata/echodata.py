@@ -529,7 +529,7 @@ class EchoData:
 
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
-                # TODO: change to not shift range since now we remove 
+                # TODO: change to not shift range since now we remove
                 # the equivalent length of samples from pulse compression output
                 range_meter = (
                     (beam.range_sample * beam["sample_interval"] - shift) * sound_speed / 2

@@ -29,9 +29,8 @@ def tapered_chirp(
         [wtx_tmp[0:nwtxh], np.ones((t.size - nwtx)), wtx_tmp[nwtxh:]]
     )  # assemble full tapering window
     chirp_fac = (
-        ((frequency_end - frequency_start) / transmit_duration_nominal) * t / 2
-        + frequency_start
-    )
+        (frequency_end - frequency_start) / transmit_duration_nominal
+    ) * t / 2 + frequency_start
     y_tmp = (
         np.sqrt((transmit_power / 4) * (2 * z_et))  # amplitude
         * np.cos(2 * np.pi * chirp_fac * t)  # chirp
@@ -185,15 +184,16 @@ def compress_pulse(echodata: EchoData, chirp, chan_BB=None):
         pc = xr.apply_ufunc(
             lambda m: np.apply_along_axis(
                 lambda m: (
-                    signal.convolve(m, replica, mode='full')[tx.size - 1:]
+                    signal.convolve(m, replica, mode="full")[tx.size - 1 :]
                     / np.linalg.norm(tx) ** 2
                 ),
-                axis=2, arr=m
+                axis=2,
+                arr=m,
             ),
             backscatter_chan,
-            input_core_dims=[['range_sample']],
-            output_core_dims=[['range_sample']],
-            exclude_dims={'range_sample'},
+            input_core_dims=[["range_sample"]],
+            output_core_dims=[["range_sample"]],
+            exclude_dims={"range_sample"},
         )
 
         # Expand dimension and add name to allow merge
