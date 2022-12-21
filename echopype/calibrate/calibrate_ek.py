@@ -295,7 +295,7 @@ class CalibrateEK80(CalibrateEK):
         absorption = self.env_params["sound_absorption"].sel(channel=chan_sel)
         range_meter = self.range_meter.sel(channel=chan_sel)
         if waveform_mode == "BB":
-            # use true center frequency for BB pulse
+            # use true center frequency for BB pulse  # TODO: BUG!
             wavelength = sound_speed / self.echodata["Sonar/Beam_group1"].frequency_nominal.sel(
                 channel=chan_sel
             )
@@ -341,7 +341,7 @@ class CalibrateEK80(CalibrateEK):
             if waveform_mode == "BB":
                 psifc = self.echodata["Sonar/Beam_group1"]["equivalent_beam_angle"].sel(
                     channel=chan_sel
-                ) + 10 * np.log10(
+                ) + 10 * np.log10(  # TODO: BUGS! should be 20 * log10
                     self.echodata["Vendor_specific"].frequency_nominal.sel(channel=chan_sel)
                     / freq_center
                 )
