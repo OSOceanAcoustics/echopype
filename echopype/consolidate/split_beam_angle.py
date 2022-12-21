@@ -43,9 +43,8 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
     # raw_angle scaling constant
     conversion_const = 180.0 / 128.0
 
-    # TODO: is this function useful or just annoying? Should we put it outside this function?
-    def compute_split_beam_beamtype1(angle_type: str) -> xr.Dataset:
-        """Compute a split-beam angle for ``beam_type=1`` based on ``angle_type``"""
+    def _e2f(angle_type: str) -> xr.Dataset:
+        """Convert electric angle to physical angle for split-beam data"""
         return (
             conversion_const
             * ds_beam[f"angle_{angle_type}"]
@@ -57,10 +56,10 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
     if np.all(ds_beam["beam_type"].data == 1):
 
         # obtain split-beam alongship angle
-        theta_fc = compute_split_beam_beamtype1(angle_type="alongship")
+        theta_fc = _e2f(angle_type="alongship")
 
         # obtain split-beam athwartship angle
-        phi_fc = compute_split_beam_beamtype1(angle_type="athwartship")
+        phi_fc = _e2f(angle_type="athwartship")
 
     else:
         raise NotImplementedError(
