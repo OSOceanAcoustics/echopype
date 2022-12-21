@@ -31,7 +31,7 @@ def validate_and_collect_mask_input(
     Parameters
     ----------
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
-        The mask(s) to be applied. 
+        The mask(s) to be applied.
         Can be a single input or list that corresponds to a DataArray or a path. If a path
         is provided this should point to a zarr or netcdf file with only one data variable in it.
     storage_options_mask: dict or list of dict, default={}
@@ -169,7 +169,7 @@ def apply_mask(
     var_name: str
         The variable name in ``source_ds`` that the mask should be applied to
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
-        The mask(s) to be applied. 
+        The mask(s) to be applied.
         Can be a single input or list that corresponds to a DataArray or a path. If a path
         is provided this should point to a zarr or netcdf file with only one data variable in it.
     fill_value: int or float or np.ndarray or xr.DataArray, default=np.nan
