@@ -64,7 +64,8 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
 
     else:
         raise NotImplementedError(
-            "Computing physical split-beam angle is only available for data from split-beam transducers!"
+            "Computing physical split-beam angle is only available for data "
+            "from split-beam transducers!"
         )
 
     # drop the beam dimension in theta_fc and phi_fc, if it exists
