@@ -334,7 +334,7 @@ def add_splitbeam_angle(
         if pulse_compression:  # with pulse compression
             theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
         else:  # without pulse compression
-            theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam)
+            theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam, ed=echodata)
 
     # add theta_fc and phi_fc to source_Sv input
     source_Sv = _add_splitbeam_angle_to_ds(
