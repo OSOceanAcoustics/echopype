@@ -6,9 +6,6 @@ from ..echodata import EchoData
 from .cal_params import get_vend_cal_params_complex_EK80
 
 
-# TODO: can eliminate use of cal_obj for a few functions and just use echodata:
-#       - fs can be set from the outset and passed in as input arg
-#       - z_et, z_er are stored in raw file
 def tapered_chirp(
     fs,
     z_et,
@@ -31,10 +28,14 @@ def tapered_chirp(
     wtx = np.concatenate(
         [wtx_tmp[0:nwtxh], np.ones((t.size - nwtx)), wtx_tmp[nwtxh:]]
     )  # assemble full tapering window
+    chirp_fac = (
+        ((frequency_end - frequency_start) / transmit_duration_nominal) * t / 2
+        + frequency_start
+    )
     y_tmp = (
         np.sqrt((transmit_power / 4) * (2 * z_et))  # amplitude
-        * signal.chirp(t, frequency_start, t[-1], frequency_end)
-        * wtx
+        * np.cos(2 * np.pi * chirp_fac * t)  # chirp
+        * wtx  # tapering
     )  # taper and scale linear chirp
     return y_tmp / np.max(np.abs(y_tmp)), t  # amp has no actual effect
 
@@ -84,7 +85,7 @@ def get_tau_effective(ytx: np.array, fs_deci: float, waveform_mode: str):
     """
     if waveform_mode == "BB":
         ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
-        ptxa = abs(ytxa) ** 2
+        ptxa = np.abs(ytxa) ** 2
     elif waveform_mode == "CW":
         ptxa = np.abs(ytx) ** 2  # energy of transmit signal
     return ptxa.sum() / (ptxa.max() * fs_deci)
@@ -144,6 +145,9 @@ def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: 
         tau_effective_tmp = get_tau_effective(
             ytx=y_tmp, fs_deci=fs_deci, waveform_mode=waveform_mode
         )
+        # TODO: tau_effective_tmp has a ping_time dimension
+        # because fs_deci has a ping_time dimension,
+        # probably should be removed
 
         y_all[chan] = y_tmp
         y_time_all[chan] = y_tmp_time
@@ -171,16 +175,27 @@ def compress_pulse(echodata: EchoData, chirp, chan_BB=None):
     for chan in chan_BB:
         backscatter_chan = (
             backscatter.sel(channel=chan)
-            .dropna(dim="range_sample", how="all")
+            # .dropna(dim="range_sample", how="all")
             .dropna(dim="beam", how="all")
-            .dropna(dim="ping_time")
+            # .dropna(dim="ping_time")
         )
-        replica = xr.DataArray(np.conj(chirp[str(chan.values)]), dims="window")
-        # Pulse compression via rolling
-        pc = (
-            backscatter_chan.rolling(range_sample=replica.size).construct("window").dot(replica)
-            / np.linalg.norm(chirp[str(chan.values)]) ** 2
+
+        tx = chirp[str(chan.values)]
+        replica = np.flipud(np.conj(tx))
+        pc = xr.apply_ufunc(
+            lambda m: np.apply_along_axis(
+                lambda m: (
+                    signal.convolve(m, replica, mode='full')[tx.size - 1:]
+                    / np.linalg.norm(tx) ** 2
+                ),
+                axis=2, arr=m
+            ),
+            backscatter_chan,
+            input_core_dims=[['range_sample']],
+            output_core_dims=[['range_sample']],
+            exclude_dims={'range_sample'},
         )
+
         # Expand dimension and add name to allow merge
         pc = pc.expand_dims(dim="channel")
         pc.name = "pulse_compressed_output"
