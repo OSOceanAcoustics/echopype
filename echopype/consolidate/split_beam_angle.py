@@ -158,12 +158,6 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, 
         The calculated split-beam alongship angle
     phi_fc: xr.Dataset
         The calculated split-beam athwartship angle
-
-    Notes
-    -----
-    Calculation is done by estimating the sphere position in the beam via split-beam
-    processing. The estimate is in a band-average sense i.e. by computing the phase
-    difference via the pulse compression outputs from combined transducer sectors.
     """
 
     # ensure that the beam_type is appropriate for calculation
