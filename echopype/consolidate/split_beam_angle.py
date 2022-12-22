@@ -197,7 +197,9 @@ def _get_offset(
         if ch in ed["Vendor_specific"]["cal_channel_id"]:
             # calculate offsets using Vendor_specific values
             offset_along.append(
-                _get_interp_offset(param="angle_offset_alongship", chan_id=ch, freq_center=fc, ed=ed)
+                _get_interp_offset(
+                    param="angle_offset_alongship", chan_id=ch, freq_center=fc, ed=ed
+                )
             )
             offset_athwart.append(
                 _get_interp_offset(
