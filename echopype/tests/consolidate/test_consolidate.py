@@ -315,6 +315,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
         reduced_angle_alongship = ds_Sv.isel(channel=chan_ind, ping_time=0).angle_alongship.dropna("range_sample")
         reduced_angle_athwartship = ds_Sv.isel(channel=chan_ind, ping_time=0).angle_athwartship.dropna("range_sample")
 
+        # TODO: make "start" below a parameter in the input so that this is not ad-hoc but something known
         # for some files the echoview data is shifted by one index, here we account for that
         if reduced_angle_alongship.shape == (echoview_arr_list[chan_ind].shape[1], ):
             start = 0
