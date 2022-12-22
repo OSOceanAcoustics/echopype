@@ -12,10 +12,6 @@ from echopype import open_raw
 import pytest
 
 
-@pytest.fixture
-def azfp_path(test_path):
-    return test_path["AZFP"]
-
 def check_platform_required_vars(echodata):
     # check convention-required variables in the Platform group
     for var in [
@@ -38,10 +34,9 @@ def check_platform_required_vars(echodata):
         assert np.isnan(echodata["Platform"][var])
 
 
-def test_convert_azfp_01a_matlab_raw(azfp_path):
+def test_convert_azfp_01a_matlab_raw(azfp_conversion_file, azfp_path):
     """Compare parsed raw data with Matlab outputs."""
-    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
-    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
+    azfp_01a_path, azfp_xml_path = azfp_conversion_file
     azfp_matlab_data_path = str(
         azfp_path.joinpath('from_matlab', '17082117_matlab_Data.mat')
     )
@@ -116,11 +111,9 @@ def test_convert_azfp_01a_matlab_derived():
                  + " against Matlab derived data have not been implemented yet.")
 
 
-def test_convert_azfp_01a_raw_echoview(azfp_path):
+def test_convert_azfp_01a_raw_echoview(azfp_conversion_file, azfp_path):
     """Compare parsed power data (count) with csv exported by EchoView."""
-    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
-    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
-
+    azfp_01a_path, azfp_xml_path = azfp_conversion_file
     # Read csv files exported by EchoView
     azfp_csv_path = [
         azfp_path.joinpath('from_echoview', '17082117-raw%d.csv' % freq)

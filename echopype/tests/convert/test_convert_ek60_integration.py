@@ -2,12 +2,6 @@ import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
-import pytest
-
-
-@pytest.fixture
-def ek60_path(test_path):
-    return test_path["EK60"]
 
 
 # raw_paths = ['./echopype/test_data/ek60/set1/' + file
@@ -20,14 +14,11 @@ def ek60_path(test_path):
 # raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
 
 
-def test_convert_ek60_matlab_raw(ek60_path):
+def test_convert_ek60_matlab_raw(test_path):
     """Compare parsed Beam group data with Matlab outputs."""
-    ek60_raw_path = str(
-        ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
-    )
-    ek60_matlab_path = str(
-        ek60_path.joinpath(
-            'from_matlab', 'DY1801_EK60-D20180211-T164025_rawData.mat'
+    ek60_raw_path = test_path["EK60"].joinpath('DY1801_EK60-D20180211-T164025.raw')
+    ek60_matlab_path = (
+        test_path["EK60"].joinpath('from_matlab', 'DY1801_EK60-D20180211-T164025_rawData.mat'
         )
     )
 
@@ -88,13 +79,11 @@ def test_convert_ek60_matlab_raw(ek60_path):
         )
 
 
-def test_convert_ek60_echoview_raw(ek60_path):
+def test_convert_ek60_echoview_raw(test_path):
     """Compare parsed power data (count) with csv exported by EchoView."""
-    ek60_raw_path = str(
-        ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
-    )
+    ek60_raw_path = test_path["EK60"].joinpath('DY1801_EK60-D20180211-T164025.raw')
     ek60_csv_path = [
-        ek60_path.joinpath(
+        test_path["EK60"].joinpath(
             'from_echoview', 'DY1801_EK60-D20180211-T164025-Power%d.csv' % freq
         )
         for freq in [18, 38, 70, 120, 200]
@@ -156,11 +145,11 @@ def test_convert_ek60_echoview_raw(ek60_path):
     assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 
-def test_convert_ek60_duplicate_ping_times(ek60_path):
+def test_convert_ek60_duplicate_ping_times(test_path):
     """Convert a file with duplicate ping times"""
 
     raw_path = (
-        ek60_path
+        test_path["EK60"]
         / "ooi"
         / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
     )
@@ -170,11 +159,11 @@ def test_convert_ek60_duplicate_ping_times(ek60_path):
     assert "old_ping_time" in ed["Provenance"]
 
 
-def test_convert_ek60_duplicate_frequencies(ek60_path):
+def test_convert_ek60_duplicate_frequencies(test_path):
     """Convert a file with duplicate frequencies"""
 
     raw_path = (
-        ek60_path
+        test_path["EK60"]
         / "DY1002_EK60-D20100318-T023008_rep_freq.raw"
     )
     ed = open_raw(raw_path, "EK60")
@@ -195,11 +184,11 @@ def test_convert_ek60_duplicate_frequencies(ek60_path):
     assert np.all(ed['Sonar/Beam_group1'].channel.values == truth_chan_vals)
 
 
-def test_convert_ek60_splitbeam_no_angle(ek60_path):
+def test_convert_ek60_splitbeam_no_angle(test_path):
     """Convert a file from a split-beam setup that does not record angle data."""
 
     raw_path = (
-        ek60_path
+        test_path["EK60"]
         / "NBP_B050N-D20180118-T090228.raw"
     )
     ed = open_raw(raw_path, "EK60")

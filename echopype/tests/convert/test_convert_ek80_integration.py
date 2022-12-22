@@ -1,29 +1,7 @@
-import pytest
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
-
-from echopype.testing import TEST_DATA_FOLDER
-
-
-@pytest.fixture
-def ek80_path(test_path):
-    return test_path["EK80"]
-
-
-def pytest_generate_tests(metafunc):
-    ek80_new_path = TEST_DATA_FOLDER / "ek80_new"
-    ek80_new_files = ek80_new_path.glob("**/*.raw")
-    if "ek80_new_file" in metafunc.fixturenames:
-        metafunc.parametrize(
-            "ek80_new_file", ek80_new_files, ids=lambda f: str(f.name)
-        )
-
-
-@pytest.fixture
-def ek80_new_file(request):
-    return request.param
 
 
 # raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
@@ -32,6 +10,7 @@ def ek80_new_file(request):
 #                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091105.raw']
 # raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
 #              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
+
 
 def check_env_xml(echodata):
     # check environment xml datagram
@@ -89,12 +68,10 @@ def test_convert(ek80_new_file, dump_output_dir):
     check_env_xml(echodata)
 
 
-def test_convert_ek80_complex_matlab(ek80_path):
+def test_convert_ek80_complex_matlab(ek80cw_bb_conversion_file, test_path):
     """Compare parsed EK80 CW power/angle data with Matlab parsed data."""
-    ek80_raw_path_bb = str(ek80_path.joinpath('D20170912-T234910.raw'))
-    ek80_matlab_path_bb = str(
-        ek80_path.joinpath('from_matlab', 'D20170912-T234910_data.mat')
-    )
+    ek80_raw_path_bb = ek80cw_bb_conversion_file
+    ek80_matlab_path_bb = test_path["EK80"].joinpath('from_matlab', 'D20170912-T234910_data.mat')
 
     # Convert file
     echodata = open_raw(raw_file=ek80_raw_path_bb, sonar_model='EK80')
@@ -255,10 +232,10 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
     assert (echodata["Platform"]["transducer_offset_z"] == 9.15).all()
 
 
-def test_convert_ek80_complex_echoview(ek80_path):
+def test_convert_ek80_complex_echoview(ek80cw_bb_conversion_file, test_path):
     """Compare parsed EK80 BB data with csv exported by EchoView."""
-    ek80_raw_path_bb = ek80_path.joinpath('D20170912-T234910.raw')
-    ek80_echoview_bb_power_csv = ek80_path.joinpath(
+    ek80_raw_path_bb = ek80cw_bb_conversion_file
+    ek80_echoview_bb_power_csv = test_path["EK80"].joinpath(
         'from_echoview', 'D20170912-T234910', '70 kHz raw power.complex.csv'
     )
 
@@ -317,9 +294,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
 
 def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     """Make sure can convert a single EK80 file containing both CW and BB mode data."""
-    ek80_raw_path_bb_cw = str(
-        ek80_path.joinpath('Summer2018--D20180905-T033113.raw')
-    )
+    ek80_raw_path_bb_cw = ek80_path.joinpath('Summer2018--D20180905-T033113.raw')
     echodata = open_raw(raw_file=ek80_raw_path_bb_cw, sonar_model='EK80')
 
     # Check there are both Sonar/Beam_group1 and /Sonar/Beam_power groups in the converted file
@@ -358,9 +333,7 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
 
 def test_convert_ek80_freq_subset(ek80_path):
     """Make sure we can convert EK80 file with multiple frequency channels off."""
-    ek80_raw_path_freq_subset = str(
-        ek80_path.joinpath('2019118 group2survey-D20191214-T081342.raw')
-    )
+    ek80_raw_path_freq_subset = ek80_path.joinpath('2019118 group2survey-D20191214-T081342.raw')
     echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
 
     # Check if converted output has only 2 frequency channels
