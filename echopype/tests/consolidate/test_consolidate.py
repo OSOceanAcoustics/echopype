@@ -333,3 +333,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
     if temp_dir:
         # remove the temporary directory, if it was created
         temp_dir.cleanup()
+
+
+# TODO: need a test for power/angle data, with mock EchoData object
+# containing some channels with single-beam data and some channels with split-beam data

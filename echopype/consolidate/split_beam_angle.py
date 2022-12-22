@@ -52,8 +52,10 @@ def get_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
             - ds_beam[f"angle_offset_{angle_type}"]
         )
 
-    # ensure that the beam_type is appropriate for calculation
-    if np.all(ds_beam["beam_type"].data != 0):
+    # add split-beam angle if at least one channel is split-beam
+    # in the case when some channels are split-beam and some single-beam
+    # the single-beam channels will be all NaNs and _e2f would run through and output NaNs
+    if not np.all(ds_beam["beam_type"].data == 0):
 
         # obtain split-beam alongship angle
         theta = _e2f(angle_type="alongship")
@@ -62,7 +64,7 @@ def get_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
         phi = _e2f(angle_type="athwartship")
 
     else:
-        raise NotImplementedError(
+        raise ValueError(
             "Computing physical split-beam angle is only available for data "
             "from split-beam transducers!"
         )
