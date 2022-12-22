@@ -245,14 +245,14 @@ def add_splitbeam_angle(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         If ``echodata`` has a sonar model that is not analogous to either EK60 or EK80
-    RuntimeError
+    ValueError
         If the input ``source_Sv`` does not have a ``channel`` dimension
-    RuntimeError
+    ValueError
         If ``source_Sv`` does not have appropriate dimension lengths in
         comparison to ``echodata`` data
-    RuntimeError
+    ValueError
         If the provided ``waveform_mode``, ``encode_mode``, and ``pulse_compression`` are not valid
     NotImplementedError
         If an unknown ``beam_type`` is encountered during the split-beam calculation
@@ -280,7 +280,7 @@ def add_splitbeam_angle(
 
     # ensure that echodata was produced by EK60 or EK80-like sensors
     if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        raise RuntimeError(
+        raise ValueError(
             "The sonar model that produced echodata does not have split-beam "
             "transducers, split-beam angles cannot be added to source_Sv!"
         )
@@ -314,7 +314,7 @@ def add_splitbeam_angle(
 
     # check that source_Sv at least has a channel dimension
     if "channel" not in source_Sv.variables:
-        raise RuntimeError("The input source_Sv Dataset must have a channel dimension!")
+        raise ValueError("The input source_Sv Dataset must have a channel dimension!")
 
     # set ds_beam, select the same channels that are in source_Sv
     ds_beam = echodata[encode_mode_ed_group].sel(channel=source_Sv.channel.values)
@@ -325,7 +325,7 @@ def add_splitbeam_angle(
         ds_beam.dims[dim] == source_Sv.dims[dim] for dim in ["channel", "ping_time", "range_sample"]
     ]
     if not same_dim_lens:
-        raise RuntimeError(
+        raise ValueError(
             "Input source_Sv does not have the same dimension lengths as all dimensions in ds_beam!"
         )
 
