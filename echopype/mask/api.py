@@ -17,7 +17,7 @@ str2ops = {
 }
 
 
-def validate_and_collect_mask_input(
+def _validate_and_collect_mask_input(
     mask: Union[
         Union[xr.DataArray, str, pathlib.Path], List[Union[xr.DataArray, str, pathlib.Path]]
     ],
@@ -202,7 +202,7 @@ def apply_mask(
         source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
 
     # validate and form the mask input to be used downstream
-    mask = validate_and_collect_mask_input(mask, storage_options_mask)
+    mask = _validate_and_collect_mask_input(mask, storage_options_mask)
 
     # ensure that var_name and fill_value were correctly provided
     _check_var_name_fill_value(source_ds, var_name, fill_value)

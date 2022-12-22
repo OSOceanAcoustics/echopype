@@ -10,7 +10,7 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import _check_source_Sv_freq_diff, validate_and_collect_mask_input, _check_var_name_fill_value
+from echopype.mask.api import _check_source_Sv_freq_diff, _validate_and_collect_mask_input, _check_var_name_fill_value
 
 from typing import List, Union, Optional
 
@@ -142,9 +142,12 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     return mock_ds
 
 
-def create_input_mask(mask: Union[np.ndarray, List[np.ndarray]],
-                      mask_file: Optional[Union[str, List[str]]],
-                      mask_coords: Union[xr.core.coordinates.DataArrayCoordinates, dict], n_chan: int):
+def create_input_mask(
+    mask: Union[np.ndarray, List[np.ndarray]],
+    mask_file: Optional[Union[str, List[str]]],
+    mask_coords: Union[xr.core.coordinates.DataArrayCoordinates, dict],
+    n_chan: int
+):
     """
     A helper function that correctly constructs the mask input, so it can be
     used for ``apply_mask`` related tests.
@@ -226,7 +229,6 @@ def create_input_mask(mask: Union[np.ndarray, List[np.ndarray]],
             mask_out = zarr_path
 
     return mask_out, temp_dir
-
 
 
 @pytest.mark.parametrize(
@@ -405,8 +407,8 @@ def test_validate_and_collect_mask_input(
     Notes
     -----
     The input for ``storage_options_mask`` will only contain the value `{}` or a list of
-    empty dictionaries as other options are already tested in `
-    `test_utils_io.py::test_validate_output_path`` and are therefore not included here.
+    empty dictionaries as other options are already tested in
+    ``test_utils_io.py::test_validate_output_path`` and are therefore not included here.
     """
 
     # construct channel values
@@ -417,9 +419,9 @@ def test_validate_and_collect_mask_input(
               "x": np.arange(n), "y": np.arange(n)}
 
     # create input mask and obtain temporary directory, if it was created
-    mask, temp_dir = create_input_mask(mask_np, mask_file, coords, n_chan)
+    mask, _ = create_input_mask(mask_np, mask_file, coords, n_chan)
 
-    mask_out = validate_and_collect_mask_input(mask=mask, storage_options_mask=storage_options_mask)
+    mask_out = _validate_and_collect_mask_input(mask=mask, storage_options_mask=storage_options_mask)
 
     if isinstance(mask_out, list):
         for ind, da in enumerate(mask_out):
