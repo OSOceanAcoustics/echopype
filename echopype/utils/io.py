@@ -2,6 +2,7 @@
 echopype utilities for file handling
 """
 import os
+import pathlib
 import platform
 import sys
 from pathlib import Path, WindowsPath
@@ -60,9 +61,13 @@ def get_file_format(file):
     elif isinstance(file, FSMap):
         file = file.root
 
-    if file.endswith(".nc"):
+    if isinstance(file, str) and file.endswith(".nc"):
         return "netcdf4"
-    elif file.endswith(".zarr"):
+    elif isinstance(file, str) and file.endswith(".zarr"):
+        return "zarr"
+    elif isinstance(file, pathlib.Path) and file.suffix == ".nc":
+        return "netcdf4"
+    elif isinstance(file, pathlib.Path) and file.suffix == ".zarr":
         return "zarr"
     else:
         raise ValueError(f"Unsupported file format: {os.path.splitext(file)[1]}")
