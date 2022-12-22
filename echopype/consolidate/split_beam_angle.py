@@ -75,73 +75,6 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
     return theta, phi
 
 
-def _compute_small_angle_approx_splitbeam_angle(
-    backscatter: xr.DataArray, angle_sensitivity: xr.DataArray, angle_offset: xr.DataArray
-) -> xr.DataArray:
-    """
-    Computes a split-beam angle based off of backscatter, angle sensitivity,
-    and angle offset using a small angle approximation of ``arcsin``.
-
-    Parameters
-    ----------
-    backscatter: xr.DataArray
-        The backscatter alongship or athwartship
-    angle_sensitivity: xr.DataArray
-        The angle sensitivity alongship or athwartship
-    angle_offset: xr.DataArray
-        The angle offset alongship or athwartship
-
-    Returns
-    -------
-    xr.DataArray
-        Computed Split-beam angle values alongship or athwartship
-    """
-    return (
-        np.arctan2(np.imag(backscatter), np.real(backscatter))
-        / angle_sensitivity  # convert from electrical angle to physical angle
-        / np.pi
-        * 180.0  # convert from radian to degree
-        - angle_offset  # correct for offset
-    )
-
-
-def _compute_backscatter_alongship_athwartship(
-    ds_beam: xr.Dataset,
-) -> Tuple[xr.DataArray, xr.DataArray]:
-    """
-    Computes the alongship or athwartship backscatter using the backscatter
-    along the forward, aft, starboard, and port directions.
-
-    Parameters
-    ----------
-    ds_beam: xr.Dataset
-        An ``EchoData`` beam group with ``backscatter_r`` and ``backscatter_i``
-        data in the forward, aft, starboard, and port directions
-
-    Returns
-    -------
-    backscatter_theta: xr.DataArray
-        The backscatter alongship
-    backscatter_phi: xr.DataArray
-        The backscatter athwartship
-    """
-
-    # get complex representation of backscatter
-    backscatter = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
-
-    # get backscatter in the forward, aft, starboard, and port directions
-    backscatter_fore = 0.5 * (backscatter.isel(beam=2) + backscatter.isel(beam=3))  # forward
-    backscatter_aft = 0.5 * (backscatter.isel(beam=0) + backscatter.isel(beam=1))  # aft
-    backscatter_star = 0.5 * (backscatter.isel(beam=0) + backscatter.isel(beam=3))  # starboard
-    backscatter_port = 0.5 * (backscatter.isel(beam=1) + backscatter.isel(beam=2))  # port
-
-    # compute the alongship and athwartship backscatter
-    backscatter_theta = backscatter_fore * np.conj(backscatter_aft)  # alongship
-    backscatter_phi = backscatter_star * np.conj(backscatter_port)  # athwartship
-
-    return backscatter_theta, backscatter_phi
-
-
 def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Obtains the split-beam angle data from complex encoded data with CW waveform.
@@ -163,32 +96,27 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, 
     # ensure that the beam_type is appropriate for calculation
     if np.all(ds_beam["beam_type"].data == 1):
 
-        # get backscatter alongship and athwartship
-        backscatter_theta, backscatter_phi = _compute_backscatter_alongship_athwartship(ds_beam)
+        # get complex representation of backscatter
+        backscatter = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
 
         # get angle sensitivity alongship and athwartship
-        angle_sensitivity_alongship_fc = ds_beam["angle_sensitivity_alongship"].isel(
+        angle_sensitivity_alongship = ds_beam["angle_sensitivity_alongship"].isel(
             ping_time=0, beam=0
         )
-        angle_sensitivity_athwartship_fc = ds_beam["angle_sensitivity_athwartship"].isel(
+        angle_sensitivity_athwartship = ds_beam["angle_sensitivity_athwartship"].isel(
             ping_time=0, beam=0
         )
 
         # get angle offset alongship and athwartship
-        angle_offset_alongship_fc = ds_beam["angle_offset_alongship"].isel(ping_time=0, beam=0)
-        angle_offset_athwartship_fc = ds_beam["angle_offset_athwartship"].isel(ping_time=0, beam=0)
+        angle_offset_alongship = ds_beam["angle_offset_alongship"].isel(ping_time=0, beam=0)
+        angle_offset_athwartship = ds_beam["angle_offset_athwartship"].isel(ping_time=0, beam=0)
 
-        # compute split-beam angle alongship for beam_type=1
-        theta = _compute_small_angle_approx_splitbeam_angle(
-            backscatter=backscatter_theta,
-            angle_sensitivity=angle_sensitivity_alongship_fc,
-            angle_offset=angle_offset_alongship_fc,
-        )
-        # compute split-beam angle athwartship for beam_type=1
-        phi = _compute_small_angle_approx_splitbeam_angle(
-            backscatter=backscatter_phi,
-            angle_sensitivity=angle_sensitivity_athwartship_fc,
-            angle_offset=angle_offset_athwartship_fc,
+        # obtain the split-beam angle data
+        theta, phi = get_splitbeam(
+            bs=backscatter,
+            beam_type=1,
+            sens=[angle_sensitivity_alongship, angle_sensitivity_athwartship],
+            offset=[angle_offset_alongship, angle_offset_athwartship],
         )
 
     else:
