@@ -10,7 +10,7 @@ import xarray as xr
 from ..echodata import EchoData
 
 
-def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
+def get_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
     """
     Obtains the split-beam angle data from power encoded data with CW waveform.
 
@@ -75,7 +75,7 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
     return theta, phi
 
 
-def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
+def get_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Obtains the split-beam angle data from complex encoded data with CW waveform.
 
@@ -112,7 +112,7 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, 
         angle_offset_athwartship = ds_beam["angle_offset_athwartship"].isel(ping_time=0, beam=0)
 
         # obtain the split-beam angle data
-        theta, phi = get_splitbeam(
+        theta, phi = _compute_angle_from_complex(
             bs=backscatter,
             beam_type=1,
             sens=[angle_sensitivity_alongship, angle_sensitivity_athwartship],
@@ -130,14 +130,14 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, 
     return theta, phi
 
 
-def get_interp_offset(
+def _get_interp_offset(
     param: str, chan_id: str, freq_center: xr.DataArray, ed: EchoData
 ) -> np.ndarray:
     """
     Obtains an angle offset by first interpolating the
     ``angle_offset_alongship`` or ``angle_offset_athwartship``
     data found in the ``Vendor_specific`` group and then
-    selecting the offset corresponding to the frequency center
+    selecting the offset corresponding to the center frequency
     value for ``channel=chan_id``.
 
     Parameters
@@ -145,9 +145,9 @@ def get_interp_offset(
     param: {"angle_offset_alongship", "angle_offset_athwartship"}
         The angle offset data to select in the ``Vendor_specific`` group
     chan_id: str
-        The channel used to select the frequency center value
+        The channel used to select the center frequency value
     freq_center: xr.DataArray
-        An Array filled with frequency center values with coordinate ``channel``
+        A DataArray filled with center frequency values with coordinate ``channel``
     ed: EchoData
         An ``EchoData`` object holding the raw data
 
@@ -163,18 +163,18 @@ def get_interp_offset(
     ).values
 
 
-def get_offset(
-    ds_b: xr.Dataset, fc: xr.DataArray, freq_nominal: xr.DataArray, ed: EchoData
+def _get_offset(
+    ds_beam: xr.Dataset, fc: xr.DataArray, freq_nominal: xr.DataArray, ed: EchoData
 ) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Obtains the alongship and athwartship angle offsets.
 
     Parameters
     ----------
-    ds_b: xr.Dataset
+    ds_beam: xr.Dataset
         The dataset corresponding to a beam group
     fc: xr.DataArray
-        Array corresponding to the frequency center
+        Array corresponding to the center frequency
     freq_nominal: xr.DataArray
         Array of frequency nominal values
     ed: EchoData
@@ -195,26 +195,24 @@ def get_offset(
     # obtain the offsets for each channel
     for ch in fc["channel"].values:
         if ch in ed["Vendor_specific"]["cal_channel_id"]:
-
             # calculate offsets using Vendor_specific values
             offset_along.append(
-                get_interp_offset(param="angle_offset_alongship", chan_id=ch, freq_center=fc, ed=ed)
+                _get_interp_offset(param="angle_offset_alongship", chan_id=ch, freq_center=fc, ed=ed)
             )
             offset_athwart.append(
-                get_interp_offset(
+                _get_interp_offset(
                     param="angle_offset_athwartship", chan_id=ch, freq_center=fc, ed=ed
                 )
             )
         else:
-
-            # calculate offsets using data in ds_b
+            # calculate offsets using data in ds_beam
             offset_along.append(
-                ds_b["angle_offset_alongship"].sel(channel=ch).isel(ping_time=0, beam=0)
+                ds_beam["angle_offset_alongship"].sel(channel=ch).isel(ping_time=0, beam=0)
                 * fc.sel(channel=ch)
                 / freq_nominal.sel(channel=ch)
             )
             offset_athwart.append(
-                ds_b["angle_offset_athwartship"].sel(channel=ch).isel(ping_time=0, beam=0)
+                ds_beam["angle_offset_athwartship"].sel(channel=ch).isel(ping_time=0, beam=0)
                 * fc.sel(channel=ch)
                 / freq_nominal.sel(channel=ch)
             )
@@ -229,7 +227,7 @@ def get_offset(
     return offset_along, offset_athwart
 
 
-def get_splitbeam(
+def _compute_angle_from_complex(
     bs: xr.Dataset, beam_type: int, sens: List[xr.DataArray], offset: List[xr.DataArray]
 ):
     """
@@ -310,12 +308,12 @@ def get_splitbeam(
     return theta, phi
 
 
-def _get_splitbeam_angle_complex_BB_nopc(
+def get_angle_complex_BB_nopc(
     ds_beam: xr.Dataset, ed: EchoData
 ) -> Tuple[xr.DataArray, xr.DataArray]:
     """
-    Obtains the split-beam angle data from complex encoded data with BB waveform
-    and without using pulse compression.
+    Obtains the split-beam angle data from complex samples from broadband transmit signals
+    without pulse compression.
 
     Parameters
     ----------
@@ -340,8 +338,8 @@ def _get_splitbeam_angle_complex_BB_nopc(
     freq_center = (ds_beam["frequency_start"] + ds_beam["frequency_end"]).isel(beam=0) / 2
 
     # obtain the angle alongship and athwartship offsets
-    offset_along, offset_athwart = get_offset(
-        ds_b=ds_beam, fc=freq_center, freq_nominal=freq_nominal, ed=ed
+    offset_along, offset_athwart = _get_offset(
+        ds_beam=ds_beam, fc=freq_center, freq_nominal=freq_nominal, ed=ed
     )
 
     # obtain the angle sensitivity values alongship and athwartship
@@ -359,7 +357,7 @@ def _get_splitbeam_angle_complex_BB_nopc(
 
     # obtain the split-beam angle data for each channel
     for chan_id in backscatter.channel.values:
-        theta, phi = get_splitbeam(
+        theta, phi = _compute_angle_from_complex(
             bs=backscatter.sel(channel=chan_id),
             beam_type=int(ds_beam["beam_type"].sel(channel=chan_id).isel(ping_time=0)),
             sens=[sens_along.sel(channel=chan_id), sens_athwart.sel(channel=chan_id)],
@@ -391,10 +389,10 @@ def _get_splitbeam_angle_complex_BB_nopc(
     return theta, phi
 
 
-def _get_splitbeam_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
+def get_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
     """
-    Obtains the split-beam angle data from complex encoded data with BB waveform
-    and with pulse compression.
+    Obtains the split-beam angle data from complex samples from broadband transmit signals
+    after pulse compression.
 
     Parameters
     ----------
@@ -412,13 +410,14 @@ def _get_splitbeam_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArra
 
     # TODO: make sure to check that the appropriate beam_type is being used
     raise NotImplementedError(
-        "Obtaining the split-beam angle data using " "pulse compression has not been implemented!"
+        "Obtaining the split-beam angle data using pulse compressed "
+        "backscatter has not been implemented!"
     )
 
     return xr.DataArray(), xr.DataArray()
 
 
-def _add_splitbeam_angle_to_ds(
+def add_angle_to_ds(
     theta: xr.Dataset,
     phi: xr.Dataset,
     ds: xr.Dataset,

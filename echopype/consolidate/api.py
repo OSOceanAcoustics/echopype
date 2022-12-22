@@ -9,11 +9,11 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import validate_source_ds_da
 from .split_beam_angle import (
-    _add_splitbeam_angle_to_ds,
-    _get_splitbeam_angle_complex_BB_nopc,
-    _get_splitbeam_angle_complex_BB_pc,
-    _get_splitbeam_angle_complex_CW,
-    _get_splitbeam_angle_power_CW,
+    add_angle_to_ds,
+    get_angle_complex_BB_nopc,
+    get_angle_complex_BB_pc,
+    get_angle_complex_CW,
+    get_angle_power_CW,
 )
 
 
@@ -270,7 +270,7 @@ def add_splitbeam_angle(
     In most cases where the type of samples collected by the echosounder (power/angle
     samples or complex samples) and the transmit waveform (broadband or narrowband)
     are identical across all channels, the channels existing in ``source_Sv`` and `
-    `echodata`` will be identical. If this is not the case, only angle data correspond
+    `echodata`` will be identical. If this is not the case, only angle data corresponding
     to channels existing in ``source_Sv`` will be added.
 
     For EK80 broadband data, the split-beam angles can be estimated from the complex data.
@@ -333,18 +333,18 @@ def add_splitbeam_angle(
     # CW mode data
     if waveform_mode == "CW":
         if encode_mode == "power":  # power data
-            theta, phi = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
+            theta, phi = get_angle_power_CW(ds_beam=ds_beam)
         else:  # complex data
-            theta, phi = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
+            theta, phi = get_angle_complex_CW(ds_beam=ds_beam)
     # BB mode data
     else:
         if pulse_compression:  # with pulse compression
-            theta, phi = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
+            theta, phi = get_angle_complex_BB_pc(ds_beam=ds_beam)
         else:  # without pulse compression
-            theta, phi = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam, ed=echodata)
+            theta, phi = get_angle_complex_BB_nopc(ds_beam=ds_beam, ed=echodata)
 
     # add theta and phi to source_Sv input
-    source_Sv = _add_splitbeam_angle_to_ds(
+    source_Sv = add_angle_to_ds(
         theta, phi, source_Sv, return_dataset, source_Sv_path, file_type, storage_options
     )
 
