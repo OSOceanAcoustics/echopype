@@ -43,4 +43,6 @@ repos:
     rev: v2.1.0
     hooks:
       - id: codespell
-        args: ["--skip=*.ipynb", "-w", "docs/source", "echopype"]
+        # Checks spelling in `docs/source` and `echopype` dirs ONLY
+        # Ignores `.ipynb` files and `_build` folders
+        args: ["--skip=*.ipynb,docs/source/_build", "-w", "docs/source", "echopype"]
