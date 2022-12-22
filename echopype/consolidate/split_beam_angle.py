@@ -99,7 +99,8 @@ def _compute_small_angle_approx_splitbeam_angle(
     return (
         np.arctan2(np.imag(backscatter), np.real(backscatter))
         / angle_sensitivity  # convert from electrical angle to physical angle
-        / np.pi * 180.0  # convert from radian to degree
+        / np.pi
+        * 180.0  # convert from radian to degree
         - angle_offset  # correct for offset
     )
 
