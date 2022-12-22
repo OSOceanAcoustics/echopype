@@ -22,9 +22,9 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
 
     Returns
     -------
-    theta_fc: xr.Dataset
+    theta: xr.Dataset
         The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
+    phi: xr.Dataset
         The calculated split-beam athwartship angle
 
     Raises
@@ -56,10 +56,10 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
     if np.all(ds_beam["beam_type"].data == 1):
 
         # obtain split-beam alongship angle
-        theta_fc = _e2f(angle_type="alongship")
+        theta = _e2f(angle_type="alongship")
 
         # obtain split-beam athwartship angle
-        phi_fc = _e2f(angle_type="athwartship")
+        phi = _e2f(angle_type="athwartship")
 
     else:
         raise NotImplementedError(
@@ -67,12 +67,12 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
             "from split-beam transducers!"
         )
 
-    # drop the beam dimension in theta_fc and phi_fc, if it exists
-    if "beam" in theta_fc.dims:
-        theta_fc = theta_fc.drop("beam").squeeze(dim="beam")
-        phi_fc = phi_fc.drop("beam").squeeze(dim="beam")
+    # drop the beam dimension in theta and phi, if it exists
+    if "beam" in theta.dims:
+        theta = theta.drop("beam").squeeze(dim="beam")
+        phi = phi.drop("beam").squeeze(dim="beam")
 
-    return theta_fc, phi_fc
+    return theta, phi
 
 
 def _compute_small_angle_approx_splitbeam_angle(
@@ -154,9 +154,9 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, 
 
     Returns
     -------
-    theta_fc: xr.Dataset
+    theta: xr.Dataset
         The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
+    phi: xr.Dataset
         The calculated split-beam athwartship angle
     """
 
@@ -179,13 +179,13 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, 
         angle_offset_athwartship_fc = ds_beam["angle_offset_athwartship"].isel(ping_time=0, beam=0)
 
         # compute split-beam angle alongship for beam_type=1
-        theta_fc = _compute_small_angle_approx_splitbeam_angle(
+        theta = _compute_small_angle_approx_splitbeam_angle(
             backscatter=backscatter_theta,
             angle_sensitivity=angle_sensitivity_alongship_fc,
             angle_offset=angle_offset_alongship_fc,
         )
         # compute split-beam angle athwartship for beam_type=1
-        phi_fc = _compute_small_angle_approx_splitbeam_angle(
+        phi = _compute_small_angle_approx_splitbeam_angle(
             backscatter=backscatter_phi,
             angle_sensitivity=angle_sensitivity_athwartship_fc,
             angle_offset=angle_offset_athwartship_fc,
@@ -194,12 +194,12 @@ def _get_splitbeam_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, 
     else:
         raise NotImplementedError("Computing split-beam angle is only available for beam_type=1!")
 
-    # drop the beam dimension in theta_fc and phi_fc, if it exists
-    if "beam" in theta_fc.coords:
-        theta_fc = theta_fc.drop_vars("beam")
-        phi_fc = phi_fc.drop("beam")
+    # drop the beam dimension in theta and phi, if it exists
+    if "beam" in theta.coords:
+        theta = theta.drop_vars("beam")
+        phi = phi.drop("beam")
 
-    return theta_fc, phi_fc
+    return theta, phi
 
 
 def get_interp_offset(
@@ -399,9 +399,9 @@ def _get_splitbeam_angle_complex_BB_nopc(
 
     Returns
     -------
-    theta_fc: xr.Dataset
+    theta: xr.Dataset
         The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
+    phi: xr.Dataset
         The calculated split-beam athwartship angle
     """
 
@@ -442,7 +442,7 @@ def _get_splitbeam_angle_complex_BB_nopc(
         phi_channels.append(phi)
 
     # collect and construct final DataArrays for split-beam angle data
-    theta_fc = xr.DataArray(
+    theta = xr.DataArray(
         data=theta_channels,
         coords={
             "channel": backscatter.channel,
@@ -451,7 +451,7 @@ def _get_splitbeam_angle_complex_BB_nopc(
         },
     )
 
-    phi_fc = xr.DataArray(
+    phi = xr.DataArray(
         data=phi_channels,
         coords={
             "channel": backscatter.channel,
@@ -460,7 +460,7 @@ def _get_splitbeam_angle_complex_BB_nopc(
         },
     )
 
-    return theta_fc, phi_fc
+    return theta, phi
 
 
 def _get_splitbeam_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
@@ -476,9 +476,9 @@ def _get_splitbeam_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArra
 
     Returns
     -------
-    theta_fc: xr.Dataset
+    theta: xr.Dataset
         The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
+    phi: xr.Dataset
         The calculated split-beam athwartship angle
     """
 
@@ -491,8 +491,8 @@ def _get_splitbeam_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArra
 
 
 def _add_splitbeam_angle_to_ds(
-    theta_fc: xr.Dataset,
-    phi_fc: xr.Dataset,
+    theta: xr.Dataset,
+    phi: xr.Dataset,
     ds: xr.Dataset,
     return_dataset: bool,
     source_ds_path: Optional[str] = None,
@@ -504,12 +504,12 @@ def _add_splitbeam_angle_to_ds(
 
     Parameters
     ----------
-    theta_fc: xr.Dataset
+    theta: xr.Dataset
         The calculated split-beam alongship angle
-    phi_fc: xr.Dataset
+    phi: xr.Dataset
         The calculated split-beam athwartship angle
     ds: xr.Dataset
-        The Dataset that ``theta_fc`` and ``phi_fc`` will be added to
+        The Dataset that ``theta`` and ``phi`` will be added to
     return_dataset: bool
         Whether a dataset will be returned or not
     source_ds_path: str, optional
@@ -530,17 +530,17 @@ def _add_splitbeam_angle_to_ds(
     """
 
     # TODO: do we want to add anymore attributes to these variables?
-    # add appropriate attributes to theta_fc and phi_fc
-    theta_fc.attrs["long_name"] = "split-beam alongship angle"
-    phi_fc.attrs["long_name"] = "split-beam athwartship angle"
+    # add appropriate attributes to theta and phi
+    theta.attrs["long_name"] = "split-beam alongship angle"
+    phi.attrs["long_name"] = "split-beam athwartship angle"
 
     if source_ds_path is not None:
 
         # put the variables into a Dataset, so they can be written at the same time
         # add ds attributes to splitb_ds since they will be overwritten by to_netcdf/zarr
         splitb_ds = xr.Dataset(
-            data_vars={"angle_alongship": theta_fc, "angle_athwartship": phi_fc},
-            coords=theta_fc.coords,
+            data_vars={"angle_alongship": theta, "angle_athwartship": phi},
+            coords=theta.coords,
             attrs=ds.attrs,
         )
 
@@ -556,8 +556,8 @@ def _add_splitbeam_angle_to_ds(
     else:
 
         # add the split-beam angles to the provided Dataset
-        ds["angle_alongship"] = theta_fc
-        ds["angle_athwartship"] = phi_fc
+        ds["angle_alongship"] = theta
+        ds["angle_athwartship"] = phi
 
     if return_dataset and (source_ds_path is not None):
 

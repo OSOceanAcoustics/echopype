@@ -333,19 +333,19 @@ def add_splitbeam_angle(
     # CW mode data
     if waveform_mode == "CW":
         if encode_mode == "power":  # power data
-            theta_fc, phi_fc = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
+            theta, phi = _get_splitbeam_angle_power_CW(ds_beam=ds_beam)
         else:  # complex data
-            theta_fc, phi_fc = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
+            theta, phi = _get_splitbeam_angle_complex_CW(ds_beam=ds_beam)
     # BB mode data
     else:
         if pulse_compression:  # with pulse compression
-            theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
+            theta, phi = _get_splitbeam_angle_complex_BB_pc(ds_beam=ds_beam)
         else:  # without pulse compression
-            theta_fc, phi_fc = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam, ed=echodata)
+            theta, phi = _get_splitbeam_angle_complex_BB_nopc(ds_beam=ds_beam, ed=echodata)
 
-    # add theta_fc and phi_fc to source_Sv input
+    # add theta and phi to source_Sv input
     source_Sv = _add_splitbeam_angle_to_ds(
-        theta_fc, phi_fc, source_Sv, return_dataset, source_Sv_path, file_type, storage_options
+        theta, phi, source_Sv, return_dataset, source_Sv_path, file_type, storage_options
     )
 
     return source_Sv
