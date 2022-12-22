@@ -80,7 +80,7 @@ def _compute_small_angle_approx_splitbeam_angle(
 ) -> xr.DataArray:
     """
     Computes a split-beam angle based off of backscatter, angle sensitivity,
-    and angle offset using a small angle approximation of ``sin``.
+    and angle offset using a small angle approximation of ``arcsin``.
 
     Parameters
     ----------
