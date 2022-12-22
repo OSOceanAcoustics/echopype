@@ -318,29 +318,29 @@ def env_indep_joinpath(*args: Tuple[str, ...]) -> str:
     return joined_path
 
 
-def validate_source_ds(
-    source_ds: Union[xr.Dataset, str, Path], storage_options: Optional[dict]
+def validate_source_ds_da(
+    source_ds_da: Union[xr.Dataset, xr.DataArray, str, Path], storage_options: Optional[dict]
 ) -> Tuple[Union[xr.Dataset, str, xr.DataArray], Optional[str]]:
     """
-    This function ensures that ``source_ds`` is of the correct
-    type and validates the path of ``source_ds``, if it is provided.
+    This function ensures that ``source_ds_da`` is of the correct
+    type and validates the path of ``source_ds_da``, if it is provided.
 
     Parameters
     ----------
-    source_ds: xr.Dataset or str or pathlib.Path
-        A source that points to a Dataset. If the input is a path, it specifies
-        the path to a zarr or netcdf file.
+    source_ds_da: xr.Dataset, xr.DataArray, str or pathlib.Path
+        A source that points to a Dataset or DataArray. If the input is a path,
+        it specifies the path to a zarr or netcdf file.
     storage_options: dict, optional
         Any additional parameters for the storage backend, corresponding to the
-        path provided for ``source_ds``
+        path provided for ``source_ds_da``
 
     Returns
     -------
-    source_ds: xr.Dataset or str
-        A Dataset which will be the same as the input ``source_ds`` or a validated
-        path to a zarr or netcdf file
+    source_ds_da: xr.Dataset or xr.DataArray or str
+        A Dataset or DataArray which will be the same as the input ``source_ds_da`` or
+        a validated path to a zarr or netcdf file
     file_type: {"netcdf4", "zarr"}, optional
-        The file type of the input path if ``source_ds`` is a path, otherwise ``None``
+        The file type of the input path if ``source_ds_da`` is a path, otherwise ``None``
     """
 
     # initialize file_type
@@ -350,24 +350,24 @@ def validate_source_ds(
     if not isinstance(storage_options, dict):
         raise TypeError("storage_options must be a dict!")
 
-    # check that source_ds is of the correct type, if it is a path validate
-    # the path and open the dataset using xarray
-    if not isinstance(source_ds, (xr.Dataset, str, Path)):
-        raise TypeError("source_ds must be a Dataset or str or pathlib.Path!")
-    elif isinstance(source_ds, (str, Path)):
+    # check that source_ds_da is of the correct type, if it is a path validate
+    # the path and open the Dataset or DataArray using xarray
+    if not isinstance(source_ds_da, (xr.Dataset, xr.DataArray, str, Path)):
+        raise TypeError("source_ds_da must be a Dataset or DataArray or str or pathlib.Path!")
+    elif isinstance(source_ds_da, (str, Path)):
 
         # determine if we obtained a zarr or netcdf file
-        file_type = get_file_format(source_ds)
+        file_type = get_file_format(source_ds_da)
 
-        # validate source_ds if it is a path
-        source_ds = validate_output_path(
+        # validate source_ds_da if it is a path
+        source_ds_da = validate_output_path(
             source_file="blank",  # will be unused since source_ds cannot be none
             engine=file_type,
             output_storage_options=storage_options,
-            save_path=source_ds,
+            save_path=source_ds_da,
         )
 
         # check that the path exists
-        check_file_existence(file_path=source_ds, storage_options=storage_options)
+        check_file_existence(file_path=source_ds_da, storage_options=storage_options)
 
-    return source_ds, file_type
+    return source_ds_da, file_type

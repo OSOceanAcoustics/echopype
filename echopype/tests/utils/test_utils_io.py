@@ -6,7 +6,7 @@ from typing import Tuple
 import platform
 import xarray as xr
 
-from echopype.utils.io import sanitize_file_path, validate_output_path, env_indep_joinpath, validate_source_ds
+from echopype.utils.io import sanitize_file_path, validate_output_path, env_indep_joinpath, validate_source_ds_da
 
 
 @pytest.mark.parametrize(
@@ -260,18 +260,14 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
 
 
 @pytest.mark.parametrize(
-    ("source_ds_input", "storage_options_input", "true_file_type"),
+    ("source_ds_da_input", "storage_options_input", "true_file_type"),
     [
         pytest.param(42, {}, None,
                      marks=pytest.mark.xfail(
                          strict=True,
                          reason='This test should fail because source_ds is not of the correct type.')
                      ),
-        pytest.param(xr.DataArray(), {}, None,
-                     marks=pytest.mark.xfail(
-                         strict=True,
-                         reason='This test should fail because source_ds is not of the correct type.')
-                     ),
+        pytest.param(xr.DataArray(), {}, None),
         pytest.param({}, 42, None,
                      marks=pytest.mark.xfail(
                          strict=True,
@@ -283,17 +279,17 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
     ]
 
 )
-def test_validate_source_ds(source_ds_input, storage_options_input, true_file_type):
+def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_file_type):
     """
-    Tests that ``validate_source_ds`` has the appropriate outputs. 
-    An exhaustive list of combinations of ``source_ds`` and ``storage_options``
+    Tests that ``validate_source_ds_da`` has the appropriate outputs.
+    An exhaustive list of combinations of ``source_ds_da`` and ``storage_options``
     are tested in ``test_validate_output_path`` and are therefore not included here.
     """
 
-    source_ds_output, file_type_output = validate_source_ds(source_ds_input, storage_options_input)
+    source_ds_output, file_type_output = validate_source_ds_da(source_ds_da_input, storage_options_input)
 
-    if isinstance(source_ds_input, xr.Dataset):
-        assert source_ds_output.identical(source_ds_input)
+    if isinstance(source_ds_da_input, (xr.Dataset, xr.DataArray)):
+        assert source_ds_output.identical(source_ds_da_input)
         assert file_type_output is None
     else:
         assert isinstance(source_ds_output, str)
