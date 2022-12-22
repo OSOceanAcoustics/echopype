@@ -53,7 +53,7 @@ def _get_splitbeam_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.D
         )
 
     # ensure that the beam_type is appropriate for calculation
-    if np.all(ds_beam["beam_type"].data == 1):
+    if np.all(ds_beam["beam_type"].data != 0):
 
         # obtain split-beam alongship angle
         theta = _e2f(angle_type="alongship")
