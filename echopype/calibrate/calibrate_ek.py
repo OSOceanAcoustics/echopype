@@ -3,6 +3,7 @@ import xarray as xr
 from scipy import signal
 
 from ..echodata import EchoData
+from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils import uwa
 from ..utils.log import _init_logger
 from .calibrate_base import CAL_PARAMS, CalibrateBase
@@ -134,19 +135,16 @@ class CalibrateEK(CalibrateBase):
             else beam["equivalent_beam_angle"]
         )
 
-    def _cal_power(self, cal_type, use_beam_power=False) -> xr.Dataset:
+    def _cal_power(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
         """Calibrate power data from EK60 and EK80.
 
         Parameters
         ----------
-        cal_type : str
+        cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
-        use_beam_power : bool
-            whether to use beam_power.
-            If ``True`` use ``echodata["Sonar/Beam_group2"]``;
-            if ``False`` use ``echodata["Sonar/Beam_group1"]``.
-            Note ``echodata["Sonar/Beam_group2"]`` could only exist for EK80 data.
+        power_ed_group:
+            The ``EchoData`` beam group path containing the power data
 
         Returns
         -------
@@ -154,10 +152,7 @@ class CalibrateEK(CalibrateBase):
             The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
-        if use_beam_power:
-            beam = self.echodata["Sonar/Beam_group2"]
-        else:
-            beam = self.echodata["Sonar/Beam_group1"]
+        beam = self.echodata[power_ed_group]
 
         # Harmonize time coordinate between Beam_groupX data and env_params
         for p in self.env_params.keys():
@@ -284,10 +279,16 @@ class CalibrateEK60(CalibrateEK):
             )
 
     def compute_Sv(self, **kwargs):
-        return self._cal_power(cal_type="Sv")
+        power_ed_group = retrieve_correct_beam_group(
+            echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
+        )
+        return self._cal_power(cal_type="Sv", power_ed_group=power_ed_group)
 
     def compute_TS(self, **kwargs):
-        return self._cal_power(cal_type="TS")
+        power_ed_group = retrieve_correct_beam_group(
+            echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
+        )
+        return self._cal_power(cal_type="TS", power_ed_group=power_ed_group)
 
 
 class CalibrateEK80(CalibrateEK):
@@ -883,78 +884,22 @@ class CalibrateEK80(CalibrateEK):
         xr.Dataset
             An xarray Dataset containing either Sv or TS.
         """
-        # Raise error for wrong inputs
-        if waveform_mode not in ("BB", "CW"):
-            raise ValueError(
-                "Input waveform_mode not recognized! "
-                "waveform_mode must be either 'BB' or 'CW' for EK80 data."
-            )
-        if encode_mode not in ("complex", "power"):
-            raise ValueError(
-                "Input encode_mode not recognized! "
-                "encode_mode must be either 'complex' or 'power' for EK80 data."
-            )
+
+        power_ed_group = retrieve_correct_beam_group(
+            echodata=self.echodata,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
+            pulse_compression=False,
+        )
 
         # Set flag_complex
         #  - True: complex cal
         #  - False: power cal
-        # BB: complex only, CW: complex or power
+        flag_complex = False
         if waveform_mode == "BB":
-            if encode_mode == "power":  # BB waveform forces to collect complex samples
-                raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
             flag_complex = True
-        else:  # waveform_mode="CW"
-            if encode_mode == "complex":
-                flag_complex = True
-            else:
-                flag_complex = False
-
-        # Raise error when waveform_mode and actual recording mode do not match
-        # This simple check is only possible for BB-only data,
-        #   since for data with both BB and CW complex samples,
-        #   frequency_start will exist in echodata["Sonar/Beam_group1"] for the BB channels
-        if waveform_mode == "BB" and "frequency_start" not in self.echodata["Sonar/Beam_group1"]:
-            raise ValueError("waveform_mode='BB' but broadband data not found!")
-
-        # Set use_beam_power
-        #  - True: use self.echodata["Sonar/Beam_group2"] for cal
-        #  - False: use self.echodata["Sonar/Beam_group1"] for cal
-        use_beam_power = False
-
-        # Warn user about additional data in the raw file if another type exists
-        # When both power and complex samples exist:
-        #   complex samples will be stored in echodata["Sonar/Beam_group1"]
-        #   power samples will be stored in echodata["Sonar/Beam_group2"]
-        # When only one type of samples exist,
-        #   all samples with be stored in echodata["Sonar/Beam_group1"]
-        if self.echodata["Sonar/Beam_group2"] is not None:  # both power and complex samples exist
-            # If both beam and beam_power groups exist,
-            #   this means that CW data are encoded as power samples and in beam_power group
-            if waveform_mode == "CW" and encode_mode == "complex":
-                raise ValueError("File does not contain CW complex samples")
-
-            if encode_mode == "power":
-                use_beam_power = True  # switch source of backscatter data
-                logger.info(
-                    "Only power samples are calibrated, but complex samples also exist in the raw data file!"  # noqa
-                )
-            else:
-                logger.info(
-                    "Only complex samples are calibrated, but power samples also exist in the raw data file!"  # noqa
-                )
-        else:  # only power OR complex samples exist
-            if (
-                "backscatter_i" in self.echodata["Sonar/Beam_group1"].variables
-            ):  # data contain only complex samples
-                if encode_mode == "power":
-                    raise TypeError(
-                        "File does not contain power samples! Use encode_mode='complex'"
-                    )  # user selects the wrong encode_mode
-            else:  # data contain only power samples
-                if encode_mode == "complex":
-                    raise TypeError(
-                        "File does not contain complex samples! Use encode_mode='power'"
-                    )  # user selects the wrong encode_mode
+        elif encode_mode == "complex":
+            flag_complex = True
 
         # Compute Sv
         if flag_complex:
@@ -964,7 +909,7 @@ class CalibrateEK80(CalibrateEK):
         else:
             # Power samples only make sense for CW mode data
             self.compute_range_meter(waveform_mode="CW", encode_mode=encode_mode)
-            ds_cal = self._cal_power(cal_type=cal_type, use_beam_power=use_beam_power)
+            ds_cal = self._cal_power(cal_type=cal_type, power_ed_group=power_ed_group)
 
         return ds_cal
 
