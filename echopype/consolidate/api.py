@@ -1,10 +1,20 @@
 import datetime
-from typing import Optional
+import pathlib
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
+from ..echodata.simrad import retrieve_correct_beam_group
+from ..utils.io import validate_source_ds_da
+from .split_beam_angle import (
+    add_angle_to_ds,
+    get_angle_complex_BB_nopc,
+    get_angle_complex_BB_pc,
+    get_angle_complex_CW,
+    get_angle_power_CW,
+)
 
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
@@ -174,3 +184,168 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
     interp_ds["longitude"] = interp_ds["longitude"].assign_attrs({"history": history})
 
     return interp_ds.drop_vars("time1")
+
+
+def add_splitbeam_angle(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    echodata: EchoData,
+    waveform_mode: str,
+    encode_mode: str,
+    pulse_compression: bool = False,
+    storage_options: dict = {},
+    return_dataset: bool = True,
+) -> xr.Dataset:
+    """
+    Add split-beam (alongship/athwartship) angles into the Sv dataset.
+    This function calculates the alongship/athwartship angle using data stored
+    in the beam groups of ``echodata``. In cases when angle data does not already exist
+    or cannot be computed from the data, an error is issued and no angle variables are
+    added to the dataset.
+
+    Parameters
+    ----------
+    source_Sv: xr.Dataset or str or pathlib.Path
+        The Sv Dataset or path to a file containing the Sv Dataset, which will have the
+        split-beam angle data added to it
+    echodata: EchoData
+        An ``EchoData`` object holding the raw data
+    waveform_mode : {"CW", "BB"}
+        Type of transmit waveform
+
+        - ``"CW"`` for narrowband transmission,
+          returned echoes recorded either as complex or power/angle samples
+        - ``"BB"`` for broadband transmission,
+          returned echoes recorded as complex samples
+
+    encode_mode : {"complex", "power"}
+        Type of encoded return echo data
+
+        - ``"complex"`` for complex samples
+        - ``"power"`` for power/angle samples, only allowed when
+          the echosounder is configured for narrowband transmission
+    pulse_compression: bool, False
+        Whether pulse compression should be used (only valid for
+        ``waveform_mode="BB"`` and ``encode_mode="complex"``)
+    storage_options: dict, default={}
+        Any additional parameters for the storage backend, corresponding to the
+        path provided for ``source_Sv``
+    return_dataset: bool, default=True
+        If True, ``source_Sv`` with the split-beam angle data added to it
+        will be returned, else it will not be returned. A value of ``False``
+        is useful in the situation where ``source_Sv`` is a path and the user
+        only wants to write the split-beam angle data to the path provided.
+
+    Returns
+    -------
+    xr.Dataset or None
+        If ``return_dataset=False``, nothing will be returned. If ``return_dataset=True``
+        either the input dataset ``source_Sv`` or a lazy-loaded Dataset (obtained from
+        the path provided by ``source_Sv``) with the split-beam angle data added
+        will be returned.
+
+    Raises
+    ------
+    ValueError
+        If ``echodata`` has a sonar model that is not analogous to either EK60 or EK80
+    ValueError
+        If the input ``source_Sv`` does not have a ``channel`` dimension
+    ValueError
+        If ``source_Sv`` does not have appropriate dimension lengths in
+        comparison to ``echodata`` data
+    ValueError
+        If the provided ``waveform_mode``, ``encode_mode``, and ``pulse_compression`` are not valid
+    NotImplementedError
+        If an unknown ``beam_type`` is encountered during the split-beam calculation
+
+    Notes
+    -----
+    Split-beam angle data potentially exist for the following echosounders depending on
+    the instrument configuration and recording setting:
+
+        - Simrad EK60 echosounder paired with split-beam transducers and
+          configured to store angle data
+        - Simrad EK80 echosounder paired with split-beam transducers and
+          configured to store angle data
+
+    In most cases where the type of samples collected by the echosounder (power/angle
+    samples or complex samples) and the transmit waveform (broadband or narrowband)
+    are identical across all channels, the channels existing in ``source_Sv`` and `
+    `echodata`` will be identical. If this is not the case, only angle data corresponding
+    to channels existing in ``source_Sv`` will be added.
+
+    For EK80 broadband data, the split-beam angles can be estimated from the complex data.
+    The current implementation generates angles estimated *without* applying pulse compression.
+    Estimating the angle with pulse compression will be added in the near future.
+    """
+
+    # ensure that echodata was produced by EK60 or EK80-like sensors
+    if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+        raise ValueError(
+            "The sonar model that produced echodata does not have split-beam "
+            "transducers, split-beam angles cannot be added to source_Sv!"
+        )
+
+    # validate the source_Sv type or path (if it is provided)
+    source_Sv, file_type = validate_source_ds_da(source_Sv, storage_options)
+
+    # initialize source_Sv_path
+    source_Sv_path = None
+
+    if isinstance(source_Sv, str):
+
+        # store source_Sv path so we can use it to write to later
+        source_Sv_path = source_Sv
+
+        # TODO: In the future we can improve this by obtaining the variable names, channels,
+        #  and dimension lengths directly from source_Sv using zarr or netcdf4. This would
+        #  prevent the unnecessary loading in of the coordinates, which the below statement does.
+        # open up Dataset using source_Sv path
+        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
+
+    # raise not implemented error if source_Sv corresponds to MVBS
+    if source_Sv.attrs["processing_function"] == "preprocess.compute_MVBS":
+        raise NotImplementedError("Adding split-beam data to MVBS has not been implemented!")
+
+    # check that the appropriate waveform and encode mode have been given
+    # and obtain the echodata group path corresponding to encode_mode
+    encode_mode_ed_group = retrieve_correct_beam_group(
+        echodata, waveform_mode, encode_mode, pulse_compression
+    )
+
+    # check that source_Sv at least has a channel dimension
+    if "channel" not in source_Sv.variables:
+        raise ValueError("The input source_Sv Dataset must have a channel dimension!")
+
+    # set ds_beam, select the same channels that are in source_Sv
+    ds_beam = echodata[encode_mode_ed_group].sel(channel=source_Sv.channel.values)
+
+    # fail if source_Sv and ds_beam do not have the same lengths
+    # for ping_time, range_sample, and channel
+    same_dim_lens = [
+        ds_beam.dims[dim] == source_Sv.dims[dim] for dim in ["channel", "ping_time", "range_sample"]
+    ]
+    if not same_dim_lens:
+        raise ValueError(
+            "Input source_Sv does not have the same dimension lengths as all dimensions in ds_beam!"
+        )
+
+    # obtain split-beam angles from
+    # CW mode data
+    if waveform_mode == "CW":
+        if encode_mode == "power":  # power data
+            theta, phi = get_angle_power_CW(ds_beam=ds_beam)
+        else:  # complex data
+            theta, phi = get_angle_complex_CW(ds_beam=ds_beam)
+    # BB mode data
+    else:
+        if pulse_compression:  # with pulse compression
+            theta, phi = get_angle_complex_BB_pc(ds_beam=ds_beam)
+        else:  # without pulse compression
+            theta, phi = get_angle_complex_BB_nopc(ds_beam=ds_beam, ed=echodata)
+
+    # add theta and phi to source_Sv input
+    source_Sv = add_angle_to_ds(
+        theta, phi, source_Sv, return_dataset, source_Sv_path, file_type, storage_options
+    )
+
+    return source_Sv

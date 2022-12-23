@@ -10,7 +10,11 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import _check_source_Sv_freq_diff, _validate_and_collect_mask_input, _check_var_name_fill_value
+from echopype.mask.api import (
+    _check_source_Sv_freq_diff,
+    _validate_and_collect_mask_input,
+    _check_var_name_fill_value
+)
 
 from typing import List, Union, Optional
 
@@ -59,7 +63,7 @@ def get_mock_freq_diff_data(n: int, n_chan_freq: int, add_chan: bool,
     mat_A = np.arange(n ** 2).reshape(n, n)
 
     # construct channel values
-    chan_vals = ['chan' + str(i) for i in range(1, n_chan_freq+1)]
+    chan_vals = ['chan' + str(i) for i in range(1, n_chan_freq + 1)]
 
     # construct mock Sv data
     mock_Sv_data = [mat_A, np.identity(n), mat_B] + [np.identity(n) for i in range(3, n_chan_freq)]
