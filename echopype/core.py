@@ -30,7 +30,7 @@ ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".echopype"
 def init_ep_dir():
     """Initialize hidden directory for echopype"""
     if not ECHOPYPE_DIR.exists():
-        ECHOPYPE_DIR.mkdir()
+        ECHOPYPE_DIR.mkdir(exist_ok=True)
 
 
 def validate_azfp_ext(test_ext: str):
