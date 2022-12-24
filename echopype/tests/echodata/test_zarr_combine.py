@@ -1,7 +1,6 @@
 from collections import defaultdict
 from echopype.echodata.zarr_combine import ZarrCombine
 from dask.distributed import Client
-import shutil
 import numpy as np
 import xarray as xr
 import echopype
@@ -13,47 +12,8 @@ import tempfile
 import pytest
 import zarr
 import os.path
-from utils import check_consolidated
 
-
-@pytest.fixture(scope="module")
-def ek60_test_data(test_path):
-    files = [
-        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
-        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
-    ]
-    return [test_path["EK60"].joinpath(*f) for f in files]
-
-
-@pytest.fixture(
-    params=[
-        (
-            {
-                "randint_low": 10,
-                "randint_high": 5000,
-                "num_datasets": 20,
-                "group": "test_group",
-                "zarr_name": "combined_echodatas.zarr",
-                "delayed_ds_list": False,
-            }
-        ),
-        (
-            {
-                "randint_low": 10,
-                "randint_high": 5000,
-                "num_datasets": 20,
-                "group": "test_group",
-                "zarr_name": "combined_echodatas.zarr",
-                "delayed_ds_list": True,
-            }
-        ),
-    ],
-    ids=["in-memory-ds_list", "lazy-ds_list"],
-    scope="module",
-)
-def append_ds_list_params(request):
-    return list(request.param.values())
+from echopype.testing import _check_consolidated
 
 
 def get_ranges(lengths: np.ndarray) -> List[Tuple[int, int]]:
@@ -422,7 +382,7 @@ class TestZarrCombine:
         assert zmeta_path.exists() is check
 
         if check is True:
-            check_consolidated(combined_echodata, zmeta_path)
+            _check_consolidated(combined_echodata, zmeta_path)
 
         temp_zarr_dir.cleanup()
 
