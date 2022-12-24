@@ -1,5 +1,6 @@
 from textwrap import dedent
 from pathlib import Path
+import pytest
 
 import numpy as np
 import xarray as xr
