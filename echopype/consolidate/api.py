@@ -82,7 +82,7 @@ def add_depth(
 
     Returns
     -------
-    The input dataset with a `depth` variable added
+    The input dataset with a `depth` variable (in meters) added
 
     Notes
     -----
@@ -121,7 +121,14 @@ def add_depth(
 
     # Compute depth
     ds["depth"] = mult * ds["echo_range"] * np.cos(tilt / 180 * np.pi) + depth_offset
-    ds["depth"].attrs = {"long_name": "Depth", "standard_name": "depth"}
+    ds["depth"].attrs = {"long_name": "Depth", "standard_name": "depth", "units": "m"}
+
+    # Add history attribute
+    history_attr = (
+        f"{datetime.datetime.utcnow()} +00:00. "
+        "Added based on echo_range or other data in Sv dataset."  # noqa
+    )
+    ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})
 
     return ds
 
@@ -176,12 +183,12 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
     interp_ds["longitude"] = sel_interp("longitude")
     # Most attributes are attached automatically via interpolation
     # here we add the history
-    history = (
+    history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. "
         "Interpolated or propagated from Platform latitude/longitude."  # noqa
     )
-    interp_ds["latitude"] = interp_ds["latitude"].assign_attrs({"history": history})
-    interp_ds["longitude"] = interp_ds["longitude"].assign_attrs({"history": history})
+    for da_name in ["latitude", "longitude"]:
+        interp_ds[da_name] = interp_ds[da_name].assign_attrs({"history": history_attr})
 
     return interp_ds.drop_vars("time1")
 
@@ -347,5 +354,13 @@ def add_splitbeam_angle(
     source_Sv = add_angle_to_ds(
         theta, phi, source_Sv, return_dataset, source_Sv_path, file_type, storage_options
     )
+
+    # Add history attribute
+    history_attr = (
+        f"{datetime.datetime.utcnow()} +00:00. "
+        "Calculated using data stored in the Beam groups of the echodata object."  # noqa
+    )
+    for da_name in ["angle_alongship", "angle_athwartship"]:
+        source_Sv[da_name] = source_Sv[da_name].assign_attrs({"history": history_attr})
 
     return source_Sv
