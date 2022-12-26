@@ -1,3 +1,4 @@
+import datetime
 import operator as op
 import pathlib
 from typing import List, Optional, Union
@@ -6,6 +7,7 @@ import numpy as np
 import xarray as xr
 
 from ..utils.io import validate_source_ds_da
+from ..utils.prov import echopype_prov_attrs
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -235,7 +237,49 @@ def apply_mask(
     # replace var_name with var_name_masked
     output_ds[var_name] = var_name_masked
 
-    # TODO: add provenance or attributes specifying that a mask was applied here!
+    # Add or modify variable and global (dataset) provenance attributes
+    def _variable_prov_attrs(da, source_mask):
+        # Modify core variable attributes
+        attrs = {
+            "long_name": "Volume backscattering strength, masked (Sv re 1 m-1)",
+            "actual_range": [
+                round(float(da.min().values), 2),
+                round(float(da.max().values), 2),
+            ],
+        }
+        # Add history attribute
+        history_attr = (
+            f"{datetime.datetime.utcnow()} +00:00. " "Created masked Sv dataarray."  # noqa
+        )
+        attrs = {**attrs, **{"history": history_attr}}
+
+        # Add attributes from the mask dataarray, if present
+        # Handle only a single mask. If not passed to apply_mask as a single dataarray,
+        # will use the first mask of the list passed to  apply_mask
+        # TODO: Expand it to handle attributes from multiple masks
+        if isinstance(source_mask, xr.DataArray) or (
+            isinstance(source_mask, list) and isinstance(source_mask[0], xr.DataArray)
+        ):
+            use_mask = source_mask[0] if isinstance(source_mask, list) else source_mask
+            if len(use_mask.attrs) > 0:
+                mask_attrs = use_mask.attrs.copy()
+                if "history" in mask_attrs:
+                    # concatenate the history string as new line
+                    attrs["history"] += f"\n{mask_attrs['history']}"
+                    mask_attrs.pop("history")
+                attrs = {**attrs, **mask_attrs}
+
+        return attrs
+
+    output_ds[var_name] = output_ds[var_name].assign_attrs(
+        _variable_prov_attrs(output_ds[var_name], mask)
+    )
+
+    process_type = "mask"
+    prov_dict = echopype_prov_attrs(process_type=process_type)
+    prov_dict[f"{process_type}_function"] = "mask.apply_mask"
+
+    output_ds = output_ds.assign_attrs(prov_dict)
 
     return output_ds
 
@@ -382,7 +426,7 @@ def frequency_differencing(
         The pair of nominal frequencies to be used for frequency-differencing, where
         the first element corresponds to ``freqA`` and the second element corresponds
         to ``freqB``. Only one of ``freqAB`` and ``chanAB`` should be provided, and not both.
-    chanAB: list of float, optional
+    chanAB: list of strings, optional
         The pair of channels that will be used to select the nominal frequencies to be
         used for frequency-differencing, where the first element corresponds to ``freqA``
         and the second element corresponds to ``freqB``. Only one of ``freqAB`` and ``chanAB``
@@ -498,5 +542,14 @@ def frequency_differencing(
 
     # assign a name to DataArray
     da.name = "mask"
+
+    mask_attrs = {"mask_type": "frequency differencing"}
+    history_attr = (
+        f"{datetime.datetime.utcnow()} +00:00. "
+        "Mask created by mask.frequency_differencing. "
+        f"Operation: Sv['{str(chanA.values)}'] - Sv['{str(chanB.values)}'] {operator} {diff}"
+    )
+
+    da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
 
     return da
