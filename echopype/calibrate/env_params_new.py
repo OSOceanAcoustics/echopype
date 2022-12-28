@@ -156,7 +156,7 @@ def get_env_params_EK80(
 
     # Use center frequency if in BB mode, else use nominal channel frequency
     if waveform_mode == "BB":
-        freq = (beam["frequency_start"] + beam["frequency_end"]) / 2
+        freq = (beam["frequency_start"] + beam["frequency_end"]).isel(beam=0).drop("beam") / 2
     else:
         freq = beam["frequency_nominal"]
 

@@ -330,7 +330,6 @@ class CalibrateEK80(CalibrateEK):
 
         # Common params
         sound_speed = self.env_params["sound_speed"]
-        # TODO: remove beam dimension from absorption
         absorption = self.env_params["sound_absorption"].sel(channel=chan_sel)
         range_meter = self.range_meter.sel(channel=chan_sel)
 
@@ -414,7 +413,7 @@ class CalibrateEK80(CalibrateEK):
         # self.cal_params["equivalent_beam_angle"] also has beam dim
 
         # TODO: out should not have beam dimension at this stage
-        # once that dimension is removed from absorption
+        # once that dimension is removed from equivalent_beam_angle
         return out.isel(beam=0).drop("beam")
 
     def _compute_cal(self, cal_type, waveform_mode, encode_mode) -> xr.Dataset:
