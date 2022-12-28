@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -133,15 +133,12 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
     if cal_type == "Sv":
         range_offset = 0
     else:
-        range_offset = (
-            sound_speed * beam["transmit_duration_nominal"] / 4
-        )  # from matlab code
+        range_offset = sound_speed * beam["transmit_duration_nominal"] / 4  # from matlab code
     range_meter = (
         sound_speed * L / (2 * f)
         + (sound_speed / 4)
         * (
-            ((2 * (beam["range_sample"] + 1) - 1) * N * bins_to_avg - 1)
-            / f
+            ((2 * (beam["range_sample"] + 1) - 1) * N * bins_to_avg - 1) / f
             + beam["transmit_duration_nominal"]
         )
         - range_offset
@@ -238,9 +235,7 @@ def compute_range_EK(
 
         # TODO: once we allow putting in arbitrary sound_speed,
         # change below to use linearly-interpolated values
-        range_meter = (
-            (beam["range_sample"] * beam["sample_interval"] - shift) * sound_speed / 2
-        )
+        range_meter = (beam["range_sample"] * beam["sample_interval"] - shift) * sound_speed / 2
 
     else:  # CW
         # Harmonize sound_speed time1 and Beam_groupX ping_time
