@@ -29,7 +29,7 @@ class CalibrateBase(abc.ABC):
         self.range_meter = None
 
     @abc.abstractmethod
-    def compute_range_meter(self, **kwargs):
+    def compute_echo_range(self, **kwargs):
         """Calculate range (``echo_range``) in units meter.
 
         Returns

@@ -11,6 +11,7 @@ from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_filter
 from .calibrate_base import CalibrateBase
 from .ek80_utils import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
+from .range import compute_range_EK
 
 logger = _init_logger(__name__)
 
@@ -19,7 +20,7 @@ class CalibrateEK(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params, cal_params):
         super().__init__(echodata, env_params, cal_params)
 
-    def compute_range_meter(self, waveform_mode, encode_mode):
+    def compute_echo_range(self, waveform_mode, encode_mode):
         """
         Parameters
         ----------
@@ -45,10 +46,11 @@ class CalibrateEK(CalibrateBase):
         range_meter : xr.DataArray
             range in units meter
         """
-        self.range_meter = self.echodata.compute_range(
-            self.env_params,
-            ek_waveform_mode=waveform_mode,
-            ek_encode_mode=encode_mode,
+        self.range_meter = compute_range_EK(
+            echodata=self.echodata,
+            env_params=self.env_params,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode
         )
 
     def _cal_power_samples(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
@@ -154,7 +156,7 @@ class CalibrateEK60(CalibrateEK):
         )
 
         # default to CW mode recorded as power samples
-        self.compute_range_meter(waveform_mode="CW", encode_mode="power")
+        self.compute_echo_range(waveform_mode="CW", encode_mode="power")
 
     def compute_Sv(self, **kwargs):
         power_ed_group = retrieve_correct_beam_group(
@@ -494,13 +496,13 @@ class CalibrateEK80(CalibrateEK):
 
         if flag_complex:
             # Complex samples can be BB or CW
-            self.compute_range_meter(waveform_mode=waveform_mode, encode_mode=encode_mode)
+            self.compute_echo_range(waveform_mode=waveform_mode, encode_mode=encode_mode)
             ds_cal = self._cal_complex_samples(
                 cal_type=cal_type, waveform_mode=waveform_mode, complex_ed_group=ed_group
             )
         else:
             # Power samples only make sense for CW mode data
-            self.compute_range_meter(waveform_mode="CW", encode_mode=encode_mode)
+            self.compute_echo_range(waveform_mode="CW", encode_mode=encode_mode)
             ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=ed_group)
 
         return ds_cal

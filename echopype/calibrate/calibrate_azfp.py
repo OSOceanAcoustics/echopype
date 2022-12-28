@@ -4,6 +4,7 @@ from ..echodata import EchoData
 from .cal_params import get_cal_params_AZFP
 from .calibrate_ek import CalibrateBase
 from .env_params_new import get_env_params_AZFP
+from .range import compute_range_AZFP
 
 
 class CalibrateAZFP(CalibrateBase):
@@ -20,7 +21,7 @@ class CalibrateAZFP(CalibrateBase):
         # self.range_meter computed under self._cal_power()
         # because the implementation is different for Sv and TS
 
-    def compute_range_meter(self, cal_type):
+    def compute_echo_range(self, cal_type):
         """Calculate range (``echo_range``) in meter using AZFP formula.
 
         Note the range calculation differs for Sv and TS per AZFP matlab code.
@@ -31,7 +32,9 @@ class CalibrateAZFP(CalibrateBase):
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
         """
-        self.range_meter = self.echodata.compute_range(self.env_params, azfp_cal_type=cal_type)
+        self.range_meter = compute_range_AZFP(
+            echodata=self.echodata, env_params=self.env_params, cal_type=cal_type
+        )
 
     def _cal_power_samples(self, cal_type, **kwargs):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
@@ -43,9 +46,8 @@ class CalibrateAZFP(CalibrateBase):
         See calc_Sv_offset() in convert/azfp.py
         """
         # Compute range in meters
-        self.compute_range_meter(
-            cal_type=cal_type
-        )  # range computation different for Sv and TS per AZFP matlab code
+        # range computation different for Sv and TS per AZFP matlab code
+        self.compute_echo_range(cal_type=cal_type)
 
         # Compute derived params
 

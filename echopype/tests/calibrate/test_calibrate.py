@@ -235,7 +235,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
         waveform_mode="BB",
         encode_mode="complex",
     )
-    cal_obj.compute_range_meter(
+    cal_obj.compute_echo_range(
         waveform_mode="BB", encode_mode="complex"
     )  # compute range [m]
     chirp, _, tau_effective = get_transmit_signal(
