@@ -4,9 +4,6 @@ import numpy as np
 import xarray as xr
 from scipy import signal
 
-from ..echodata import EchoData
-from .cal_params import get_vend_filter_EK80
-
 
 def tapered_chirp(
     fs,
@@ -41,32 +38,32 @@ def tapered_chirp(
     return y_tmp / np.max(np.abs(y_tmp)), t  # amp has no actual effect
 
 
-def filter_decimate_chirp(echodata: EchoData, fs: float, y: np.array, ch_id: str):
-    """Filter and decimate the chirp template.
+def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
+    """Filter and decimate the transmit replica for one channel.
 
     Parameters
     ----------
-    y : np.array
+    coeff_ch : dict
+        a dictionary containing filter coefficients and decimation factors for ``ch_id``
+    y_ch : np.array
         chirp from _tapered_chirp
-    ch_id : str
-        channel_id to select the right coefficients and factors
+    fs : float
+        system sampling frequency [Hz]
     """
-    # filter coefficients and decimation factor
-    wbt_fil = get_vend_filter_EK80(echodata, ch_id, "WBT", "coeff")
-    pc_fil = get_vend_filter_EK80(echodata, ch_id, "PC", "coeff")
-    wbt_decifac = get_vend_filter_EK80(echodata, ch_id, "WBT", "decimation")
-    pc_decifac = get_vend_filter_EK80(echodata, ch_id, "PC", "decimation")
+    # Get values
 
     # WBT filter and decimation
-    ytx_wbt = signal.convolve(y, wbt_fil)
-    ytx_wbt_deci = ytx_wbt[0::wbt_decifac]
+    ytx_wbt = signal.convolve(y_ch, coeff_ch["wbt_fil"])
+    ytx_wbt_deci = ytx_wbt[0::coeff_ch["wbt_decifac"]]
 
     # PC filter and decimation
-    if len(pc_fil.squeeze().shape) == 0:  # in case it is a single element
-        pc_fil = [pc_fil.squeeze()]
-    ytx_pc = signal.convolve(ytx_wbt_deci, pc_fil)
-    ytx_pc_deci = ytx_pc[0::pc_decifac]
-    ytx_pc_deci_time = np.arange(ytx_pc_deci.size) * 1 / fs * wbt_decifac * pc_decifac
+    if len(coeff_ch["pc_fil"].squeeze().shape) == 0:  # in case it is a single element
+        coeff_ch["pc_fil"] = [coeff_ch["pc_fil"].squeeze()]
+    ytx_pc = signal.convolve(ytx_wbt_deci, coeff_ch["pc_fil"])
+    ytx_pc_deci = ytx_pc[0::coeff_ch["pc_decifac"]]
+    ytx_pc_deci_time = (
+        np.arange(ytx_pc_deci.size) * 1 / fs * coeff_ch["wbt_decifac"] * coeff_ch["pc_decifac"]
+    )
 
     return ytx_pc_deci, ytx_pc_deci_time
 
@@ -117,15 +114,22 @@ def get_tau_effective(
 
 
 def get_transmit_signal(
-    echodata: EchoData, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float
+    beam: xr.Dataset, coeff: Dict, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float
 ):
     """Reconstruct transmit signal and compute effective pulse length.
 
     Parameters
     ----------
+    beam : xr.Dataset
+        EchoData["Sonar/Beam_group1"]
+    coeff : dict
+        a dictionary indexed by ``channel`` and values being dictionaries containing
+        filter coefficients and decimation factors for constructing the transmit replica.
     waveform_mode : str
         ``CW`` for CW-mode samples, either recorded as complex or power samples
         ``BB`` for BB-mode samples, recorded as complex samples
+    channel : list or xr.DataArray
+        channel names (channel id), either as a list or an xr.DataArray
 
     Return
     ------
@@ -134,18 +138,25 @@ def get_transmit_signal(
     y_time_all
         Timestamp for the transmit replica
     """
-    # TODO: this check probably can be removed
-    # unless this function is to be used in a standalone manner
     # Make sure it is BB mode data
+    # This is already checked in calibrate_ek
+    # but keeping this here for use as standalone function
     if waveform_mode == "BB" and (
-        ("frequency_start" not in echodata["Sonar/Beam_group1"])
-        or ("frequency_end" not in echodata["Sonar/Beam_group1"])
+        ("frequency_start" not in beam) or ("frequency_end" not in beam)
     ):
         raise TypeError("File does not contain BB mode complex samples!")
 
+    # Build channel list
+    if not isinstance(channel, (list, xr.DataArray)):
+        raise ValueError("channel must be a list or an xr.DataArray!")
+    else:
+        if isinstance(channel, xr.DataArray):
+            ch_list = channel.values
+
+    # Generate all transmit replica
     y_all = {}
     y_time_all = {}
-    for chan in channel.values:
+    for ch in ch_list:
         # TODO: expand to deal with the case with varying tx param across ping_time
         if waveform_mode == "BB":
             tx_param_names = [
@@ -164,18 +175,19 @@ def get_transmit_signal(
             ]
         tx_params = {}
         for p in tx_param_names:
-            tx_params[p] = np.unique(echodata["Sonar/Beam_group1"][p].sel(channel=chan))
+            tx_params[p] = np.unique(beam[p].sel(channel=ch))
             if tx_params[p].size != 1:
                 raise TypeError("File contains changing %s!" % p)
         tx_params["fs"] = fs
         tx_params["z_et"] = z_et
-        y_tmp, _ = tapered_chirp(**tx_params)
+        y_ch, _ = tapered_chirp(**tx_params)
 
         # Filter and decimate chirp template
-        y_tmp, y_tmp_time = filter_decimate_chirp(echodata=echodata, fs=fs, y=y_tmp, ch_id=chan)
+        y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs)
 
-        y_all[chan] = y_tmp
-        y_time_all[chan] = y_tmp_time
+        # Fill into output dict
+        y_all[ch] = y_ch
+        y_time_all[ch] = y_tmp_time
 
     return y_all, y_time_all
 

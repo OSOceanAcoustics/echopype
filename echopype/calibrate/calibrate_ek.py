@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict
 
 import numpy as np
@@ -6,7 +7,7 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_gain_for_complex
+from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_utils import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
@@ -229,6 +230,25 @@ class CalibrateEK80(CalibrateEK):
             # All channels are CW
             return {"BB": None, "CW": self.echodata["Sonar/Beam_group1"].channel}
 
+    def _get_filter_coeff(self, channel: xr.DataArray) -> Dict:
+        """
+        Get WBT and PC filter coefficients for constructing the transmit replica.
+
+        Returns
+        -------
+        A dictionary indexed by ``channel`` and values being dictionaries containing
+        filter coefficients and decimation factors for constructing the transmit replica.
+        """
+        coeff = defaultdict(dict)
+        for ch_id in channel.values:
+            # filter coefficients and decimation factor
+            coeff[ch_id]["wbt_fil"] = get_vend_filter_EK80(self.echodata, ch_id, "WBT", "coeff")
+            coeff[ch_id]["pc_fil"] = get_vend_filter_EK80(self.echodata, ch_id, "PC", "coeff")
+            coeff[ch_id]["wbt_decifac"] = get_vend_filter_EK80(self.echodata, ch_id, "WBT", "decimation")
+            coeff[ch_id]["pc_decifac"] = get_vend_filter_EK80(self.echodata, ch_id, "PC", "decimation")
+
+        return coeff
+
     def _get_power_from_complex(
         self, beam: xr.Dataset, waveform_mode: str, chan_dict: Dict, chirp: Dict
     ) -> xr.DataArray:
@@ -307,9 +327,10 @@ class CalibrateEK80(CalibrateEK):
         chan_sel = chan_dict[waveform_mode]
 
         # Get transmit signal
-        # tx_params = self._get_tx_params()
+        tx_coeff = self._get_filter_coeff(channel=chan_sel)
         tx, tx_time = get_transmit_signal(
-            echodata=self.echodata,
+            beam=beam,
+            coeff=tx_coeff,
             waveform_mode=waveform_mode,
             channel=chan_sel,
             fs=self.fs,
