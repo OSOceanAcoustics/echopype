@@ -256,16 +256,12 @@ class CalibrateEK80(CalibrateEK):
             )
 
         if waveform_mode == "BB":
-            pc = compress_pulse(
-                beam=beam, chirp=chirp, chan_BB=chan_dict["BB"]
-            )  # has beam dim
+            pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_dict["BB"])  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
-            backscatter_cw = beam["backscatter_r"].sel(
-                channel=chan_dict["CW"]
-            ) + 1j * beam["backscatter_i"].sel(
-                channel=chan_dict["CW"]
-            )
+            backscatter_cw = beam["backscatter_r"].sel(channel=chan_dict["CW"]) + 1j * beam[
+                "backscatter_i"
+            ].sel(channel=chan_dict["CW"])
             prx = _get_prx(backscatter_cw)
 
         prx.name = "received_power"

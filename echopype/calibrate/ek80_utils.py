@@ -193,9 +193,9 @@ def compress_pulse(beam: xr.Dataset, chirp: Dict, chan_BB=None):
         channels that transmit in BB mode
         (since CW mode can be in mixed in complex samples too)
     """
-    backscatter = beam["backscatter_r"].sel(
+    backscatter = beam["backscatter_r"].sel(channel=chan_BB) + 1j * beam["backscatter_i"].sel(
         channel=chan_BB
-    ) + 1j * beam["backscatter_i"].sel(channel=chan_BB)
+    )
 
     pc_all = []
     for chan in chan_BB:
