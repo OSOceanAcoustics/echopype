@@ -50,7 +50,7 @@ class CalibrateEK(CalibrateBase):
             echodata=self.echodata,
             env_params=self.env_params,
             waveform_mode=waveform_mode,
-            encode_mode=encode_mode
+            encode_mode=encode_mode,
         )
 
     def _cal_power_samples(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:

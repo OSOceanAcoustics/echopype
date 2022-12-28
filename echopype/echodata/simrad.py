@@ -175,9 +175,7 @@ def _retrieve_correct_beam_group_EK80(
     return power_ed_group, complex_ed_group
 
 
-def retrieve_correct_beam_group(
-    echodata: EchoData, waveform_mode: str, encode_mode: str
-) -> str:
+def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
     """
     A function to make sure that the user has provided the correct
     ``waveform_mode`` and ``encode_mode`` inputs based off of the
