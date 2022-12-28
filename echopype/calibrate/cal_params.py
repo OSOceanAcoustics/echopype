@@ -140,7 +140,7 @@ def get_cal_params_EK(
     return out_dict
 
 
-def get_vend_cal_params_complex_EK80(
+def get_vend_filter_EK80(
     echodata: EchoData, channel_id: str, filter_name: str, param_type: str
 ):
     """

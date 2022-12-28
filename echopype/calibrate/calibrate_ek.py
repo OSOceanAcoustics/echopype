@@ -253,7 +253,7 @@ class CalibrateEK80(CalibrateEK):
             pc = compress_pulse(
                 echodata=self.echodata, chirp=chirp, chan_BB=chan_dict["BB"]
             )  # has beam dim
-            prx = _get_prx(pc)
+            prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
             backscatter_cw = (
                 self.echodata["Sonar/Beam_group1"]["backscatter_r"].sel(
@@ -264,7 +264,6 @@ class CalibrateEK80(CalibrateEK):
             prx = _get_prx(backscatter_cw)
 
         prx.name = "received_power"
-        prx = prx.to_dataset()
 
         return prx
 
@@ -301,8 +300,10 @@ class CalibrateEK80(CalibrateEK):
         chan_sel = chan_dict[waveform_mode]
 
         # Get transmit signal
+        # tx_params = self._get_tx_params()
         tx, tx_time = get_transmit_signal(
-            echodata=self.echodata, waveform_mode=waveform_mode, fs=self.fs, z_et=self.z_et
+            echodata=self.echodata, waveform_mode=waveform_mode,
+            channel=chan_sel, fs=self.fs, z_et=self.z_et
         )
 
         # Get power from complex samples
@@ -314,7 +315,7 @@ class CalibrateEK80(CalibrateEK):
         if waveform_mode == "BB":
             freq_center = (
                 beam["frequency_start"] + beam["frequency_end"]
-            ).sel(channel=chan_sel) / 2
+            ).sel(channel=chan_sel).isel(beam=0).drop("beam") / 2  # identical for all beams
         else:
             freq_center = None
 
@@ -329,6 +330,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Common params
         sound_speed = self.env_params["sound_speed"]
+        # TODO: remove beam dimension from absorption
         absorption = self.env_params["sound_absorption"].sel(channel=chan_sel)
         range_meter = self.range_meter.sel(channel=chan_sel)
 
@@ -357,15 +359,22 @@ class CalibrateEK80(CalibrateEK):
         if cal_type == "Sv":
             # Compute effective pulse length
             tau_effective = get_tau_effective(
-                ytx=tx, fs_deci=tx_time[:2].diff(), waveform_mode=waveform_mode
+                ytx_dict=tx,
+                fs_deci_dict={k: np.diff(v[:2]) for (k, v) in tx_time.items()},
+                waveform_mode=waveform_mode,
+                channel=chan_sel,
+                ping_time=beam["ping_time"]
             )
 
-            # equivalent_beam_angle
-            psifc = beam["equivalent_beam_angle"].sel(channel=chan_sel)
+            # equivalent_beam_angle:
+            # identical within each channel regardless of ping_time/beam
+            # but drop only the beam dimension here
+            # to allow scaling for potential center frequency changes
+            psifc = beam["equivalent_beam_angle"].sel(channel=chan_sel).isel(beam=0).drop("beam")
             if waveform_mode == "BB":
                 # if BB scale according to true center frequency
                 psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
-                    self.echodata["Vendor_specific"].frequency_nominal.sel(channel=chan_sel)
+                    beam["frequency_nominal"].sel(channel=chan_sel)
                     / freq_center
                 )
 
@@ -378,20 +387,21 @@ class CalibrateEK80(CalibrateEK):
                 - 10 * np.log10(tau_effective)
                 - psifc
             )
-            out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
+            out.name = "Sv"
+            # out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 
         elif cal_type == "TS":
             out = (
                 10 * np.log10(prx)
                 + 2 * spreading_loss
-                + absorption_loss  # has beam dim
+                + absorption_loss
                 - 10 * np.log10(wavelength**2 * transmit_power / (16 * np.pi**2))
                 - 2 * gain
             )
-            out = out.rename_vars({list(out.data_vars.keys())[0]: "TS"})
+            out.name = "TS"
 
         # Attach calculated range (with units meter) into data set
-        out = out.merge(range_meter)
+        out = out.to_dataset().merge(range_meter)
 
         # Add frequency_nominal to data set
         out["frequency_nominal"] = beam["frequency_nominal"]
@@ -402,6 +412,9 @@ class CalibrateEK80(CalibrateEK):
         # Squeeze out the beam dim
         # out has beam dim, which came from absorption and absorption_loss
         # self.cal_params["equivalent_beam_angle"] also has beam dim
+
+        # TODO: out should not have beam dimension at this stage
+        # once that dimension is removed from absorption
         return out.isel(beam=0).drop("beam")
 
     def _compute_cal(self, cal_type, waveform_mode, encode_mode) -> xr.Dataset:

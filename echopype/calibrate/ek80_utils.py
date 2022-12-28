@@ -1,9 +1,11 @@
+from typing import Dict
+
 import numpy as np
 import xarray as xr
 from scipy import signal
 
 from ..echodata import EchoData
-from .cal_params import get_vend_cal_params_complex_EK80
+from .cal_params import get_vend_filter_EK80
 
 
 def tapered_chirp(
@@ -50,10 +52,10 @@ def filter_decimate_chirp(echodata: EchoData, fs: float, y: np.array, ch_id: str
         channel_id to select the right coefficients and factors
     """
     # filter coefficients and decimation factor
-    wbt_fil = get_vend_cal_params_complex_EK80(echodata, ch_id, "WBT", "coeff")
-    pc_fil = get_vend_cal_params_complex_EK80(echodata, ch_id, "PC", "coeff")
-    wbt_decifac = get_vend_cal_params_complex_EK80(echodata, ch_id, "WBT", "decimation")
-    pc_decifac = get_vend_cal_params_complex_EK80(echodata, ch_id, "PC", "decimation")
+    wbt_fil = get_vend_filter_EK80(echodata, ch_id, "WBT", "coeff")
+    pc_fil = get_vend_filter_EK80(echodata, ch_id, "PC", "coeff")
+    wbt_decifac = get_vend_filter_EK80(echodata, ch_id, "WBT", "decimation")
+    pc_decifac = get_vend_filter_EK80(echodata, ch_id, "PC", "decimation")
 
     # WBT filter and decimation
     ytx_wbt = signal.convolve(y, wbt_fil)
@@ -69,46 +71,52 @@ def filter_decimate_chirp(echodata: EchoData, fs: float, y: np.array, ch_id: str
     return ytx_pc_deci, ytx_pc_deci_time
 
 
-def get_tau_effective(ytx: np.array, fs_deci: float, waveform_mode: str):
+def get_tau_effective(
+    ytx_dict: Dict[str, np.array],
+    fs_deci_dict: Dict[str, float],
+    waveform_mode: str,
+    channel: xr.DataArray,
+    ping_time: xr.DataArray
+):
     """Compute effective pulse length.
 
     Parameters
     ----------
-    ytx : array
-        transmit signal
-    fs_deci : float
-        sampling frequency of the decimated (recorded) signal
+    ytx_dict : dict
+        A dict of transmit signals, with keys being the ``channel`` and
+        values being either a vector when the transmit signals are identical across all pings
+        or a 2D array when the transmit signals vary across ping
+    fs_deci_dict : dict
+        A dict of sampling frequency of the decimated (recorded) signal,
+        with keys being the ``channel``
     waveform_mode : str
         ``CW`` for CW-mode samples, either recorded as complex or power samples
         ``BB`` for BB-mode samples, recorded as complex samples
     """
-    # TODO: change this to handle a dictionary of ytx with keys being the channel_id
+    tau_effective = {}
+    for ch, ytx in ytx_dict.items():
+        if waveform_mode == "BB":
+            ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
+            ptxa = np.abs(ytxa) ** 2
+        elif waveform_mode == "CW":
+            ptxa = np.abs(ytx) ** 2  # energy of transmit signal
+        tau_effective[ch] = ptxa.sum() / (ptxa.max() * fs_deci_dict[ch])
 
-    # TODO: tau_effective_tmp has a ping_time dimension
-    # because fs_deci has a ping_time dimension,
-    # probably should be removed
+    # set up coordinates
+    if len(ytx.shape) == 1:  # ytx is a vector (transmit signals are identical across pings)
+        coords = [channel]
+    elif len(ytx.shape) == 2:  # ytx is a matrix (transmit signals vary across pings)
+        coords = [channel, ping_time]
 
-    chan = ytx.keys()
-
-    if waveform_mode == "BB":
-        ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
-        ptxa = np.abs(ytxa) ** 2
-    elif waveform_mode == "CW":
-        ptxa = np.abs(ytx) ** 2  # energy of transmit signal
-    return ptxa.sum() / (ptxa.max() * fs_deci)
-
-    # effective pulse length
     tau_effective = xr.DataArray(
-        data=list(tau_effective.values()),
-        coords=[
-            self.echodata["Sonar/Beam_group1"].channel,
-            self.echodata["Sonar/Beam_group1"].ping_time,
-        ],
-        dims=["channel", "ping_time"],
-    ).sel(channel=chan_sel)
+        data=np.array(list(tau_effective.values())).squeeze(),
+        coords=coords,
+    )
+
+    return tau_effective
 
 
-def get_transmit_signal(echodata: EchoData, waveform_mode: str, fs: float, z_et: float):
+def get_transmit_signal(echodata: EchoData, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float):
     """Reconstruct transmit signal and compute effective pulse length.
 
     Parameters
@@ -124,6 +132,8 @@ def get_transmit_signal(echodata: EchoData, waveform_mode: str, fs: float, z_et:
     y_time_all
         Timestamp for the transmit replica
     """
+    # TODO: this check probably can be removed
+    # unless this function is to be used in a standalone manner
     # Make sure it is BB mode data
     if waveform_mode == "BB" and (
         ("frequency_start" not in echodata["Sonar/Beam_group1"])
@@ -133,9 +143,8 @@ def get_transmit_signal(echodata: EchoData, waveform_mode: str, fs: float, z_et:
 
     y_all = {}
     y_time_all = {}
-    for chan in echodata["Sonar/Beam_group1"].channel.values:
-        # TODO: currently only deal with the case with
-        # a fixed tx key param values within a channel
+    for chan in channel.values:
+        # TODO: expand to deal with the case with varying tx param across ping_time
         if waveform_mode == "BB":
             tx_param_names = [
                 "transmit_duration_nominal",
@@ -207,7 +216,7 @@ def compress_pulse(echodata: EchoData, chirp, chan_BB=None):
             backscatter_chan,
             input_core_dims=[["range_sample"]],
             output_core_dims=[["range_sample"]],
-            exclude_dims={"range_sample"},
+            # exclude_dims={"range_sample"},
         )
 
         # Expand dimension and add name to allow merge
