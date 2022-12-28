@@ -160,13 +160,13 @@ class CalibrateEK60(CalibrateEK):
 
     def compute_Sv(self, **kwargs):
         power_ed_group = retrieve_correct_beam_group(
-            echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
+            echodata=self.echodata, waveform_mode="CW", encode_mode="power"
         )
         return self._cal_power_samples(cal_type="Sv", power_ed_group=power_ed_group)
 
     def compute_TS(self, **kwargs):
         power_ed_group = retrieve_correct_beam_group(
-            echodata=self.echodata, waveform_mode="CW", encode_mode="power", pulse_compression=False
+            echodata=self.echodata, waveform_mode="CW", encode_mode="power"
         )
         return self._cal_power_samples(cal_type="TS", power_ed_group=power_ed_group)
 
