@@ -69,7 +69,7 @@ def filter_decimate_chirp(echodata: EchoData, fs: float, y: np.array, ch_id: str
     return ytx_pc_deci, ytx_pc_deci_time
 
 
-def get_tau_effective(echodata: EchoData, ytx: np.array, waveform_mode: str):
+def get_tau_effective(ytx: np.array, fs_deci: float, waveform_mode: str):
     """Compute effective pulse length.
 
     Parameters
@@ -89,7 +89,6 @@ def get_tau_effective(echodata: EchoData, ytx: np.array, waveform_mode: str):
     # probably should be removed
 
     chan = ytx.keys()
-    fs_deci = 1 / echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
 
     if waveform_mode == "BB":
         ytxa = signal.convolve(ytx, np.flip(np.conj(ytx))) / np.linalg.norm(ytx) ** 2
@@ -98,8 +97,18 @@ def get_tau_effective(echodata: EchoData, ytx: np.array, waveform_mode: str):
         ptxa = np.abs(ytx) ** 2  # energy of transmit signal
     return ptxa.sum() / (ptxa.max() * fs_deci)
 
+    # effective pulse length
+    tau_effective = xr.DataArray(
+        data=list(tau_effective.values()),
+        coords=[
+            self.echodata["Sonar/Beam_group1"].channel,
+            self.echodata["Sonar/Beam_group1"].ping_time,
+        ],
+        dims=["channel", "ping_time"],
+    ).sel(channel=chan_sel)
 
-def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: float):
+
+def get_transmit_signal(echodata: EchoData, waveform_mode: str, fs: float, z_et: float):
     """Reconstruct transmit signal and compute effective pulse length.
 
     Parameters
@@ -107,6 +116,13 @@ def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: 
     waveform_mode : str
         ``CW`` for CW-mode samples, either recorded as complex or power samples
         ``BB`` for BB-mode samples, recorded as complex samples
+
+    Return
+    ------
+    y_all
+        Transmit replica (BB: broadband chirp, CW: constant frequency sinusoid)
+    y_time_all
+        Timestamp for the transmit replica
     """
     # Make sure it is BB mode data
     if waveform_mode == "BB" and (
@@ -145,7 +161,6 @@ def get_transmit_chirp(echodata: EchoData, waveform_mode: str, fs: float, z_et: 
         y_tmp, _ = tapered_chirp(**tx_params)
 
         # Filter and decimate chirp template
-        fs_deci = 1 / echodata["Sonar/Beam_group1"].sel(channel=chan)["sample_interval"].values
         y_tmp, y_tmp_time = filter_decimate_chirp(echodata=echodata, fs=fs, y=y_tmp, ch_id=chan)
 
         y_all[chan] = y_tmp

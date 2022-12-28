@@ -5,7 +5,7 @@ from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
 from echopype.calibrate.env_params import EnvParams
-from echopype.calibrate.ek80_utils import get_transmit_chirp, compress_pulse
+from echopype.calibrate.ek80_utils import get_transmit_signal, compress_pulse
 import xarray as xr
 
 
@@ -238,7 +238,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
     cal_obj.compute_range_meter(
         waveform_mode="BB", encode_mode="complex"
     )  # compute range [m]
-    chirp, _, tau_effective = get_transmit_chirp(
+    chirp, _, tau_effective = get_transmit_signal(
         echodata=cal_obj.echodata, waveform_mode="BB", fs=cal_obj.fs, z_et=cal_obj.z_et)
     freq_center = (
         echodata["Sonar/Beam_group1"]["frequency_start"] + echodata["Sonar/Beam_group1"]["frequency_end"]
