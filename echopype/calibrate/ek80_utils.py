@@ -180,20 +180,22 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
-def compress_pulse(echodata: EchoData, chirp, chan_BB=None):
+def compress_pulse(beam: xr.Dataset, chirp: Dict, chan_BB=None):
     """Perform pulse compression on the backscatter data.
 
     Parameters
     ----------
+    beam : xr.Dataset
+        EchoData["Sonar/Beam_group1"]
     chirp : dict
-        transmit chirp replica indexed by channel_id
+        transmit chirp replica indexed by ``channel``
     chan_BB : str
         channels that transmit in BB mode
         (since CW mode can be in mixed in complex samples too)
     """
-    backscatter = echodata["Sonar/Beam_group1"]["backscatter_r"].sel(
+    backscatter = beam["backscatter_r"].sel(
         channel=chan_BB
-    ) + 1j * echodata["Sonar/Beam_group1"]["backscatter_i"].sel(channel=chan_BB)
+    ) + 1j * beam["backscatter_i"].sel(channel=chan_BB)
 
     pc_all = []
     for chan in chan_BB:

@@ -1,3 +1,5 @@
+from typing import Dict
+
 import numpy as np
 import xarray as xr
 
@@ -198,7 +200,7 @@ class CalibrateEK80(CalibrateEK):
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def _get_chan_dict(self):
+    def _get_chan_dict(self) -> Dict:
         """
         Build dict to select BB and CW channels from complex samples where data
         from both waveform modes may co-exist.
@@ -227,19 +229,26 @@ class CalibrateEK80(CalibrateEK):
             # All channels are CW
             return {"BB": None, "CW": self.echodata["Sonar/Beam_group1"].channel}
 
-    def _get_power_from_complex(self, waveform_mode, chan_dict, chirp):
+    def _get_power_from_complex(
+        self, beam: xr.Dataset, waveform_mode: str, chan_dict: Dict, chirp: Dict
+    ) -> xr.DataArray:
         """
         Get power from complex samples.
 
+        Parameters
+        ----------
+        beam : xr.Dataset
+            EchoData["Sonar/Beam_group1"]
+
         Returns
         -------
-        prx
+        prx : xr.DataArray
             Power computed from complex samples
         """
 
         def _get_prx(sig):
             return (
-                self.echodata["Sonar/Beam_group1"].beam.size
+                beam["beam"].size  # number of transducer sectors
                 * np.abs(sig.mean(dim="beam")) ** 2
                 / (2 * np.sqrt(2)) ** 2
                 * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
@@ -248,13 +257,13 @@ class CalibrateEK80(CalibrateEK):
 
         if waveform_mode == "BB":
             pc = compress_pulse(
-                echodata=self.echodata, chirp=chirp, chan_BB=chan_dict["BB"]
+                beam=beam, chirp=chirp, chan_BB=chan_dict["BB"]
             )  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
-            backscatter_cw = self.echodata["Sonar/Beam_group1"]["backscatter_r"].sel(
+            backscatter_cw = beam["backscatter_r"].sel(
                 channel=chan_dict["CW"]
-            ) + 1j * self.echodata["Sonar/Beam_group1"]["backscatter_i"].sel(
+            ) + 1j * beam["backscatter_i"].sel(
                 channel=chan_dict["CW"]
             )
             prx = _get_prx(backscatter_cw)
@@ -263,7 +272,9 @@ class CalibrateEK80(CalibrateEK):
 
         return prx
 
-    def _cal_complex_samples(self, cal_type, waveform_mode, complex_ed_group) -> xr.Dataset:
+    def _cal_complex_samples(
+        self, cal_type: str, waveform_mode: str, complex_ed_group: str
+    ) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
         Parameters
@@ -307,7 +318,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Get power from complex samples
         prx = self._get_power_from_complex(
-            waveform_mode=waveform_mode, chan_dict=chan_dict, chirp=tx
+            beam=beam, waveform_mode=waveform_mode, chan_dict=chan_dict, chirp=tx
         )
 
         # Center frequency: only exists for BB
