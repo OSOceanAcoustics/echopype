@@ -76,7 +76,7 @@ def get_tau_effective(
     fs_deci_dict: Dict[str, float],
     waveform_mode: str,
     channel: xr.DataArray,
-    ping_time: xr.DataArray
+    ping_time: xr.DataArray,
 ):
     """Compute effective pulse length.
 
@@ -116,7 +116,9 @@ def get_tau_effective(
     return tau_effective
 
 
-def get_transmit_signal(echodata: EchoData, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float):
+def get_transmit_signal(
+    echodata: EchoData, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float
+):
     """Reconstruct transmit signal and compute effective pulse length.
 
     Parameters

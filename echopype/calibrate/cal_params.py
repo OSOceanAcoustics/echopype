@@ -140,9 +140,7 @@ def get_cal_params_EK(
     return out_dict
 
 
-def get_vend_filter_EK80(
-    echodata: EchoData, channel_id: str, filter_name: str, param_type: str
-):
+def get_vend_filter_EK80(echodata: EchoData, channel_id: str, filter_name: str, param_type: str):
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
 

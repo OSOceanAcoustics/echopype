@@ -216,19 +216,16 @@ class CalibrateEK80(CalibrateEK):
                 + self.echodata["Sonar/Beam_group1"]["frequency_end"]
             ) / 2  # has beam dim
 
-            return{
+            return {
                 # For BB: drop channels containing CW samples (nan in freq start/end)
                 "BB": freq_center.dropna(dim="channel").channel,
                 # For CW: drop channels containing BB samples (not nan in freq start/end)
-                "CW": freq_center.where(np.isnan(freq_center), drop=True).channel
+                "CW": freq_center.where(np.isnan(freq_center), drop=True).channel,
             }
 
         else:
             # All channels are CW
-            return {
-                "BB": None,
-                "CW": self.echodata["Sonar/Beam_group1"].channel
-            }
+            return {"BB": None, "CW": self.echodata["Sonar/Beam_group1"].channel}
 
     def _get_power_from_complex(self, waveform_mode, chan_dict, chirp):
         """
@@ -255,11 +252,10 @@ class CalibrateEK80(CalibrateEK):
             )  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
-            backscatter_cw = (
-                self.echodata["Sonar/Beam_group1"]["backscatter_r"].sel(
-                    channel=chan_dict["CW"])
-                + 1j * self.echodata["Sonar/Beam_group1"]["backscatter_i"].sel(
-                    channel=chan_dict["CW"])
+            backscatter_cw = self.echodata["Sonar/Beam_group1"]["backscatter_r"].sel(
+                channel=chan_dict["CW"]
+            ) + 1j * self.echodata["Sonar/Beam_group1"]["backscatter_i"].sel(
+                channel=chan_dict["CW"]
             )
             prx = _get_prx(backscatter_cw)
 
@@ -302,8 +298,11 @@ class CalibrateEK80(CalibrateEK):
         # Get transmit signal
         # tx_params = self._get_tx_params()
         tx, tx_time = get_transmit_signal(
-            echodata=self.echodata, waveform_mode=waveform_mode,
-            channel=chan_sel, fs=self.fs, z_et=self.z_et
+            echodata=self.echodata,
+            waveform_mode=waveform_mode,
+            channel=chan_sel,
+            fs=self.fs,
+            z_et=self.z_et,
         )
 
         # Get power from complex samples
@@ -313,9 +312,11 @@ class CalibrateEK80(CalibrateEK):
 
         # Center frequency: only exists for BB
         if waveform_mode == "BB":
-            freq_center = (
-                beam["frequency_start"] + beam["frequency_end"]
-            ).sel(channel=chan_sel).isel(beam=0).drop("beam") / 2  # identical for all beams
+            freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
+                channel=chan_sel
+            ).isel(beam=0).drop(
+                "beam"
+            ) / 2  # identical for all beams
         else:
             freq_center = None
 
@@ -362,7 +363,7 @@ class CalibrateEK80(CalibrateEK):
                 fs_deci_dict={k: np.diff(v[:2]) for (k, v) in tx_time.items()},
                 waveform_mode=waveform_mode,
                 channel=chan_sel,
-                ping_time=beam["ping_time"]
+                ping_time=beam["ping_time"],
             )
 
             # equivalent_beam_angle:
@@ -373,8 +374,7 @@ class CalibrateEK80(CalibrateEK):
             if waveform_mode == "BB":
                 # if BB scale according to true center frequency
                 psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
-                    beam["frequency_nominal"].sel(channel=chan_sel)
-                    / freq_center
+                    beam["frequency_nominal"].sel(channel=chan_sel) / freq_center
                 )
 
             out = (
@@ -461,7 +461,8 @@ class CalibrateEK80(CalibrateEK):
             # Complex samples can be BB or CW
             self.compute_range_meter(waveform_mode=waveform_mode, encode_mode=encode_mode)
             ds_cal = self._cal_complex_samples(
-                cal_type=cal_type, waveform_mode=waveform_mode, complex_ed_group=ed_group)
+                cal_type=cal_type, waveform_mode=waveform_mode, complex_ed_group=ed_group
+            )
         else:
             # Power samples only make sense for CW mode data
             self.compute_range_meter(waveform_mode="CW", encode_mode=encode_mode)
