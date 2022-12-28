@@ -95,7 +95,7 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
     file the range is held constant.
     """
     # sound_speed should exist already
-    if "sound_speed" in env_params:
+    if "sound_speed" not in env_params:
         raise RuntimeError(
             "sounds_speed not included in env_params, "
             "use echopype.calibrate.env_params.get_env_params_AZFP() to compute env_params "
@@ -206,7 +206,7 @@ def compute_range_EK(
     else:
         raise ValueError("The specified sonar_model is not supported!")
 
-    if "sound_speed" in env_params:
+    if "sound_speed" not in env_params:
         raise RuntimeError(
             "sounds_speed not included in env_params, "
             f"use echopype.calibrate.env_params.get_env_params_{ek_str}() to compute env_params "

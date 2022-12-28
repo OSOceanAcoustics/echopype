@@ -235,17 +235,16 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
         waveform_mode="BB",
         encode_mode="complex",
     )
-    cal_obj.compute_echo_range(
-        waveform_mode="BB", encode_mode="complex"
-    )  # compute range [m]
-    chirp, _, tau_effective = get_transmit_signal(
-        echodata=cal_obj.echodata, waveform_mode="BB", fs=cal_obj.fs, z_et=cal_obj.z_et)
-    freq_center = (
-        echodata["Sonar/Beam_group1"]["frequency_start"] + echodata["Sonar/Beam_group1"]["frequency_end"]
-    ).dropna(
-        dim="channel"
-    ) / 2  # drop those that contain CW samples (nan in freq start/end)
-    pc = compress_pulse(echodata=cal_obj.echodata, chirp=chirp, chan_BB=freq_center.channel)
+    cal_obj.compute_echo_range(waveform_mode="BB", encode_mode="complex")  # compute range [m]
+    beam = echodata["Sonar/Beam_group1"]
+    chan_sel = beam["channel"]  # only BB data exist
+
+    coeff = cal_obj._get_filter_coeff(channel=chan_sel)
+    chirp, _ = get_transmit_signal(
+        beam=beam, coeff=coeff, channel=chan_sel, waveform_mode="BB",
+        fs=cal_obj.fs, z_et=cal_obj.z_et)
+
+    pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)
     pc_mean = (
         pc.pulse_compressed_output.isel(channel=1)
         .mean(dim='beam')
