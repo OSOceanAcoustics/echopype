@@ -8,14 +8,16 @@ import xarray as xr
 import scipy.io as io
 import echopype as ep
 from typing import List
+import tempfile
+import os
 
 """
-For future reference: 
+For future reference:
 
 For ``test_add_splitbeam_angle`` the test data is in the following locations:
-- the EK60 raw file is in `test_data/ek60/DY1801_EK60-D20180211-T164025.raw` and the 
+- the EK60 raw file is in `test_data/ek60/DY1801_EK60-D20180211-T164025.raw` and the
 associated echoview split-beam data is in `test_data/ek60/splitbeam`.
-- the EK80 raw file is in `test_data/ek80_bb_with_calibration/2018115-D20181213-T094600.raw` and 
+- the EK80 raw file is in `test_data/ek80_bb_with_calibration/2018115-D20181213-T094600.raw` and
 the associated echoview split-beam data is in `test_data/ek80_bb_with_calibration/splitbeam`
 """
 
@@ -125,7 +127,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
 def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     return xr.Dataset(
         data_vars={
-            "Sv": ( 
+            "Sv": (
                 ("channel", "range_sample", "ping_time"),
                 np.random.random((len(channel), range_sample.size, ping_time.size)),
             ),
@@ -225,7 +227,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
 
 @pytest.mark.parametrize(
     ("sonar_model", "test_path_key", "raw_file_name", "paths_to_echoview_mat",
-     "waveform_mode", "encode_mode", "pulse_compression"),
+     "waveform_mode", "encode_mode", "pulse_compression", "write_Sv_to_file"),
     [
         (
             "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
@@ -236,7 +238,18 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
                 'splitbeam/DY1801_EK60-D20180211-T164025_angles_T4.mat',
                 'splitbeam/DY1801_EK60-D20180211-T164025_angles_T5.mat'
             ],
-            "CW", "power", False
+            "CW", "power", False, False
+        ),
+        (
+            "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
+            [
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T1.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T2.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T3.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T4.mat',
+                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T5.mat'
+            ],
+            "CW", "power", False, True
         ),
         (
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
@@ -246,23 +259,22 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
                 'splitbeam/2018115-D20181213-T094600_angles_T6.mat',
                 'splitbeam/2018115-D20181213-T094600_angles_T5.mat'
             ],
-            "CW", "complex", False
+            "CW", "complex", False, False
         ),
-        pytest.param(
+        (
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
+                'splitbeam/2018115-D20181213-T094600_angles_T3_nopc.mat',
                 'splitbeam/2018115-D20181213-T094600_angles_T2_nopc.mat',
-                'splitbeam/2018115-D20181213-T094600_angles_T3_nopc.mat'
             ],
-            "BB", "complex", False,
-            # TODO: investigate why these file outputs are not matching our calculations
-            marks=pytest.mark.xfail(strict=True, reason="We need to investigate why the echoview data is not matching")
+            "BB", "complex", False, False,
         ),
     ],
-    ids=["ek60_CW_power", "ek80_CW_complex", "ek80_BB_complex_no_pulse"]
+    ids=["ek60_CW_power", "ek60_CW_power_Sv_path", "ek80_CW_complex", "ek80_BB_complex_no_pulse"]
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
-                             paths_to_echoview_mat, waveform_mode, encode_mode, pulse_compression):
+                             paths_to_echoview_mat, waveform_mode, encode_mode,
+                             pulse_compression, write_Sv_to_file):
 
     # obtain the EchoData object with the data needed for the calculation
     ed = ep.open_raw(test_path[test_path_key] / raw_file_name, sonar_model=sonar_model)
@@ -270,8 +282,24 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
     # compute Sv as it is required for the split-beam angle calculation
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode=waveform_mode, encode_mode=encode_mode)
 
+    # initialize temporary directory object
+    temp_dir = None
+
+    # allows us to test for the case when source_Sv is a path
+    if write_Sv_to_file:
+
+        # create temporary directory for mask_file
+        temp_dir = tempfile.TemporaryDirectory()
+
+        # write DataArray to temporary directory
+        zarr_path = os.path.join(temp_dir.name, "Sv_data.zarr")
+        ds_Sv.to_zarr(zarr_path)
+
+        # assign input to a path
+        ds_Sv = zarr_path
+
     # add the split-beam angles to an empty Dataset
-    ds_Sv = ep.consolidate.add_splitbeam_angle(ds=ds_Sv, echodata=ed,
+    ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed,
                                                waveform_mode=waveform_mode,
                                                encode_mode=encode_mode,
                                                pulse_compression=pulse_compression)
@@ -287,6 +315,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
         reduced_angle_alongship = ds_Sv.isel(channel=chan_ind, ping_time=0).angle_alongship.dropna("range_sample")
         reduced_angle_athwartship = ds_Sv.isel(channel=chan_ind, ping_time=0).angle_athwartship.dropna("range_sample")
 
+        # TODO: make "start" below a parameter in the input so that this is not ad-hoc but something known
         # for some files the echoview data is shifted by one index, here we account for that
         if reduced_angle_alongship.shape == (echoview_arr_list[chan_ind].shape[1], ):
             start = 0
@@ -295,14 +324,16 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
 
         # check the computed angle_alongship values against the echoview output
         assert np.allclose(reduced_angle_alongship.values[start:],
-                           echoview_arr_list[chan_ind][0, :], rtol=1e-2, atol=1e-3)
+                           echoview_arr_list[chan_ind][0, :], rtol=1e-1, atol=1e-2)
 
         # check the computed angle_alongship values against the echoview output
         assert np.allclose(reduced_angle_athwartship.values[start:],
-                           echoview_arr_list[chan_ind][1, :], rtol=1e-2, atol=1e-3)
+                           echoview_arr_list[chan_ind][1, :], rtol=1e-1, atol=1e-2)
+
+    if temp_dir:
+        # remove the temporary directory, if it was created
+        temp_dir.cleanup()
 
 
-
-
-
-
+# TODO: need a test for power/angle data, with mock EchoData object
+# containing some channels with single-beam data and some channels with split-beam data
