@@ -244,8 +244,12 @@ class CalibrateEK80(CalibrateEK):
             # filter coefficients and decimation factor
             coeff[ch_id]["wbt_fil"] = get_vend_filter_EK80(self.echodata, ch_id, "WBT", "coeff")
             coeff[ch_id]["pc_fil"] = get_vend_filter_EK80(self.echodata, ch_id, "PC", "coeff")
-            coeff[ch_id]["wbt_decifac"] = get_vend_filter_EK80(self.echodata, ch_id, "WBT", "decimation")
-            coeff[ch_id]["pc_decifac"] = get_vend_filter_EK80(self.echodata, ch_id, "PC", "decimation")
+            coeff[ch_id]["wbt_decifac"] = get_vend_filter_EK80(
+                self.echodata, ch_id, "WBT", "decimation"
+            )
+            coeff[ch_id]["pc_decifac"] = get_vend_filter_EK80(
+                self.echodata, ch_id, "PC", "decimation"
+            )
 
         return coeff
 
