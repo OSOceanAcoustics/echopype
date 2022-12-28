@@ -9,7 +9,7 @@ from ..echodata.simrad import check_input_args_combination, retrieve_correct_bea
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
-from .ek80_utils import compress_pulse, get_tau_effective, get_transmit_signal
+from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
 from .range import compute_range_EK
 
