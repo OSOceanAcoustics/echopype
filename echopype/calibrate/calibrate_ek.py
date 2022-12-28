@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import retrieve_correct_beam_group
+from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
@@ -478,12 +478,15 @@ class CalibrateEK80(CalibrateEK):
         xr.Dataset
             An xarray Dataset containing either Sv or TS.
         """
+
+        # checks input and logic of modes without referencing data
+        check_input_args_combination(waveform_mode, encode_mode)
+
         # Get the right Sonar/Beam_groupX group according to encode_mode
         ed_group = retrieve_correct_beam_group(
             echodata=self.echodata,
             waveform_mode=waveform_mode,
             encode_mode=encode_mode,
-            pulse_compression=False,
         )
 
         # Set flag_complex: True-complex cal, False-power cal

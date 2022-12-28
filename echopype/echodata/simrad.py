@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from .echodata import EchoData
 
 
-def _check_input_args_combination(
+def check_input_args_combination(
     waveform_mode: str, encode_mode: str, pulse_compression: bool = None
 ) -> None:
     """
@@ -176,7 +176,7 @@ def _retrieve_correct_beam_group_EK80(
 
 
 def retrieve_correct_beam_group(
-    echodata: EchoData, waveform_mode: str, encode_mode: str, pulse_compression: bool
+    echodata: EchoData, waveform_mode: str, encode_mode: str
 ) -> str:
     """
     A function to make sure that the user has provided the correct
@@ -201,9 +201,6 @@ def retrieve_correct_beam_group(
     str
         The ``EchoData`` beam group path corresponding to the ``encode_mode`` input
     """
-
-    # checks input and logic of modes without referencing data
-    _check_input_args_combination(waveform_mode, encode_mode, pulse_compression)
 
     if echodata.sonar_model in ["EK60", "ES70"]:
 

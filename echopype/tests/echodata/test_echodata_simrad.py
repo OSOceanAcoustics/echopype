@@ -2,7 +2,7 @@
 Tests functions contained within echodata/simrad.py
 """
 import pytest
-from echopype.echodata.simrad import retrieve_correct_beam_group, _check_input_args_combination
+from echopype.echodata.simrad import retrieve_correct_beam_group, check_input_args_combination
 
 
 @pytest.mark.parametrize(
@@ -58,7 +58,7 @@ def test_check_input_args_combination(waveform_mode: str, encode_mode: str,
         States whether pulse compression should be used
     """
 
-    _check_input_args_combination(waveform_mode, encode_mode, pulse_compression)
+    check_input_args_combination(waveform_mode, encode_mode, pulse_compression)
 
 
 def test_retrieve_correct_beam_group():
