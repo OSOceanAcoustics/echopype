@@ -103,10 +103,7 @@ def get_tau_effective(
     if len(ytx.shape) == 1:  # ytx is a vector (transmit signals are identical across pings)
         coords = {"channel": channel}
     elif len(ytx.shape) == 2:  # ytx is a matrix (transmit signals vary across pings)
-        coords = {
-            "channel": channel,
-            "ping_time": ping_time
-        }
+        coords = {"channel": channel, "ping_time": ping_time}
 
     vals = np.array(list(tau_effective.values())).squeeze()
     if vals.size == 1:
