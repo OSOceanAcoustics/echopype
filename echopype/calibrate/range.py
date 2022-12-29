@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
+from ..echodata.simrad import retrieve_correct_beam_group
 
 TVG_CORRECTION_FACTOR = {
     "EK60": 2,

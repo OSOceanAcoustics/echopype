@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import xarray as xr
@@ -199,15 +199,14 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str):
     return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
 
 
-def get_gain_for_complex(
-    echodata: EchoData, waveform_mode: str, chan_sel: xr.DataArray
+def get_gain_BB(
+    vend: xr.Dataset, freq_center: xr.DataArray, cal_params_CW: Dict[str, xr.DataArray]
 ) -> xr.DataArray:
     """
-    Get gain factor for calibrating complex samples.
+    Get broadband gain factor for calibrating complex samples.
 
-    Use values from ``gain_correction`` in the Vendor_specific group for CW mode samples,
-    or interpolate ``gain`` to the center frequency of each ping for BB mode samples
-    if nominal frequency is within the calibrated frequency range
+    Interpolate ``gain`` in the Vendor_specific group to the center frequency of each ping
+    for BB mode samples if nominal frequency is within the calibrated frequency range
 
     Parameters
     ----------
@@ -222,41 +221,25 @@ def get_gain_for_complex(
     -------
     An xr.DataArray
     """
-    if waveform_mode == "BB":
-        gain_single = get_vend_cal_params_power(
-            echodata=echodata, param="gain_correction", waveform_mode=waveform_mode
-        )
-        gain = []
-        if "gain" in echodata["Vendor_specific"].data_vars:
-            # index using channel_id as order of frequency across channel can be arbitrary
-            # reference to freq_center in case some channels are CW complex samples
-            # (already dropped when computing freq_center in the calling function)
-            for ch_id in chan_sel:
-                # if channel gain exists in data
-                if ch_id in echodata["Vendor_specific"].cal_channel_id:
-                    gain_vec = echodata["Vendor_specific"].gain.sel(cal_channel_id=ch_id)
-                    gain_temp = (
-                        gain_vec.interp(
-                            cal_frequency=echodata["Vendor_specific"].frequency_nominal.sel(
-                                channel=ch_id
-                            )
-                        ).drop(["cal_channel_id", "cal_frequency"])
-                    ).expand_dims("channel")
-                # if no freq-dependent gain use CW gain
-                else:
-                    gain_temp = (
-                        gain_single.sel(channel=ch_id)
-                        .reindex_like(echodata["Sonar/Beam_group1"].backscatter_r, method="nearest")
-                        .expand_dims("channel")
-                    )
-                gain_temp.name = "gain"
-                gain.append(gain_temp)
-            gain = xr.merge(gain).gain  # select the single data variable
+    gain = []
+    for ch_id in freq_center["channel"]:
+        # if frequency-dependent gain exists in Vendor group, interpolate at center frequency
+        if ch_id in vend["cal_channel_id"]:
+            gain_temp = (
+                vend["gain"].sel(cal_channel_id=ch_id)
+                .interp(cal_frequency=freq_center.sel(channel=ch_id))
+                .drop(["cal_channel_id", "cal_frequency"])
+                .expand_dims("channel")
+            )
+        # if no frequency-dependent gain exists, use CW gain
         else:
-            gain = gain_single
-    elif waveform_mode == "CW":
-        gain = get_vend_cal_params_power(
-            echodata=echodata, param="gain_correction", waveform_mode=waveform_mode
-        ).sel(channel=chan_sel)
+            gain_temp = (
+                cal_params_CW["gain_correction"].sel(channel=ch_id)
+                # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")
+                .expand_dims("channel")
+            )
+        gain_temp.name = "gain"
+        gain.append(gain_temp)
+    gain = xr.merge(gain).gain  # select the single data variable
 
     return gain

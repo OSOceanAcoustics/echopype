@@ -7,7 +7,7 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_gain_for_complex, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK, get_gain_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params_new import get_env_params_EK60, get_env_params_EK80
@@ -380,16 +380,16 @@ class CalibrateEK80(CalibrateEK):
         range_meter = self.range_meter.sel(channel=self.chan_sel)
         wavelength = sound_speed / self.freq_center
 
-        if waveform_mode == "BB":
-            # use true center frequency to interpolate for gain factor
-            gain = get_gain_for_complex(
-                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=self.chan_sel
+        if waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
+            # If frequency-dependent gain exists, interpolate at true center frequency
+            gain = get_gain_BB(
+                vend=self.echodata["Vendor_specific"],
+                freq_center=self.freq_center,
+                cal_params_CW=self.cal_params
             )
         else:
-            # use nominal channel frequency to select gain factor
-            gain = get_gain_for_complex(
-                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=self.chan_sel
-            )
+            # use gain already retrieved in init
+            gain = self.cal_params["gain_correction"]
 
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
         absorption_loss = 2 * absorption * range_meter
