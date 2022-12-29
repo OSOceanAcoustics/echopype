@@ -11,57 +11,6 @@ CAL_PARAMS = {
 }
 
 
-def _check_param_chan_dep(p_val: List, da_chan: xr.DataArray):
-    """
-    Check type and dimension of calibration parameters that should be
-    channel-dependent (i.e. frequency-dependent unless with duplicated frequency).
-
-    Parameters
-    ----------
-    p_val
-        Calibration parameter to check.
-        If ``p`` is a list, the length of the list should be identical
-        to the dimension length of ``chan``.
-    da_chan
-        An xr.DataArray containing channel or frequency information
-
-    Return
-    ------
-    A xr.DataArray that contains the parameter with coordinate ``chan``
-    """
-
-
-#     # TODO: allow p to be xr.DataArray
-#     #   in this case the coorindate should be ``chan`` or ``frequency`` or ``frequency_nominal``
-#     #   and be identical to corresponding coordinate values in ``chan``
-
-#     if isinstance(p, list):
-#         if len(list) != len(da_chan):
-#             raise ValueError("The number of elements in p should be identical with in da_chan")
-
-
-def _get_param_from_user_or_echodata(p_name: str, user_cal_dict: dict, ed: EchoData):
-    """
-    Triangle getting parameter from either user input or an EchoData object.
-
-    Parameter
-    ---------
-    p_name : str
-        Name of the parameter to retrieve
-    user_cal_dict : dict
-        A dict of calibration parameter provided by user
-    ed : an EchoData object
-        An EchoData object containing the calibration parameter.
-        In the current implement the parameter will be in either
-        the ``Sonar/Beam_groupX`` group or the ``Vendor_specific`` group.
-    """
-    # # Check parameter form in user_cal_dict if exists
-    # if p_name in user_cal_dict:
-    #     _check_param_chan_dep(p_val=user_cal_dict[p_name], ed["Sonar/Beam_group"])
-
-    # return user_cal_dict[p_name] if p_name in user_cal_dict else ed_group[p_name]
-
-
 def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     """
     Get cal params using user inputs or values from data file.
