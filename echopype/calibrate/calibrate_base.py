@@ -1,7 +1,7 @@
 import abc
 
 from ..echodata import EchoData
-from .env_params import EnvParams
+from .env_params_old import EnvParams
 
 CAL_PARAMS = {
     "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),

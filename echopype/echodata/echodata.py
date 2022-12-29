@@ -14,7 +14,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..calibrate.env_params import EnvParams
+from ..calibrate.env_params_old import EnvParams
 from ..utils.coding import set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger

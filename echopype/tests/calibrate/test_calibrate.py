@@ -4,7 +4,7 @@ import pytest
 from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
-from echopype.calibrate.env_params import EnvParams
+from echopype.calibrate.env_params_old import EnvParams
 from echopype.calibrate.ek80_complex import get_transmit_signal, compress_pulse
 import xarray as xr
 
