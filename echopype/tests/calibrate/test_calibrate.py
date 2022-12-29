@@ -4,7 +4,8 @@ import pytest
 from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.calibrate_ek import CalibrateEK80
-from echopype.calibrate.env_params import EnvParams
+from echopype.calibrate.env_params_old import EnvParams
+from echopype.calibrate.ek80_complex import get_transmit_signal, compress_pulse
 import xarray as xr
 
 
@@ -114,6 +115,9 @@ def test_compute_Sv_ek60_matlab(ek60_path):
 
 
 def test_compute_Sv_ek60_duplicated_freq(ek60_path):
+
+    # TODO: add comparison of actual values in this test
+
     ek60_raw_path = str(
         ek60_path.joinpath('DY1002_EK60-D20100318-T023008_rep_freq.raw')
     )
@@ -231,16 +235,16 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
         waveform_mode="BB",
         encode_mode="complex",
     )
-    cal_obj.compute_range_meter(
-        waveform_mode="BB", encode_mode="complex"
-    )  # compute range [m]
-    chirp, _, tau_effective = cal_obj.get_transmit_chirp(waveform_mode="BB")
-    freq_center = (
-        echodata["Sonar/Beam_group1"]["frequency_start"] + echodata["Sonar/Beam_group1"]["frequency_end"]
-    ).dropna(
-        dim="channel"
-    ) / 2  # drop those that contain CW samples (nan in freq start/end)
-    pc = cal_obj.compress_pulse(chirp, chan_BB=freq_center.channel)
+    cal_obj.compute_echo_range()  # compute range [m]
+    beam = echodata["Sonar/Beam_group1"]
+    chan_sel = beam["channel"]  # only BB data exist
+
+    coeff = cal_obj._get_filter_coeff(channel=chan_sel)
+    chirp, _ = get_transmit_signal(
+        beam=beam, coeff=coeff, channel=chan_sel, waveform_mode="BB",
+        fs=cal_obj.fs, z_et=cal_obj.z_et)
+
+    pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)
     pc_mean = (
         pc.pulse_compressed_output.isel(channel=1)
         .mean(dim='beam')

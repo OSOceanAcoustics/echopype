@@ -6,8 +6,8 @@ from typing import Optional, Tuple
 from .echodata import EchoData
 
 
-def _check_input_args_combination(
-    waveform_mode: str, encode_mode: str, pulse_compression: bool
+def check_input_args_combination(
+    waveform_mode: str, encode_mode: str, pulse_compression: bool = None
 ) -> None:
     """
     Checks that the ``waveform_mode`` and ``encode_mode`` have
@@ -35,11 +35,12 @@ def _check_input_args_combination(
         raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
 
     # make sure that we have BB and complex inputs, if pulse compression is selected
-    if pulse_compression and ((waveform_mode != "BB") or (encode_mode != "complex")):
-        raise ValueError(
-            "Pulse compression can only be used with "
-            "waveform_mode='BB' and encode_mode='complex'"
-        )
+    if pulse_compression is not None:
+        if pulse_compression and ((waveform_mode != "BB") or (encode_mode != "complex")):
+            raise RuntimeError(
+                "Pulse compression can only be used with "
+                "waveform_mode='BB' and encode_mode='complex'"
+            )
 
 
 def _retrieve_correct_beam_group_EK60(
@@ -174,9 +175,7 @@ def _retrieve_correct_beam_group_EK80(
     return power_ed_group, complex_ed_group
 
 
-def retrieve_correct_beam_group(
-    echodata: EchoData, waveform_mode: str, encode_mode: str, pulse_compression: bool
-) -> str:
+def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
     """
     A function to make sure that the user has provided the correct
     ``waveform_mode`` and ``encode_mode`` inputs based off of the
@@ -200,9 +199,6 @@ def retrieve_correct_beam_group(
     str
         The ``EchoData`` beam group path corresponding to the ``encode_mode`` input
     """
-
-    # checks input and logic of modes without referencing data
-    _check_input_args_combination(waveform_mode, encode_mode, pulse_compression)
 
     if echodata.sonar_model in ["EK60", "ES70"]:
 

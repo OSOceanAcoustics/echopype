@@ -14,7 +14,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..calibrate.env_params import EnvParams
+from ..calibrate.env_params_old import EnvParams
 from ..utils.coding import set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
@@ -519,7 +519,6 @@ class EchoData:
                 ) * sample_thickness  # [frequency x range_sample]
             elif waveform_mode == "BB":
                 beam = self["Sonar/Beam_group1"]  # always use the Beam group
-                # TODO: bug: right now only first ping_time has non-nan range
                 shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
 
                 # Harmonize sound_speed time1 and Beam_group1 ping_time
@@ -530,6 +529,8 @@ class EchoData:
 
                 # TODO: once we allow putting in arbitrary sound_speed,
                 # change below to use linearly-interpolated values
+                # TODO: change to not shift range since now we remove
+                # the equivalent length of samples from pulse compression output
                 range_meter = (
                     (beam.range_sample * beam["sample_interval"] - shift) * sound_speed / 2
                 )

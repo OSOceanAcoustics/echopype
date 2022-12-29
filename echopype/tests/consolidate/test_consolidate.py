@@ -12,12 +12,12 @@ import tempfile
 import os
 
 """
-For future reference: 
+For future reference:
 
 For ``test_add_splitbeam_angle`` the test data is in the following locations:
-- the EK60 raw file is in `test_data/ek60/DY1801_EK60-D20180211-T164025.raw` and the 
+- the EK60 raw file is in `test_data/ek60/DY1801_EK60-D20180211-T164025.raw` and the
 associated echoview split-beam data is in `test_data/ek60/splitbeam`.
-- the EK80 raw file is in `test_data/ek80_bb_with_calibration/2018115-D20181213-T094600.raw` and 
+- the EK80 raw file is in `test_data/ek80_bb_with_calibration/2018115-D20181213-T094600.raw` and
 the associated echoview split-beam data is in `test_data/ek80_bb_with_calibration/splitbeam`
 """
 
@@ -127,7 +127,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
 def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     return xr.Dataset(
         data_vars={
-            "Sv": ( 
+            "Sv": (
                 ("channel", "range_sample", "ping_time"),
                 np.random.random((len(channel), range_sample.size, ping_time.size)),
             ),

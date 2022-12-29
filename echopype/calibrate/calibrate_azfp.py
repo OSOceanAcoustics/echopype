@@ -1,86 +1,24 @@
 import numpy as np
 
 from ..echodata import EchoData
-from ..utils import uwa
-from .calibrate_base import CAL_PARAMS
+from .cal_params import get_cal_params_AZFP
 from .calibrate_ek import CalibrateBase
+from .env_params import get_env_params_AZFP
+from .range import compute_range_AZFP
 
 
 class CalibrateAZFP(CalibrateBase):
-    def __init__(self, echodata: EchoData, env_params, cal_params, **kwargs):
+    def __init__(self, echodata: EchoData, env_params=None, cal_params=None, **kwargs):
         super().__init__(echodata, env_params)
 
-        # initialize cal params
-        self.cal_params = dict.fromkeys(CAL_PARAMS["AZFP"])
-
         # load env and cal parameters
-        self.get_env_params()
-        if cal_params is None:
-            cal_params = {}
-        self.get_cal_params(cal_params)
+        self.env_params = get_env_params_AZFP(echodata=echodata, user_env_dict=env_params)
+        self.cal_params = get_cal_params_AZFP(echodata=echodata, user_cal_dict=cal_params)
 
         # self.range_meter computed under self._cal_power()
         # because the implementation is different for Sv and TS
 
-    def get_cal_params(self, cal_params):
-        """Get cal params using user inputs or values from data file.
-
-        Parameters
-        ----------
-        cal_params : dict
-        """
-
-        # Get params from Beam_group1
-        self.cal_params["equivalent_beam_angle"] = (
-            cal_params["equivalent_beam_angle"]
-            if "equivalent_beam_angle" in cal_params
-            else self.echodata["Sonar/Beam_group1"]["equivalent_beam_angle"]
-        )
-
-        # Get params from the Vendor_specific group
-        for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
-            # substitute if None in user input
-            self.cal_params[p] = (
-                cal_params[p] if p in cal_params else self.echodata["Vendor_specific"][p]
-            )
-
-    def get_env_params(self):
-        """Get env params using user inputs or values from data file.
-
-        Parameters
-        ----------
-        env_params : dict
-        """
-        # Temperature comes from either user input or data file
-        self.env_params["temperature"] = (
-            self.env_params["temperature"]
-            if "temperature" in self.env_params
-            else self.echodata["Environment"]["temperature"]
-        )
-
-        # Salinity and pressure always come from user input
-        if ("salinity" not in self.env_params) or ("pressure" not in self.env_params):
-            raise ReferenceError("Please supply both salinity and pressure in env_params.")
-        else:
-            self.env_params["salinity"] = self.env_params["salinity"]
-            self.env_params["pressure"] = self.env_params["pressure"]
-
-        # Always calculate sound speed and absorption
-        self.env_params["sound_speed"] = uwa.calc_sound_speed(
-            temperature=self.env_params["temperature"],
-            salinity=self.env_params["salinity"],
-            pressure=self.env_params["pressure"],
-            formula_source="AZFP",
-        )
-        self.env_params["sound_absorption"] = uwa.calc_absorption(
-            frequency=self.echodata["Sonar/Beam_group1"]["frequency_nominal"],
-            temperature=self.env_params["temperature"],
-            salinity=self.env_params["salinity"],
-            pressure=self.env_params["pressure"],
-            formula_source="AZFP",
-        )
-
-    def compute_range_meter(self, cal_type):
+    def compute_echo_range(self, cal_type):
         """Calculate range (``echo_range``) in meter using AZFP formula.
 
         Note the range calculation differs for Sv and TS per AZFP matlab code.
@@ -91,9 +29,11 @@ class CalibrateAZFP(CalibrateBase):
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
         """
-        self.range_meter = self.echodata.compute_range(self.env_params, azfp_cal_type=cal_type)
+        self.range_meter = compute_range_AZFP(
+            echodata=self.echodata, env_params=self.env_params, cal_type=cal_type
+        )
 
-    def _cal_power(self, cal_type, **kwargs):
+    def _cal_power_samples(self, cal_type, **kwargs):
         """Calibrate to get volume backscattering strength (Sv) from AZFP power data.
 
         The calibration formulae used here is based on Appendix G in
@@ -103,9 +43,8 @@ class CalibrateAZFP(CalibrateBase):
         See calc_Sv_offset() in convert/azfp.py
         """
         # Compute range in meters
-        self.compute_range_meter(
-            cal_type=cal_type
-        )  # range computation different for Sv and TS per AZFP matlab code
+        # range computation different for Sv and TS per AZFP matlab code
+        self.compute_echo_range(cal_type=cal_type)
 
         # Compute derived params
 
@@ -172,7 +111,7 @@ class CalibrateAZFP(CalibrateBase):
         return out.squeeze("beam", drop=True)
 
     def compute_Sv(self, **kwargs):
-        return self._cal_power(cal_type="Sv")
+        return self._cal_power_samples(cal_type="Sv")
 
     def compute_TS(self, **kwargs):
-        return self._cal_power(cal_type="TS")
+        return self._cal_power_samples(cal_type="TS")
