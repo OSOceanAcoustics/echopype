@@ -165,7 +165,7 @@ class CalibrateEK60(CalibrateEK):
         self.cal_params = get_cal_params_EK(
             beam=echodata[self.ed_group].sel(channel=self.chan_sel),
             vend=echodata["Vendor_specific"].sel(channel=self.chan_sel),
-            user_cal_dict=cal_params
+            user_cal_dict=cal_params,
         )
 
     def compute_Sv(self, **kwargs):
@@ -212,9 +212,9 @@ class CalibrateEK80(CalibrateEK):
         # Use center frequency if in BB mode, else use nominal channel frequency
         if waveform_mode == "BB":
             # use true center frequency to interpolate for gain factor
-            self.freq_center = (
-                beam["frequency_start"] + beam["frequency_end"]
-            ).sel(channel=self.chan_sel).isel(beam=0).drop("beam") / 2
+            self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
+                channel=self.chan_sel
+            ).isel(beam=0).drop("beam") / 2
         else:
             # use nominal channel frequency for CW pulse
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
@@ -311,9 +311,8 @@ class CalibrateEK80(CalibrateEK):
             pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
-            bs_cw = (
-                beam["backscatter_r"].sel(channel=chan_sel)
-                + 1j * beam["backscatter_i"].sel(channel=chan_sel)
+            bs_cw = beam["backscatter_r"].sel(channel=chan_sel) + 1j * beam["backscatter_i"].sel(
+                channel=chan_sel
             )
             prx = _get_prx(bs_cw)
 
@@ -385,7 +384,7 @@ class CalibrateEK80(CalibrateEK):
             gain = get_gain_BB(
                 vend=self.echodata["Vendor_specific"],
                 freq_center=self.freq_center,
-                cal_params_CW=self.cal_params
+                cal_params_CW=self.cal_params,
             )
         else:
             # use gain already retrieved in init

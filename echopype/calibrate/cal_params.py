@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Dict, List
 
 import numpy as np
 import xarray as xr
@@ -94,9 +94,7 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     return out_dict
 
 
-def get_cal_params_EK(
-    beam: xr.Dataset, vend: xr.Dataset, user_cal_dict: dict
-) -> dict:
+def get_cal_params_EK(beam: xr.Dataset, vend: xr.Dataset, user_cal_dict: dict) -> dict:
     """
     Get cal params using user inputs or values from data file.
 
@@ -179,9 +177,9 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str):
     # Find idx to select the corresponding param value
     # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
     transmit_isnull = beam["transmit_duration_nominal"].isnull()
-    idxmin = np.abs(
-        beam["transmit_duration_nominal"] - vend["pulse_length"]
-    ).idxmin(dim="pulse_length_bin")
+    idxmin = np.abs(beam["transmit_duration_nominal"] - vend["pulse_length"]).idxmin(
+        dim="pulse_length_bin"
+    )
 
     # fill nan position with 0 (will remove before return)
     # and convert to int for indexing
@@ -226,7 +224,8 @@ def get_gain_BB(
         # if frequency-dependent gain exists in Vendor group, interpolate at center frequency
         if ch_id in vend["cal_channel_id"]:
             gain_temp = (
-                vend["gain"].sel(cal_channel_id=ch_id)
+                vend["gain"]
+                .sel(cal_channel_id=ch_id)
                 .interp(cal_frequency=freq_center.sel(channel=ch_id))
                 .drop(["cal_channel_id", "cal_frequency"])
                 .expand_dims("channel")
