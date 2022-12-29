@@ -32,6 +32,8 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     A dict containing the calibration parameters for the AZFP echosounder
     """
     out_dict = dict.fromkeys(CAL_PARAMS["AZFP"])
+    if user_cal_dict is None:
+        user_cal_dict = {}
 
     # Get params from Beam_group1
     out_dict["equivalent_beam_angle"] = (

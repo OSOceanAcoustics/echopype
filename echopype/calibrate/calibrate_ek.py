@@ -20,26 +20,9 @@ class CalibrateEK(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params, cal_params):
         super().__init__(echodata, env_params, cal_params)
 
-    def compute_echo_range(self, waveform_mode, encode_mode):
+    def compute_echo_range(self):
         """
-        Parameters
-        ----------
-        waveform_mode : {"CW", "BB"}
-            Type of transmit waveform.
-            Required only for data from the EK80 echosounder.
-
-            - `"CW"` for narrowband transmission,
-              returned echoes recorded either as complex or power/angle samples
-            - `"BB"` for broadband transmission,
-              returned echoes recorded as complex samples
-
-        encode_mode : {"complex", "power"}
-            Type of encoded return echo data.
-            Required only for data from the EK80 echosounder.
-
-            - `"complex"` for complex samples
-            - `"power"` for power/angle samples, only allowed when
-              the echosounder is configured for narrowband transmission
+        Compute echo range for EK echosounders.
 
         Returns
         -------
@@ -49,8 +32,8 @@ class CalibrateEK(CalibrateBase):
         self.range_meter = compute_range_EK(
             echodata=self.echodata,
             env_params=self.env_params,
-            waveform_mode=waveform_mode,
-            encode_mode=encode_mode,
+            waveform_mode=self.waveform_mode,
+            encode_mode=self.encode_mode,
         )
 
     def _cal_power_samples(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
@@ -148,13 +131,15 @@ class CalibrateEK60(CalibrateEK):
 
         # Get env_params
         self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
+        self.waveform_mode = "CW"
+        self.encode_mode = "power"
 
         # Compute range
-        self.compute_echo_range(waveform_mode="CW", encode_mode="power")
+        self.compute_echo_range()
 
         # Get the right ed_group for CW power samples
         self.ed_group = retrieve_correct_beam_group(
-            echodata=self.echodata, waveform_mode="CW", encode_mode="power"
+            echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
         # Set the channels to calibrate
@@ -193,24 +178,24 @@ class CalibrateEK80(CalibrateEK):
 
         # Get the right ed_group given waveform and encode mode
         self.ed_group = retrieve_correct_beam_group(
-            echodata=self.echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+            echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
         # Select the channels to calibrate
-        if encode_mode == "power":
+        if self.encode_mode == "power":
             # Power sample only possible under CW mode,
             # and all power samples will live in the same group
             self.chan_sel = self.echodata[self.ed_group]["channel"]
         else:
             # Complex samples can be CW or BB, so select based on waveform mode
             chan_dict = self._get_chan_dict(self.echodata[self.ed_group])
-            self.chan_sel = chan_dict[waveform_mode]
+            self.chan_sel = chan_dict[self.waveform_mode]
 
         # Subset of the right Sonar/Beam_groupX group given the selected channels
         beam = self.echodata[self.ed_group].sel(channel=self.chan_sel)
 
         # Use center frequency if in BB mode, else use nominal channel frequency
-        if waveform_mode == "BB":
+        if self.waveform_mode == "BB":
             # use true center frequency to interpolate for gain factor
             self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
                 channel=self.chan_sel
@@ -231,8 +216,8 @@ class CalibrateEK80(CalibrateEK):
             user_cal_dict=cal_params,
         )
 
-        # self.range_meter computed under self._compute_cal()
-        # because the implementation is different depending on waveform_mode and encode_mode
+        # Compute echo range in meters
+        self.compute_echo_range()
 
     @staticmethod
     def _get_chan_dict(beam: xr.Dataset) -> Dict:
@@ -279,7 +264,7 @@ class CalibrateEK80(CalibrateEK):
         return coeff
 
     def _get_power_from_complex(
-        self, beam: xr.Dataset, waveform_mode: str, chan_sel: xr.DataArray, chirp: Dict
+        self, beam: xr.Dataset, chan_sel: xr.DataArray, chirp: Dict
     ) -> xr.DataArray:
         """
         Get power from complex samples.
@@ -304,7 +289,7 @@ class CalibrateEK80(CalibrateEK):
                 / self.z_et
             )
 
-        if waveform_mode == "BB":
+        if self.waveform_mode == "BB":
             pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
@@ -318,7 +303,7 @@ class CalibrateEK80(CalibrateEK):
         return prx
 
     def _cal_complex_samples(
-        self, cal_type: str, waveform_mode: str, complex_ed_group: str
+        self, cal_type: str, complex_ed_group: str
     ) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
@@ -327,13 +312,6 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
-        waveform_mode : {"CW", "BB"}
-            Type of transmit waveform.
-
-            - `"CW"` for narrowband transmission,
-              returned echoes recorded either as complex or power/angle samples
-            - `"BB"` for broadband transmission,
-              returned echoes recorded as complex samples
         complex_ed_group : str
             The ``EchoData`` beam group path containing complex data
 
@@ -350,7 +328,7 @@ class CalibrateEK80(CalibrateEK):
         tx, tx_time = get_transmit_signal(
             beam=beam,
             coeff=tx_coeff,
-            waveform_mode=waveform_mode,
+            waveform_mode=self.waveform_mode,
             channel=self.chan_sel,
             fs=self.fs,
             z_et=self.z_et,
@@ -358,7 +336,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Get power from complex samples
         prx = self._get_power_from_complex(
-            beam=beam, waveform_mode=waveform_mode, chan_sel=self.chan_sel, chirp=tx
+            beam=beam, chan_sel=self.chan_sel, chirp=tx
         )
 
         # Harmonize time coordinate between Beam_groupX data and env_params
@@ -376,7 +354,7 @@ class CalibrateEK80(CalibrateEK):
         range_meter = self.range_meter.sel(channel=self.chan_sel)
         wavelength = sound_speed / self.freq_center
 
-        if waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
+        if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
             # If frequency-dependent gain exists, interpolate at true center frequency
             gain = get_gain_BB(
                 vend=self.echodata["Vendor_specific"],
@@ -397,7 +375,7 @@ class CalibrateEK80(CalibrateEK):
             tau_effective = get_tau_effective(
                 ytx_dict=tx,
                 fs_deci_dict={k: np.diff(v[:2]) for (k, v) in tx_time.items()},
-                waveform_mode=waveform_mode,
+                waveform_mode=self.waveform_mode,
                 channel=self.chan_sel,
                 ping_time=beam["ping_time"],
             )
@@ -409,7 +387,7 @@ class CalibrateEK80(CalibrateEK):
             psifc = (
                 beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
             )
-            if waveform_mode == "BB":
+            if self.waveform_mode == "BB":
                 # if BB scale according to true center frequency
                 psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
                     beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
@@ -454,7 +432,7 @@ class CalibrateEK80(CalibrateEK):
         # once that dimension is removed from equivalent_beam_angle
         return out.isel(beam=0).drop("beam")
 
-    def _compute_cal(self, cal_type, waveform_mode, encode_mode) -> xr.Dataset:
+    def _compute_cal(self, cal_type) -> xr.Dataset:
         """
         Private method to compute Sv or TS from EK80 data, called by compute_Sv or compute_TS.
 
@@ -464,61 +442,29 @@ class CalibrateEK80(CalibrateEK):
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
 
-        waveform_mode : {"CW", "BB"}
-            Type of transmit waveform.
-
-            - `"CW"` for narrowband transmission,
-              returned echoes recorded either as complex or power/angle samples
-            - `"BB"` for broadband transmission,
-              returned echoes recorded as complex samples
-
-        encode_mode : {"complex", "power"}
-            Type of encoded return echo data.
-
-            - `"complex"` for complex samples
-            - `"power"` for power/angle samples, only allowed when
-              the echosounder is configured for narrowband transmission
-
         Returns
         -------
         xr.Dataset
             An xarray Dataset containing either Sv or TS.
         """
         # Set flag_complex: True-complex cal, False-power cal
-        flag_complex = True if waveform_mode == "BB" or encode_mode == "complex" else False
+        flag_complex = True if self.waveform_mode == "BB" or self.encode_mode == "complex" else False
 
         if flag_complex:
             # Complex samples can be BB or CW
-            self.compute_echo_range(waveform_mode=waveform_mode, encode_mode=encode_mode)
+            self.compute_echo_range()
             ds_cal = self._cal_complex_samples(
-                cal_type=cal_type, waveform_mode=waveform_mode, complex_ed_group=self.ed_group
+                cal_type=cal_type, complex_ed_group=self.ed_group
             )
         else:
             # Power samples only make sense for CW mode data
-            self.compute_echo_range(waveform_mode="CW", encode_mode=encode_mode)
+            self.compute_echo_range()
             ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=self.ed_group)
 
         return ds_cal
 
-    def compute_Sv(self, waveform_mode="BB", encode_mode="complex"):
+    def compute_Sv(self):
         """Compute volume backscattering strength (Sv).
-
-        Parameters
-        ----------
-        waveform_mode : {"CW", "BB"}
-            Type of transmit waveform.
-
-            - `"CW"` for narrowband transmission,
-              returned echoes recorded either as complex or power/angle samples
-            - (default) `"BB"` for broadband transmission,
-              returned echoes recorded as complex samples
-
-        encode_mode : {"complex", "power"}
-            Type of encoded return echo data.
-
-            - (default) `"complex"` for complex samples
-            - `"power"` for power/angle samples, only allowed when
-              the echosounder is configured for narrowband transmission
 
         Returns
         -------
@@ -526,29 +472,10 @@ class CalibrateEK80(CalibrateEK):
             A DataSet containing volume backscattering strength (``Sv``)
             and the corresponding range (``echo_range``) in units meter.
         """
-        return self._compute_cal(
-            cal_type="Sv", waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
+        return self._compute_cal(cal_type="Sv")
 
-    def compute_TS(self, waveform_mode="BB", encode_mode="complex"):
+    def compute_TS(self):
         """Compute target strength (TS).
-
-        Parameters
-        ----------
-        waveform_mode : {"CW", "BB"}
-            Type of transmit waveform.
-
-            - `"CW"` for narrowband transmission,
-              returned echoes recorded either as complex or power/angle samples
-            - (default) `"BB"` for broadband transmission,
-              returned echoes recorded as complex samples
-
-        encode_mode : {"complex", "power"}
-            Type of encoded return echo data.
-
-            - (default) `"complex"` for complex samples
-            - `"power"` for power/angle samples, only allowed when
-              the echosounder is configured for narrowband transmission
 
         Returns
         -------
@@ -556,6 +483,4 @@ class CalibrateEK80(CalibrateEK):
             A DataSet containing target strength (``TS``)
             and the corresponding range (``echo_range``) in units meter.
         """
-        return self._compute_cal(
-            cal_type="TS", waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
+        return self._compute_cal(cal_type="TS")

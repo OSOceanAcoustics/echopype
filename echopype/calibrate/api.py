@@ -64,9 +64,9 @@ def _compute_cal(
 
     # Perform calibration
     if cal_type == "Sv":
-        cal_ds = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        cal_ds = cal_obj.compute_Sv()
     elif cal_type == "TS":
-        cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
+        cal_ds = cal_obj.compute_TS()
     else:
         raise ValueError("cal_type must be Sv or TS")
 

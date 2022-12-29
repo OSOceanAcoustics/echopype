@@ -13,9 +13,6 @@ class CalibrateAZFP(CalibrateBase):
 
         # load env and cal parameters
         self.env_params = get_env_params_AZFP(echodata=echodata, user_env_dict=env_params)
-
-        if cal_params is None:
-            cal_params = {}
         self.cal_params = get_cal_params_AZFP(echodata=echodata, user_cal_dict=cal_params)
 
         # self.range_meter computed under self._cal_power()

@@ -235,7 +235,7 @@ def test_compute_Sv_ek80_pc_echoview(ek80_path):
         waveform_mode="BB",
         encode_mode="complex",
     )
-    cal_obj.compute_echo_range(waveform_mode="BB", encode_mode="complex")  # compute range [m]
+    cal_obj.compute_echo_range()  # compute range [m]
     beam = echodata["Sonar/Beam_group1"]
     chan_sel = beam["channel"]  # only BB data exist
 
