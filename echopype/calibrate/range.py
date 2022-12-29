@@ -211,9 +211,6 @@ def compute_range_EK(
     else:
         sound_speed = env_params["sound_speed"]
 
-    # check if waveform and encode mode combination makes sense
-    check_input_args_combination(waveform_mode, encode_mode)
-
     # Get the right Sonar/Beam_groupX group according to encode_mode
     ed_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
     beam = echodata[ed_group]

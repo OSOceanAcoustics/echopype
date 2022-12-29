@@ -1,9 +1,9 @@
 from typing import Optional
 
 import numpy as np
+import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import _retrieve_correct_beam_group_EK80, check_input_args_combination
 from ..utils import uwa
 
 # TODO: create default dict with empty values but specific keys for out_dict
@@ -108,9 +108,8 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[dict] = None
 
 def get_env_params_EK80(
     echodata: EchoData,
+    freq: xr.DataArray,
     user_env_dict: Optional[dict] = None,
-    waveform_mode: Optional[str] = None,
-    encode_mode: Optional[str] = None,
 ) -> dict:
     """Get env params using user inputs or values from data file.
 
@@ -142,23 +141,6 @@ def get_env_params_EK80(
     -------
     A dictionary containing the calibration parameters.
     """
-    # Verify input
-    check_input_args_combination(waveform_mode=waveform_mode, encode_mode=encode_mode)
-
-    # Retrieve the correct beam group
-    power_ed_group, complex_ed_group = _retrieve_correct_beam_group_EK80(
-        echodata, waveform_mode, encode_mode
-    )
-    if encode_mode == "complex":
-        beam = echodata[complex_ed_group]
-    else:
-        beam = echodata[power_ed_group]
-
-    # Use center frequency if in BB mode, else use nominal channel frequency
-    if waveform_mode == "BB":
-        freq = (beam["frequency_start"] + beam["frequency_end"]).isel(beam=0).drop("beam") / 2
-    else:
-        freq = beam["frequency_nominal"]
 
     # Initiate input/output dict
     out_dict = {}

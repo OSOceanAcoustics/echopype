@@ -185,45 +185,67 @@ class CalibrateEK80(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
 
-        # TODO: make waveform_mode and encode_mode class attributes
+        # Check the combination of waveform and encode mode makes sense
+        check_input_args_combination(waveform_mode, encode_mode)
+        self.waveform_mode = waveform_mode
+        self.encode_mode = encode_mode
+        self.echodata = echodata
 
-        # load env and cal parameters
-        self.env_params = get_env_params_EK80(
-            echodata=echodata,
-            user_env_dict=env_params,
-            waveform_mode=waveform_mode,
-            encode_mode=encode_mode,
+        # Get the right ed_group given waveform and encode mode
+        self.ed_group = retrieve_correct_beam_group(
+            echodata=self.echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
 
-        if cal_params is None:
-            cal_params = {}
+        # Select the channels to calibrate
+        if encode_mode == "power":
+            # Power sample only possible under CW mode,
+            # and all power samples will live in the same group
+            self.chan_sel = self.echodata[self.ed_group]["channel"]
+        else:
+            # Complex samples can be CW or BB, so select based on waveform mode
+            chan_dict = self._get_chan_dict(self.echodata[self.ed_group])
+            self.chan_sel = chan_dict[waveform_mode]
+
+        # Subset of the right Sonar/Beam_groupX group given the selected channels
+        beam = self.echodata[self.ed_group].sel(channel=self.chan_sel)
+
+        # Use center frequency if in BB mode, else use nominal channel frequency
+        if waveform_mode == "BB":
+            # use true center frequency to interpolate for gain factor
+            self.freq_center = (
+                beam["frequency_start"] + beam["frequency_end"]
+            ).sel(channel=self.chan_sel).isel(beam=0).drop("beam") / 2
+        else:
+            # use nominal channel frequency for CW pulse
+            self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
+
+        # Get env_params: depends on waveform mode
+        self.env_params = get_env_params_EK80(
+            echodata=echodata, freq=self.freq_center, user_env_dict=env_params
+        )
+
+        # Get cal_params: depends on waveform and encode mode
         self.cal_params = get_cal_params_EK(
-            echodata=echodata,
+            beam=beam,
+            vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
             user_cal_dict=cal_params,
-            waveform_mode=waveform_mode,
-            encode_mode=encode_mode,
         )
 
         # self.range_meter computed under self._compute_cal()
         # because the implementation is different depending on waveform_mode and encode_mode
 
-    def _get_chan_dict(self) -> Dict:
+    @staticmethod
+    def _get_chan_dict(beam: xr.Dataset) -> Dict:
         """
         Build dict to select BB and CW channels from complex samples where data
         from both waveform modes may co-exist.
         """
         # Use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        if (
-            "frequency_start" in self.echodata["Sonar/Beam_group1"]
-            and "frequency_end" in self.echodata["Sonar/Beam_group1"]
-        ):
+        if "frequency_start" in beam and "frequency_end" in beam:
             # At least some channels are BB
             # frequency_start and frequency_end are NaN for CW channels
-            freq_center = (
-                self.echodata["Sonar/Beam_group1"]["frequency_start"]
-                + self.echodata["Sonar/Beam_group1"]["frequency_end"]
-            ) / 2  # has beam dim
+            freq_center = (beam["frequency_start"] + beam["frequency_end"]) / 2  # has beam dim
 
             return {
                 # For BB: drop channels containing CW samples (nan in freq start/end)
@@ -234,7 +256,7 @@ class CalibrateEK80(CalibrateEK):
 
         else:
             # All channels are CW
-            return {"BB": None, "CW": self.echodata["Sonar/Beam_group1"].channel}
+            return {"BB": None, "CW": beam.channel}
 
     def _get_filter_coeff(self, channel: xr.DataArray) -> Dict:
         """
@@ -260,7 +282,7 @@ class CalibrateEK80(CalibrateEK):
         return coeff
 
     def _get_power_from_complex(
-        self, beam: xr.Dataset, waveform_mode: str, chan_dict: Dict, chirp: Dict
+        self, beam: xr.Dataset, waveform_mode: str, chan_sel: xr.DataArray, chirp: Dict
     ) -> xr.DataArray:
         """
         Get power from complex samples.
@@ -286,13 +308,14 @@ class CalibrateEK80(CalibrateEK):
             )
 
         if waveform_mode == "BB":
-            pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_dict["BB"])  # has beam dim
+            pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
-            backscatter_cw = beam["backscatter_r"].sel(channel=chan_dict["CW"]) + 1j * beam[
-                "backscatter_i"
-            ].sel(channel=chan_dict["CW"])
-            prx = _get_prx(backscatter_cw)
+            bs_cw = (
+                beam["backscatter_r"].sel(channel=chan_sel)
+                + 1j * beam["backscatter_i"].sel(channel=chan_sel)
+            )
+            prx = _get_prx(bs_cw)
 
         prx.name = "received_power"
 
@@ -326,72 +349,51 @@ class CalibrateEK80(CalibrateEK):
         # Select source of backscatter data
         beam = self.echodata[complex_ed_group]
 
-        # Get dict for channel selection with keys "BB" and "CW"
-        chan_dict = self._get_chan_dict()
-
-        # Select channel according to waveform_mode
-        chan_sel = chan_dict[waveform_mode]
-
         # Get transmit signal
-        tx_coeff = self._get_filter_coeff(channel=chan_sel)
+        tx_coeff = self._get_filter_coeff(channel=self.chan_sel)
         tx, tx_time = get_transmit_signal(
             beam=beam,
             coeff=tx_coeff,
             waveform_mode=waveform_mode,
-            channel=chan_sel,
+            channel=self.chan_sel,
             fs=self.fs,
             z_et=self.z_et,
         )
 
         # Get power from complex samples
         prx = self._get_power_from_complex(
-            beam=beam, waveform_mode=waveform_mode, chan_dict=chan_dict, chirp=tx
+            beam=beam, waveform_mode=waveform_mode, chan_sel=self.chan_sel, chirp=tx
         )
-
-        # Center frequency: only exists for BB
-        if waveform_mode == "BB":
-            freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
-                channel=chan_sel
-            ).isel(beam=0).drop(
-                "beam"
-            ) / 2  # identical for all beams
-        else:
-            freq_center = None
 
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
         for p in self.env_params.keys():
             if "channel" in self.env_params[p].coords:
-                self.env_params[p] = self.env_params[p].sel(channel=chan_sel)
+                self.env_params[p] = self.env_params[p].sel(channel=self.chan_sel)
             self.env_params[p] = self.echodata._harmonize_env_param_time(
                 self.env_params[p], ping_time=beam["ping_time"]
             )
 
         # Common params
         sound_speed = self.env_params["sound_speed"]
-        absorption = self.env_params["sound_absorption"].sel(channel=chan_sel)
-        range_meter = self.range_meter.sel(channel=chan_sel)
+        absorption = self.env_params["sound_absorption"].sel(channel=self.chan_sel)
+        range_meter = self.range_meter.sel(channel=self.chan_sel)
+        wavelength = sound_speed / self.freq_center
 
         if waveform_mode == "BB":
-            # use true center frequency for BB pulse  # TODO: BUG! [WJ resolved 2022/12/27]
-            wavelength = sound_speed / freq_center
-
             # use true center frequency to interpolate for gain factor
             gain = get_gain_for_complex(
-                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel
+                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=self.chan_sel
             )
         else:
-            # use nominal channel frequency for CW pulse
-            wavelength = sound_speed / beam["frequency_nominal"].sel(channel=chan_sel)
-
             # use nominal channel frequency to select gain factor
             gain = get_gain_for_complex(
-                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=chan_sel
+                echodata=self.echodata, waveform_mode=waveform_mode, chan_sel=self.chan_sel
             )
 
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
         absorption_loss = 2 * absorption * range_meter
-        transmit_power = beam["transmit_power"].sel(channel=chan_sel)
+        transmit_power = beam["transmit_power"].sel(channel=self.chan_sel)
 
         # Compute based on cal_type
         if cal_type == "Sv":
@@ -400,7 +402,7 @@ class CalibrateEK80(CalibrateEK):
                 ytx_dict=tx,
                 fs_deci_dict={k: np.diff(v[:2]) for (k, v) in tx_time.items()},
                 waveform_mode=waveform_mode,
-                channel=chan_sel,
+                channel=self.chan_sel,
                 ping_time=beam["ping_time"],
             )
 
@@ -408,11 +410,13 @@ class CalibrateEK80(CalibrateEK):
             # identical within each channel regardless of ping_time/beam
             # but drop only the beam dimension here
             # to allow scaling for potential center frequency changes
-            psifc = beam["equivalent_beam_angle"].sel(channel=chan_sel).isel(beam=0).drop("beam")
+            psifc = (
+                beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
+            )
             if waveform_mode == "BB":
                 # if BB scale according to true center frequency
                 psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
-                    beam["frequency_nominal"].sel(channel=chan_sel) / freq_center
+                    beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
                 )
 
             out = (
@@ -484,17 +488,6 @@ class CalibrateEK80(CalibrateEK):
         xr.Dataset
             An xarray Dataset containing either Sv or TS.
         """
-
-        # checks input and logic of modes without referencing data
-        check_input_args_combination(waveform_mode, encode_mode)
-
-        # Get the right Sonar/Beam_groupX group according to encode_mode
-        ed_group = retrieve_correct_beam_group(
-            echodata=self.echodata,
-            waveform_mode=waveform_mode,
-            encode_mode=encode_mode,
-        )
-
         # Set flag_complex: True-complex cal, False-power cal
         flag_complex = True if waveform_mode == "BB" or encode_mode == "complex" else False
 
@@ -502,12 +495,12 @@ class CalibrateEK80(CalibrateEK):
             # Complex samples can be BB or CW
             self.compute_echo_range(waveform_mode=waveform_mode, encode_mode=encode_mode)
             ds_cal = self._cal_complex_samples(
-                cal_type=cal_type, waveform_mode=waveform_mode, complex_ed_group=ed_group
+                cal_type=cal_type, waveform_mode=waveform_mode, complex_ed_group=self.ed_group
             )
         else:
             # Power samples only make sense for CW mode data
             self.compute_echo_range(waveform_mode="CW", encode_mode=encode_mode)
-            ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=ed_group)
+            ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=self.ed_group)
 
         return ds_cal
 
