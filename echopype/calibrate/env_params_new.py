@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict
 
 import numpy as np
 import xarray as xr
@@ -55,7 +55,7 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
     return out_dict
 
 
-def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[dict] = None):
+def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[Dict] = None) -> Dict:
     """Get env params using user inputs or values from data file.
 
     EK60 file by default contains only sound speed and absorption.
@@ -109,8 +109,8 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[dict] = None
 def get_env_params_EK80(
     echodata: EchoData,
     freq: xr.DataArray,
-    user_env_dict: Optional[dict] = None,
-) -> dict:
+    user_env_dict: Optional[Dict] = None,
+) -> Dict:
     """Get env params using user inputs or values from data file.
 
     EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
@@ -192,8 +192,9 @@ def get_env_params_EK80(
     return out_dict
 
 
+# TODO: this function is currently unused, consider removing
 def get_env_params(
-    sonar_model: str, echodata: EchoData, env_params: Optional[dict] = None, **kwarg
+    sonar_model: str, echodata: EchoData, env_params: Optional[Dict] = None, **kwarg
 ):
     if sonar_model == "AZFP":
         return get_env_params_AZFP(echodata=echodata, user_env_dict=env_params)

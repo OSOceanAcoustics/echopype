@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, Union
 
 import numpy as np
 import xarray as xr
@@ -11,21 +11,26 @@ CAL_PARAMS = {
 }
 
 
+# TODO: need a function (something like "_check_param_freq_dep")
+# to check user input cal_params and env_params
+
+
 def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     """
     Get cal params using user inputs or values from data file.
 
     Parameters
     ----------
+    echodata : EchoData
+        An EchoData object containing data to be calibrated
     user_cal_dict : dict
+        A dictionary containing user-defined calibration parameters.
+        The user-defined calibration parameters will overwrite values in the data file.
 
     Returns
     -------
-    A dict containing the calibration parameters
+    A dict containing the calibration parameters for the AZFP echosounder
     """
-    # TODO: For all the params below, check user input using _check_param_freq_dep()
-    #  before storing in cal_params
-    #  Such check is not needed if grabbning from EchoData since it's already a xr.DataArray
     out_dict = dict.fromkeys(CAL_PARAMS["AZFP"])
 
     # Get params from Beam_group1
@@ -43,13 +48,25 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     return out_dict
 
 
-def get_cal_params_EK(beam: xr.Dataset, vend: xr.Dataset, user_cal_dict: dict) -> dict:
+def get_cal_params_EK(
+    beam: xr.Dataset, vend: xr.Dataset, user_cal_dict: Dict[str, xr.DataArray]
+) -> Dict:
     """
     Get cal params using user inputs or values from data file.
 
     Parameters
     ----------
+    beam : xr.Dataset
+        A subset of Sonar/Beam_groupX that contains only the channels specified for calibration
+    vend : xr.Dataset
+        A subset of Vendor_specific that contains only the channels specified for calibration
     user_cal_dict : dict
+        A dictionary containing user-defined calibration parameters.
+        The user-defined calibration parameters will overwrite values in the data file.
+
+    Returns
+    -------
+    A dictionary containing the calibration parameters for the EK echosounders
     """
     out_dict = dict.fromkeys(CAL_PARAMS["EK"])
     if user_cal_dict is None:
@@ -75,35 +92,44 @@ def get_cal_params_EK(beam: xr.Dataset, vend: xr.Dataset, user_cal_dict: dict) -
     return out_dict
 
 
-def get_vend_filter_EK80(echodata: EchoData, channel_id: str, filter_name: str, param_type: str):
+def get_vend_filter_EK80(
+    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: str
+) -> Union[np.ndarray, int]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
 
     Parameters
     ----------
+    vend: xr.Dataset
+        EchoData["Vendor_specific"]
     channel_id : str
         channel id for which the param to be retrieved
     filter_name : str
         name of filter coefficients to retrieve
     param_type : str
         'coeff' or 'decimation'
+
+    Returns
+    -------
+    np.ndarray or int
+        The filter coefficient or the decimation factor
     """
     if param_type == "coeff":
-        v = echodata["Vendor_specific"].attrs[
-            "%s %s filter_r" % (channel_id, filter_name)
-        ] + 1j * np.array(
-            echodata["Vendor_specific"].attrs["%s %s filter_i" % (channel_id, filter_name)]
+        v = (
+            vend.attrs["%s %s filter_r" % (channel_id, filter_name)]
+            + 1j * np.array(vend.attrs["%s %s filter_i" % (channel_id, filter_name)])
         )
         if v.size == 1:
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
-        return echodata["Vendor_specific"].attrs["%s %s decimation" % (channel_id, filter_name)]
+        return vend.attrs["%s %s decimation" % (channel_id, filter_name)]
 
 
-def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str):
+def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) -> xr.DataArray:
     """
-    Get cal parameters stored in the Vendor_specific group.
+    Get cal parameters stored in the Vendor_specific group
+    by matching the transmit_duration_nominal with allowable pulse_length.
 
     Parameters
     ----------
@@ -113,6 +139,10 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str):
         A subset of Vendor_specific that contains only the channels specified for calibration
     param : str {"sa_correction", "gain_correction"}
         name of parameter to retrieve
+
+    Returns
+    -------
+    An xr.DataArray containing the matched ``param``
     """
 
     # Check parameter is among those allowed
@@ -166,7 +196,7 @@ def get_gain_BB(
 
     Returns
     -------
-    An xr.DataArray
+    An xr.DataArray containing the interpolated gain factors
     """
     gain = []
     for ch_id in freq_center["channel"]:
