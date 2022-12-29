@@ -95,7 +95,7 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
 
 
 def get_cal_params_EK(
-    echodata: EchoData, user_cal_dict: dict, waveform_mode: str, encode_mode: str
+    beam: xr.Dataset, vend: xr.Dataset, user_cal_dict: dict
 ) -> dict:
     """
     Get cal params using user inputs or values from data file.
@@ -105,30 +105,18 @@ def get_cal_params_EK(
     user_cal_dict : dict
     """
     out_dict = dict.fromkeys(CAL_PARAMS["EK"])
-
-    if (
-        encode_mode == "power"
-        and waveform_mode == "CW"
-        and echodata["Sonar/Beam_group2"] is not None
-    ):
-        beam = echodata["Sonar/Beam_group2"]
-    else:
-        beam = echodata["Sonar/Beam_group1"]
+    if user_cal_dict is None:
+        user_cal_dict = {}
 
     # Params from the Vendor_specific group
-
-    # only execute this if cw and power
-    if waveform_mode == "CW" and beam is not None:
-        params_from_vend = ["sa_correction", "gain_correction"]
-        for p in params_from_vend:
-            # substitute if None in user input
-            out_dict[p] = (
-                user_cal_dict[p]
-                if p in user_cal_dict
-                else get_vend_cal_params_power(
-                    echodata=echodata, param=p, waveform_mode=waveform_mode
-                )
-            )
+    params_from_vend = ["sa_correction", "gain_correction"]
+    for p in params_from_vend:
+        # substitute if p not in user input
+        out_dict[p] = (
+            user_cal_dict[p]
+            if p in user_cal_dict
+            else get_vend_cal_params_power(beam=beam, vend=vend, param=p)
+        )
 
     # Other params
     out_dict["equivalent_beam_angle"] = (
@@ -166,47 +154,44 @@ def get_vend_filter_EK80(echodata: EchoData, channel_id: str, filter_name: str, 
         return echodata["Vendor_specific"].attrs["%s %s decimation" % (channel_id, filter_name)]
 
 
-def get_vend_cal_params_power(echodata: EchoData, param: str, waveform_mode: str):
+def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str):
     """
     Get cal parameters stored in the Vendor_specific group.
 
     Parameters
     ----------
+    beam : xr.Dataset
+        A subset of Sonar/Beam_groupX that contains only the channels specified for calibration
+    vend : xr.Dataset
+        A subset of Vendor_specific that contains only the channels specified for calibration
     param : str {"sa_correction", "gain_correction"}
         name of parameter to retrieve
     """
-    ds_vend = echodata["Vendor_specific"]
 
-    if ds_vend is None or param not in ds_vend:
-        return None
-
+    # Check parameter is among those allowed
     if param not in ["sa_correction", "gain_correction"]:
         raise ValueError(f"Unknown parameter {param}")
 
-    if waveform_mode == "CW" and echodata["Sonar/Beam_group2"] is not None:
-        beam = echodata["Sonar/Beam_group2"]
-    else:
-        beam = echodata["Sonar/Beam_group1"]
-
-    # indexes of frequencies that are for power, not complex
-    relevant_indexes = np.where(np.isin(ds_vend["frequency_nominal"], beam["frequency_nominal"]))[0]
+    # Check parameter exists
+    if param not in vend:
+        raise ValueError(f"{param} does not exist in the Vendor_specific group!")
 
     # Find idx to select the corresponding param value
     # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
     transmit_isnull = beam["transmit_duration_nominal"].isnull()
     idxmin = np.abs(
-        beam["transmit_duration_nominal"] - ds_vend["pulse_length"][relevant_indexes]
+        beam["transmit_duration_nominal"] - vend["pulse_length"]
     ).idxmin(dim="pulse_length_bin")
 
-    # fill nan position with 0 (witll remove before return)
+    # fill nan position with 0 (will remove before return)
     # and convert to int for indexing
     idxmin = idxmin.where(~transmit_isnull, 0).astype(int)
 
     # Get param dataarray into correct shape
     da_param = (
-        ds_vend[param][relevant_indexes]
+        vend[param]
         .expand_dims(dim={"ping_time": idxmin["ping_time"]})  # expand dims for direct indexing
-        .sortby(idxmin.channel)  # sortby in case channel sequence different in vendor and beam
+        .sortby(idxmin.channel)  # sortby in case channel sequence differs in vend and beam
     )
 
     # Select corresponding index and clean up the original nan elements
@@ -222,7 +207,7 @@ def get_gain_for_complex(
 
     Use values from ``gain_correction`` in the Vendor_specific group for CW mode samples,
     or interpolate ``gain`` to the center frequency of each ping for BB mode samples
-    if nominal frequency is within the calibrated frequencies range
+    if nominal frequency is within the calibrated frequency range
 
     Parameters
     ----------

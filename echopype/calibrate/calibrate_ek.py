@@ -146,29 +146,33 @@ class CalibrateEK60(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, **kwargs):
         super().__init__(echodata, env_params, cal_params)
 
-        # load env and cal parameters
+        # Get env_params
         self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
 
-        if cal_params is None:
-            cal_params = {}
-        self.cal_params = get_cal_params_EK(
-            echodata=echodata, user_cal_dict=cal_params, waveform_mode="CW", encode_mode="power"
-        )
-
-        # default to CW mode recorded as power samples
+        # Compute range
         self.compute_echo_range(waveform_mode="CW", encode_mode="power")
 
-    def compute_Sv(self, **kwargs):
-        power_ed_group = retrieve_correct_beam_group(
+        # Get the right ed_group for CW power samples
+        self.ed_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode="CW", encode_mode="power"
         )
-        return self._cal_power_samples(cal_type="Sv", power_ed_group=power_ed_group)
+
+        # Set the channels to calibrate
+        # For EK60 this is all channels
+        self.chan_sel = self.echodata[self.ed_group]["channel"]
+
+        # Get cal_params
+        self.cal_params = get_cal_params_EK(
+            beam=echodata[self.ed_group].sel(channel=self.chan_sel),
+            vend=echodata["Vendor_specific"].sel(channel=self.chan_sel),
+            user_cal_dict=cal_params
+        )
+
+    def compute_Sv(self, **kwargs):
+        return self._cal_power_samples(cal_type="Sv", power_ed_group=self.ed_group)
 
     def compute_TS(self, **kwargs):
-        power_ed_group = retrieve_correct_beam_group(
-            echodata=self.echodata, waveform_mode="CW", encode_mode="power"
-        )
-        return self._cal_power_samples(cal_type="TS", power_ed_group=power_ed_group)
+        return self._cal_power_samples(cal_type="TS", power_ed_group=self.ed_group)
 
 
 class CalibrateEK80(CalibrateEK):

@@ -14,6 +14,8 @@ class CalibrateBase(abc.ABC):
 
     def __init__(self, echodata: EchoData, env_params=None, cal_params=None):
         self.echodata = echodata
+
+        # TODO: clean up init of env_params here: can just leave it as None
         if isinstance(env_params, EnvParams):
             env_params = env_params._apply(echodata)
         elif env_params is None:
