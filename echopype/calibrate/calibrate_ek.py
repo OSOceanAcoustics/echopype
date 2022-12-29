@@ -302,9 +302,7 @@ class CalibrateEK80(CalibrateEK):
 
         return prx
 
-    def _cal_complex_samples(
-        self, cal_type: str, complex_ed_group: str
-    ) -> xr.Dataset:
+    def _cal_complex_samples(self, cal_type: str, complex_ed_group: str) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
         Parameters
@@ -335,9 +333,7 @@ class CalibrateEK80(CalibrateEK):
         )
 
         # Get power from complex samples
-        prx = self._get_power_from_complex(
-            beam=beam, chan_sel=self.chan_sel, chirp=tx
-        )
+        prx = self._get_power_from_complex(beam=beam, chan_sel=self.chan_sel, chirp=tx)
 
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
@@ -448,14 +444,14 @@ class CalibrateEK80(CalibrateEK):
             An xarray Dataset containing either Sv or TS.
         """
         # Set flag_complex: True-complex cal, False-power cal
-        flag_complex = True if self.waveform_mode == "BB" or self.encode_mode == "complex" else False
+        flag_complex = (
+            True if self.waveform_mode == "BB" or self.encode_mode == "complex" else False
+        )
 
         if flag_complex:
             # Complex samples can be BB or CW
             self.compute_echo_range()
-            ds_cal = self._cal_complex_samples(
-                cal_type=cal_type, complex_ed_group=self.ed_group
-            )
+            ds_cal = self._cal_complex_samples(cal_type=cal_type, complex_ed_group=self.ed_group)
         else:
             # Power samples only make sense for CW mode data
             self.compute_echo_range()
