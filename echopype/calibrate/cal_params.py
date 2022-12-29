@@ -115,9 +115,8 @@ def get_vend_filter_EK80(
         The filter coefficient or the decimation factor
     """
     if param_type == "coeff":
-        v = (
-            vend.attrs["%s %s filter_r" % (channel_id, filter_name)]
-            + 1j * np.array(vend.attrs["%s %s filter_i" % (channel_id, filter_name)])
+        v = vend.attrs["%s %s filter_r" % (channel_id, filter_name)] + 1j * np.array(
+            vend.attrs["%s %s filter_i" % (channel_id, filter_name)]
         )
         if v.size == 1:
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
