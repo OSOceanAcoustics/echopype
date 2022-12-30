@@ -315,9 +315,7 @@ def add_splitbeam_angle(
 
     # check that the appropriate waveform and encode mode have been given
     # and obtain the echodata group path corresponding to encode_mode
-    encode_mode_ed_group = retrieve_correct_beam_group(
-        echodata, waveform_mode, encode_mode, pulse_compression
-    )
+    encode_mode_ed_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
     # check that source_Sv at least has a channel dimension
     if "channel" not in source_Sv.variables:
