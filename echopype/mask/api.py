@@ -547,7 +547,7 @@ def frequency_differencing(
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. "
         "Mask created by mask.frequency_differencing. "
-        f"Operation: Sv['{str(chanA.values)}'] - Sv['{str(chanB.values)}'] {operator} {diff}"
+        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}"
     )
 
     da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
