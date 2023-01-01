@@ -23,8 +23,8 @@ title: "echopype"
 doi: 10.5281/zenodo.3906999
 # but pointing to a specific release/version will
 # require having to update this file with each release
-version: 0.5.4
-date-released: 2021-10-01
+version: 0.6.4
+date-released: 2023-01-03
 url: "https://github.com/OSOceanAcoustics/echopype"
 preferred-citation:
   type: article
@@ -48,6 +48,7 @@ preferred-citation:
     given-names: "Valentina"
     orcid: "https://orcid.org/0000-0002-3412-0364"
   journal: "arXiv preprint arXiv:2111.00187"
+  doi: https://doi.org/10.48550/arXiv.2111.00187
   month: 10
   title: "Echopype: A Python library for interoperable and scalable processing of water column sonar data for biological information"
   year: 2021
