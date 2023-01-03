@@ -32,6 +32,7 @@ MODULES_TO_TEST = {
     "utils": {},
     "visualize": {},
     "metrics": {},
+    "mask": {},
 }
 
 if __name__ == "__main__":
