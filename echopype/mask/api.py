@@ -3,6 +3,7 @@ import operator as op
 import pathlib
 from typing import List, Optional, Union
 
+import dask.array
 import numpy as np
 import xarray as xr
 
@@ -161,7 +162,7 @@ def apply_mask(
     storage_options_mask: Union[dict, List[dict]] = {},
 ) -> xr.Dataset:
     """
-    Applies the provided mask(s) to the variable ``var_name``
+    Applies the provided mask(s) to the Sv variable ``var_name``
     in the provided Dataset ``source_ds``.
 
     Parameters
@@ -173,7 +174,7 @@ def apply_mask(
         a DataArray or a path. If a path is provided this should point to a zarr or
         netcdf file with only one data variable in it.
     var_name: str, default="Sv"
-        The variable name in ``source_ds`` that the mask should be applied to
+        The Sv variable name in ``source_ds`` that the mask should be applied to
     fill_value: int, float, np.ndarray, or xr.DataArray, default=np.nan
         Value(s) at masked indices
     storage_options_ds: dict, default={}
@@ -257,8 +258,9 @@ def apply_mask(
         # Handle only a single mask. If not passed to apply_mask as a single dataarray,
         # will use the first mask of the list passed to  apply_mask
         # TODO: Expand it to handle attributes from multiple masks
-        if isinstance(source_mask, xr.DataArray) or (
-            isinstance(source_mask, list) and isinstance(source_mask[0], xr.DataArray)
+        if isinstance(source_mask, (xr.DataArray, dask.array.Array)) or (
+            isinstance(source_mask, list)
+            and isinstance(source_mask[0], (xr.DataArray, dask.array.Array))
         ):
             use_mask = source_mask[0] if isinstance(source_mask, list) else source_mask
             if len(use_mask.attrs) > 0:
@@ -525,9 +527,9 @@ def frequency_differencing(
         freqA_pos = np.argwhere(source_Sv.frequency_nominal.values == freqAB[0]).flatten()[0]
         freqB_pos = np.argwhere(source_Sv.frequency_nominal.values == freqAB[1]).flatten()[0]
 
-        # get channel corresponding to frequency provided
-        chanA = source_Sv.channel.isel(channel=freqA_pos)
-        chanB = source_Sv.channel.isel(channel=freqB_pos)
+        # get channels corresponding to frequencies provided
+        chanA = str(source_Sv.channel.isel(channel=freqA_pos).values)
+        chanB = str(source_Sv.channel.isel(channel=freqB_pos).values)
 
     else:
         # get individual channels
@@ -543,6 +545,7 @@ def frequency_differencing(
     # assign a name to DataArray
     da.name = "mask"
 
+    # assign provenance attributes
     mask_attrs = {"mask_type": "frequency differencing"}
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. "
