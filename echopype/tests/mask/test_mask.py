@@ -572,7 +572,7 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
                                          storage_options_mask={})
 
     # check that masked_ds[var_name] == var_masked_truth
-    assert masked_ds[var_name].identical(var_masked_truth)
+    assert masked_ds[var_name].equals(var_masked_truth)
 
     # check that the output Dataset has lazy elements, if the input was lazy
     if is_delayed:
