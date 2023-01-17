@@ -34,7 +34,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/executablebooks/jupyter-book
-    rev: v0.12.3
+    rev: v0.13.1
     hooks:
     - id: jb-to-sphinx
       args: ["docs/source"]
