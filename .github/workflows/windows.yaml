@@ -46,7 +46,7 @@ jobs:
             # Check data endpoint
             curl http://localhost:8080/data/
         - name: Setup Python
-          uses: actions/setup-python@v4.4.0
+          uses: actions/setup-python@v4.5.0
           with:
             python-version: ${{ matrix.python-version }}
             architecture: x64
