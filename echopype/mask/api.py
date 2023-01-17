@@ -3,7 +3,6 @@ import operator as op
 import pathlib
 from typing import List, Optional, Union
 
-import dask.array
 import numpy as np
 import xarray as xr
 
@@ -151,11 +150,59 @@ def _check_var_name_fill_value(
         raise ValueError("If fill_value is an array is must be of the same shape as var_name!")
 
 
+def _variable_prov_attrs(
+    masked_da: xr.DataArray, source_mask: Union[xr.DataArray, List[xr.DataArray]]
+) -> dict:
+    """
+    Extract and compose masked Sv provenance attributes from the masked Sv and the
+    masks used to generate it.
+
+    Parameters
+    ----------
+    masked_da: xr.DataArray
+        Masked Sv
+    source_mask: Union[xr.DataArray, List[xr.DataArray]]
+        Individual mask or list of masks used to create the masked Sv
+
+    Returns
+    -------
+    dict
+        Dictionary of provenance attributes (attribute name and value) for the intended variable.
+    """
+    # Modify core variable attributes
+    attrs = {
+        "long_name": "Volume backscattering strength, masked (Sv re 1 m-1)",
+        "actual_range": [
+            round(float(masked_da.min().values), 2),
+            round(float(masked_da.max().values), 2),
+        ],
+    }
+    # Add history attribute
+    history_attr = f"{datetime.datetime.utcnow()} +00:00. " "Created masked Sv dataarray."  # noqa
+    attrs = {**attrs, **{"history": history_attr}}
+
+    # Add attributes from the mask DataArray, if present
+    # Handle only a single mask. If not passed to apply_mask as a single DataArray,
+    # will use the first mask of the list passed to  apply_mask
+    # TODO: Expand it to handle attributes from multiple masks
+    if isinstance(source_mask, xr.DataArray) or (
+        isinstance(source_mask, list) and isinstance(source_mask[0], xr.DataArray)
+    ):
+        use_mask = source_mask[0] if isinstance(source_mask, list) else source_mask
+        if len(use_mask.attrs) > 0:
+            mask_attrs = use_mask.attrs.copy()
+            if "history" in mask_attrs:
+                # concatenate the history string as new line
+                attrs["history"] += f"\n{mask_attrs['history']}"
+                mask_attrs.pop("history")
+            attrs = {**attrs, **mask_attrs}
+
+    return attrs
+
+
 def apply_mask(
     source_ds: Union[xr.Dataset, str, pathlib.Path],
-    mask: Union[
-        Union[xr.DataArray, str, pathlib.Path], List[Union[xr.DataArray, str, pathlib.Path]]
-    ],
+    mask: Union[xr.DataArray, str, pathlib.Path, List[Union[xr.DataArray, str, pathlib.Path]]],
     var_name: str = "Sv",
     fill_value: Union[int, float, np.ndarray, xr.DataArray] = np.nan,
     storage_options_ds: dict = {},
@@ -239,40 +286,6 @@ def apply_mask(
     output_ds[var_name] = var_name_masked
 
     # Add or modify variable and global (dataset) provenance attributes
-    def _variable_prov_attrs(da, source_mask):
-        # Modify core variable attributes
-        attrs = {
-            "long_name": "Volume backscattering strength, masked (Sv re 1 m-1)",
-            "actual_range": [
-                round(float(da.min().values), 2),
-                round(float(da.max().values), 2),
-            ],
-        }
-        # Add history attribute
-        history_attr = (
-            f"{datetime.datetime.utcnow()} +00:00. " "Created masked Sv dataarray."  # noqa
-        )
-        attrs = {**attrs, **{"history": history_attr}}
-
-        # Add attributes from the mask dataarray, if present
-        # Handle only a single mask. If not passed to apply_mask as a single dataarray,
-        # will use the first mask of the list passed to  apply_mask
-        # TODO: Expand it to handle attributes from multiple masks
-        if isinstance(source_mask, (xr.DataArray, dask.array.Array)) or (
-            isinstance(source_mask, list)
-            and isinstance(source_mask[0], (xr.DataArray, dask.array.Array))
-        ):
-            use_mask = source_mask[0] if isinstance(source_mask, list) else source_mask
-            if len(use_mask.attrs) > 0:
-                mask_attrs = use_mask.attrs.copy()
-                if "history" in mask_attrs:
-                    # concatenate the history string as new line
-                    attrs["history"] += f"\n{mask_attrs['history']}"
-                    mask_attrs.pop("history")
-                attrs = {**attrs, **mask_attrs}
-
-        return attrs
-
     output_ds[var_name] = output_ds[var_name].assign_attrs(
         _variable_prov_attrs(output_ds[var_name], mask)
     )
