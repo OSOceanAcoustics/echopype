@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
       - name: Setup micromamba
-        uses: mamba-org/provision-with-micromamba@v14
+        uses: mamba-org/provision-with-micromamba@v15
         with:
           environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
           environment-name: ${{ env.CONDA_ENV }}
