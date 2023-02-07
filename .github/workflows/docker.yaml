@@ -42,7 +42,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Build and push
         id: docker_build_push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: ./
           file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile
