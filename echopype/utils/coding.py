@@ -1,8 +1,10 @@
 from re import search
+from typing import Tuple
 
 import numpy as np
 import xarray as xr
 import zarr
+from dask.array.core import auto_chunks
 from xarray import coding
 
 DEFAULT_TIME_ENCODING = {
@@ -51,6 +53,30 @@ def _encode_dataarray(da, dtype):
         )
         # fmt: on
     return coding.times.decode_cf_datetime(encoded_data, **read_encoding)
+
+
+def _get_auto_chunk(
+    variable: xr.DataArray, chunk_size: "int | str | float" = "100MB"
+) -> Tuple[int]:
+    """
+    Calculate default chunks for a data array based on desired chunk size
+
+    Parameters
+    ----------
+    variable : xr.DataArray
+        The data array variable to be calculated
+    chunk_size : int or str or float
+        The desired max chunk size for the array.
+        Default is 100MB
+
+    Returns
+    -------
+    tuple
+        The chunks
+    """
+    auto_tuple = tuple(["auto" for i in variable.shape])
+    chunks = auto_chunks(auto_tuple, variable.shape, chunk_size, variable.dtype)
+    return tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
 
 
 def set_time_encodings(ds: xr.Dataset) -> xr.Dataset:
@@ -102,6 +128,13 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
 
         val_encoding = val.encoding
         val_encoding.update(get_zarr_compression(val, compression_settings))
+
+        # If data array is not a dask array yet,
+        # create a custom chunking encoding
+        # currently defaults to 100MB
+        if not ds.chunks and len(val.shape) > 0:
+            chunks = _get_auto_chunk(val)
+            val_encoding.update({"chunks": chunks})
         encoding[name] = val_encoding
 
     return encoding
