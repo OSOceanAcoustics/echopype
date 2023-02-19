@@ -24,7 +24,7 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v4.4.0
+      uses: actions/setup-python@v4.5.0
       with:
         python-version: 3.9
 
@@ -56,7 +56,7 @@ jobs:
     needs: build-artifact
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/setup-python@v4.4.0
+    - uses: actions/setup-python@v4.5.0
       name: Install Python
       with:
         python-version: 3.9
