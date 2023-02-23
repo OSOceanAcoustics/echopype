@@ -177,48 +177,67 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
     return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
 
 
-def get_gain_BB(
-    vend: xr.Dataset, freq_center: xr.DataArray, cal_params_CW: Dict[str, xr.DataArray]
+def get_param_BB(
+    vend: xr.Dataset, varname: str, freq_center: xr.DataArray, cal_params_CW: Dict[str, xr.DataArray]
 ) -> xr.DataArray:
     """
-    Get broadband gain factor for calibrating complex samples.
+    Get broadband gain or angle factor for calibrating complex samples.
 
-    Interpolate ``gain`` in the Vendor_specific group to the center frequency of each ping
-    for BB mode samples if nominal frequency is within the calibrated frequency range
+    Interpolate gain or angle factor in the Vendor_specific group to the center frequency
+    of each ping for BB mode samples if nominal frequency is within the calibrated frequency range
 
     Parameters
     ----------
-    waveform_mode : str
-        ``CW`` for CW-mode samples, either recorded as complex or power samples
-        ``BB`` for BB-mode samples, recorded as complex samples
-    chan_sel : xr.DataArray
-        Nominal channel for CW mode samples
-        and a xr.DataArray of selected channels for BB mode samples
+    vend : xr.Dataset
+        Vendor_specific group in an EchoData object
+    varname : str
+        the desired parameter
+    freq_center : xr.DataArray
+        center frequency of the transmit BB signal
+    cal_params_CW : dict
+        a dictionary storing CW calibration parameters as xr.DataArray
 
     Returns
     -------
-    An xr.DataArray containing the interpolated gain factors
+    An xr.DataArray containing the interpolated gain or angle factor
     """
-    gain = []
+    # mapping param name between input varname and Vendor/Beam group data variable name
+    param_map_vend = {
+        "gain": "gain",
+        "angle_offset_alongship": "angle_offset_alongship",
+        "angle_offset_athwartship": "angle_offset_athwartship",
+        "beamwidth_alongship": "beamwidth_alongship",
+        "beamwidth_athwartship": "beamwidth_athwartship",
+    }
+    param_map_beam = {
+        "gain": "gain_correction",
+        "angle_offset_alongship": "angle_offset_alongship",
+        "angle_offset_athwartship": "angle_offset_athwartship",
+        "beamwidth_alongship": "beamwidth_twoway_alongship",
+        "beamwidth_athwartship": "beamwidth_twoway_athwartship",
+    }
+
+    param = []
     for ch_id in freq_center["channel"]:
-        # if frequency-dependent gain exists in Vendor group, interpolate at center frequency
+        # if frequency-dependent gain/angle factor exists in Vendor group,
+        # interpolate at center frequency
         if ch_id in vend["cal_channel_id"]:
-            gain_temp = (
-                vend["gain"]
+            param_temp = (
+                vend[param_map_vend[varname]]
                 .sel(cal_channel_id=ch_id)
                 .interp(cal_frequency=freq_center.sel(channel=ch_id))
                 .drop(["cal_channel_id", "cal_frequency"])
                 .expand_dims("channel")
             )
-        # if no frequency-dependent gain exists, use CW gain
+        # if no frequency-dependent gain/angle factor exists, use CW gain
         else:
-            gain_temp = (
-                cal_params_CW["gain_correction"].sel(channel=ch_id)
+            param_temp = (
+                cal_params_CW[param_map_beam[varname]].sel(channel=ch_id)
                 # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")
                 .expand_dims("channel")
             )
-        gain_temp.name = "gain"
-        gain.append(gain_temp)
-    gain = xr.merge(gain).gain  # select the single data variable
+        param_temp.name = varname
+        param.append(param_temp)
+    param = xr.merge(param)[varname]  # select the single data variable
 
-    return gain
+    return param
