@@ -1145,6 +1145,7 @@ class SetGroupsEK80(SetGroupsBase):
         # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
         table_params = [
             "transducer_frequency",
+            "impedance",  # receive impedance (z_er), different from transmit impedance (z_et)
             "pulse_duration",
             "sa_correction",
             "gain",
@@ -1180,6 +1181,14 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_min": 0.0,
                         "standard_name": "sound_frequency",
                     },
+                ),
+                "impedance_receive": (
+                    ["channel"],
+                    param_dict["impedance"],
+                    {
+                        "units": "ohm",
+                        "long_name": "Receiver impedance",
+                    }
                 ),
                 "sa_correction": (
                     ["channel", "pulse_length_bin"],
@@ -1220,7 +1229,7 @@ class SetGroupsEK80(SetGroupsBase):
             #                 f"{config[ch]['channel_id_short']}")
             cal_params = [
                 "gain",
-                "impedance",
+                "impedance",  # transmit impedance (z_et), different from receive impedance (z_er)
                 "phase",
                 "beamwidth_alongship",
                 "beamwidth_athwartship",
@@ -1249,6 +1258,7 @@ class SetGroupsEK80(SetGroupsBase):
             ] = "ID of channels containing broadband calibration information"
             ds_cal.append(ds_ch)
         ds_cal = xr.merge(ds_cal)
+        ds_cal = ds_cal.rename_vars({"impedance": "impedance_transmit"})
 
         #  Save decimation factors and filter coefficients
         coeffs = dict()
