@@ -7,7 +7,7 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_gain_BB, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK, get_param_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
@@ -352,8 +352,9 @@ class CalibrateEK80(CalibrateEK):
 
         if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
             # If frequency-dependent gain exists, interpolate at true center frequency
-            gain = get_gain_BB(
+            gain = get_param_BB(
                 vend=self.echodata["Vendor_specific"],
+                varname="gain",
                 freq_center=self.freq_center,
                 cal_params_CW=self.cal_params,
             )
@@ -370,7 +371,7 @@ class CalibrateEK80(CalibrateEK):
             # Compute effective pulse length
             tau_effective = get_tau_effective(
                 ytx_dict=tx,
-                fs_deci_dict={k: np.diff(v[:2]) for (k, v) in tx_time.items()},
+                fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
                 waveform_mode=self.waveform_mode,
                 channel=self.chan_sel,
                 ping_time=beam["ping_time"],
