@@ -7,11 +7,11 @@ from scipy import signal
 
 def tapered_chirp(
     fs,
-    z_et,
     transmit_duration_nominal,
     slope,
     transmit_power,
     implementation="Anderson",
+    z_et=None,
     frequency_nominal=None,
     frequency_start=None,
     frequency_end=None,
@@ -22,6 +22,10 @@ def tapered_chirp(
         frequency_end = frequency_nominal
 
     if implementation == "Macaulay":
+        # z_et is required for Macaulay implementation
+        if z_et is None:
+            raise ValueError("z_et is needed for Macaulay implementation of transmit chirp!")
+
         t = np.arange(0, transmit_duration_nominal, 1 / fs)
         nwtx = int(2 * np.floor(slope * t.size))  # length of tapering window
         wtx_tmp = np.hanning(nwtx)  # hanning window
@@ -149,7 +153,7 @@ def get_tau_effective(
 
 
 def get_transmit_signal(
-    beam: xr.Dataset, coeff: Dict, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float
+    beam: xr.Dataset, coeff: Dict, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float = None
 ):
     """Reconstruct transmit signal and compute effective pulse length.
 

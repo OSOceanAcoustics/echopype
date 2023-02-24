@@ -162,11 +162,22 @@ class CalibrateEK60(CalibrateEK):
 
 class CalibrateEK80(CalibrateEK):
 
-    # TODO: add option to get these from data file
-    fs = 1.5e6  # default full sampling frequency [Hz]
-    z_et = 75
-    z_er = 1000
-
+    # Default EK80 params: these parameters are only recorded in later versions of EK80 software
+    EK80_params = {}
+    EK80_params["z_et"] = 75  # transmit impedance
+    EK80_params["z_er"] = 1000  # receive impedance
+    EK80_params["fs"] = 1.5e6
+    # EK80_params["fs"] = {  # default full sampling frequency [Hz]
+    #     'GPT': 500000,
+    #     'SBT': 50000,
+    #     'WBAT': 1500000,
+    #     'WBT TUBE': 1500000,
+    #     'WBT MINI': 1500000,
+    #     'WBT': 1500000,
+    #     'WBT HP': 187500,
+    #     'WBT LF': 93750
+    # }
+ 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
 
@@ -264,7 +275,7 @@ class CalibrateEK80(CalibrateEK):
         return coeff
 
     def _get_power_from_complex(
-        self, beam: xr.Dataset, chan_sel: xr.DataArray, chirp: Dict
+        self, beam: xr.Dataset, chan_sel: xr.DataArray, chirp: Dict, z_et, z_er,
     ) -> xr.DataArray:
         """
         Get power from complex samples.
@@ -273,6 +284,10 @@ class CalibrateEK80(CalibrateEK):
         ----------
         beam : xr.Dataset
             EchoData["Sonar/Beam_group1"]
+        chan_sel : xr.DataArray
+            channels that transmit in BB mode
+        chirp : dict
+            a dictionary containing transmit chirp for BB channels
 
         Returns
         -------
@@ -285,10 +300,11 @@ class CalibrateEK80(CalibrateEK):
                 beam["beam"].size  # number of transducer sectors
                 * np.abs(sig.mean(dim="beam")) ** 2
                 / (2 * np.sqrt(2)) ** 2
-                * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                / self.z_et
+                * (np.abs(z_er + z_et) / z_er) ** 2
+                / z_et
             )
 
+        # Compute power
         if self.waveform_mode == "BB":
             pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
@@ -320,20 +336,38 @@ class CalibrateEK80(CalibrateEK):
         """
         # Select source of backscatter data
         beam = self.echodata[complex_ed_group]
+        vend = self.echodata["Vendor_specific"]
 
         # Get transmit signal
         tx_coeff = self._get_filter_coeff(channel=self.chan_sel)
+        # Switch to use Anderson implementation for transmit chirp starting v0.6.4
         tx, tx_time = get_transmit_signal(
             beam=beam,
             coeff=tx_coeff,
             waveform_mode=self.waveform_mode,
             channel=self.chan_sel,
-            fs=self.fs,
-            z_et=self.z_et,
+            fs=self.EK80_params["fs"],
+            # z_et=self.z_et,  # only required for Macaulay implementation, keeping here as ref
         )
 
+        # Get transmit and receive impedance
+        if "impedance_receive" not in vend:
+            z_er = self.EK80_params["z_er"]
+        else:
+            z_er = vend["impedance_receive"].sel(channel=self.chan_sel)
+        if "impedance_transmit" not in vend:
+            z_et = self.EK80_params["z_et"]
+        else:
+            for ch in self.chan_sel:  # some BB channels may not contain BB cal info
+                z_et = get_param_BB(
+                    vend=vend,
+                    varname="z_et",
+                    freq_center=self.freq_center,
+                    cal_params_CW=self.EK80_params,
+                )
+
         # Get power from complex samples
-        prx = self._get_power_from_complex(beam=beam, chan_sel=self.chan_sel, chirp=tx)
+        prx = self._get_power_from_complex(beam=beam, chan_sel=self.chan_sel, chirp=tx, z_et=z_et, z_er=z_er)
 
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
@@ -353,7 +387,7 @@ class CalibrateEK80(CalibrateEK):
         if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
             # If frequency-dependent gain exists, interpolate at true center frequency
             gain = get_param_BB(
-                vend=self.echodata["Vendor_specific"],
+                vend=vend,
                 varname="gain",
                 freq_center=self.freq_center,
                 cal_params_CW=self.cal_params,

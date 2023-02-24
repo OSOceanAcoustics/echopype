@@ -208,6 +208,7 @@ def get_param_BB(
         "angle_offset_athwartship": "angle_offset_athwartship",
         "beamwidth_alongship": "beamwidth_alongship",
         "beamwidth_athwartship": "beamwidth_athwartship",
+        "z_et": "impedance_transmit",
     }
     param_map_beam = {
         "gain": "gain_correction",
@@ -215,6 +216,7 @@ def get_param_BB(
         "angle_offset_athwartship": "angle_offset_athwartship",
         "beamwidth_alongship": "beamwidth_twoway_alongship",
         "beamwidth_athwartship": "beamwidth_twoway_athwartship",
+        "z_et": "z_et",  # from default EK80 params
     }
 
     param = []
@@ -229,13 +231,20 @@ def get_param_BB(
                 .drop(["cal_channel_id", "cal_frequency"])
                 .expand_dims("channel")
             )
-        # if no frequency-dependent gain/angle factor exists, use CW gain
+        # if no frequency-dependent gain/angle factor exists, use CW gain or default value
         else:
-            param_temp = (
-                cal_params_CW[param_map_beam[varname]].sel(channel=ch_id)
-                # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")
-                .expand_dims("channel")
-            )
+            if varname != "impedance_transmit":
+                param_temp = (
+                    cal_params_CW[param_map_beam[varname]].sel(channel=ch_id)
+                    # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")
+                    .expand_dims("channel")
+                )
+            else:  # make it a data array if param a single value (true for default EK80 params)
+                param_temp = xr.DataArray(
+                    [cal_params_CW[param_map_beam[varname]]],
+                    dims=["channel"],
+                    coords={"channel": [ch_id.data.tolist()]},
+                )
         param_temp.name = varname
         param.append(param_temp)
     param = xr.merge(param)[varname]  # select the single data variable
