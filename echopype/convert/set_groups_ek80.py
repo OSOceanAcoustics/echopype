@@ -1142,10 +1142,19 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Vendor_specific group."""
         config = self.parser_obj.config_datagram["configuration"]
 
-        # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
+        # Channel-specific parameters
+        # exist for all channels:
+        #   - sa_correction
+        #   - gain (indexed by pulse_length)
+        # may not exist for data from earlier EK80 software:
+        #   - impedance
+        #   - receiver sampling frequency
+        #   - transceiver type
         table_params = [
             "transducer_frequency",
             "impedance",  # receive impedance (z_er), different from transmit impedance (z_et)
+            "rx_sample_frequency",  # receiver sampling frequency
+            "transceiver_type",
             "pulse_duration",
             "sa_correction",
             "gain",
@@ -1156,7 +1165,8 @@ class SetGroupsEK80(SetGroupsBase):
         for ch in self.sorted_channel["all"]:
             v = self.parser_obj.config_datagram["configuration"][ch]
             for p in table_params:
-                param_dict[p].append(v[p])
+                if p in v:  # only for parameter that exist in configuration dict
+                    param_dict[p].append(v[p])
 
         # make values into numpy arrays
         for p in param_dict.keys():
@@ -1181,14 +1191,6 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_min": 0.0,
                         "standard_name": "sound_frequency",
                     },
-                ),
-                "impedance_receive": (
-                    ["channel"],
-                    param_dict["impedance"],
-                    {
-                        "units": "ohm",
-                        "long_name": "Receiver impedance",
-                    }
                 ),
                 "sa_correction": (
                     ["channel", "pulse_length_bin"],
@@ -1216,6 +1218,37 @@ class SetGroupsEK80(SetGroupsBase):
             },
         )
 
+        # Parameters that may or may not exist (due to EK80 software version)
+        if "impedance" in param_dict:
+            ds_table["impedance_receive"] = xr.DataArray(
+                param_dict["impedance"],
+                dims=["channel"],
+                coords={"channel": ds_table["channel"]},
+                attrs={
+                    "units": "ohm",
+                    "long_name": "Receiver impedance",
+                }
+            )
+        if "rx_sample_frequency" in param_dict:
+            ds_table["fs_receiver"] = xr.DataArray(
+                param_dict["rx_sample_frequency"],
+                dims=["channel"],
+                coords={"channel": ds_table["channel"]},
+                attrs={
+                    "units": "Hz",
+                    "long_name": "Receiver sampling frequency",
+                }
+            )
+        if "transceiver_type" in param_dict:
+            ds_table["transceiver_type"] = xr.DataArray(
+                param_dict["transceiver_type"],
+                dims=["channel"],
+                coords={"channel": ds_table["channel"]},
+                attrs={
+                    "long_name": "Transceiver type",
+                }
+            )
+
         # Broadband calibration parameters: use the zero padding approach
         cal_ch_ids = [
             ch for ch in self.sorted_channel["all"] if "calibration" in config[ch]
@@ -1238,7 +1271,8 @@ class SetGroupsEK80(SetGroupsBase):
             ]
             param_dict = {}
             for p in cal_params:
-                param_dict[p] = (["cal_frequency"], config[ch_id]["calibration"][p])
+                if p in config[ch_id]["calibration"]:  # only for parameters that exist in dict
+                    param_dict[p] = (["cal_frequency"], config[ch_id]["calibration"][p])
             ds_ch = xr.Dataset(
                 data_vars=param_dict,
                 coords={
@@ -1258,7 +1292,9 @@ class SetGroupsEK80(SetGroupsBase):
             ] = "ID of channels containing broadband calibration information"
             ds_cal.append(ds_ch)
         ds_cal = xr.merge(ds_cal)
-        ds_cal = ds_cal.rename_vars({"impedance": "impedance_transmit"})
+
+        if "impedance" in ds_cal:
+            ds_cal = ds_cal.rename_vars({"impedance": "impedance_transmit"})
 
         #  Save decimation factors and filter coefficients
         coeffs = dict()
