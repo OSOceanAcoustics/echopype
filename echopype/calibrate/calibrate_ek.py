@@ -439,7 +439,8 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute based on cal_type
         if cal_type == "Sv":
-            # Compute effective pulse length
+            # Effective pulse length
+            # compute first assuming all channels are not GPT
             tau_effective = get_tau_effective(
                 ytx_dict=tx,
                 fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
@@ -447,6 +448,11 @@ class CalibrateEK80(CalibrateEK):
                 channel=self.chan_sel,
                 ping_time=beam["ping_time"],
             )
+            # Use pulse_duration in place of tau_effective for GPT channels
+            # np.unique below is due to assumption that all transmit parameters are identical
+            # that needs to be changed when allowing transmit parameters to vary by ping
+            ch_GPT = vend["transceiver_type"] == "GPT"
+            tau_effective[ch_GPT] = np.unique(beam["transmit_duration_nominal"][ch_GPT])
 
             # equivalent_beam_angle:
             # identical within each channel regardless of ping_time/beam
