@@ -476,6 +476,11 @@ class CalibrateEK80(CalibrateEK):
                 - 10 * np.log10(tau_effective)
                 - psifc
             )
+
+            # Correct for sa_correction if CW mode
+            if self.waveform_mode == "CW":
+                out = out - 2 * self.cal_params["sa_correction"].sel(channel=self.chan_sel)
+
             out.name = "Sv"
             # out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 
