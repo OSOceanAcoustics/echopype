@@ -122,9 +122,9 @@ def _retrieve_correct_beam_group_EK80(
         # when echodata contains CW power and BB complex samples, and frequency_start
         # variable in Beam_group1
         if waveform_mode == "BB" and "frequency_start" not in echodata["Sonar/Beam_group1"]:
-            raise RuntimeError("waveform_mode='BB', but broadband data not found!")
+            raise ValueError("waveform_mode='BB', but broadband data not found!")
         elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
-            raise RuntimeError("waveform_mode='BB', but complex data does not exist!")
+            raise ValueError("waveform_mode='BB', but complex data does not exist!")
         elif echodata["Sonar/Beam_group2"] is not None:
             power_ed_group = "Sonar/Beam_group2"
             complex_ed_group = "Sonar/Beam_group1"
@@ -137,6 +137,16 @@ def _retrieve_correct_beam_group_EK80(
         # 1) complex samples always exist in Sonar/Beam_group1
         # 2) power samples are in Sonar/Beam_group1 if only one beam group exists
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
+
+        # Raise error if waveform_mode="CW" but CW data does not exist
+        # Number of channel should
+        if (
+            echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels
+            == echodata["Sonar/Beam_group1"]["frequency_start"].dropna(
+                dim="channel")["channel"].size  # number of BB channel
+        ):  # if all channels are BB
+            raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
+
         if echodata["Sonar/Beam_group2"] is None:
 
             if encode_mode == "power":
@@ -171,6 +181,7 @@ def _retrieve_correct_beam_group_EK80(
             else:
                 complex_ed_group = "Sonar/Beam_group1"
                 power_ed_group = "Sonar/Beam_group2"
+
 
     return power_ed_group, complex_ed_group
 
