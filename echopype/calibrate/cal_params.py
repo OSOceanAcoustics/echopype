@@ -92,6 +92,19 @@ def get_cal_params_EK(
     if user_cal_dict is None:
         user_cal_dict = {}
 
+    # Params from the Beam group
+    params_from_beam = [
+        "angle_offset_alongship", "angle_offset_athwartship",
+        "beamwidth_twoway_alongship", "beamwidth_twoway_athwartship",
+    ]
+    for p in params_from_beam:
+        # substitute if p not in user input
+        out_dict[p] = (
+            user_cal_dict[p]
+            if p in user_cal_dict
+            else beam[p]
+        )
+
     # Params from the Vendor_specific group
     params_from_vend = ["sa_correction", "gain_correction"]
     for p in params_from_vend:
