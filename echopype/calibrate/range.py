@@ -214,39 +214,46 @@ def compute_range_EK(
     # Get the right Sonar/Beam_groupX group according to encode_mode
     ed_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
     beam = echodata[ed_group]
+    vend = echodata["Vendor_specific"]
+
+    # Harmonize sound_speed time1 and Beam_groupX ping_time
+    sound_speed = _harmonize_env_param_time(
+        p=sound_speed,
+        ping_time=beam.ping_time,
+    )
 
     # TVG correction factor changes depending when the echo recording starts
     # wrt when the transmit signal is sent out.
-    # This implementation is different for EK60 and EK80.
-    tvg_correction_factor = TVG_CORRECTION_FACTOR[echodata.sonar_model]
+    # This depends on whether it is Ex60 or Ex80 style hardware
+    # ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4297-L4308  # noqa
+    def range_Ex60(ds):
+        return (
+            # 2-sample shift in the beginning
+            (ds["range_sample"] - 2) * ds["sample_interval"] * sound_speed / 2
+        )  # [frequency x range_sample]
 
-    if waveform_mode == "BB":
-
-        shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
-
-        # Harmonize sound_speed time1 and Beam_group1 ping_time
-        sound_speed = _harmonize_env_param_time(
-            p=sound_speed,
-            ping_time=beam.ping_time,
+    def range_Ex80(ds):
+        return (
+            ds["range_sample"] * ds["sample_interval"] * sound_speed / 2
+            - sound_speed * ds["transmit_duration_nominal"] / 4
         )
 
-        # TODO: once we allow putting in arbitrary sound_speed,
-        # change below to use linearly-interpolated values
-        range_meter = (beam["range_sample"] * beam["sample_interval"] - shift) * sound_speed / 2
+    # If EK60
+    if echodata.sonar_model in ["EK60", "ES70"]:
+        range_meter = range_Ex60(beam)
 
-    else:  # CW
-        # Harmonize sound_speed time1 and Beam_groupX ping_time
-        sound_speed = _harmonize_env_param_time(
-            p=sound_speed,
-            ping_time=beam.ping_time,
-        )
+    # If EK80:
+    # - compute range first assuming all channels have Ex80 style hardware
+    # - change range for channels with Ex60 style hardware (GPT)
+    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
+        range_meter = range_Ex80(beam)
 
-        sample_thickness = beam["sample_interval"] * sound_speed / 2
-
-        # TODO: Check with the AFSC about the half sample difference
-        range_meter = (
-            beam.range_sample - tvg_correction_factor
-        ) * sample_thickness  # [frequency x range_sample]
+        # Change range for all channels with GPT
+        if "GPT" in vend["transceiver_type"]:
+            ch_GPT = vend["transceiver_type"] == "GPT"
+            range_meter.loc[dict(channel=ch_GPT)] = range_Ex60(
+                beam.sel(channel=vend["channel"][ch_GPT])
+            )
 
     # make order of dims conform with the order of backscatter data
     range_meter = range_meter.transpose("channel", "ping_time", "range_sample")
