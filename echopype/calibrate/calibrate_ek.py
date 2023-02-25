@@ -166,18 +166,18 @@ class CalibrateEK80(CalibrateEK):
     EK80_params = {}
     EK80_params["z_et"] = 75  # transmit impedance
     EK80_params["z_er"] = 1000  # receive impedance
-    EK80_params["fs"] = 1.5e6
-    # EK80_params["fs"] = {  # default full sampling frequency [Hz]
-    #     'GPT': 500000,
-    #     'SBT': 50000,
-    #     'WBAT': 1500000,
-    #     'WBT TUBE': 1500000,
-    #     'WBT MINI': 1500000,
-    #     'WBT': 1500000,
-    #     'WBT HP': 187500,
-    #     'WBT LF': 93750
-    # }
- 
+    EK80_params["fs"] = {  # default full sampling frequency [Hz]
+        "default": 1500000,
+        "GPT": 500000,
+        "SBT": 50000,
+        "WBAT": 1500000,
+        "WBT TUBE": 1500000,
+        "WBT MINI": 1500000,
+        "WBT": 1500000,
+        "WBT HP": 187500,
+        "WBT LF": 93750
+    }
+
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
 
@@ -371,14 +371,23 @@ class CalibrateEK80(CalibrateEK):
 
         # Get transmit signal
         tx_coeff = self._get_filter_coeff(channel=self.chan_sel)
+        if "fs_receiver" in vend:
+            fs = vend["fs_receiver"]
+        else:
+            # Most robust to loop through channel
+            fs = []
+            for ch in self.chan_sel:
+                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
+                fs.append(self.EK80_params["fs"][tcvr_type])
+            fs = xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
+
         # Switch to use Anderson implementation for transmit chirp starting v0.6.4
         tx, tx_time = get_transmit_signal(
             beam=beam,
             coeff=tx_coeff,
             waveform_mode=self.waveform_mode,
             channel=self.chan_sel,
-            fs=self.EK80_params["fs"],
-            # z_et=self.z_et,  # only required for Macaulay implementation, keeping here as ref
+            fs=fs,
         )
 
         # Get transmit and receive impedance
@@ -390,15 +399,12 @@ class CalibrateEK80(CalibrateEK):
             z_et = self.EK80_params["z_et"]
         else:
             for ch in self.chan_sel:  # some BB channels may not contain BB cal info
-                z_et = get_param_BB(
-                    vend=vend,
-                    varname="z_et",
-                    freq_center=self.freq_center,
-                    cal_params_CW=self.EK80_params,
-                )
+                z_et = get_param_BB(vend, "z_et", self.freq_center, self.EK80_params)
 
         # Get power from complex samples
-        prx = self._get_power_from_complex(beam=beam, chan_sel=self.chan_sel, chirp=tx, z_et=z_et, z_er=z_er)
+        prx = self._get_power_from_complex(
+            beam=beam, chan_sel=self.chan_sel, chirp=tx, z_et=z_et, z_er=z_er
+        )
 
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
@@ -418,18 +424,14 @@ class CalibrateEK80(CalibrateEK):
         # Gain
         if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
             # If frequency-dependent gain exists, interpolate at true center frequency
-            gain = get_param_BB(
-                vend=vend,
-                varname="gain",
-                freq_center=self.freq_center,
-                cal_params_CW=self.cal_params,
-            )
+            gain = get_param_BB(vend, "gain", self.freq_center, self.cal_params)
         else:
             # use gain already retrieved in init
             gain = self.cal_params["gain_correction"]
 
         # Transceiver gain compensation for BB mode
-        gain = gain - self._get_B_theta_phi_m()
+        if self.waveform_mode == "BB":
+            gain = gain - self._get_B_theta_phi_m()
 
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
         absorption_loss = 2 * absorption * range_meter

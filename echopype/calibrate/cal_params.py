@@ -233,7 +233,7 @@ def get_param_BB(
             )
         # if no frequency-dependent gain/angle factor exists, use CW gain or default value
         else:
-            if varname != "impedance_transmit":
+            if varname != "z_et":
                 param_temp = (
                     cal_params_CW[param_map_beam[varname]].sel(channel=ch_id)
                     # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")

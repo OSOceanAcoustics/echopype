@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Union
 
 import numpy as np
 import xarray as xr
@@ -153,7 +153,8 @@ def get_tau_effective(
 
 
 def get_transmit_signal(
-    beam: xr.Dataset, coeff: Dict, waveform_mode: str, channel: xr.DataArray, fs: float, z_et: float = None
+    beam: xr.Dataset, coeff: Dict, waveform_mode: str, channel: xr.DataArray,
+    fs: Union[float, xr.DataArray]
 ):
     """Reconstruct transmit signal and compute effective pulse length.
 
@@ -215,12 +216,12 @@ def get_transmit_signal(
             tx_params[p] = np.unique(beam[p].sel(channel=ch))
             if tx_params[p].size != 1:
                 raise TypeError("File contains changing %s!" % p)
-        tx_params["fs"] = fs
-        tx_params["z_et"] = z_et
+        fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
+        tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
 
         # Filter and decimate chirp template
-        y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs)
+        y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)
 
         # Fill into output dict
         y_all[ch] = y_ch

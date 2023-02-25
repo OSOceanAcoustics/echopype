@@ -148,12 +148,12 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
 
-        vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
-        for var_name in vars:
-            if var_name in self.parser_obj.environment:
-                dict_env[var_name] = (
+        varnames = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+        for vn in varnames:
+            if vn in self.parser_obj.environment:
+                dict_env[vn] = (
                     ["time1"],
-                    [self.parser_obj.environment[var_name]],
+                    [self.parser_obj.environment[vn]],
                 )
 
         ds = xr.Dataset(
@@ -1231,7 +1231,7 @@ class SetGroupsEK80(SetGroupsBase):
             )
         if "rx_sample_frequency" in param_dict:
             ds_table["fs_receiver"] = xr.DataArray(
-                param_dict["rx_sample_frequency"],
+                param_dict["rx_sample_frequency"].astype(int),
                 dims=["channel"],
                 coords={"channel": ds_table["channel"]},
                 attrs={
