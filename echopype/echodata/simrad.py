@@ -139,13 +139,13 @@ def _retrieve_correct_beam_group_EK80(
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
 
         # Raise error if waveform_mode="CW" but CW data does not exist
-        # Number of channel should
-        if (
-            echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels
-            == echodata["Sonar/Beam_group1"]["frequency_start"].dropna(
-                dim="channel")["channel"].size  # number of BB channel
-        ):  # if all channels are BB
-            raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
+        if "frequency_start" in echodata["Sonar/Beam_group1"]:  # no need to check if only CW data
+            if (
+                echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels
+                == echodata["Sonar/Beam_group1"]["frequency_start"].dropna(
+                    dim="channel")["channel"].size  # number of BB channel
+            ):  # if all channels are BB
+                raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
 
         if echodata["Sonar/Beam_group2"] is None:
 
