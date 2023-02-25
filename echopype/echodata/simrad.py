@@ -182,7 +182,6 @@ def _retrieve_correct_beam_group_EK80(
                 complex_ed_group = "Sonar/Beam_group1"
                 power_ed_group = "Sonar/Beam_group2"
 
-
     return power_ed_group, complex_ed_group
 
 

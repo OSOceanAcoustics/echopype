@@ -209,7 +209,10 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
 
 
 def get_param_BB(
-    vend: xr.Dataset, varname: str, freq_center: xr.DataArray, cal_params_CW: Dict[str, xr.DataArray]
+    vend: xr.Dataset,
+    varname: str,
+    freq_center: xr.DataArray,
+    cal_params_CW: Dict[str, xr.DataArray]
 ) -> xr.DataArray:
     """
     Get broadband gain or angle factor for calibrating complex samples.
@@ -249,7 +252,7 @@ def get_param_BB(
             if varname != "z_et":
                 param_temp = (
                     cal_params_CW[PARAM_BEAM[varname]].sel(channel=ch_id)
-                    # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")
+                    # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")  # noqa
                     .expand_dims("channel")
                 )
             else:  # make it a data array if param a single value (true for default EK80 params)

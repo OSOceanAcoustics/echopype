@@ -322,7 +322,7 @@ class CalibrateEK80(CalibrateEK):
         """
         Get transceiver gain compensation for BB mode.
 
-        ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274
+        ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274  # noqa
         """
         vend = self.echodata["Vendor_specific"]
 
