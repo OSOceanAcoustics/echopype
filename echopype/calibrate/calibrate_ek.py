@@ -318,6 +318,37 @@ class CalibrateEK80(CalibrateEK):
 
         return prx
 
+    def _get_B_theta_phi_m(self):
+        """
+        Get transceiver gain compensation for BB mode.
+
+        ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274
+        """
+        vend = self.echodata["Vendor_specific"]
+
+        # Get BB angle params from Vendor group
+        angle_params = {}
+        for p in [
+            "angle_offset_alongship",
+            "angle_offset_athwartship",
+            "beamwidth_alongship",
+            "beamwidth_athwartship"
+        ]:
+            angle_params[p] = get_param_BB(vend, p, self.freq_center, self.cal_params)
+
+        # Compute compensation factor
+        fac_along = (
+            np.abs(-angle_params["angle_offset_alongship"])
+            / (angle_params["beamwidth_alongship"] / 2)
+        ) ** 2
+        fac_athwart = (
+            np.abs(-angle_params["angle_offset_athwartship"])
+            / (angle_params["beamwidth_athwartship"] / 2)
+        ) ** 2
+        B_theta_phi_m = (0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart))
+
+        return B_theta_phi_m
+
     def _cal_complex_samples(self, cal_type: str, complex_ed_group: str) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
@@ -384,6 +415,7 @@ class CalibrateEK80(CalibrateEK):
         range_meter = self.range_meter.sel(channel=self.chan_sel)
         wavelength = sound_speed / self.freq_center
 
+        # Gain
         if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
             # If frequency-dependent gain exists, interpolate at true center frequency
             gain = get_param_BB(
@@ -395,6 +427,9 @@ class CalibrateEK80(CalibrateEK):
         else:
             # use gain already retrieved in init
             gain = self.cal_params["gain_correction"]
+
+        # Transceiver gain compensation for BB mode
+        gain = gain - self._get_B_theta_phi_m()
 
         spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
         absorption_loss = 2 * absorption * range_meter
