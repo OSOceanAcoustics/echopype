@@ -10,6 +10,24 @@ CAL_PARAMS = {
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
+# mapping param name between input varname and Vendor/Beam group data variable name
+PARAM_VEND = {
+    "gain": "gain",
+    "angle_offset_alongship": "angle_offset_alongship",
+    "angle_offset_athwartship": "angle_offset_athwartship",
+    "beamwidth_alongship": "beamwidth_alongship",
+    "beamwidth_athwartship": "beamwidth_athwartship",
+    "z_et": "impedance_transmit",
+}
+PARAM_BEAM = {
+    "gain": "gain_correction",
+    "angle_offset_alongship": "angle_offset_alongship",
+    "angle_offset_athwartship": "angle_offset_athwartship",
+    "beamwidth_alongship": "beamwidth_twoway_alongship",
+    "beamwidth_athwartship": "beamwidth_twoway_athwartship",
+    "z_et": "z_et",  # from default EK80 params
+}
+
 
 # TODO: need a function (something like "_check_param_freq_dep")
 # to check user input cal_params and env_params
@@ -201,31 +219,13 @@ def get_param_BB(
     -------
     An xr.DataArray containing the interpolated gain or angle factor
     """
-    # mapping param name between input varname and Vendor/Beam group data variable name
-    param_map_vend = {
-        "gain": "gain",
-        "angle_offset_alongship": "angle_offset_alongship",
-        "angle_offset_athwartship": "angle_offset_athwartship",
-        "beamwidth_alongship": "beamwidth_alongship",
-        "beamwidth_athwartship": "beamwidth_athwartship",
-        "z_et": "impedance_transmit",
-    }
-    param_map_beam = {
-        "gain": "gain_correction",
-        "angle_offset_alongship": "angle_offset_alongship",
-        "angle_offset_athwartship": "angle_offset_athwartship",
-        "beamwidth_alongship": "beamwidth_twoway_alongship",
-        "beamwidth_athwartship": "beamwidth_twoway_athwartship",
-        "z_et": "z_et",  # from default EK80 params
-    }
-
     param = []
     for ch_id in freq_center["channel"]:
         # if frequency-dependent gain/angle factor exists in Vendor group,
         # interpolate at center frequency
         if ch_id in vend["cal_channel_id"]:
             param_temp = (
-                vend[param_map_vend[varname]]
+                vend[PARAM_VEND[varname]]
                 .sel(cal_channel_id=ch_id)
                 .interp(cal_frequency=freq_center.sel(channel=ch_id))
                 .drop(["cal_channel_id", "cal_frequency"])
@@ -235,13 +235,13 @@ def get_param_BB(
         else:
             if varname != "z_et":
                 param_temp = (
-                    cal_params_CW[param_map_beam[varname]].sel(channel=ch_id)
+                    cal_params_CW[PARAM_BEAM[varname]].sel(channel=ch_id)
                     # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")
                     .expand_dims("channel")
                 )
             else:  # make it a data array if param a single value (true for default EK80 params)
                 param_temp = xr.DataArray(
-                    [cal_params_CW[param_map_beam[varname]]],
+                    [cal_params_CW[PARAM_BEAM[varname]]],
                     dims=["channel"],
                     coords={"channel": [ch_id.data.tolist()]},
                 )
