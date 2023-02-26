@@ -459,7 +459,8 @@ class CalibrateEK80(CalibrateEK):
             ch_GPT = vend["transceiver_type"].sel(channel=self.chan_sel) == "GPT"
             tau_effective[ch_GPT] = (
                 beam["transmit_duration_nominal"]
-                .sel(channel=self.chan_sel)[ch_GPT].isel(ping_time=0)
+                .sel(channel=self.chan_sel)[ch_GPT]
+                .isel(ping_time=0)
             )
 
             # equivalent_beam_angle:
