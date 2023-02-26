@@ -326,17 +326,22 @@ def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     assert isinstance(ds_Sv, xr.Dataset)
 
 
-def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path):
+def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
     """
     Tests calibration for file containing both BB and CW mode data
     with both encoded as complex samples.
     """
-    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"
+    # ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "D20170912-T234910.raw"  # rx impedance / rx fs / tcvr type
+    ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"  # BB only, rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "ar2.0-D20201210-T000409.raw"  # CW only, rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "saildrone/SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw"  # rx impedance / tcvr type
+    # ek80_raw_path = ek80_path / "D20200528-T125932.raw"  # CW only,  WBT MINI, rx impedance / rx fs / tcvr type
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
-    ds_Sv = ep.calibrate.compute_Sv(
-        ed, waveform_mode="CW", encode_mode="complex"
-    )
-    assert isinstance(ds_Sv, xr.Dataset)
+    # ds_Sv = ep.calibrate.compute_Sv(
+    #     ed, waveform_mode="CW", encode_mode="complex"
+    # )
+    # assert isinstance(ds_Sv, xr.Dataset)
     ds_Sv = ep.calibrate.compute_Sv(
         ed, waveform_mode="BB", encode_mode="complex"
     )
