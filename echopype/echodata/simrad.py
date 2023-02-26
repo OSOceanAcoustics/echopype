@@ -142,8 +142,9 @@ def _retrieve_correct_beam_group_EK80(
         if "frequency_start" in echodata["Sonar/Beam_group1"]:  # no need to check if only CW data
             if (
                 echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels
-                == echodata["Sonar/Beam_group1"]["frequency_start"].dropna(
-                    dim="channel")["channel"].size  # number of BB channel
+                == echodata["Sonar/Beam_group1"]["frequency_start"]
+                .dropna(dim="channel")["channel"]
+                .size  # number of BB channel
             ):  # if all channels are BB
                 raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
 

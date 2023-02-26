@@ -41,7 +41,7 @@ def tapered_chirp(
             * np.cos(2 * np.pi * chirp_fac * t)  # chirp
             * wtx  # tapering
         )  # taper and scale linear chirp
-        return y_tmp / np.max(np.abs(y_tmp)), t   # amplitude needs to be normalized
+        return y_tmp / np.max(np.abs(y_tmp)), t  # amplitude needs to be normalized
 
     elif implementation == "Anderson":
         # Substitute to keep original form in Anderson implementation
@@ -58,8 +58,8 @@ def tapered_chirp(
         L = int(np.round(tau * fs * slope * 2.0))  # Length of hanning window
         w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
         N = len(y)
-        w1 = w[0:int(len(w) / 2)]
-        w2 = w[int(len(w) / 2):-1]
+        w1 = w[0 : int(len(w) / 2)]
+        w2 = w[int(len(w) / 2) : -1]
         i0 = 0
         i1 = len(w1)
         i2 = N - len(w2)
@@ -67,7 +67,7 @@ def tapered_chirp(
         y[i0:i1] = y[i0:i1] * w1
         y[i2:i3] = y[i2:i3] * w2
 
-        return y / np.max(y), t   # amplitude needs to be normalized
+        return y / np.max(y), t  # amplitude needs to be normalized
 
     else:
         raise ValueError("Input implementation type not recognized!")
@@ -153,8 +153,11 @@ def get_tau_effective(
 
 
 def get_transmit_signal(
-    beam: xr.Dataset, coeff: Dict, waveform_mode: str, channel: xr.DataArray,
-    fs: Union[float, xr.DataArray]
+    beam: xr.Dataset,
+    coeff: Dict,
+    waveform_mode: str,
+    channel: xr.DataArray,
+    fs: Union[float, xr.DataArray],
 ):
     """Reconstruct transmit signal and compute effective pulse length.
 

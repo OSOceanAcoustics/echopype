@@ -1227,7 +1227,7 @@ class SetGroupsEK80(SetGroupsBase):
                 attrs={
                     "units": "ohm",
                     "long_name": "Receiver impedance",
-                }
+                },
             )
         if "rx_sample_frequency" in param_dict:
             ds_table["fs_receiver"] = xr.DataArray(
@@ -1237,7 +1237,7 @@ class SetGroupsEK80(SetGroupsBase):
                 attrs={
                     "units": "Hz",
                     "long_name": "Receiver sampling frequency",
-                }
+                },
             )
         if "transceiver_type" in param_dict:
             ds_table["transceiver_type"] = xr.DataArray(
@@ -1246,7 +1246,7 @@ class SetGroupsEK80(SetGroupsBase):
                 coords={"channel": ds_table["channel"]},
                 attrs={
                     "long_name": "Transceiver type",
-                }
+                },
             )
 
         # Broadband calibration parameters: use the zero padding approach

@@ -175,7 +175,7 @@ class CalibrateEK80(CalibrateEK):
         "WBT MINI": 1500000,
         "WBT": 1500000,
         "WBT HP": 187500,
-        "WBT LF": 93750
+        "WBT LF": 93750,
     }
 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
@@ -275,7 +275,12 @@ class CalibrateEK80(CalibrateEK):
         return coeff
 
     def _get_power_from_complex(
-        self, beam: xr.Dataset, chan_sel: xr.DataArray, chirp: Dict, z_et, z_er,
+        self,
+        beam: xr.Dataset,
+        chan_sel: xr.DataArray,
+        chirp: Dict,
+        z_et,
+        z_er,
     ) -> xr.DataArray:
         """
         Get power from complex samples.
@@ -332,7 +337,7 @@ class CalibrateEK80(CalibrateEK):
             "angle_offset_alongship",
             "angle_offset_athwartship",
             "beamwidth_alongship",
-            "beamwidth_athwartship"
+            "beamwidth_athwartship",
         ]:
             angle_params[p] = get_param_BB(vend, p, self.freq_center, self.cal_params)
 
@@ -345,7 +350,7 @@ class CalibrateEK80(CalibrateEK):
             np.abs(-angle_params["angle_offset_athwartship"])
             / (angle_params["beamwidth_athwartship"] / 2)
         ) ** 2
-        B_theta_phi_m = (0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart))
+        B_theta_phi_m = 0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart)
 
         return B_theta_phi_m
 

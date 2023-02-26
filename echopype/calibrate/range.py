@@ -229,7 +229,10 @@ def compute_range_EK(
     def range_Ex60(ds):
         return (
             # 2-sample shift in the beginning
-            (ds["range_sample"] - 2) * ds["sample_interval"] * sound_speed / 2
+            (ds["range_sample"] - 2)
+            * ds["sample_interval"]
+            * sound_speed
+            / 2
         )  # [frequency x range_sample]
 
     def range_Ex80(ds):

@@ -94,16 +94,14 @@ def get_cal_params_EK(
 
     # Params from the Beam group
     params_from_beam = [
-        "angle_offset_alongship", "angle_offset_athwartship",
-        "beamwidth_twoway_alongship", "beamwidth_twoway_athwartship",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "beamwidth_twoway_alongship",
+        "beamwidth_twoway_athwartship",
     ]
     for p in params_from_beam:
         # substitute if p not in user input
-        out_dict[p] = (
-            user_cal_dict[p]
-            if p in user_cal_dict
-            else beam[p]
-        )
+        out_dict[p] = user_cal_dict[p] if p in user_cal_dict else beam[p]
 
     # Params from the Vendor_specific group
     params_from_vend = ["sa_correction", "gain_correction"]
@@ -212,7 +210,7 @@ def get_param_BB(
     vend: xr.Dataset,
     varname: str,
     freq_center: xr.DataArray,
-    cal_params_CW: Dict[str, xr.DataArray]
+    cal_params_CW: Dict[str, xr.DataArray],
 ) -> xr.DataArray:
     """
     Get broadband gain or angle factor for calibrating complex samples.
