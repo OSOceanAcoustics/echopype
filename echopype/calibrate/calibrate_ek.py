@@ -454,10 +454,13 @@ class CalibrateEK80(CalibrateEK):
                 ping_time=beam["ping_time"],
             )
             # Use pulse_duration in place of tau_effective for GPT channels
-            # np.unique below is due to assumption that all transmit parameters are identical
-            # that needs to be changed when allowing transmit parameters to vary by ping
-            ch_GPT = vend["transceiver_type"] == "GPT"
-            tau_effective[ch_GPT] = np.unique(beam["transmit_duration_nominal"][ch_GPT])
+            # below assumesthat all transmit parameters are identical
+            # and needs to be changed when allowing transmit parameters to vary by ping
+            ch_GPT = vend["transceiver_type"].sel(channel=self.chan_sel) == "GPT"
+            tau_effective[ch_GPT] = (
+                beam["transmit_duration_nominal"]
+                .sel(channel=self.chan_sel)[ch_GPT].isel(ping_time=0)
+            )
 
             # equivalent_beam_angle:
             # identical within each channel regardless of ping_time/beam

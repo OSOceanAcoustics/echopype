@@ -139,7 +139,10 @@ def _retrieve_correct_beam_group_EK80(
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
 
         # Raise error if waveform_mode="CW" but CW data does not exist
-        if "frequency_start" in echodata["Sonar/Beam_group1"]:  # no need to check if only CW data
+        if (
+            encode_mode == "complex"  # only check if encode_mode="complex"
+            and "frequency_start" in echodata["Sonar/Beam_group1"]  # only check is data is BB
+        ):
             if (
                 echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels
                 == echodata["Sonar/Beam_group1"]["frequency_start"]
