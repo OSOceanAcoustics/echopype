@@ -47,9 +47,7 @@ def _range_bin_to_range_sample(ed_obj):
     """
 
     for grp_path in ed_obj.group_paths:
-
         if "range_bin" in list(ed_obj[grp_path].coords):
-
             # renames range_bin in the dataset
             ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"range_bin": "range_sample"})
 
@@ -76,9 +74,7 @@ def _add_attrs_to_freq(ed_obj):
     """
 
     for grp_path in ed_obj.group_paths:
-
         if "frequency" in list(ed_obj[grp_path].coords):
-
             # creates consistent frequency attributes
             ed_obj[grp_path]["frequency"] = ed_obj[grp_path].frequency.assign_attrs(
                 {
@@ -129,7 +125,6 @@ def get_channel_id(ed_obj, sensor):
     A datarray specifying the channel_ids with dimension frequency.
     """
     if sensor == "AZFP":
-
         # create frequency_nominal variable
         freq_nom = ed_obj["Sonar/Beam_group1"].frequency
 
@@ -144,7 +139,6 @@ def get_channel_id(ed_obj, sensor):
         )
 
     else:
-
         # in the case of EK80 we cannot infer the correct frequency
         # for each channel id, but we can obtain this information
         # from the XML string in the Vendor attribute
@@ -193,9 +187,7 @@ def _frequency_to_channel(ed_obj, sensor):
     channel_id = get_channel_id(ed_obj, sensor)  # all channel ids
 
     for grp_path in ed_obj.group_paths:
-
         if "frequency" in ed_obj[grp_path]:
-
             # add frequency_nominal
             ed_obj[grp_path]["frequency_nominal"] = ed_obj[grp_path].frequency
             ed_obj[grp_path] = ed_obj[grp_path].rename({"frequency": "channel"})
@@ -248,7 +240,6 @@ def _change_beam_var_names(ed_obj, sensor):
     """
 
     if sensor == "EK60":
-
         ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].rename(
             {"beamwidth_receive_alongship": "beamwidth_twoway_alongship"}
         )
@@ -270,9 +261,7 @@ def _change_beam_var_names(ed_obj, sensor):
         )
 
     if sensor in ["EK60", "EK80"]:
-
         for beam_group in ed_obj._tree["Sonar"].children.values():
-
             beam_group.ds.angle_sensitivity_alongship.attrs[
                 "long_name"
             ] = "alongship angle sensitivity of the transducer"
@@ -315,7 +304,6 @@ def _add_comment_to_beam_vars(ed_obj, sensor):
     """
 
     if sensor in ["EK60", "EK80"]:
-
         for beam_group in ed_obj._tree["Sonar"].children.values():
             beam_group.ds.beamwidth_twoway_alongship.attrs["comment"] = (
                 "Introduced in echopype for Simrad echosounders to avoid "
@@ -386,9 +374,7 @@ def _beam_groups_to_convention(ed_obj, set_grp_cls):
     """
 
     for beam_group in ed_obj._tree["Sonar"].children.values():
-
         if "quadrant" in beam_group.ds:
-
             # change quadrant to beam, assign its values
             # to a string starting at 1, and set attributes
             beam_group.ds = beam_group.ds.rename({"quadrant": "beam"})
@@ -444,7 +430,6 @@ def _modify_sonar_group(ed_obj, sensor):
 
     # add sonar_serial_number to EK80 Sonar group
     if sensor == "EK80":
-
         ed_obj["Sonar"] = ed_obj["Sonar"].assign(
             {
                 "sonar_serial_number": (
@@ -558,7 +543,6 @@ def _add_vars_to_platform(ed_obj, sensor):
         ed_obj["Platform"] = ed_obj["Platform"].rename({"heave": "vertical_offset"})
 
     if sensor == "EK80":
-
         ed_obj["Platform"]["drop_keel_offset"] = xr.DataArray(
             data=[ed_obj["Platform"].attrs["drop_keel_offset"]], dims=["time3"]
         )
@@ -630,7 +614,6 @@ def _add_vars_coords_to_environment(ed_obj, sensor):
     """
 
     if sensor == "EK80":
-
         ed_obj["Environment"]["sound_velocity_source"] = (
             ["ping_time"],
             np.array(len(ed_obj["Environment"].ping_time) * ["None"]),
@@ -705,7 +688,6 @@ def _rearrange_azfp_attrs_vars(ed_obj, sensor):
     """
 
     if sensor == "AZFP":
-
         beam_to_plat_vars = ["tilt_x", "tilt_y"]
 
         for var_name in beam_to_plat_vars:
@@ -732,7 +714,6 @@ def _rearrange_azfp_attrs_vars(ed_obj, sensor):
         del beam_to_vendor_attrs["conversion_equation_t"]
 
         for key, val in beam_to_vendor_attrs.items():
-
             ed_obj["Vendor"].attrs[key] = val
             del ed_obj["Sonar/Beam_group1"].attrs[key]
 
@@ -757,14 +738,11 @@ def _rename_mru_time_location_time(ed_obj):
     """
 
     for grp_path in ed_obj.group_paths:
-
         if "location_time" in list(ed_obj[grp_path].coords):
-
             # renames location_time to time1
             ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"location_time": "time1"})
 
         if "mru_time" in list(ed_obj[grp_path].coords):
-
             # renames mru_time to time2
             ed_obj[grp_path] = ed_obj[grp_path].rename(name_dict={"mru_time": "time2"})
 
@@ -1005,9 +983,7 @@ def _change_list_attrs_to_str(ed_obj):
     """
 
     for var in ed_obj["Platform"]:
-
         if "valid_range" in ed_obj["Platform"][var].attrs.keys():
-
             attr_val = ed_obj["Platform"][var].attrs["valid_range"]
 
             if not isinstance(attr_val, str):
@@ -1030,7 +1006,6 @@ def _change_vertical_offset_attrs(ed_obj):
     """
 
     if "vertical_offset" in ed_obj["Platform"]:
-
         ed_obj["Platform"]["vertical_offset"].attrs = {
             "long_name": "Platform vertical offset from nominal",
             "units": "m",

@@ -82,7 +82,6 @@ def check_zarr_path(
             "different path or set overwrite=True."
         )
     elif exists and overwrite:
-
         logger.info(f"overwriting {validated_path}")
 
         # remove zarr file
@@ -116,7 +115,6 @@ def _check_channel_selection_form(
             raise TypeError("Each element of channel_selection must be a string!")
 
     if isinstance(channel_selection, dict):
-
         # make sure all keys are strings
         are_keys_str = [isinstance(elem, str) for elem in channel_selection.keys()]
         if not all(are_keys_str):
@@ -185,7 +183,6 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
 
     echodata_filenames = []
     for ed in echodatas:
-
         # check sonar model
         if ed.sonar_model is None:
             raise ValueError("all EchoData objects must have non-None sonar_model values")
@@ -240,7 +237,6 @@ def _check_channel_consistency(
     """
 
     if channel_selection is None:
-
         # sort each element in list, so correct comparison can be made
         all_chan_list = list(map(sorted, all_chan_list))
 
@@ -248,7 +244,6 @@ def _check_channel_consistency(
         all_chans_equal = [all_chan_list[0]] * len(all_chan_list) == all_chan_list
 
         if not all_chans_equal:
-
             # obtain all unique channel names
             unique_channels = set(itertools.chain.from_iterable(all_chan_list))
 
@@ -261,7 +256,6 @@ def _check_channel_consistency(
             )
 
     else:
-
         # make channel_selection a set, so it is easier to use
         channel_selection = set(channel_selection)
 
@@ -346,10 +340,8 @@ def _create_channel_selection_dict(
     # values are based on the user provided input user_channel_selection
     channel_selection_dict = dict()
     for ed_group, has_chan in has_chan_dim.items():
-
         # if there are no channel dimensions in the group, set the value to None
         if has_chan:
-
             if (
                 (not isinstance(user_channel_selection, list))
                 and (sonar_model in ["EK80", "ES80", "EA640"])
@@ -415,9 +407,7 @@ def _check_echodata_channels(
     )
 
     for ed_group in echodatas[0].group_paths:
-
         if "channel" in echodatas[0][ed_group].dims:
-
             # get each EchoData's channels as a list of list
             all_chan_list = [list(ed[ed_group].channel.values) for ed in echodatas]
 

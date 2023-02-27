@@ -188,7 +188,6 @@ def validate_output_path(
     elif not isinstance(save_path, Path) and not isinstance(save_path, str):
         raise TypeError("save_path must be a string or Path")
     else:
-
         # convert save_path into a nicely formatted Windows path if we are on
         # a Windows machine and the path is not a cloud storage path. Then convert back to a string.
         if platform.system() == "Windows":
@@ -360,7 +359,6 @@ def validate_source_ds_da(
     if not isinstance(source_ds_da, (xr.Dataset, xr.DataArray, str, Path)):
         raise TypeError("source_ds_da must be a Dataset or DataArray or str or pathlib.Path!")
     elif isinstance(source_ds_da, (str, Path)):
-
         # determine if we obtained a zarr or netcdf file
         file_type = get_file_format(source_ds_da)
 

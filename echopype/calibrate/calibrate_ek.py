@@ -161,7 +161,6 @@ class CalibrateEK60(CalibrateEK):
 
 
 class CalibrateEK80(CalibrateEK):
-
     # TODO: add option to get these from data file
     fs = 1.5e6  # default full sampling frequency [Hz]
     z_et = 75

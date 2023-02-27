@@ -57,11 +57,9 @@ def _validate_and_collect_mask_input(
     """
 
     if isinstance(mask, list):
-
         # if storage_options_mask is not a list create a list of
         # length len(mask) with elements storage_options_mask
         if not isinstance(storage_options_mask, list):
-
             if not isinstance(storage_options_mask, dict):
                 raise TypeError("storage_options_mask must be a list of dict or a dict!")
 
@@ -72,7 +70,6 @@ def _validate_and_collect_mask_input(
                 raise TypeError("storage_options_mask must be a list of dict or a dict!")
 
         for mask_ind in range(len(mask)):
-
             # validate the mask type or path (if it is provided)
             mask_val, file_type = validate_source_ds_da(
                 mask[mask_ind], storage_options_mask[mask_ind]
@@ -86,7 +83,6 @@ def _validate_and_collect_mask_input(
                 )
 
     else:
-
         if not isinstance(storage_options_mask, dict):
             raise ValueError(
                 "The provided input storage_options_mask should be a single "
@@ -535,7 +531,6 @@ def frequency_differencing(
 
     # determine chanA and chanB
     if freqAB is not None:
-
         # obtain position of frequency provided in frequency_nominal
         freqA_pos = np.argwhere(source_Sv.frequency_nominal.values == freqAB[0]).flatten()[0]
         freqB_pos = np.argwhere(source_Sv.frequency_nominal.values == freqAB[1]).flatten()[0]
