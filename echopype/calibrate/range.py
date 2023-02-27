@@ -7,14 +7,6 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 
-TVG_CORRECTION_FACTOR = {
-    "EK60": 2,
-    "ES70": 2,
-    "EK80": 0,
-    "ES80": 0,
-    "EA640": 0,
-}
-
 
 def _harmonize_env_param_time(
     p: Union[int, float, xr.DataArray],
