@@ -94,7 +94,6 @@ class RawSimradFile(BufferedReader):
         buffer_size=1024 * 1024,
         storage_options={},
     ):
-
         #  9-28-18 RHT: Changed RawSimradFile to implement BufferedReader instead of
         #  io.FileIO to increase performance.
 
@@ -442,7 +441,6 @@ class RawSimradFile(BufferedReader):
                     raise
 
         elif k > 0:
-
             dgram_list = []
 
             for m in range(k):

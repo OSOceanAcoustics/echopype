@@ -634,7 +634,6 @@ class SetGroupsEK80(SetGroupsBase):
             "frequency_start" in self.parser_obj.ping_data_dict.keys()
             and self.parser_obj.ping_data_dict["frequency_start"][ch]
         ):
-
             ds_f_start_end = xr.Dataset(
                 {
                     "frequency_start": (
@@ -795,7 +794,6 @@ class SetGroupsEK80(SetGroupsBase):
         return ds_tmp
 
     def _assemble_ds_power(self, ch):
-
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
@@ -1071,7 +1069,6 @@ class SetGroupsEK80(SetGroupsBase):
             ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
 
         if not self.parsed2zarr_obj.temp_zarr_dir:
-
             # Assemble dataset for backscatter data and other ping-by-ping data
             ds_complex = []
             ds_power = []

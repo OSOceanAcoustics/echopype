@@ -370,19 +370,15 @@ class Ad2cpDataPacket:
         return self.data["id"] == 0x24
 
     def is_burst_altimeter(self) -> bool:
-
         return self.data["id"] == 0x1A
 
     def is_dvl_water_track(self) -> bool:
-
         return self.data["id"] == 0x1D
 
     def is_altimeter(self) -> bool:
-
         return self.data["id"] == 0x1E
 
     def is_average_altimeter(self) -> bool:
-
         return self.data["id"] == 0x1F
 
     def is_string(self) -> bool:

@@ -616,7 +616,6 @@ class SetGroupsEK60(SetGroupsBase):
         # Construct Dataset with ping-by-ping data from all channels
         ds_backscatter = []
         for ch in self.sorted_channel.keys():
-
             var_dict = {
                 "sample_interval": (
                     ["ping_time"],
@@ -679,7 +678,6 @@ class SetGroupsEK60(SetGroupsBase):
             }
 
             if not self.parsed2zarr_obj.temp_zarr_dir:
-
                 var_dict["backscatter_r"] = (
                     ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
@@ -769,7 +767,6 @@ class SetGroupsEK60(SetGroupsBase):
         return [set_time_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
-
         # Retrieve pulse length, gain, and sa correction
         pulse_length = np.array(
             [
