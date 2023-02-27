@@ -99,7 +99,6 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
     # create zarr specific encoding
     encoding = dict()
     for name, val in ds.variables.items():
-
         val_encoding = val.encoding
         val_encoding.update(get_zarr_compression(val, compression_settings))
         encoding[name] = val_encoding
@@ -130,13 +129,10 @@ def set_storage_encodings(ds: xr.Dataset, compression_settings: dict, engine: st
     """
 
     if compression_settings is not None:
-
         if engine == "zarr":
-
             encoding = set_zarr_encodings(ds, compression_settings)
 
         elif engine == "netcdf4":
-
             encoding = set_netcdf_encodings(ds, compression_settings)
 
         else:

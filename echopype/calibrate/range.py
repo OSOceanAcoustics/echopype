@@ -22,7 +22,7 @@ def _harmonize_env_param_time(
 ):
     """
     Harmonize time coordinate between Beam_groupX data and env_params to make sure
-    the timestamps are broacast correctly in calibration and range calculations.
+    the timestamps are broadcast correctly in calibration and range calculations.
 
     Regardless of the source, if `p` is an xr.DataArray, the time coordinate name
     needs to be `time1` to be consistent with the time coordinate in EchoData["Environment"].
@@ -221,7 +221,6 @@ def compute_range_EK(
     tvg_correction_factor = TVG_CORRECTION_FACTOR[echodata.sonar_model]
 
     if waveform_mode == "BB":
-
         shift = beam["transmit_duration_nominal"]  # based on Lar Anderson's Matlab code
 
         # Harmonize sound_speed time1 and Beam_group1 ping_time

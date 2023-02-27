@@ -117,7 +117,6 @@ def _retrieve_correct_beam_group_EK80(
     complex_ed_group = None
 
     if waveform_mode == "BB":
-
         # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
         # when echodata contains CW power and BB complex samples, and frequency_start
         # variable in Beam_group1
@@ -132,13 +131,11 @@ def _retrieve_correct_beam_group_EK80(
             complex_ed_group = "Sonar/Beam_group1"
 
     else:
-
         # CW can have complex or power data, so we just need to make sure that
         # 1) complex samples always exist in Sonar/Beam_group1
         # 2) power samples are in Sonar/Beam_group1 if only one beam group exists
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
         if echodata["Sonar/Beam_group2"] is None:
-
             if encode_mode == "power":
                 # power samples must be in Sonar/Beam_group1 (thus no complex samples)
                 if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
@@ -155,7 +152,6 @@ def _retrieve_correct_beam_group_EK80(
                     complex_ed_group = "Sonar/Beam_group1"
 
         else:
-
             # complex should be in Sonar/Beam_group1 and power in Sonar/Beam_group2
             # the RuntimeErrors below should never be triggered
             if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
@@ -201,7 +197,6 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
     """
 
     if echodata.sonar_model in ["EK60", "ES70"]:
-
         # initialize complex_data_location (needed only for EK60)
         complex_ed_group = None
 
@@ -209,7 +204,6 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
         power_ed_group = _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
-
         # check modes against data for EK80 and get power/complex EchoData groups
         power_ed_group, complex_ed_group = _retrieve_correct_beam_group_EK80(
             echodata, waveform_mode, encode_mode

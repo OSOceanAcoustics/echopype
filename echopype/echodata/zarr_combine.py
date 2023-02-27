@@ -26,7 +26,6 @@ class ZarrCombine:
     """
 
     def __init__(self):
-
         # all possible time dimensions
         self.possible_time_dims = {"time1", "time2", "time3", "ping_time"}
 
@@ -71,11 +70,9 @@ class ZarrCombine:
         ed_time_dim = set(ds_list[0].dims).intersection(self.possible_time_dims)
 
         for time in ed_time_dim:
-
             # gather the first time of each Dataset
             first_times = []
             for ds in ds_list:
-
                 times = ds[time].values
                 if isinstance(times, np.ndarray):
                     # store first time if we have an array
@@ -88,7 +85,6 @@ class ZarrCombine:
 
             # skip check if all first times are NaT
             if not np.isnan(first_times).all():
-
                 is_descending = (np.diff(first_times) < np.timedelta64(0, "ns")).any()
 
                 if is_descending:
@@ -138,9 +134,7 @@ class ZarrCombine:
         # make sure that all values are identical
         numpy_keys = []
         for key in attr1.keys():
-
             if isinstance(attr1[key], np.ndarray):
-
                 numpy_keys.append(key)
 
                 if not np.allclose(attr1[key], attr2[key], rtol=1e-12, atol=1e-12, equal_nan=True):
@@ -149,7 +143,6 @@ class ZarrCombine:
                         f"same, combine cannot be used!"
                     )
             elif key in ["date_created", "conversion_time"]:
-
                 if not isinstance(attr1[key], type(attr2[key])):
                     raise RuntimeError(
                         f"The attribute {key}'s type amongst the ds lists "
@@ -157,7 +150,6 @@ class ZarrCombine:
                     )
 
             else:
-
                 if attr1[key] != attr2[key]:
                     raise RuntimeError(
                         f"The attribute {key}'s value amongst the ds lists are not the "
@@ -227,7 +219,6 @@ class ZarrCombine:
 
         # collect Dataset attributes
         for count, ds in enumerate(ds_list):
-
             # get reduced attributes that do not include numpy keys
             red_attrs = {key: val for key, val in ds.attrs.items() if key not in numpy_keys}
 
@@ -362,17 +353,14 @@ class ZarrCombine:
         encodings = dict()
         const_names = []
         for name, val in ds_model.variables.items():
-
             # get all dimensions of val that are also append dimensions
             append_dims_in_val = set(val.dims).intersection(self.append_dims)
 
             if not append_dims_in_val:
-
                 # collect the names of all constant variables/dimensions
                 const_names.append(str(name))
 
             else:
-
                 # create lazy DataArray representation
                 temp_arr, chnk_shape = self._get_temp_arr(list(val.dims), val.dtype)
 
@@ -413,9 +401,7 @@ class ZarrCombine:
         # get the initial region
         region = dict()
         for dim in ds_dims:
-
             if dim not in self.append_dims:
-
                 region[dim] = slice(0, self.dims_df.loc[ds_ind][dim])
 
         return region
@@ -528,14 +514,11 @@ class ZarrCombine:
         # construct the uniform to non-uniform mapping
         final_mapping = defaultdict(dict)
         for u_key, u_val in uniform_chunk_dict.items():
-
             for og_key, og_val in og_chunk_dict.items():
-
                 # find the intersection of uniform and non-uniform chunk indices
                 intersect = np.intersect1d(u_val, og_val)
 
                 if len(intersect) > 0:
-
                     # get min and max indices in intersect
                     min_val = intersect.min()
                     max_val = intersect.max()
@@ -660,7 +643,6 @@ class ZarrCombine:
         # in ds_list to the zarr store
         delayed_to_zarr = []
         for dim in ds_append_dims:
-
             # collect all variables/coordinates that should be dropped
             drop_names = [
                 var_name
@@ -673,7 +655,6 @@ class ZarrCombine:
 
             for uniform_ind, non_uniform_dict in chunk_mapping.items():
                 for ds_list_ind, dim_slice in non_uniform_dict.items():
-
                     # get ds containing only variables who have dim in their dims
                     ds_drop = ds_list[ds_list_ind].drop_vars(drop_names)
 
@@ -742,7 +723,6 @@ class ZarrCombine:
 
         # write constant vars to zarr using the first element of ds_list
         for var in const_vars:
-
             # make sure to choose the dataset with the largest size for variable
             if var in self.dims_df:
                 ds_list_ind = int(self.dims_df[var].argmax())
@@ -786,9 +766,7 @@ class ZarrCombine:
         ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
 
         for dim in ds_append_dims:
-
             for count, ds in enumerate(ds_list):
-
                 # obtain the appropriate region to write to
                 if count == 0:
                     region = {str(dim): slice(0, self.dims_csum[dim][count])}
@@ -827,15 +805,12 @@ class ZarrCombine:
 
         xr_dict = dict()
         for name, val in self.group_attrs.items():
-
             if "attrs" in name:
-
                 # create Dataset variables
                 coord_name = name[:-1] + "_key"
                 xr_dict[name] = {"dims": ["echodata_filename", coord_name], "data": val}
 
             else:
-
                 # create Dataset coordinates
                 xr_dict[name] = {"dims": [name], "data": val}
 
@@ -972,7 +947,6 @@ class ZarrCombine:
 
         # loop through all possible group and write them to a zarr store
         for grp_info in EchoData.group_map.values():
-
             # obtain the appropriate group name
             if grp_info["ep_group"]:
                 ed_group = grp_info["ep_group"]
@@ -991,7 +965,6 @@ class ZarrCombine:
             ]
 
             if ds_list:  # necessary because a group may not be present
-
                 const_names = self._append_ds_list_to_zarr(
                     zarr_path,
                     ds_list=ds_list,

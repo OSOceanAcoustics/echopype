@@ -299,7 +299,6 @@ def add_splitbeam_angle(
     source_Sv_path = None
 
     if isinstance(source_Sv, str):
-
         # store source_Sv path so we can use it to write to later
         source_Sv_path = source_Sv
 

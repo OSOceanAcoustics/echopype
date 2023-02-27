@@ -35,7 +35,7 @@ jobs:
           run: |
             echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
         - name: Setup micromamba
-          uses: mamba-org/provision-with-micromamba@v13
+          uses: mamba-org/provision-with-micromamba@v15
           with:
             environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
             environment-name: ${{ env.CONDA_ENV }}
@@ -48,7 +48,7 @@ jobs:
             conda list
         - name: Install dev tools
           run: |
-            mamba install -c conda-forge --yes --file requirements-dev.txt
+            micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
         - name: Install echopype
           run: |
             python -m pip install -e .
