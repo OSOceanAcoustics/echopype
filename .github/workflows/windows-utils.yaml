@@ -42,6 +42,7 @@ jobs:
             cache-env: true
             cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
         - name: Print conda env
+          shell: cmd /C call {0}
           run: |
             conda info
             conda list
