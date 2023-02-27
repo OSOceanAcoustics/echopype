@@ -56,7 +56,6 @@ def get_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
     # in the case when some channels are split-beam and some single-beam
     # the single-beam channels will be all NaNs and _e2f would run through and output NaNs
     if not np.all(ds_beam["beam_type"].data == 0):
-
         # obtain split-beam alongship angle
         theta = _e2f(angle_type="alongship")
 
@@ -97,7 +96,6 @@ def get_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArra
 
     # ensure that the beam_type is appropriate for calculation
     if np.all(ds_beam["beam_type"].data == 1):
-
         # get complex representation of backscatter
         backscatter = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
 
@@ -267,7 +265,6 @@ def _compute_angle_from_complex(
 
     # 4-sector transducer
     if beam_type == 1:
-
         bs_fore = (bs.isel(beam=2) + bs.isel(beam=3)) / 2  # forward
         bs_aft = (bs.isel(beam=0) + bs.isel(beam=1)) / 2  # aft
         bs_star = (bs.isel(beam=0) + bs.isel(beam=3)) / 2  # starboard
@@ -466,7 +463,6 @@ def add_angle_to_ds(
     phi.attrs["long_name"] = "split-beam athwartship angle"
 
     if source_ds_path is not None:
-
         # put the variables into a Dataset, so they can be written at the same time
         # add ds attributes to splitb_ds since they will be overwritten by to_netcdf/zarr
         splitb_ds = xr.Dataset(
@@ -485,17 +481,14 @@ def add_angle_to_ds(
             splitb_ds.to_zarr(store=source_ds_path, mode="a", **storage_options)
 
     else:
-
         # add the split-beam angles to the provided Dataset
         ds["angle_alongship"] = theta
         ds["angle_athwartship"] = phi
 
     if return_dataset and (source_ds_path is not None):
-
         # open up and return Dataset in source_ds_path
         return xr.open_dataset(source_ds_path, engine=file_type, chunks={}, **storage_options)
 
     elif return_dataset:
-
         # return input dataset with split-beam angle data
         return ds

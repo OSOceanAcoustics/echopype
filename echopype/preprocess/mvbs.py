@@ -78,10 +78,8 @@ def bin_and_mean_echo_range(
 
     binned_means = []
     for bin_er in range(1, n_bin_er):
-
         # Catch a known warning that can occur, which does not impact the results
         with warnings.catch_warnings():
-
             # ignore warnings caused by taking a mean of an array filled with NaNs
             warnings.filterwarnings(action="ignore", message="Mean of empty slice")
 
@@ -172,7 +170,6 @@ def if_all_er_steps_identical(er_chan: Union[xr.DataArray, np.ndarray]) -> bool:
     unequal_ping_ind = get_unequal_rows(er_chan, er_chan[ping_index, :])
 
     if len(unequal_ping_ind) > 0:
-
         # see if all unequal_ping_ind are filled with NaNs
         all_nans = np.all(np.all(np.isnan(er_chan[unequal_ping_ind, :]), axis=1))
 
@@ -229,7 +226,6 @@ def if_last_er_steps_identical(er_chan: Union[xr.DataArray, np.ndarray]) -> bool
         # echo_range varies with ping_time
         return True
     else:
-
         # make sure that the final echo_range value for each ping_time is the same (account for NaN)
         num_non_nans = np.logical_not(np.isnan(np.unique(er_chan.data[:, -1]))).sum()
 
@@ -395,7 +391,6 @@ def bin_and_mean_2d(
     # create final reduced array i.e. MVBS
     final = np.empty((n_bin_time, n_bin_er - 1))
     for bin_time in range(1, n_bin_time + 1):
-
         # obtain er_mean indices corresponding to the time bin
         indices = np.argwhere(bin_time_ind == bin_time).flatten()
 
@@ -442,7 +437,6 @@ def get_MVBS_along_channels(
 
     all_MVBS = []
     for chan in ds_Sv.channel:
-
         # squeeze to remove "channel" dim if present
         # TODO: not sure why not already removed for the AZFP case. Investigate.
         ds = ds_Sv.sel(channel=chan).squeeze()

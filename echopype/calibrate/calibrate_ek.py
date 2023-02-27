@@ -161,7 +161,6 @@ class CalibrateEK60(CalibrateEK):
 
 
 class CalibrateEK80(CalibrateEK):
-
     # Default EK80 params: these parameters are only recorded in later versions of EK80 software
     EK80_params = {}
     EK80_params["z_et"] = 75  # transmit impedance

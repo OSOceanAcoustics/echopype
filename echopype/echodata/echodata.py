@@ -57,7 +57,6 @@ class EchoData:
         open_kwargs: Optional[Dict[str, Any]] = None,
         parsed2zarr_obj=None,
     ):
-
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
 
@@ -80,12 +79,10 @@ class EchoData:
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
     def __del__(self):
-
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
         #  even clear all outputs is used. It will work if you explicitly delete the object
 
         if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.zarr_file_name is not None):
-
             # get Path object of temporary zarr file created by Parsed2Zarr
             p2z_temp_file = Path(self.parsed2zarr_obj.zarr_file_name)
 

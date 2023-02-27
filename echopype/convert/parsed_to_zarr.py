@@ -20,7 +20,6 @@ class Parsed2Zarr:
     """
 
     def __init__(self, parser_obj):
-
         self.temp_zarr_dir = None
         self.zarr_file_name = None
         self.store = None
@@ -54,7 +53,6 @@ class Parsed2Zarr:
         # attempt to find different zarr_file_name, if it already exists
         count = 0
         while Path(zarr_file_name).exists() and count < 10:
-
             # generate new zarr_file_name
             zarr_file_name = str(out_dir / secrets.token_hex(16)) + ".zarr"
             count += 1
@@ -240,13 +238,10 @@ class Parsed2Zarr:
         """
 
         if isinstance(nan_array, np.ndarray):
-
             # appropriately pad elements of series_chunk, if needed
             padded_elements = []
             for elm in series_chunk.to_list():
-
                 if isinstance(elm, np.ndarray):
-
                     # TODO: ideally this would take place in the parser, do this
                     elm = elm.astype(np.float64)
 
@@ -400,7 +395,6 @@ class Parsed2Zarr:
 
         size = 0
         for i in self.parser_obj.zarr_datagrams:
-
             size += sum([sys.getsizeof(val) for key, val in i.items()])
 
         return size

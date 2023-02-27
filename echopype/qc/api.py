@@ -113,7 +113,6 @@ def check_and_correct_reversed_time(
     """
 
     if time_str in combined_group and exist_reversed_time(combined_group, time_str):
-
         logger.warning(
             f"{ed_group} {time_str} reversal detected; {time_str} will be corrected"  # noqa
             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
@@ -222,7 +221,6 @@ def orchestrate_reverse_time_check(
     )
 
     for group in ed_comb.group_paths:
-
         if group != "Platform/NMEA":
             # Platform/NMEA is skipped because we found that the times which correspond to
             # other non-GPS messages are often out of order and correcting them is not
@@ -234,13 +232,11 @@ def orchestrate_reverse_time_check(
             ed_comb_time_dims = set(ed_comb[group].dims).intersection(possible_time_dims)
 
             for time in ed_comb_time_dims:
-
                 old_time = check_and_correct_reversed_time(
                     combined_group=ed_comb[group], time_str=time, ed_group=group
                 )
 
                 if old_time is not None:
-
                     old_time_array = create_old_time_array(group, old_time)
 
                     # put old times in Provenance and modify attribute

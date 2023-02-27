@@ -443,7 +443,6 @@ def open_raw(
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-
         # Create sonar_model-specific p2z object
         p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
 
@@ -504,7 +503,6 @@ def open_raw(
     beam_group_type = []
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
-
             # fill in beam_group_type (only necessary for EK80, ES80, EA640)
             if idx == 1:
                 # choose the appropriate description key for Beam_group1
