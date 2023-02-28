@@ -353,6 +353,37 @@ class CalibrateEK80(CalibrateEK):
 
         return B_theta_phi_m
 
+    def _get_fs(self):
+        """
+        Get receiver sampling frequency from either data or default values
+        """
+        vend = self.echodata["Vendor_specific"]
+        if "fs_receiver" in vend:
+            return vend["fs_receiver"].sel(channel=self.chan_sel)
+        else:
+            # Most robust to loop through channel
+            fs = []
+            for ch in self.chan_sel:
+                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
+                fs.append(self.EK80_params["fs"][tcvr_type])
+            return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
+
+    def _get_impedance(self):
+        """
+        Get transmit and receiver impedance from either data or default values
+        """
+        vend = self.echodata["Vendor_specific"]
+        if "impedance_receive" not in vend:
+            z_er = self.EK80_params["z_er"]
+        else:
+            z_er = vend["impedance_receive"].sel(channel=self.chan_sel)
+        if "impedance_transmit" not in vend:
+            z_et = self.EK80_params["z_et"]
+        else:
+            for ch in self.chan_sel:  # some BB channels may not contain BB cal info
+                z_et = get_param_BB(vend, "z_et", self.freq_center, self.EK80_params)
+        return z_er, z_et
+
     def _cal_complex_samples(self, cal_type: str, complex_ed_group: str) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
@@ -375,15 +406,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Get transmit signal
         tx_coeff = self._get_filter_coeff(channel=self.chan_sel)
-        if "fs_receiver" in vend:
-            fs = vend["fs_receiver"]
-        else:
-            # Most robust to loop through channel
-            fs = []
-            for ch in self.chan_sel:
-                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
-                fs.append(self.EK80_params["fs"][tcvr_type])
-            fs = xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
+        fs = self._get_fs()
 
         # Switch to use Anderson implementation for transmit chirp starting v0.6.4
         tx, tx_time = get_transmit_signal(
@@ -395,15 +418,7 @@ class CalibrateEK80(CalibrateEK):
         )
 
         # Get transmit and receive impedance
-        if "impedance_receive" not in vend:
-            z_er = self.EK80_params["z_er"]
-        else:
-            z_er = vend["impedance_receive"].sel(channel=self.chan_sel)
-        if "impedance_transmit" not in vend:
-            z_et = self.EK80_params["z_et"]
-        else:
-            for ch in self.chan_sel:  # some BB channels may not contain BB cal info
-                z_et = get_param_BB(vend, "z_et", self.freq_center, self.EK80_params)
+        z_er, z_et = self._get_impedance()
 
         # Get power from complex samples
         prx = self._get_power_from_complex(

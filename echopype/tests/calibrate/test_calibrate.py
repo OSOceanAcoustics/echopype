@@ -29,6 +29,11 @@ def ek80_cal_path(test_path):
     return test_path['EK80_CAL']
 
 
+@pytest.fixture
+def ek80_ext_path(test_path):
+    return test_path['EK80_EXT']
+
+
 def test_compute_Sv_returns_water_level(ek60_path):
 
     # get EchoData object that has the water_level variable under platform and compute Sv of it
@@ -326,14 +331,64 @@ def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     assert isinstance(ds_Sv, xr.Dataset)
 
 
+def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
+    """
+    Test transmit chirp reconstruction against Anderson et al. 2021/pyEcholab implementation
+    """
+    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+
+    # Calibration object detail
+    waveform_mode = "BB"
+    encode_mode = "complex"
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
+        echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
+        env_params=None, cal_params=None
+    )
+    fs = cal_obj._get_fs()
+    filter_coeff = cal_obj._get_filter_coeff(channel=cal_obj.chan_sel)
+    tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(
+        ed["Sonar/Beam_group1"], filter_coeff, waveform_mode, cal_obj.chan_sel, fs
+    )
+    tau_effective = ep.calibrate.ek80_complex.get_tau_effective(
+        ytx_dict=tx,
+        fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
+        waveform_mode=cal_obj.waveform_mode,
+        channel=cal_obj.chan_sel,
+        ping_time=cal_obj.echodata["Sonar/Beam_group1"]["ping_time"],
+    )
+
+    # Load pyEcholab object: channel WBT 714590-15 ES70-7C
+    import pickle
+    with open(ek80_ext_path / "pyecholab/cal_obj_BB.pickle", 'rb') as handle:
+        pyecholab_BB = pickle.load(handle)
+
+    # Compare first ping since all params identical
+    ch_sel = "WBT 714590-15 ES70-7C"
+    # receive sampling frequency
+    assert pyecholab_BB["rx_sample_frequency"][0] == fs.sel(channel=ch_sel)
+    # WBT filter
+    assert np.all(pyecholab_BB["filters"][1]["coefficients"] == filter_coeff[ch_sel]["wbt_fil"])
+    assert np.all(pyecholab_BB["filters"][1]["decimation_factor"] == filter_coeff[ch_sel]["wbt_decifac"])
+    # PC filter
+    assert np.all(pyecholab_BB["filters"][2]["coefficients"] == filter_coeff[ch_sel]["pc_fil"])
+    assert np.all(pyecholab_BB["filters"][2]["decimation_factor"] == filter_coeff[ch_sel]["pc_decifac"])
+    # transmit signal
+    assert np.all(pyecholab_BB["_tx_signal"][0] == tx[ch_sel])
+    # tau effective
+    # use np.isclose for now since difference is 2.997176e-5 (pyecholab) and 2.99717595e-05 (echopype)
+    # will see if it causes downstream major differences
+    assert np.isclose(tau_effective.sel(channel=ch_sel).data, pyecholab_BB["_tau_eff"][0])
+
+
 def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
     """
     Tests calibration for file containing both BB and CW mode data
     with both encoded as complex samples.
     """
-    # ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
+    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
     # ek80_raw_path = ek80_path / "D20170912-T234910.raw"  # rx impedance / rx fs / tcvr type
-    ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"  # BB only, rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"  # BB only, rx impedance / rx fs / tcvr type
     # ek80_raw_path = ek80_path / "ar2.0-D20201210-T000409.raw"  # CW only, rx impedance / rx fs / tcvr type
     # ek80_raw_path = ek80_path / "saildrone/SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw"  # rx impedance / tcvr type
     # ek80_raw_path = ek80_path / "D20200528-T125932.raw"  # CW only,  WBT MINI, rx impedance / rx fs / tcvr type

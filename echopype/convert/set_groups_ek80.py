@@ -1228,7 +1228,7 @@ class SetGroupsEK80(SetGroupsBase):
             )
         if "rx_sample_frequency" in param_dict:
             ds_table["fs_receiver"] = xr.DataArray(
-                param_dict["rx_sample_frequency"].astype(int),
+                param_dict["rx_sample_frequency"].astype(float),
                 dims=["channel"],
                 coords={"channel": ds_table["channel"]},
                 attrs={
