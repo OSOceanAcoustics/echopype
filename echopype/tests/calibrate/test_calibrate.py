@@ -104,13 +104,11 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     ds_base = loadmat(ek60_matlab_path)
 
     def check_output(da_cmp, cal_type):
-        for fidx in range(5):  # loop through all freq
-            assert np.allclose(
-                da_cmp.isel(channel=0).T.values,
-                ds_base['data']['pings'][0][0][cal_type][0, 0],
-                atol=4e-5,
-                rtol=0,
-            )  # difference due to use of Single in matlab code
+        # ds_base["data"]["pings"][0][0]["Sv"].shape = (1, 5)  [5 channels]
+        for seq, ch in enumerate(ds_base["data"]["config"][0][0]["channelid"][0]):
+            ep_vals = da_cmp.sel(channel=ch).squeeze().data[:, 8:]  # ignore the first 8 samples
+            pyel_vals = ds_base['data']['pings'][0][0][cal_type][0, seq].T[:, 8:]
+            assert np.allclose(pyel_vals, ep_vals)
 
     # Check Sv
     check_output(ds_Sv['Sv'], 'Sv')

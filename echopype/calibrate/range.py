@@ -206,7 +206,6 @@ def compute_range_EK(
     # Get the right Sonar/Beam_groupX group according to encode_mode
     ed_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
     beam = echodata[ed_group]
-    vend = echodata["Vendor_specific"]
 
     # Harmonize sound_speed time1 and Beam_groupX ping_time
     sound_speed = _harmonize_env_param_time(
@@ -214,45 +213,10 @@ def compute_range_EK(
         ping_time=beam.ping_time,
     )
 
-    # TVG correction factor changes depending when the echo recording starts
-    # wrt when the transmit signal is sent out.
-    # This depends on whether it is Ex60 or Ex80 style hardware
-    # ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4297-L4308  # noqa
-    def range_Ex60(ds):
-        return (
-            # 2-sample shift in the beginning
-            (ds["range_sample"] - 2)
-            * ds["sample_interval"]
-            * sound_speed
-            / 2
-        )  # [frequency x range_sample]
-
-    def range_Ex80(ds):
-        return (
-            ds["range_sample"] * ds["sample_interval"] * sound_speed / 2
-            - sound_speed * ds["transmit_duration_nominal"] / 4
-        )
-
-    # If EK60
-    if echodata.sonar_model in ["EK60", "ES70"]:
-        range_meter = range_Ex60(beam)
-
-    # If EK80:
-    # - compute range first assuming all channels have Ex80 style hardware
-    # - change range for channels with Ex60 style hardware (GPT)
-    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
-        range_meter = range_Ex80(beam)
-
-        # Change range for all channels with GPT
-        if "GPT" in vend["transceiver_type"]:
-            ch_GPT = vend["transceiver_type"] == "GPT"
-            range_meter.loc[dict(channel=ch_GPT)] = range_Ex60(
-                beam.sel(channel=vend["channel"][ch_GPT])
-            )
-
+    # Range in meters, not modified for TVG compensation
+    range_meter = beam["range_sample"] * beam["sample_interval"] * sound_speed / 2
     # make order of dims conform with the order of backscatter data
     range_meter = range_meter.transpose("channel", "ping_time", "range_sample")
-    # range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
 
     # set entries with NaN backscatter data to NaN
     if "beam" in beam["backscatter_r"].dims:
@@ -268,5 +232,44 @@ def compute_range_EK(
 
     # add name to facilitate xr.merge
     range_meter.name = "echo_range"
+
+    return range_meter
+
+
+def range_mod_TVG_EK(
+    echodata: EchoData, ed_group: str, range_meter: xr.DataArray, sound_speed: xr.DataArray
+) -> xr.DataArray:
+    """
+    Modify range for TVG calculation.
+
+    TVG correction factor changes depending when the echo recording starts
+    wrt when the transmit signal is sent out.
+    This depends on whether it is Ex60 or Ex80 style hardware
+    ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4297-L4308  # noqa
+    """
+    def mod_Ex60():
+        # 2-sample shift in the beginning
+        return 2 * beam["sample_interval"] * sound_speed / 2  # [frequency x range_sample]
+
+    def mod_Ex80():
+        return sound_speed * beam["transmit_duration_nominal"] / 4
+
+    beam = echodata[ed_group]
+    vend = echodata["Vendor_specific"]
+
+    # If EK60
+    if echodata.sonar_model in ["EK60", "ES70"]:
+        range_meter = range_meter - mod_Ex60()
+
+    # If EK80:
+    # - compute range first assuming all channels have Ex80 style hardware
+    # - change range for channels with Ex60 style hardware (GPT)
+    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
+        range_meter = mod_Ex80()
+
+        # Change range for all channels with GPT
+        if "GPT" in vend["transceiver_type"]:
+            ch_GPT = vend["transceiver_type"] == "GPT"
+            range_meter.loc[dict(channel=ch_GPT)] = range_meter.sel(channel=ch_GPT) - mod_Ex60()
 
     return range_meter

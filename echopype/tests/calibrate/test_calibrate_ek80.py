@@ -145,12 +145,8 @@ def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
 
     # Assert
     ep_vals = cal_obj.range_meter.sel(channel=ch_sel).isel(ping_time=0).data
-    tvg_offset = (
-        cal_obj.env_params["sound_speed"]
-        * cal_obj.echodata["Sonar/Beam_group1"]["transmit_duration_nominal"] / 4
-    ).sel(channel=ch_sel).isel(ping_time=0).data[0]
     pyel_vals = pyel_BB_p_data["range"]
-    assert np.all(np.isclose(pyel_vals, ep_vals + tvg_offset))
+    assert np.all(np.isclose(pyel_vals, ep_vals))
 
 
 def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):

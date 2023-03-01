@@ -11,7 +11,7 @@ from .cal_params import get_cal_params_EK, get_param_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
-from .range import compute_range_EK
+from .range import compute_range_EK, range_mod_TVG_EK
 
 logger = _init_logger(__name__)
 
@@ -65,9 +65,14 @@ class CalibrateEK(CalibrateBase):
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
         range_meter = self.range_meter
 
-        # Transmission loss
-        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
-        absorption_loss = 2 * self.env_params["sound_absorption"] * range_meter
+        # TVG compensation with modified range
+        sound_speed = self.env_params["sound_speed"]
+        absorption = self.env_params["sound_absorption"]
+        tvg_mod_range = range_mod_TVG_EK(
+            self.echodata, self.ed_group, self.range_meter, sound_speed
+        )
+        spreading_loss = 20 * np.log10(tvg_mod_range)
+        absorption_loss = 2 * absorption * tvg_mod_range
 
         if cal_type == "Sv":
             # Calc gain
@@ -458,8 +463,12 @@ class CalibrateEK80(CalibrateEK):
         wavelength = sound_speed / self.freq_center
         transmit_power = beam["transmit_power"].sel(channel=self.chan_sel)
 
-        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
-        absorption_loss = 2 * absorption * range_meter
+        # TVG compensation with modified range
+        tvg_mod_range = range_mod_TVG_EK(
+            self.echodata, self.ed_group, self.range_meter, sound_speed
+        )
+        spreading_loss = 20 * np.log10(tvg_mod_range)
+        absorption_loss = 2 * absorption * tvg_mod_range
 
         # Get power from complex samples
         prx = self._get_power_from_complex(
