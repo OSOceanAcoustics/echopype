@@ -408,9 +408,7 @@ class CalibrateEK80(CalibrateEK):
         to allow scaling for potential center frequency changes.
         """
         beam = self.echodata[self.ed_group]
-        psifc = (
-            beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
-        )
+        psifc = beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
         if self.waveform_mode == "BB":
             # if BB scale according to true center frequency
             psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
@@ -453,7 +451,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Params to clarity in use below
         z_er, z_et = self._get_impedance()  # transmit and receive impedance
-        gain = self._get_gain()   # gain
+        gain = self._get_gain()  # gain
         absorption = self.env_params["sound_absorption"].sel(channel=self.chan_sel)
         range_meter = self.range_meter.sel(channel=self.chan_sel)
         sound_speed = self.env_params["sound_speed"]
@@ -505,12 +503,18 @@ class CalibrateEK80(CalibrateEK):
             # to allow scaling for potential center frequency changes
             def _get_psifc(self):
                 psifc = (
-                    beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
+                    beam["equivalent_beam_angle"]
+                    .sel(channel=self.chan_sel)
+                    .isel(beam=0)
+                    .drop("beam")
                 )
                 if self.waveform_mode == "BB":
                     # if BB scale according to true center frequency
-                    psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
-                        beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
+                    psifc += (
+                        20
+                        * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
+                            beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
+                        )
                     )
                 return psifc
 

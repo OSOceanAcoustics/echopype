@@ -158,7 +158,8 @@ def get_env_params_EK80(
             ["temperature", "salinity", "depth", "acidity"],
         ):
             out_dict[p_user] = (
-                user_env_dict[p_user] if p_user in user_env_dict
+                user_env_dict[p_user]
+                if p_user in user_env_dict
                 else echodata["Environment"][p_data]
             )
         out_dict["sound_speed"] = (
