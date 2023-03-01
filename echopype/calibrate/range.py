@@ -142,7 +142,7 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
 
 
 def compute_range_EK(
-    echodata: EchoData, env_params: Dict, waveform_mode: str = "CW", encode_mode: str = "power"
+    echodata: EchoData, env_params: Dict, waveform_mode: str = "CW", encode_mode: str = "power", chan_sel = None
 ):
     """
     Computes the range (``echo_range``) of EK backscatter data in meters.
@@ -205,7 +205,7 @@ def compute_range_EK(
 
     # Get the right Sonar/Beam_groupX group according to encode_mode
     ed_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
-    beam = echodata[ed_group]
+    beam = echodata[ed_group] if chan_sel is None else echodata[ed_group].sel(channel=chan_sel)
 
     # Harmonize sound_speed time1 and Beam_groupX ping_time
     sound_speed = _harmonize_env_param_time(

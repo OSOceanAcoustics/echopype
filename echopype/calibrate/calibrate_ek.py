@@ -20,7 +20,7 @@ class CalibrateEK(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params, cal_params):
         super().__init__(echodata, env_params, cal_params)
 
-    def compute_echo_range(self):
+    def compute_echo_range(self, chan_sel: xr.DataArray = None):
         """
         Compute echo range for EK echosounders.
 
@@ -34,6 +34,7 @@ class CalibrateEK(CalibrateBase):
             env_params=self.env_params,
             waveform_mode=self.waveform_mode,
             encode_mode=self.encode_mode,
+            chan_sel=chan_sel,
         )
 
     def _cal_power_samples(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
@@ -232,7 +233,7 @@ class CalibrateEK80(CalibrateEK):
         )
 
         # Compute echo range in meters
-        self.compute_echo_range()
+        self.compute_echo_range(chan_sel=self.chan_sel)
 
     @staticmethod
     def _get_chan_dict(beam: xr.Dataset) -> Dict:

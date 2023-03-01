@@ -112,7 +112,7 @@ class ECSParser:
                     if v not in self.TvgRangeCorrection_allowed_str:
                         raise ValueError("TvgRangeCorrection contains unexpected setting!")
                 else:
-                    input_dict[k] = np.float(v)
+                    input_dict[k] = float(v)
 
         for status, status_settings in self.parsed_params.items():
             if status == "fileset":  # fileset only has 1 layer of dict
