@@ -124,6 +124,35 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     assert pyel_BB_raw["transceiver_type"] == ed["Vendor_specific"]["transceiver_type"].sel(channel=ch_sel)
 
 
+def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
+    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+
+    # Calibration object
+    waveform_mode = "BB"
+    encode_mode = "complex"
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
+        echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
+        env_params={"formula_source": "FG"}, cal_params=None
+    )
+
+    ch_sel = "WBT 714590-15 ES70-7C"
+
+    # Load pyecholab pickle
+    import pickle
+    with open(ek80_ext_path / "pyecholab/pyel_BB_p_data.pickle", 'rb') as handle:
+        pyel_BB_p_data = pickle.load(handle)
+
+    # Assert
+    ep_vals = cal_obj.range_meter.sel(channel=ch_sel).isel(ping_time=0).data
+    tvg_offset = (
+        cal_obj.env_params["sound_speed"]
+        * cal_obj.echodata["Sonar/Beam_group1"]["transmit_duration_nominal"] / 4
+    ).sel(channel=ch_sel).isel(ping_time=0).data[0]
+    pyel_vals = pyel_BB_p_data["range"]
+    assert np.all(np.isclose(pyel_vals, ep_vals + tvg_offset))
+
+
 def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
     ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")

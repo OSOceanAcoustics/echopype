@@ -252,7 +252,7 @@ def compute_range_EK(
 
     # make order of dims conform with the order of backscatter data
     range_meter = range_meter.transpose("channel", "ping_time", "range_sample")
-    range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
+    # range_meter = range_meter.where(range_meter > 0, 0)  # set negative ranges to 0
 
     # set entries with NaN backscatter data to NaN
     if "beam" in beam["backscatter_r"].dims:
