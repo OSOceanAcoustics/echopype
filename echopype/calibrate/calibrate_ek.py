@@ -498,25 +498,7 @@ class CalibrateEK80(CalibrateEK):
             )
 
             # equivalent_beam_angle:
-            # identical within each channel regardless of ping_time/beam
-            # but drop only the beam dimension here
-            # to allow scaling for potential center frequency changes
-            def _get_psifc(self):
-                psifc = (
-                    beam["equivalent_beam_angle"]
-                    .sel(channel=self.chan_sel)
-                    .isel(beam=0)
-                    .drop("beam")
-                )
-                if self.waveform_mode == "BB":
-                    # if BB scale according to true center frequency
-                    psifc += (
-                        20
-                        * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
-                            beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
-                        )
-                    )
-                return psifc
+            psifc = self._get_psifc()
 
             out = (
                 10 * np.log10(prx)

@@ -8,6 +8,7 @@ import echopype as ep
 def ek80_cal_path(test_path):
     return test_path['EK80_CAL']
 
+
 @pytest.fixture
 def ek80_ext_path(test_path):
     return test_path['EK80_EXT']
@@ -73,9 +74,6 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     # Calibration object detail
     waveform_mode = "BB"
     encode_mode = "complex"
-    # ds_Sv = ep.calibrate.compute_Sv(
-    #     ed, waveform_mode="BB", encode_mode="complex"
-    # )
 
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
         echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
@@ -124,3 +122,59 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     assert pyel_BB_raw["ZTRANSDUCER"] == z_et.sel(channel=ch_sel).isel(ping_time=0)
     assert pyel_BB_raw["transmit_power"][0] == ed["Sonar/Beam_group1"]["transmit_power"].sel(channel=ch_sel).isel(ping_time=0)
     assert pyel_BB_raw["transceiver_type"] == ed["Vendor_specific"]["transceiver_type"].sel(channel=ch_sel)
+
+
+def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
+    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+
+    # Calibration object
+    waveform_mode = "BB"
+    encode_mode = "complex"
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
+        echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
+        env_params={"formula_source": "FG"}, cal_params=None
+    )
+
+    # Params needed
+    beam = cal_obj.echodata[cal_obj.ed_group]
+    z_er, z_et = cal_obj._get_impedance()  # transmit and receive impedance
+    fs = cal_obj._get_fs()
+    filter_coeff = cal_obj._get_filter_coeff(channel=cal_obj.chan_sel)
+    tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(
+        ed["Sonar/Beam_group1"], filter_coeff, waveform_mode, cal_obj.chan_sel, fs
+    )
+
+    # Get power from complex samples
+    prx = cal_obj._get_power_from_complex(
+        beam=beam, chan_sel=cal_obj.chan_sel, chirp=tx, z_et=z_et, z_er=z_er
+    )
+
+    ch_sel = "WBT 714590-15 ES70-7C"
+
+    # Load pyecholab pickle
+    import pickle
+    with open(ek80_ext_path / "pyecholab/pyel_BB_p_data.pickle", 'rb') as handle:
+        pyel_BB_p_data = pickle.load(handle)
+
+    # Power: only compare non-Nan, non-Inf values
+    pyel_vals = pyel_BB_p_data["power"]
+    ep_vals = 10 * np.log10(prx.sel(channel=ch_sel).data)
+    assert pyel_vals.shape == ep_vals.shape
+    idx_to_cmp = ~(
+        np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
+    )
+    assert np.all(np.isclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp]))
+
+    # Sv: only compare non-Nan, non-Inf values
+    # comparing for only the last values now until fixing the range computation
+    ds_Sv = ep.calibrate.compute_Sv(
+        ed, waveform_mode="BB", encode_mode="complex"
+    )
+    pyel_vals = pyel_BB_p_data["sv_data"][0, -5:]
+    ep_vals = ds_Sv["Sv"].isel(channel=0, ping_time=0, time1=0).data[-5:]
+    assert pyel_vals.shape == ep_vals.shape
+    idx_to_cmp = ~(
+        np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
+    )
+    assert np.all(np.isclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp]))
