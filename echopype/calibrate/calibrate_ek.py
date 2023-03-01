@@ -63,7 +63,7 @@ class CalibrateEK(CalibrateBase):
 
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
-        range_meter = self.range_meter
+        # range_meter = self.range_meter
 
         # TVG compensation with modified range
         sound_speed = self.env_params["sound_speed"]
@@ -113,7 +113,7 @@ class CalibrateEK(CalibrateBase):
 
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset()
-        out = out.merge(range_meter)
+        out = out.merge(self.range_meter)
 
         # Add frequency_nominal to data set
         out["frequency_nominal"] = beam["frequency_nominal"]
@@ -465,7 +465,7 @@ class CalibrateEK80(CalibrateEK):
 
         # TVG compensation with modified range
         tvg_mod_range = range_mod_TVG_EK(
-            self.echodata, self.ed_group, self.range_meter, sound_speed
+            self.echodata, self.ed_group, range_meter, sound_speed
         )
         spreading_loss = 20 * np.log10(tvg_mod_range)
         absorption_loss = 2 * absorption * tvg_mod_range

@@ -43,7 +43,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
 
     # Load pyEcholab object: channel WBT 714590-15 ES70-7C
     import pickle
-    with open(ek80_ext_path / "pyecholab/cal_obj_BB.pickle", 'rb') as handle:
+    with open(ek80_ext_path / "pyecholab/pyel_BB_calibration.pickle", 'rb') as handle:
         pyecholab_BB = pickle.load(handle)
 
     # Compare first ping since all params identical
@@ -196,8 +196,8 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
     ds_Sv = ep.calibrate.compute_Sv(
         ed, waveform_mode="BB", encode_mode="complex"
     )
-    pyel_vals = pyel_BB_p_data["sv_data"][0, -5:]
-    ep_vals = ds_Sv["Sv"].isel(channel=0, ping_time=0, time1=0).data[-5:]
+    pyel_vals = pyel_BB_p_data["sv_data"]
+    ep_vals = ds_Sv["Sv"].sel(channel=ch_sel).squeeze().data
     assert pyel_vals.shape == ep_vals.shape
     idx_to_cmp = ~(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)

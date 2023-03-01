@@ -253,7 +253,10 @@ def range_mod_TVG_EK(
         return 2 * beam["sample_interval"] * sound_speed / 2  # [frequency x range_sample]
 
     def mod_Ex80():
-        return sound_speed * beam["transmit_duration_nominal"] / 4
+        mod = sound_speed * beam["transmit_duration_nominal"] / 4
+        if isinstance(mod, xr.DataArray) and "time1" in mod.coords:
+            mod = mod.squeeze().drop("time1")
+        return mod
 
     beam = echodata[ed_group]
     vend = echodata["Vendor_specific"]
@@ -266,7 +269,7 @@ def range_mod_TVG_EK(
     # - compute range first assuming all channels have Ex80 style hardware
     # - change range for channels with Ex60 style hardware (GPT)
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
-        range_meter = mod_Ex80()
+        range_meter = range_meter - mod_Ex80()
 
         # Change range for all channels with GPT
         if "GPT" in vend["transceiver_type"]:
