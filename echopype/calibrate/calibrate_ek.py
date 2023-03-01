@@ -464,9 +464,7 @@ class CalibrateEK80(CalibrateEK):
         transmit_power = beam["transmit_power"].sel(channel=self.chan_sel)
 
         # TVG compensation with modified range
-        tvg_mod_range = range_mod_TVG_EK(
-            self.echodata, self.ed_group, range_meter, sound_speed
-        )
+        tvg_mod_range = range_mod_TVG_EK(self.echodata, self.ed_group, range_meter, sound_speed)
         spreading_loss = 20 * np.log10(tvg_mod_range)
         absorption_loss = 2 * absorption * tvg_mod_range
 
