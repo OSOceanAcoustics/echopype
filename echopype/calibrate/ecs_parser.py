@@ -2,8 +2,6 @@ import re
 from datetime import datetime
 from typing import Optional
 
-import numpy as np
-
 SEPARATOR = re.compile(r"#=+#\n")
 STATUS_CRUDE = re.compile(r"#\s+(?P<status>(.+))\s+#\n")  # noqa
 STATUS_FINE = re.compile(r"#\s+(?P<status>\w+) SETTINGS\s*#\n")  # noqa

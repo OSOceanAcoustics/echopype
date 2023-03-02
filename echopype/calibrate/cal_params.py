@@ -237,7 +237,7 @@ def get_param_BB(
     for ch_id in freq_center["channel"]:
         # if frequency-dependent gain/angle factor exists in Vendor group,
         # interpolate at center frequency
-        if ch_id in vend["cal_channel_id"]:
+        if "cal_channel_id" in vend.coords and ch_id in vend["cal_channel_id"]:
             param_temp = (
                 vend[PARAM_VEND[varname]]
                 .sel(cal_channel_id=ch_id)

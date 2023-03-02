@@ -57,7 +57,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     assert np.all(pyecholab_BB["filters"][2]["coefficients"] == filter_coeff[ch_sel]["pc_fil"])
     assert np.all(pyecholab_BB["filters"][2]["decimation_factor"] == filter_coeff[ch_sel]["pc_decifac"])
     # transmit signal
-    assert np.all(pyecholab_BB["_tx_signal"][0] == tx[ch_sel])
+    assert np.allclose(pyecholab_BB["_tx_signal"][0], tx[ch_sel])
     # tau effective
     # use np.isclose for now since difference is 2.997176e-5 (pyecholab) and 2.99717595e-05 (echopype)
     # will see if it causes downstream major differences
@@ -146,7 +146,7 @@ def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     # Assert
     ep_vals = cal_obj.range_meter.sel(channel=ch_sel).isel(ping_time=0).data
     pyel_vals = pyel_BB_p_data["range"]
-    assert np.all(np.isclose(pyel_vals, ep_vals))
+    assert np.allclose(pyel_vals, ep_vals)
 
 
 def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
@@ -189,7 +189,7 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
     idx_to_cmp = ~(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
-    assert np.all(np.isclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp]))
+    assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
 
     # Sv: only compare non-Nan, non-Inf values
     # comparing for only the last values now until fixing the range computation
@@ -202,4 +202,4 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
     idx_to_cmp = ~(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
-    assert np.all(np.isclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp]))
+    assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])

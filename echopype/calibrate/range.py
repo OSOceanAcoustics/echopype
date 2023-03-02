@@ -142,7 +142,11 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
 
 
 def compute_range_EK(
-    echodata: EchoData, env_params: Dict, waveform_mode: str = "CW", encode_mode: str = "power", chan_sel = None
+    echodata: EchoData,
+    env_params: Dict,
+    waveform_mode: str = "CW",
+    encode_mode: str = "power",
+    chan_sel=None,
 ):
     """
     Computes the range (``echo_range``) of EK backscatter data in meters.

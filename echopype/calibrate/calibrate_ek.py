@@ -455,6 +455,17 @@ class CalibrateEK80(CalibrateEK):
             fs=fs,
         )
 
+        # TODO: this block will be addressed in calibration/env_params.py
+        # Harmonize time coordinate between Beam_groupX data and env_params
+        # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
+        for p in self.env_params.keys():
+            if isinstance(self.env_params[p], xr.DataArray):
+                if "channel" in self.env_params[p].coords:
+                    self.env_params[p] = self.env_params[p].sel(channel=self.chan_sel)
+            self.env_params[p] = self.echodata._harmonize_env_param_time(
+                self.env_params[p], ping_time=beam["ping_time"]
+            )
+
         # Params to clarity in use below
         z_er, z_et = self._get_impedance()  # transmit and receive impedance
         gain = self._get_gain()  # gain
@@ -473,16 +484,6 @@ class CalibrateEK80(CalibrateEK):
         prx = self._get_power_from_complex(
             beam=beam, chan_sel=self.chan_sel, chirp=tx, z_et=z_et, z_er=z_er
         )
-
-        # TODO: this block will be addressed in calibration/env_params.py
-        # Harmonize time coordinate between Beam_groupX data and env_params
-        # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
-        for p in self.env_params.keys():
-            if "channel" in self.env_params[p].coords:
-                self.env_params[p] = self.env_params[p].sel(channel=self.chan_sel)
-            self.env_params[p] = self.echodata._harmonize_env_param_time(
-                self.env_params[p], ping_time=beam["ping_time"]
-            )
 
         # Compute based on cal_type
         if cal_type == "Sv":
