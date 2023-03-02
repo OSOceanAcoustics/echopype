@@ -227,11 +227,7 @@ def test_ek80_BB_power_echoview(ek80_path):
 
     # Create a CalibrateEK80 object to perform pulse compression
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
-        echodata,
-        env_params=None,
-        cal_params=None,
-        waveform_mode="BB",
-        encode_mode="complex",
+        echodata, env_params=None, cal_params=None, waveform_mode="BB", encode_mode="complex"
     )
     cal_obj.compute_echo_range()  # compute range [m]
     beam = echodata["Sonar/Beam_group1"]
@@ -243,11 +239,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     )
 
     pc = ep.calibrate.ek80_complex.compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)
-    pc_mean = (
-        pc.pulse_compressed_output.isel(channel=1)
-        .mean(dim='beam')
-        .dropna('range_sample')
-    )
+    pc_mean = pc.pulse_compressed_output.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")
 
     # Read EchoView pc raw power output
     df = pd.read_csv(ek80_bb_pc_test_path, header=None, skiprows=[0])
@@ -260,15 +252,12 @@ def test_ek80_BB_power_echoview(ek80_path):
         }
     )
     df.columns = df.columns.str.strip()
-    df_real = df.loc[df['Component'] == ' Real', :].iloc[:, 14:]
+    df_real = df.loc[df["Component"] == " Real", :].iloc[:, 14:]  # values start at column 15
 
-    # Compare only values for range > 0: difference is surprisingly large
-    range_meter = cal_obj.range_meter.sel(channel='WBT 549762-15 ES70-7C',
-                                          ping_time='2017-09-12T23:49:10.722999808').values
-    first_nonzero_range = np.argwhere(range_meter == 0).squeeze().max()
-    assert np.allclose(
-        df_real.values[:, first_nonzero_range : pc_mean.values.shape[1]],
-        pc_mean.values.real[:, first_nonzero_range:],
-        rtol=0,
-        atol=1.03e-3,
-    )
+    # Skip an initial chunk of samples due to unknown larger difference
+    # this difference is also documented in pyecholab tests
+    # Below only compare the first ping
+    ev_vals = df_real.values[:, :]
+    ep_vals = pc_mean.values.real[:, :]
+    assert np.allclose(ev_vals[:, 69:8284], ep_vals[:, 69:], atol=1e-4)
+    assert np.allclose(ev_vals[:, 90:8284], ep_vals[:, 90:], atol=1e-5)
