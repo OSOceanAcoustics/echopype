@@ -47,14 +47,6 @@ class CalibrateAZFP(CalibrateBase):
         self.compute_echo_range(cal_type=cal_type)
 
         # Compute derived params
-
-        # Harmonize time coordinate between Beam_groupX data and env_params
-        # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
-        for p in self.env_params.keys():
-            self.env_params[p] = self.echodata._harmonize_env_param_time(
-                self.env_params[p], ping_time=self.echodata["Sonar/Beam_group1"].ping_time
-            )
-
         # TODO: take care of dividing by zero encountered in log10
         spreading_loss = 20 * np.log10(self.range_meter)
         absorption_loss = 2 * self.env_params["sound_absorption"] * self.range_meter

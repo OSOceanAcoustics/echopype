@@ -56,12 +56,6 @@ class CalibrateEK(CalibrateBase):
         # Select source of backscatter data
         beam = self.echodata[power_ed_group]
 
-        # Harmonize time coordinate between Beam_groupX data and env_params
-        for p in self.env_params.keys():
-            self.env_params[p] = self.echodata._harmonize_env_param_time(
-                self.env_params[p], ping_time=beam.ping_time
-            )
-
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
         # range_meter = self.range_meter
@@ -222,7 +216,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Get env_params: depends on waveform mode
         self.env_params = get_env_params_EK80(
-            echodata=echodata, freq=self.freq_center, user_env_dict=env_params
+            echodata=echodata, freq=self.freq_center, user_env_dict=env_params, ed_group=self.ed_group
         )
 
         # Get cal_params: depends on waveform and encode mode
@@ -454,17 +448,6 @@ class CalibrateEK80(CalibrateEK):
             channel=self.chan_sel,
             fs=fs,
         )
-
-        # TODO: this block will be addressed in calibration/env_params.py
-        # Harmonize time coordinate between Beam_groupX data and env_params
-        # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
-        for p in self.env_params.keys():
-            if isinstance(self.env_params[p], xr.DataArray):
-                if "channel" in self.env_params[p].coords:
-                    self.env_params[p] = self.env_params[p].sel(channel=self.chan_sel)
-            self.env_params[p] = self.echodata._harmonize_env_param_time(
-                self.env_params[p], ping_time=beam["ping_time"]
-            )
 
         # Params to clarity in use below
         z_er, z_et = self._get_impedance()  # transmit and receive impedance
