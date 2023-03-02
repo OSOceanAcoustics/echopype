@@ -268,15 +268,3 @@ def get_env_params_EK80(
         )
 
     return out_dict
-
-
-# TODO: this function is currently unused, consider removing
-def get_env_params(
-    sonar_model: str, echodata: EchoData, env_params: Optional[Dict] = None, **kwarg
-):
-    if sonar_model == "AZFP":
-        return get_env_params_AZFP(echodata=echodata, user_env_dict=env_params)
-    elif sonar_model in ["EK60", "ES70"]:
-        return get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
-    elif sonar_model in ["EK80", "ES80", "EA640"]:
-        return get_env_params_EK80(echodata=echodata, user_env_dict=env_params, **kwarg)
