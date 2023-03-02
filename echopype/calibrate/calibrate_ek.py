@@ -7,11 +7,11 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_gain_BB, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK, get_param_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
-from .range import compute_range_EK
+from .range import compute_range_EK, range_mod_TVG_EK
 
 logger = _init_logger(__name__)
 
@@ -20,7 +20,7 @@ class CalibrateEK(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params, cal_params):
         super().__init__(echodata, env_params, cal_params)
 
-    def compute_echo_range(self):
+    def compute_echo_range(self, chan_sel: xr.DataArray = None):
         """
         Compute echo range for EK echosounders.
 
@@ -34,6 +34,7 @@ class CalibrateEK(CalibrateBase):
             env_params=self.env_params,
             waveform_mode=self.waveform_mode,
             encode_mode=self.encode_mode,
+            chan_sel=chan_sel,
         )
 
     def _cal_power_samples(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
@@ -63,11 +64,16 @@ class CalibrateEK(CalibrateBase):
 
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
-        range_meter = self.range_meter
+        # range_meter = self.range_meter
 
-        # Transmission loss
-        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
-        absorption_loss = 2 * self.env_params["sound_absorption"] * range_meter
+        # TVG compensation with modified range
+        sound_speed = self.env_params["sound_speed"]
+        absorption = self.env_params["sound_absorption"]
+        tvg_mod_range = range_mod_TVG_EK(
+            self.echodata, self.ed_group, self.range_meter, sound_speed
+        )
+        spreading_loss = 20 * np.log10(tvg_mod_range)
+        absorption_loss = 2 * absorption * tvg_mod_range
 
         if cal_type == "Sv":
             # Calc gain
@@ -108,7 +114,7 @@ class CalibrateEK(CalibrateBase):
 
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset()
-        out = out.merge(range_meter)
+        out = out.merge(self.range_meter)
 
         # Add frequency_nominal to data set
         out["frequency_nominal"] = beam["frequency_nominal"]
@@ -161,10 +167,21 @@ class CalibrateEK60(CalibrateEK):
 
 
 class CalibrateEK80(CalibrateEK):
-    # TODO: add option to get these from data file
-    fs = 1.5e6  # default full sampling frequency [Hz]
-    z_et = 75
-    z_er = 1000
+    # Default EK80 params: these parameters are only recorded in later versions of EK80 software
+    EK80_params = {}
+    EK80_params["z_et"] = 75  # transmit impedance
+    EK80_params["z_er"] = 1000  # receive impedance
+    EK80_params["fs"] = {  # default full sampling frequency [Hz]
+        "default": 1500000,
+        "GPT": 500000,
+        "SBT": 50000,
+        "WBAT": 1500000,
+        "WBT TUBE": 1500000,
+        "WBT MINI": 1500000,
+        "WBT": 1500000,
+        "WBT HP": 187500,
+        "WBT LF": 93750,
+    }
 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
@@ -216,7 +233,7 @@ class CalibrateEK80(CalibrateEK):
         )
 
         # Compute echo range in meters
-        self.compute_echo_range()
+        self.compute_echo_range(chan_sel=self.chan_sel)
 
     @staticmethod
     def _get_chan_dict(beam: xr.Dataset) -> Dict:
@@ -263,7 +280,12 @@ class CalibrateEK80(CalibrateEK):
         return coeff
 
     def _get_power_from_complex(
-        self, beam: xr.Dataset, chan_sel: xr.DataArray, chirp: Dict
+        self,
+        beam: xr.Dataset,
+        chan_sel: xr.DataArray,
+        chirp: Dict,
+        z_et,
+        z_er,
     ) -> xr.DataArray:
         """
         Get power from complex samples.
@@ -272,6 +294,10 @@ class CalibrateEK80(CalibrateEK):
         ----------
         beam : xr.Dataset
             EchoData["Sonar/Beam_group1"]
+        chan_sel : xr.DataArray
+            channels that transmit in BB mode
+        chirp : dict
+            a dictionary containing transmit chirp for BB channels
 
         Returns
         -------
@@ -284,10 +310,11 @@ class CalibrateEK80(CalibrateEK):
                 beam["beam"].size  # number of transducer sectors
                 * np.abs(sig.mean(dim="beam")) ** 2
                 / (2 * np.sqrt(2)) ** 2
-                * (np.abs(self.z_er + self.z_et) / self.z_er) ** 2
-                / self.z_et
+                * (np.abs(z_er + z_et) / z_er) ** 2
+                / z_et
             )
 
+        # Compute power
         if self.waveform_mode == "BB":
             pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
@@ -300,6 +327,100 @@ class CalibrateEK80(CalibrateEK):
         prx.name = "received_power"
 
         return prx
+
+    def _get_B_theta_phi_m(self):
+        """
+        Get transceiver gain compensation for BB mode.
+
+        ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274  # noqa
+        """
+        vend = self.echodata["Vendor_specific"]
+
+        # Get BB angle params from Vendor group
+        angle_params = {}
+        for p in [
+            "angle_offset_alongship",
+            "angle_offset_athwartship",
+            "beamwidth_alongship",
+            "beamwidth_athwartship",
+        ]:
+            angle_params[p] = get_param_BB(vend, p, self.freq_center, self.cal_params)
+
+        # Compute compensation factor
+        fac_along = (
+            np.abs(-angle_params["angle_offset_alongship"])
+            / (angle_params["beamwidth_alongship"] / 2)
+        ) ** 2
+        fac_athwart = (
+            np.abs(-angle_params["angle_offset_athwartship"])
+            / (angle_params["beamwidth_athwartship"] / 2)
+        ) ** 2
+        B_theta_phi_m = 0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart)
+
+        return B_theta_phi_m
+
+    def _get_fs(self):
+        """
+        Get receiver sampling frequency from either data or default values
+        """
+        vend = self.echodata["Vendor_specific"]
+        if "fs_receiver" in vend:
+            return vend["fs_receiver"].sel(channel=self.chan_sel)
+        else:
+            # Most robust to loop through channel
+            fs = []
+            for ch in self.chan_sel:
+                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
+                fs.append(self.EK80_params["fs"][tcvr_type])
+            return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
+
+    def _get_impedance(self):
+        """
+        Get transmit and receiver impedance from either data or default values
+        """
+        vend = self.echodata["Vendor_specific"]
+        if "impedance_receive" not in vend:
+            z_er = self.EK80_params["z_er"]
+        else:
+            z_er = vend["impedance_receive"].sel(channel=self.chan_sel)
+        if "impedance_transmit" not in vend:
+            z_et = self.EK80_params["z_et"]
+        else:
+            for ch in self.chan_sel:  # some BB channels may not contain BB cal info
+                z_et = get_param_BB(vend, "z_et", self.freq_center, self.EK80_params)
+        return z_er, z_et
+
+    def _get_gain(self):
+        vend = self.echodata["Vendor_specific"]
+        if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
+            # If frequency-dependent gain exists, interpolate at true center frequency
+            gain = get_param_BB(vend, "gain", self.freq_center, self.cal_params)
+        else:
+            # use gain already retrieved in init
+            gain = self.cal_params["gain_correction"]
+
+        # Transceiver gain compensation for BB mode
+        if self.waveform_mode == "BB":
+            gain = gain - self._get_B_theta_phi_m()
+
+        return gain
+
+    def _get_psifc(self):
+        """
+        Get equivalent_beam_angle, scaled by center frequency if needed.
+
+        Identical within each channel regardless of ping_time/beam,
+        but drop only the beam dimension here,
+        to allow scaling for potential center frequency changes.
+        """
+        beam = self.echodata[self.ed_group]
+        psifc = beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
+        if self.waveform_mode == "BB":
+            # if BB scale according to true center frequency
+            psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
+                beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
+            )
+        return psifc
 
     def _cal_complex_samples(self, cal_type: str, complex_ed_group: str) -> xr.Dataset:
         """Calibrate complex data from EK80.
@@ -319,74 +440,74 @@ class CalibrateEK80(CalibrateEK):
         """
         # Select source of backscatter data
         beam = self.echodata[complex_ed_group]
+        vend = self.echodata["Vendor_specific"]
 
         # Get transmit signal
         tx_coeff = self._get_filter_coeff(channel=self.chan_sel)
+        fs = self._get_fs()
+
+        # Switch to use Anderson implementation for transmit chirp starting v0.6.4
         tx, tx_time = get_transmit_signal(
             beam=beam,
             coeff=tx_coeff,
             waveform_mode=self.waveform_mode,
             channel=self.chan_sel,
-            fs=self.fs,
-            z_et=self.z_et,
+            fs=fs,
         )
 
-        # Get power from complex samples
-        prx = self._get_power_from_complex(beam=beam, chan_sel=self.chan_sel, chirp=tx)
-
+        # TODO: this block will be addressed in calibration/env_params.py
         # Harmonize time coordinate between Beam_groupX data and env_params
         # Use self.echodata["Sonar/Beam_group1"] because complex sample is always in Beam_group1
         for p in self.env_params.keys():
-            if "channel" in self.env_params[p].coords:
-                self.env_params[p] = self.env_params[p].sel(channel=self.chan_sel)
+            if isinstance(self.env_params[p], xr.DataArray):
+                if "channel" in self.env_params[p].coords:
+                    self.env_params[p] = self.env_params[p].sel(channel=self.chan_sel)
             self.env_params[p] = self.echodata._harmonize_env_param_time(
                 self.env_params[p], ping_time=beam["ping_time"]
             )
 
-        # Common params
-        sound_speed = self.env_params["sound_speed"]
+        # Params to clarity in use below
+        z_er, z_et = self._get_impedance()  # transmit and receive impedance
+        gain = self._get_gain()  # gain
         absorption = self.env_params["sound_absorption"].sel(channel=self.chan_sel)
         range_meter = self.range_meter.sel(channel=self.chan_sel)
+        sound_speed = self.env_params["sound_speed"]
         wavelength = sound_speed / self.freq_center
-
-        if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
-            # If frequency-dependent gain exists, interpolate at true center frequency
-            gain = get_gain_BB(
-                vend=self.echodata["Vendor_specific"],
-                freq_center=self.freq_center,
-                cal_params_CW=self.cal_params,
-            )
-        else:
-            # use gain already retrieved in init
-            gain = self.cal_params["gain_correction"]
-
-        spreading_loss = 20 * np.log10(range_meter.where(range_meter >= 1, other=1))
-        absorption_loss = 2 * absorption * range_meter
         transmit_power = beam["transmit_power"].sel(channel=self.chan_sel)
+
+        # TVG compensation with modified range
+        tvg_mod_range = range_mod_TVG_EK(self.echodata, self.ed_group, range_meter, sound_speed)
+        spreading_loss = 20 * np.log10(tvg_mod_range)
+        absorption_loss = 2 * absorption * tvg_mod_range
+
+        # Get power from complex samples
+        prx = self._get_power_from_complex(
+            beam=beam, chan_sel=self.chan_sel, chirp=tx, z_et=z_et, z_er=z_er
+        )
 
         # Compute based on cal_type
         if cal_type == "Sv":
-            # Compute effective pulse length
+            # Effective pulse length
+            # compute first assuming all channels are not GPT
             tau_effective = get_tau_effective(
                 ytx_dict=tx,
-                fs_deci_dict={k: np.diff(v[:2]) for (k, v) in tx_time.items()},
+                fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
                 waveform_mode=self.waveform_mode,
                 channel=self.chan_sel,
                 ping_time=beam["ping_time"],
             )
+            # Use pulse_duration in place of tau_effective for GPT channels
+            # below assumesthat all transmit parameters are identical
+            # and needs to be changed when allowing transmit parameters to vary by ping
+            ch_GPT = vend["transceiver_type"].sel(channel=self.chan_sel) == "GPT"
+            tau_effective[ch_GPT] = (
+                beam["transmit_duration_nominal"]
+                .sel(channel=self.chan_sel)[ch_GPT]
+                .isel(ping_time=0)
+            )
 
             # equivalent_beam_angle:
-            # identical within each channel regardless of ping_time/beam
-            # but drop only the beam dimension here
-            # to allow scaling for potential center frequency changes
-            psifc = (
-                beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
-            )
-            if self.waveform_mode == "BB":
-                # if BB scale according to true center frequency
-                psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
-                    beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
-                )
+            psifc = self._get_psifc()
 
             out = (
                 10 * np.log10(prx)
@@ -397,6 +518,11 @@ class CalibrateEK80(CalibrateEK):
                 - 10 * np.log10(tau_effective)
                 - psifc
             )
+
+            # Correct for sa_correction if CW mode
+            if self.waveform_mode == "CW":
+                out = out - 2 * self.cal_params["sa_correction"].sel(channel=self.chan_sel)
+
             out.name = "Sv"
             # out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
 

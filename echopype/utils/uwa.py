@@ -63,6 +63,7 @@ def calc_absorption(
     salinity=35,
     pressure=10,
     pH=8.1,
+    sound_speed=None,
     formula_source="AM",
 ):
     """
@@ -110,7 +111,10 @@ def calc_absorption(
     """
     if formula_source == "FG":
         f = frequency / 1000.0  # convert from Hz to kHz due to formula
-        c = 1412.0 + 3.21 * temperature + 1.19 * salinity + 0.0167 * pressure
+        if sound_speed is None:
+            c = 1412.0 + 3.21 * temperature + 1.19 * salinity + 0.0167 * pressure
+        else:
+            c = sound_speed
         A1 = 8.86 / c * 10 ** (0.78 * pH - 5)
         P1 = 1.0
         f1 = 2.8 * np.sqrt(salinity / 35) * 10 ** (4 - 1245 / (temperature + 273))

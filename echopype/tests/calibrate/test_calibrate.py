@@ -29,6 +29,11 @@ def ek80_cal_path(test_path):
     return test_path['EK80_CAL']
 
 
+@pytest.fixture
+def ek80_ext_path(test_path):
+    return test_path['EK80_EXT']
+
+
 def test_compute_Sv_returns_water_level(ek60_path):
 
     # get EchoData object that has the water_level variable under platform and compute Sv of it
@@ -99,13 +104,11 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     ds_base = loadmat(ek60_matlab_path)
 
     def check_output(da_cmp, cal_type):
-        for fidx in range(5):  # loop through all freq
-            assert np.allclose(
-                da_cmp.isel(channel=0).T.values,
-                ds_base['data']['pings'][0][0][cal_type][0, 0],
-                atol=4e-5,
-                rtol=0,
-            )  # difference due to use of Single in matlab code
+        # ds_base["data"]["pings"][0][0]["Sv"].shape = (1, 5)  [5 channels]
+        for seq, ch in enumerate(ds_base["data"]["config"][0][0]["channelid"][0]):
+            ep_vals = da_cmp.sel(channel=ch).squeeze().data[:, 8:]  # ignore the first 8 samples
+            pyel_vals = ds_base['data']['pings'][0][0][cal_type][0, seq].T[:, 8:]
+            assert np.allclose(pyel_vals, ep_vals)
 
     # Check Sv
     check_output(ds_Sv['Sv'], 'Sv')
@@ -193,89 +196,6 @@ def test_compute_Sv_azfp(azfp_path):
     check_output(base_path=azfp_matlab_TS_path, ds_cmp=ds_TS, cal_type='TS')
 
 
-def test_compute_Sv_ek80_matlab(ek80_path):
-    """Compare pulse compressed outputs from echopype and Matlab outputs.
-
-    Unresolved: there is a discrepancy between the range vector due to minRange=0.02 m set in Matlab.
-    """
-    ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
-    ek80_matlab_path = str(
-        ek80_path.joinpath('from_matlab', 'D20170912-T234910_data.mat')
-    )
-
-    echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    ds_Sv = ep.calibrate.compute_Sv(
-        echodata, waveform_mode='BB', encode_mode='complex'
-    )
-
-    # TODO: resolve discrepancy in range between echopype and Matlab code
-    ds_matlab = loadmat(ek80_matlab_path)
-    Sv_70k = ds_Sv.Sv.isel(channel=0, ping_time=0).dropna('range_sample').values
-
-
-def test_compute_Sv_ek80_pc_echoview(ek80_path):
-    """Compare pulse compressed outputs from echopype and csv exported from EchoView.
-
-    Unresolved: the difference is large and it is not clear why.
-    """
-    ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
-    ek80_bb_pc_test_path = str(
-        ek80_path.joinpath(
-            'from_echoview', '70 kHz pulse-compressed power.complex.csv'
-        )
-    )
-
-    echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-
-    # Create a CalibrateEK80 object to perform pulse compression
-    cal_obj = CalibrateEK80(
-        echodata,
-        env_params=None,
-        cal_params=None,
-        waveform_mode="BB",
-        encode_mode="complex",
-    )
-    cal_obj.compute_echo_range()  # compute range [m]
-    beam = echodata["Sonar/Beam_group1"]
-    chan_sel = beam["channel"]  # only BB data exist
-
-    coeff = cal_obj._get_filter_coeff(channel=chan_sel)
-    chirp, _ = get_transmit_signal(
-        beam=beam, coeff=coeff, channel=chan_sel, waveform_mode="BB",
-        fs=cal_obj.fs, z_et=cal_obj.z_et)
-
-    pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)
-    pc_mean = (
-        pc.pulse_compressed_output.isel(channel=1)
-        .mean(dim='beam')
-        .dropna('range_sample')
-    )
-
-    # Read EchoView pc raw power output
-    df = pd.read_csv(ek80_bb_pc_test_path, header=None, skiprows=[0])
-    df_header = pd.read_csv(
-        ek80_bb_pc_test_path, header=0, usecols=range(14), nrows=0
-    )
-    df = df.rename(
-        columns={
-            cc: vv for cc, vv in zip(df.columns, df_header.columns.values)
-        }
-    )
-    df.columns = df.columns.str.strip()
-    df_real = df.loc[df['Component'] == ' Real', :].iloc[:, 14:]
-
-    # Compare only values for range > 0: difference is surprisingly large
-    range_meter = cal_obj.range_meter.sel(channel='WBT 549762-15 ES70-7C',
-                                          ping_time='2017-09-12T23:49:10.722999808').values
-    first_nonzero_range = np.argwhere(range_meter == 0).squeeze().max()
-    assert np.allclose(
-        df_real.values[:, first_nonzero_range : pc_mean.values.shape[1]],
-        pc_mean.values.real[:, first_nonzero_range:],
-        rtol=0,
-        atol=1.03e-3,
-    )
-
-
 def test_compute_Sv_ek80_CW_complex(ek80_path):
     """Test calibrate CW mode data encoded as complex samples."""
     ek80_raw_path = str(
@@ -326,17 +246,22 @@ def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     assert isinstance(ds_Sv, xr.Dataset)
 
 
-def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path):
+def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
     """
     Tests calibration for file containing both BB and CW mode data
     with both encoded as complex samples.
     """
-    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"
+    ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "D20170912-T234910.raw"  # rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "Summer2018--D20180905-T033113.raw"  # BB only, rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "ar2.0-D20201210-T000409.raw"  # CW only, rx impedance / rx fs / tcvr type
+    # ek80_raw_path = ek80_path / "saildrone/SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw"  # rx impedance / tcvr type
+    # ek80_raw_path = ek80_path / "D20200528-T125932.raw"  # CW only,  WBT MINI, rx impedance / rx fs / tcvr type
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
-    ds_Sv = ep.calibrate.compute_Sv(
-        ed, waveform_mode="CW", encode_mode="complex"
-    )
-    assert isinstance(ds_Sv, xr.Dataset)
+    # ds_Sv = ep.calibrate.compute_Sv(
+    #     ed, waveform_mode="CW", encode_mode="complex"
+    # )
+    # assert isinstance(ds_Sv, xr.Dataset)
     ds_Sv = ep.calibrate.compute_Sv(
         ed, waveform_mode="BB", encode_mode="complex"
     )

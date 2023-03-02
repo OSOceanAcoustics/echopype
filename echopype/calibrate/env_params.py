@@ -122,24 +122,9 @@ def get_env_params_EK80(
     ----------
     user_env_dict : dict
 
-    waveform_mode : {"CW", "BB"}
-        Type of transmit waveform.
-
-        - `"CW"` for narrowband transmission,
-            returned echoes recorded either as complex or power/angle samples
-        - (default) `"BB"` for broadband transmission,
-            returned echoes recorded as complex samples
-
-    encode_mode : {"complex", "power"}
-        Type of encoded return echo data.
-
-        - (default) `"complex"` for complex samples
-        - `"power"` for power/angle samples, only allowed when
-            the echosounder is configured for narrowband transmission
-
     Returns
     -------
-    A dictionary containing the calibration parameters.
+    A dictionary containing the environmental parameters.
     """
 
     # Initiate input/output dict
@@ -168,11 +153,15 @@ def get_env_params_EK80(
     #  get absorption from user inputs or computing from env params stored in raw data file
     else:
         # pressure is encoded as "depth" in EK80  # TODO: change depth to pressure in EK80 file?
-        for p1, p2 in zip(
-            ["temperature", "salinity", "pressure"],
-            ["temperature", "salinity", "depth"],
+        for p_user, p_data in zip(
+            ["temperature", "salinity", "pressure", "pH"],
+            ["temperature", "salinity", "depth", "acidity"],
         ):
-            out_dict[p1] = user_env_dict[p1] if p1 in user_env_dict else echodata["Environment"][p2]
+            out_dict[p_user] = (
+                user_env_dict[p_user]
+                if p_user in user_env_dict
+                else echodata["Environment"][p_data]
+            )
         out_dict["sound_speed"] = (
             user_env_dict["sound_speed"]
             if "sound_speed" in user_env_dict
@@ -186,6 +175,11 @@ def get_env_params_EK80(
                 temperature=out_dict["temperature"],
                 salinity=out_dict["salinity"],
                 pressure=out_dict["pressure"],
+                sound_speed=out_dict["sound_speed"],
+                pH=out_dict["pH"],
+                formula_source=(
+                    user_env_dict["formula_source"] if "formula_source" in user_env_dict else "FG"
+                ),
             )
         )
 
