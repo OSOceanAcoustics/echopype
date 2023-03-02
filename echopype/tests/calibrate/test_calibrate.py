@@ -196,26 +196,6 @@ def test_compute_Sv_azfp(azfp_path):
     check_output(base_path=azfp_matlab_TS_path, ds_cmp=ds_TS, cal_type='TS')
 
 
-def test_compute_Sv_ek80_matlab(ek80_path):
-    """Compare pulse compressed outputs from echopype and Matlab outputs.
-
-    Unresolved: there is a discrepancy between the range vector due to minRange=0.02 m set in Matlab.
-    """
-    ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
-    ek80_matlab_path = str(
-        ek80_path.joinpath('from_matlab', 'D20170912-T234910_data.mat')
-    )
-
-    echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
-    ds_Sv = ep.calibrate.compute_Sv(
-        echodata, waveform_mode='BB', encode_mode='complex'
-    )
-
-    # TODO: resolve discrepancy in range between echopype and Matlab code
-    ds_matlab = loadmat(ek80_matlab_path)
-    Sv_70k = ds_Sv.Sv.isel(channel=0, ping_time=0).dropna('range_sample').values
-
-
 def test_compute_Sv_ek80_pc_echoview(ek80_path):
     """Compare pulse compressed outputs from echopype and csv exported from EchoView.
 
