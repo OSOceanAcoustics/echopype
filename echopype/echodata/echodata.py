@@ -3,7 +3,7 @@ import shutil
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
 
 import fsspec
 import numpy as np
@@ -14,11 +14,9 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..calibrate.env_params_old import EnvParams
 from ..utils.coding import set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
-from ..utils.uwa import calc_sound_speed
 from .convention import sonarnetcdf_1
 from .sensor_ep_version_mapping import ep_version_mapper
 from .widgets.utils import tree_repr
