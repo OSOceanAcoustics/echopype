@@ -64,7 +64,10 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
 
     Parameters
     ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
     user_env_dict : dict
+        user input dict containing env params
 
     Returns
     -------
@@ -120,7 +123,10 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[Dict] = None
 
     Parameters
     ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
     user_env_dict : dict
+        user input dict containing env params
 
     Returns
     -------
@@ -182,6 +188,8 @@ def get_env_params_EK80(
 
     Parameters
     ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
     freq : xr.DataArray
         center frequency for the selected channels
     user_env_dict : dict
