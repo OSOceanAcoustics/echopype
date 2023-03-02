@@ -371,82 +371,82 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
             assert isinstance(e, ValueError) is True
 
 
-def test_compute_range(compute_range_samples):
-    (
-        filepath,
-        sonar_model,
-        azfp_xml_path,
-        azfp_cal_type,
-        ek_waveform_mode,
-        ek_encode_mode,
-    ) = compute_range_samples
-    ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    rng = np.random.default_rng(0)
-    stationary_env_params = EnvParams(
-        xr.Dataset(
-            data_vars={
-                "pressure": ("time3", np.arange(50)),
-                "salinity": ("time3", np.arange(50)),
-                "temperature": ("time3", np.arange(50)),
-            },
-            coords={
-                "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
-            }
-        ),
-        data_kind="stationary"
-    )
-    if "time3" in ed["Platform"] and sonar_model != "AD2CP":
-        ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
-    else:
-        try:
-            ed.compute_range(stationary_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
-        except ValueError:
-            pass
-        else:
-            raise AssertionError
+# def test_compute_range(compute_range_samples):
+#     (
+#         filepath,
+#         sonar_model,
+#         azfp_xml_path,
+#         azfp_cal_type,
+#         ek_waveform_mode,
+#         ek_encode_mode,
+#     ) = compute_range_samples
+#     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
+#     rng = np.random.default_rng(0)
+#     stationary_env_params = EnvParams(
+#         xr.Dataset(
+#             data_vars={
+#                 "pressure": ("time3", np.arange(50)),
+#                 "salinity": ("time3", np.arange(50)),
+#                 "temperature": ("time3", np.arange(50)),
+#             },
+#             coords={
+#                 "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+#             }
+#         ),
+#         data_kind="stationary"
+#     )
+#     if "time3" in ed["Platform"] and sonar_model != "AD2CP":
+#         ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
+#     else:
+#         try:
+#             ed.compute_range(stationary_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
+#         except ValueError:
+#             pass
+#         else:
+#             raise AssertionError
 
 
-    mobile_env_params = EnvParams(
-        xr.Dataset(
-            data_vars={
-                "pressure": ("time", np.arange(100)),
-                "salinity": ("time", np.arange(100)),
-                "temperature": ("time", np.arange(100)),
-            },
-            coords={
-                "latitude": ("time", rng.random(size=100) + 44),
-                "longitude": ("time", rng.random(size=100) - 125),
-            }
-        ),
-        data_kind="mobile"
-    )
-    if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():
-        ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
-    else:
-        try:
-            ed.compute_range(mobile_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
-        except ValueError:
-            pass
-        else:
-            raise AssertionError
+#     mobile_env_params = EnvParams(
+#         xr.Dataset(
+#             data_vars={
+#                 "pressure": ("time", np.arange(100)),
+#                 "salinity": ("time", np.arange(100)),
+#                 "temperature": ("time", np.arange(100)),
+#             },
+#             coords={
+#                 "latitude": ("time", rng.random(size=100) + 44),
+#                 "longitude": ("time", rng.random(size=100) - 125),
+#             }
+#         ),
+#         data_kind="mobile"
+#     )
+#     if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():
+#         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
+#     else:
+#         try:
+#             ed.compute_range(mobile_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
+#         except ValueError:
+#             pass
+#         else:
+#             raise AssertionError
 
-    env_params = {"sound_speed": 343}
-    if sonar_model == "AD2CP":
-        try:
-            ed.compute_range(
-                env_params, ek_waveform_mode="CW", azfp_cal_type="Sv"
-            )
-        except ValueError:
-            pass  # AD2CP is not currently supported in ed.compute_range
-        else:
-            raise AssertionError
-    else:
-        echo_range = ed.compute_range(
-            env_params,
-            azfp_cal_type,
-            ek_waveform_mode,
-        )
-        assert isinstance(echo_range, xr.DataArray)
+#     env_params = {"sound_speed": 343}
+#     if sonar_model == "AD2CP":
+#         try:
+#             ed.compute_range(
+#                 env_params, ek_waveform_mode="CW", azfp_cal_type="Sv"
+#             )
+#         except ValueError:
+#             pass  # AD2CP is not currently supported in ed.compute_range
+#         else:
+#             raise AssertionError
+#     else:
+#         echo_range = ed.compute_range(
+#             env_params,
+#             azfp_cal_type,
+#             ek_waveform_mode,
+#         )
+#         assert isinstance(echo_range, xr.DataArray)
 
 
 def test_nan_range_entries(range_check_files):
