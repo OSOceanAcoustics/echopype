@@ -1,7 +1,7 @@
-
 import echopype
 import echopype.visualize
 from echopype.testing import TEST_DATA_FOLDER
+from echopype.calibrate.calibrate_ek import CalibrateEK60
 
 import pytest
 from xarray.plot.facetgrid import FacetGrid
@@ -227,12 +227,12 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
         sonar_model=sonar_model, raw_file=filepath, xml_path=None
     )
 
-    range_in_meter = echodata.compute_range(
-        env_params=range_kwargs.get('env_params', {}),
-        azfp_cal_type=range_kwargs.get('azfp_cal_type', None),
-        ek_waveform_mode=range_kwargs.get('waveform_mode', 'CW'),
-        ek_encode_mode=range_kwargs.get('encode_mode', 'power'),
+    cal_obj = CalibrateEK60(
+        echodata=echodata,
+        env_params=range_kwargs.get("env_params", {}),
+        cal_params=None,
     )
+    range_in_meter = cal_obj.range_meter
 
     single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
                                       ping_time='2017-07-19T21:13:47.984999936').values
@@ -250,8 +250,10 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
         if no_input_water_level is False:
             original_array = (
                 single_array
-                + echodata["Platform"].water_level.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
-                                                    time3='2017-07-19T21:13:47.984999936').values
+                + echodata["Platform"].water_level.sel(
+                    channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
+                    time3='2017-07-19T21:13:47.984999936'
+                ).values
             )
         else:
             original_array = single_array
