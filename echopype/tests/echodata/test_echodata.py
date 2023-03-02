@@ -12,6 +12,7 @@ import echopype
 from echopype.calibrate.env_params_old import EnvParams
 from echopype.echodata import EchoData
 from echopype import open_converted
+from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 
 import pytest
 import xarray as xr
@@ -454,11 +455,15 @@ def test_nan_range_entries(range_check_files):
     echodata = echopype.open_raw(ek_file, sonar_model=sonar_model)
     if sonar_model == "EK80":
         ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
-        range_output = echodata.compute_range(env_params=[], ek_waveform_mode='BB')
+        cal_obj = CalibrateEK80(
+            echodata, env_params=None, cal_params=None, waveform_mode="BB", encode_mode="complex",
+        )
+        range_output = cal_obj.range_meter
         nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
     else:
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
-        range_output = echodata.compute_range(env_params=[])
+        cal_obj = CalibrateEK60(echodata, env_params={}, cal_params=None)
+        range_output = cal_obj.range_meter
         nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
 
     nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()
