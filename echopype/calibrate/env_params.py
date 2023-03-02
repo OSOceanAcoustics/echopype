@@ -1,6 +1,6 @@
+import datetime
 from typing import Dict, Optional, Union
 
-import datetime
 import numpy as np
 import xarray as xr
 
@@ -104,9 +104,6 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
     # Note for AZFP data is always in Sonar/Beam_group1
     for p in out_dict.keys():
-        if isinstance(out_dict[p], xr.DataArray):
-            if "channel" in out_dict[p].coords:
-                out_dict[p] = out_dict[p].sel(channel=echodata["Sonar/Beam_group1"]["channel"])
         out_dict[p] = harmonize_env_param_time(
             out_dict[p], ping_time=echodata["Sonar/Beam_group1"]["ping_time"]
         )
@@ -151,23 +148,18 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[Dict] = None
         )
     # Otherwise get sound speed and absorption from user inputs or raw data file
     else:
-        out_dict["sound_speed"] = (
-            user_env_dict["sound_speed"]
-            if "sound_speed" in user_env_dict
-            else echodata["Environment"]["sound_speed_indicative"]
-        )
-        out_dict["sound_absorption"] = (
-            user_env_dict["sound_absorption"]
-            if "sound_absorption" in user_env_dict
-            else echodata["Environment"]["absorption_indicative"]
-        )
+        p_map_dict = {
+            "sound_speed": "sound_speed_indicative",
+            "sound_absorption": "absorption_indicative",
+        }
+        for p_out, p_data in p_map_dict.items():
+            out_dict[p_out] = (
+                user_env_dict[p_out] if p_out in user_env_dict else echodata["Environment"][p_data]
+            )
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
     # Note for EK60 data is always in Sonar/Beam_group1
     for p in out_dict.keys():
-        if isinstance(out_dict[p], xr.DataArray):
-            if "channel" in out_dict[p].coords:
-                out_dict[p] = out_dict[p].sel(channel=echodata["Sonar/Beam_group1"]["channel"])
         out_dict[p] = harmonize_env_param_time(
             out_dict[p], ping_time=echodata["Sonar/Beam_group1"]["ping_time"]
         )
@@ -262,7 +254,7 @@ def get_env_params_EK80(
     for p in out_dict.keys():
         if isinstance(out_dict[p], xr.DataArray):
             if "channel" in out_dict[p].coords:
-                out_dict[p] = out_dict[p].sel(channel=freq["channel"])
+                out_dict[p] = out_dict[p].sel(channel=freq["channel"])  # only ch subset needed
         out_dict[p] = harmonize_env_param_time(
             out_dict[p], ping_time=echodata[ed_group]["ping_time"]
         )

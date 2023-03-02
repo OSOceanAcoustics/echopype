@@ -216,7 +216,10 @@ class CalibrateEK80(CalibrateEK):
 
         # Get env_params: depends on waveform mode
         self.env_params = get_env_params_EK80(
-            echodata=echodata, freq=self.freq_center, user_env_dict=env_params, ed_group=self.ed_group
+            echodata=echodata,
+            freq=self.freq_center,
+            user_env_dict=env_params,
+            ed_group=self.ed_group,
         )
 
         # Get cal_params: depends on waveform and encode mode
