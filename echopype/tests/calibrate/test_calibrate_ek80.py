@@ -1,7 +1,13 @@
 import pytest
 import numpy as np
+import pandas as pd
 
 import echopype as ep
+
+
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path['EK80']
 
 
 @pytest.fixture
@@ -203,3 +209,66 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
+
+
+def test_ek80_BB_power_echoview(ek80_path):
+    """Compare pulse compressed outputs from echopype and csv exported from EchoView.
+
+    Unresolved: the difference is large and it is not clear why.
+    """
+    ek80_raw_path = str(ek80_path.joinpath('D20170912-T234910.raw'))
+    ek80_bb_pc_test_path = str(
+        ek80_path.joinpath(
+            'from_echoview', '70 kHz pulse-compressed power.complex.csv'
+        )
+    )
+
+    echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
+
+    # Create a CalibrateEK80 object to perform pulse compression
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
+        echodata,
+        env_params=None,
+        cal_params=None,
+        waveform_mode="BB",
+        encode_mode="complex",
+    )
+    cal_obj.compute_echo_range()  # compute range [m]
+    beam = echodata["Sonar/Beam_group1"]
+    chan_sel = beam["channel"]  # only BB data exist
+
+    coeff = cal_obj._get_filter_coeff(channel=chan_sel)
+    chirp, _ = ep.calibrate.ek80_complex.get_transmit_signal(
+        beam=beam, coeff=coeff, channel=chan_sel, waveform_mode="BB", fs=cal_obj._get_fs()
+    )
+
+    pc = ep.calibrate.ek80_complex.compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)
+    pc_mean = (
+        pc.pulse_compressed_output.isel(channel=1)
+        .mean(dim='beam')
+        .dropna('range_sample')
+    )
+
+    # Read EchoView pc raw power output
+    df = pd.read_csv(ek80_bb_pc_test_path, header=None, skiprows=[0])
+    df_header = pd.read_csv(
+        ek80_bb_pc_test_path, header=0, usecols=range(14), nrows=0
+    )
+    df = df.rename(
+        columns={
+            cc: vv for cc, vv in zip(df.columns, df_header.columns.values)
+        }
+    )
+    df.columns = df.columns.str.strip()
+    df_real = df.loc[df['Component'] == ' Real', :].iloc[:, 14:]
+
+    # Compare only values for range > 0: difference is surprisingly large
+    range_meter = cal_obj.range_meter.sel(channel='WBT 549762-15 ES70-7C',
+                                          ping_time='2017-09-12T23:49:10.722999808').values
+    first_nonzero_range = np.argwhere(range_meter == 0).squeeze().max()
+    assert np.allclose(
+        df_real.values[:, first_nonzero_range : pc_mean.values.shape[1]],
+        pc_mean.values.real[:, first_nonzero_range:],
+        rtol=0,
+        atol=1.03e-3,
+    )
