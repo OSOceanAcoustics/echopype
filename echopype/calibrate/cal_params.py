@@ -6,7 +6,15 @@ import xarray as xr
 from ..echodata import EchoData
 
 CAL_PARAMS = {
-    "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),
+    "EK": (  # TODO: consider including impedance?
+        "sa_correction",
+        "gain_correction",
+        "equivalent_beam_angle",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "beamwidth_alongship",
+        "beamwidth_athwartship",
+    ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
@@ -54,16 +62,14 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
         user_cal_dict = {}
 
     # Get params from Beam_group1
-    out_dict["equivalent_beam_angle"] = (
-        user_cal_dict["equivalent_beam_angle"]
-        if "equivalent_beam_angle" in user_cal_dict
-        else echodata["Sonar/Beam_group1"]["equivalent_beam_angle"]
+    out_dict["equivalent_beam_angle"] = user_cal_dict.get(
+        "equivalent_beam_angle", echodata["Sonar/Beam_group1"]["equivalent_beam_angle"]
     )
 
     # Get params from the Vendor_specific group
     for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
         # substitute if None in user input
-        out_dict[p] = user_cal_dict[p] if p in user_cal_dict else echodata["Vendor_specific"][p]
+        out_dict[p] = user_cal_dict.get(p, echodata["Vendor_specific"][p])
 
     return out_dict
 
@@ -98,27 +104,17 @@ def get_cal_params_EK(
         "angle_offset_athwartship",
         "beamwidth_twoway_alongship",
         "beamwidth_twoway_athwartship",
+        "equivalent_beam_angle",
     ]
     for p in params_from_beam:
         # substitute if p not in user input
-        out_dict[p] = user_cal_dict[p] if p in user_cal_dict else beam[p]
+        out_dict[p] = user_cal_dict.get(p, beam[p])
 
     # Params from the Vendor_specific group
     params_from_vend = ["sa_correction", "gain_correction"]
     for p in params_from_vend:
         # substitute if p not in user input
-        out_dict[p] = (
-            user_cal_dict[p]
-            if p in user_cal_dict
-            else get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-        )
-
-    # Other params
-    out_dict["equivalent_beam_angle"] = (
-        user_cal_dict["equivalent_beam_angle"]
-        if "equivalent_beam_angle" in user_cal_dict
-        else beam["equivalent_beam_angle"]
-    )
+        out_dict[p] = user_cal_dict.get(p, get_vend_cal_params_power(beam=beam, vend=vend, param=p))
 
     return out_dict
 

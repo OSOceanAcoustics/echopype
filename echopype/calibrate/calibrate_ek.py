@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
+from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK, get_param_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
@@ -180,8 +180,8 @@ class CalibrateEK80(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
 
-        # Check the combination of waveform and encode mode makes sense
-        check_input_args_combination(waveform_mode, encode_mode)
+        # The waveform and encode mode combination checked in calibrate/api.py::_compute_cal
+        # so just doing assignment here
         self.waveform_mode = waveform_mode
         self.encode_mode = encode_mode
         self.echodata = echodata
@@ -206,7 +206,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Use center frequency if in BB mode, else use nominal channel frequency
         if self.waveform_mode == "BB":
-            # use true center frequency to interpolate for gain factor
+            # use true center frequency to interpolate for various cal params
             self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
                 channel=self.chan_sel
             ).isel(beam=0).drop("beam") / 2
@@ -256,7 +256,7 @@ class CalibrateEK80(CalibrateEK):
             # All channels are CW
             return {"BB": None, "CW": beam.channel}
 
-    def _get_filter_coeff(self, channel: xr.DataArray) -> Dict:
+    def _get_filter_coeff(self) -> Dict:
         """
         Get WBT and PC filter coefficients for constructing the transmit replica.
 
@@ -265,9 +265,9 @@ class CalibrateEK80(CalibrateEK):
         A dictionary indexed by ``channel`` and values being dictionaries containing
         filter coefficients and decimation factors for constructing the transmit replica.
         """
-        vend = self.echodata["Vendor_specific"]
+        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
         coeff = defaultdict(dict)
-        for ch_id in channel.values:
+        for ch_id in vend["channel"].values:
             # filter coefficients and decimation factor
             coeff[ch_id]["wbt_fil"] = get_vend_filter_EK80(vend, ch_id, "WBT", "coeff")
             coeff[ch_id]["pc_fil"] = get_vend_filter_EK80(vend, ch_id, "PC", "coeff")
@@ -279,7 +279,6 @@ class CalibrateEK80(CalibrateEK):
     def _get_power_from_complex(
         self,
         beam: xr.Dataset,
-        chan_sel: xr.DataArray,
         chirp: Dict,
         z_et,
         z_er,
@@ -290,9 +289,7 @@ class CalibrateEK80(CalibrateEK):
         Parameters
         ----------
         beam : xr.Dataset
-            EchoData["Sonar/Beam_group1"]
-        chan_sel : xr.DataArray
-            channels that transmit in BB mode
+            EchoData["Sonar/Beam_group1"] with selected channel subset
         chirp : dict
             a dictionary containing transmit chirp for BB channels
 
@@ -313,12 +310,10 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute power
         if self.waveform_mode == "BB":
-            pc = compress_pulse(beam=beam, chirp=chirp, chan_BB=chan_sel)  # has beam dim
+            pc = compress_pulse(beam=beam, chirp=chirp)  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
-            bs_cw = beam["backscatter_r"].sel(channel=chan_sel) + 1j * beam["backscatter_i"].sel(
-                channel=chan_sel
-            )
+            bs_cw = beam["backscatter_r"] + 1j * beam["backscatter_i"]
             prx = _get_prx(bs_cw)
 
         prx.name = "received_power"
@@ -360,13 +355,13 @@ class CalibrateEK80(CalibrateEK):
         """
         Get receiver sampling frequency from either data or default values
         """
-        vend = self.echodata["Vendor_specific"]
+        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
         if "fs_receiver" in vend:
-            return vend["fs_receiver"].sel(channel=self.chan_sel)
+            return vend["fs_receiver"]
         else:
             # Most robust to loop through channel
             fs = []
-            for ch in self.chan_sel:
+            for ch in vend["channel"]:
                 tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
                 fs.append(self.EK80_params["fs"][tcvr_type])
             return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
@@ -411,7 +406,7 @@ class CalibrateEK80(CalibrateEK):
         to allow scaling for potential center frequency changes.
         """
         beam = self.echodata[self.ed_group]
-        psifc = beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
+        psifc = self.cal_params["equivalent_beam_angle"]
         if self.waveform_mode == "BB":
             # if BB scale according to true center frequency
             psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
@@ -436,30 +431,24 @@ class CalibrateEK80(CalibrateEK):
             The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
-        beam = self.echodata[complex_ed_group]
-        vend = self.echodata["Vendor_specific"]
+        beam = self.echodata[complex_ed_group].sel(channel=self.chan_sel)
+        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
 
         # Get transmit signal
-        tx_coeff = self._get_filter_coeff(channel=self.chan_sel)
+        tx_coeff = self._get_filter_coeff()
         fs = self._get_fs()
 
         # Switch to use Anderson implementation for transmit chirp starting v0.6.4
-        tx, tx_time = get_transmit_signal(
-            beam=beam,
-            coeff=tx_coeff,
-            waveform_mode=self.waveform_mode,
-            channel=self.chan_sel,
-            fs=fs,
-        )
+        tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
 
         # Params to clarity in use below
         z_er, z_et = self._get_impedance()  # transmit and receive impedance
         gain = self._get_gain()  # gain
-        absorption = self.env_params["sound_absorption"].sel(channel=self.chan_sel)
-        range_meter = self.range_meter.sel(channel=self.chan_sel)
+        absorption = self.env_params["sound_absorption"]
+        range_meter = self.range_meter
         sound_speed = self.env_params["sound_speed"]
         wavelength = sound_speed / self.freq_center
-        transmit_power = beam["transmit_power"].sel(channel=self.chan_sel)
+        transmit_power = beam["transmit_power"]
 
         # TVG compensation with modified range
         tvg_mod_range = range_mod_TVG_EK(self.echodata, self.ed_group, range_meter, sound_speed)
@@ -467,9 +456,7 @@ class CalibrateEK80(CalibrateEK):
         absorption_loss = 2 * absorption * tvg_mod_range
 
         # Get power from complex samples
-        prx = self._get_power_from_complex(
-            beam=beam, chan_sel=self.chan_sel, chirp=tx, z_et=z_et, z_er=z_er
-        )
+        prx = self._get_power_from_complex(beam=beam, chirp=tx, z_et=z_et, z_er=z_er)
 
         # Compute based on cal_type
         if cal_type == "Sv":
@@ -485,15 +472,11 @@ class CalibrateEK80(CalibrateEK):
             # Use pulse_duration in place of tau_effective for GPT channels
             # below assumesthat all transmit parameters are identical
             # and needs to be changed when allowing transmit parameters to vary by ping
-            ch_GPT = vend["transceiver_type"].sel(channel=self.chan_sel) == "GPT"
-            tau_effective[ch_GPT] = (
-                beam["transmit_duration_nominal"]
-                .sel(channel=self.chan_sel)[ch_GPT]
-                .isel(ping_time=0)
-            )
+            ch_GPT = vend["transceiver_type"] == "GPT"
+            tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
 
             # equivalent_beam_angle:
-            psifc = self._get_psifc()
+            psifc = self._get_psifc()  # TODO: THIS ONE CARRIES THE BEAM DIMENSION AROUND
 
             out = (
                 10 * np.log10(prx)
@@ -507,7 +490,7 @@ class CalibrateEK80(CalibrateEK):
 
             # Correct for sa_correction if CW mode
             if self.waveform_mode == "CW":
-                out = out - 2 * self.cal_params["sa_correction"].sel(channel=self.chan_sel)
+                out = out - 2 * self.cal_params["sa_correction"]
 
             out.name = "Sv"
             # out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
@@ -561,11 +544,9 @@ class CalibrateEK80(CalibrateEK):
 
         if flag_complex:
             # Complex samples can be BB or CW
-            self.compute_echo_range()
             ds_cal = self._cal_complex_samples(cal_type=cal_type, complex_ed_group=self.ed_group)
         else:
             # Power samples only make sense for CW mode data
-            self.compute_echo_range()
             ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=self.ed_group)
 
         return ds_cal

@@ -159,9 +159,7 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[Dict] = None
             "sound_absorption": "absorption_indicative",
         }
         for p_out, p_data in p_map_dict.items():
-            out_dict[p_out] = (
-                user_env_dict[p_out] if p_out in user_env_dict else echodata["Environment"][p_data]
-            )
+            out_dict[p_out] = user_env_dict.get(p_out, echodata["Environment"][p_data])
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
     # Note for EK60 data is always in Sonar/Beam_group1
@@ -229,23 +227,14 @@ def get_env_params_EK80(
     else:
         # pressure is encoded as "depth" in EK80  # TODO: change depth to pressure in EK80 file?
         for p_user, p_data in zip(
-            ["temperature", "salinity", "pressure", "pH"],
-            ["temperature", "salinity", "depth", "acidity"],
+            ["temperature", "salinity", "pressure", "pH", "sound_speed"],
+            ["temperature", "salinity", "depth", "acidity", "sound_speed_indicative"],
         ):
-            out_dict[p_user] = (
-                user_env_dict[p_user]
-                if p_user in user_env_dict
-                else echodata["Environment"][p_data]
-            )
-        out_dict["sound_speed"] = (
-            user_env_dict["sound_speed"]
-            if "sound_speed" in user_env_dict
-            else echodata["Environment"]["sound_speed_indicative"]
-        )
-        out_dict["sound_absorption"] = (
-            user_env_dict["sound_absorption"]
-            if "sound_absorption" in user_env_dict
-            else uwa.calc_absorption(
+            out_dict[p_user] = user_env_dict.get(p_user, echodata["Environment"][p_data])
+
+        out_dict["sound_absorption"] = user_env_dict.get(
+            "sound_absorption",
+            uwa.calc_absorption(
                 frequency=freq,
                 temperature=out_dict["temperature"],
                 salinity=out_dict["salinity"],
@@ -255,7 +244,7 @@ def get_env_params_EK80(
                 formula_source=(
                     user_env_dict["formula_source"] if "formula_source" in user_env_dict else "FG"
                 ),
-            )
+            ),
         )
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)

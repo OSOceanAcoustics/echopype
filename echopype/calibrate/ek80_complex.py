@@ -156,7 +156,6 @@ def get_transmit_signal(
     beam: xr.Dataset,
     coeff: Dict,
     waveform_mode: str,
-    channel: xr.DataArray,
     fs: Union[float, xr.DataArray],
 ):
     """Reconstruct transmit signal and compute effective pulse length.
@@ -164,15 +163,13 @@ def get_transmit_signal(
     Parameters
     ----------
     beam : xr.Dataset
-        EchoData["Sonar/Beam_group1"]
+        EchoData["Sonar/Beam_group1"] selected with channel subset
     coeff : dict
         a dictionary indexed by ``channel`` and values being dictionaries containing
         filter coefficients and decimation factors for constructing the transmit replica.
     waveform_mode : str
         ``CW`` for CW-mode samples, either recorded as complex or power samples
         ``BB`` for BB-mode samples, recorded as complex samples
-    channel : list or xr.DataArray
-        channel names (channel id), either as a list or an xr.DataArray
 
     Return
     ------
@@ -187,17 +184,10 @@ def get_transmit_signal(
     if waveform_mode == "BB" and (("frequency_start" not in beam) or ("frequency_end" not in beam)):
         raise TypeError("File does not contain BB mode complex samples!")
 
-    # Build channel list
-    if not isinstance(channel, (list, xr.DataArray)):
-        raise ValueError("channel must be a list or an xr.DataArray!")
-    else:
-        if isinstance(channel, xr.DataArray):
-            ch_list = channel.values
-
     # Generate all transmit replica
     y_all = {}
     y_time_all = {}
-    for ch in ch_list:
+    for ch in beam["channel"].values:
         # TODO: expand to deal with the case with varying tx param across ping_time
         if waveform_mode == "BB":
             tx_param_names = [
@@ -233,25 +223,20 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
-def compress_pulse(beam: xr.Dataset, chirp: Dict, chan_BB=None):
+def compress_pulse(beam: xr.Dataset, chirp: Dict):
     """Perform pulse compression on the backscatter data.
 
     Parameters
     ----------
     beam : xr.Dataset
-        EchoData["Sonar/Beam_group1"]
+        EchoData["Sonar/Beam_group1"] selected with channel subset
     chirp : dict
         transmit chirp replica indexed by ``channel``
-    chan_BB : str
-        channels that transmit in BB mode
-        (since CW mode can be in mixed in complex samples too)
     """
-    backscatter = beam["backscatter_r"].sel(channel=chan_BB) + 1j * beam["backscatter_i"].sel(
-        channel=chan_BB
-    )
+    backscatter = beam["backscatter_r"] + 1j * beam["backscatter_i"]
 
     pc_all = []
-    for chan in chan_BB:
+    for chan in beam["channel"]:
         backscatter_chan = (
             backscatter.sel(channel=chan)
             # .dropna(dim="range_sample", how="all")
