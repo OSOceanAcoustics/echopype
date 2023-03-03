@@ -411,7 +411,7 @@ class CalibrateEK80(CalibrateEK):
         to allow scaling for potential center frequency changes.
         """
         beam = self.echodata[self.ed_group]
-        psifc = beam["equivalent_beam_angle"].sel(channel=self.chan_sel).isel(beam=0).drop("beam")
+        psifc = self.cal_params["equivalent_beam_angle"]
         if self.waveform_mode == "BB":
             # if BB scale according to true center frequency
             psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
