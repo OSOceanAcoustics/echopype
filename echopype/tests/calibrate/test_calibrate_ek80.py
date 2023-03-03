@@ -225,9 +225,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
         echodata, env_params=None, cal_params=None, waveform_mode="BB", encode_mode="complex"
     )
-    cal_obj.compute_echo_range()  # compute range [m]
     beam = echodata["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel)
-    chan_sel = beam["channel"]  # only BB data exist
 
     coeff = cal_obj._get_filter_coeff()
     chirp, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, coeff, "BB", cal_obj._get_fs())

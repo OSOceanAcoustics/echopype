@@ -445,7 +445,7 @@ class CalibrateEK80(CalibrateEK):
         z_er, z_et = self._get_impedance()  # transmit and receive impedance
         gain = self._get_gain()  # gain
         absorption = self.env_params["sound_absorption"]
-        range_meter = self.range_meter  # TODO: BUG: THIS IS NOT SELECTED WITH THE RIGHT CHANNELS!
+        range_meter = self.range_meter
         sound_speed = self.env_params["sound_speed"]
         wavelength = sound_speed / self.freq_center
         transmit_power = beam["transmit_power"]
@@ -544,11 +544,9 @@ class CalibrateEK80(CalibrateEK):
 
         if flag_complex:
             # Complex samples can be BB or CW
-            self.compute_echo_range()
             ds_cal = self._cal_complex_samples(cal_type=cal_type, complex_ed_group=self.ed_group)
         else:
             # Power samples only make sense for CW mode data
-            self.compute_echo_range()
             ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=self.ed_group)
 
         return ds_cal
