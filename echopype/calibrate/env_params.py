@@ -244,7 +244,7 @@ def get_env_params_EK80(
                 formula_source=(
                     user_env_dict["formula_source"] if "formula_source" in user_env_dict else "FG"
                 ),
-            )
+            ),
         )
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
