@@ -6,7 +6,11 @@ import xarray as xr
 from ..echodata import EchoData
 
 CAL_PARAMS = {
-    "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),
+    "EK": (  # TODO: consider including impedance?
+        "sa_correction", "gain_correction", "equivalent_beam_angle",
+        "angle_offset_alongship", "angle_offset_athwartship",
+        "beamwidth_alongship", "beamwidth_athwartship",
+    ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 

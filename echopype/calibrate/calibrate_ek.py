@@ -206,7 +206,7 @@ class CalibrateEK80(CalibrateEK):
 
         # Use center frequency if in BB mode, else use nominal channel frequency
         if self.waveform_mode == "BB":
-            # use true center frequency to interpolate for gain factor
+            # use true center frequency to interpolate for various cal params
             self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
                 channel=self.chan_sel
             ).isel(beam=0).drop("beam") / 2
@@ -490,7 +490,7 @@ class CalibrateEK80(CalibrateEK):
 
             # Correct for sa_correction if CW mode
             if self.waveform_mode == "CW":
-                out = out - 2 * self.cal_params["sa_correction"].sel(channel=self.chan_sel)
+                out = out - 2 * self.cal_params["sa_correction"]
 
             out.name = "Sv"
             # out = out.rename_vars({list(out.data_vars.keys())[0]: "Sv"})
