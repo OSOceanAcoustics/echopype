@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
+from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK, get_param_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
@@ -180,8 +180,8 @@ class CalibrateEK80(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
 
-        # Check the combination of waveform and encode mode makes sense
-        check_input_args_combination(waveform_mode, encode_mode)
+        # The waveform and encode mode combination checked in calibrate/api.py::_compute_cal
+        # so just doing assignment here
         self.waveform_mode = waveform_mode
         self.encode_mode = encode_mode
         self.echodata = echodata

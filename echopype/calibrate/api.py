@@ -1,6 +1,7 @@
 import xarray as xr
 
 from ..echodata import EchoData
+from ..echodata.simrad import check_input_args_combination
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
@@ -26,21 +27,11 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
 ):
-    # TODO: change below to use echodata.simrad::_check_input_args_combination
-    #       for checking Simrad sonar models
-
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
-        elif waveform_mode not in ("BB", "CW"):
-            raise ValueError("Input waveform_mode not recognized!")
-        elif encode_mode not in ("complex", "power"):
-            raise ValueError("Input encode_mode not recognized!")
-        elif waveform_mode == "BB" and encode_mode == "power":
-            raise ValueError(
-                "Data from broadband ('BB') transmission must be recorded as complex samples"
-            )
+        check_input_args_combination(waveform_mode, encode_mode)
     elif echodata.sonar_model in ("EK60", "AZFP"):
         if waveform_mode is not None and waveform_mode != "CW":
             logger.warning(

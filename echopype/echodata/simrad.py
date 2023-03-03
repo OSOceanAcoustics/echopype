@@ -32,7 +32,9 @@ def check_input_args_combination(
 
     # BB has complex data only, but CW can have complex or power data
     if (waveform_mode == "BB") and (encode_mode == "power"):
-        raise ValueError("encode_mode='power' not allowed when waveform_mode='BB'!")
+        raise ValueError(
+            "Data from broadband ('BB') transmission must be recorded as complex samples"
+        )
 
     # make sure that we have BB and complex inputs, if pulse compression is selected
     if pulse_compression is not None:
