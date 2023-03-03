@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+import datetime
+from typing import Dict, Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -10,12 +11,63 @@ from ..utils import uwa
 # like in cal_params, right now it is initiated as {}
 
 
+def harmonize_env_param_time(
+    p: Union[int, float, xr.DataArray],
+    ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None,
+):
+    """
+    Harmonize time coordinate between Beam_groupX data and env_params to make sure
+    the timestamps are broadcast correctly in calibration and range calculations.
+
+    Regardless of the source, if `p` is an xr.DataArray, the time coordinate name
+    needs to be `time1` to be consistent with the time coordinate in EchoData["Environment"].
+    If `time1` is of length=1, the dimension `time1` is dropped.
+    Otherwise, `p` is interpolated to `ping_time`.
+    If `p` is not an xr.DataArray it is returned directly.
+
+    Parameters
+    ----------
+    p
+        The environment parameter for timestamp check/correction
+    ping_time
+        Beam_groupX ping_time to interpolate env_params timestamps to.
+        Only used if p.time1 has length >1
+
+    Returns
+    -------
+    Environment parameter with correctly broadcasted timestamps
+    """
+    if isinstance(p, xr.DataArray):
+        if "time1" not in p.coords:
+            return p
+        else:
+            # If there's only 1 time1 value,
+            # or if after dropping NaN there's only 1 time1 value
+            if p["time1"].size == 1 or p.dropna(dim="time1").size == 1:
+                return p.dropna(dim="time1").squeeze(dim="time1").drop("time1")
+
+            # Direct assignment if all timestamps are identical (EK60 data)
+            elif np.all(p["time1"].values == ping_time.values):
+                return p.rename({"time1": "ping_time"})
+
+            elif ping_time is None:
+                raise ValueError(f"ping_time needs to be provided for interpolating {p.name}")
+
+            else:
+                return p.dropna(dim="time1").interp(time1=ping_time)
+    else:
+        return p
+
+
 def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None):
     """Get env params using user inputs or values from data file.
 
     Parameters
     ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
     user_env_dict : dict
+        user input dict containing env params
 
     Returns
     -------
@@ -52,6 +104,13 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
         formula_source="AZFP",
     )
 
+    # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
+    # Note for AZFP data is always in Sonar/Beam_group1
+    for p in out_dict.keys():
+        out_dict[p] = harmonize_env_param_time(
+            out_dict[p], ping_time=echodata["Sonar/Beam_group1"]["ping_time"]
+        )
+
     return out_dict
 
 
@@ -64,7 +123,10 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[Dict] = None
 
     Parameters
     ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
     user_env_dict : dict
+        user input dict containing env params
 
     Returns
     -------
@@ -92,15 +154,20 @@ def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[Dict] = None
         )
     # Otherwise get sound speed and absorption from user inputs or raw data file
     else:
-        out_dict["sound_speed"] = (
-            user_env_dict["sound_speed"]
-            if "sound_speed" in user_env_dict
-            else echodata["Environment"]["sound_speed_indicative"]
-        )
-        out_dict["sound_absorption"] = (
-            user_env_dict["sound_absorption"]
-            if "sound_absorption" in user_env_dict
-            else echodata["Environment"]["absorption_indicative"]
+        p_map_dict = {
+            "sound_speed": "sound_speed_indicative",
+            "sound_absorption": "absorption_indicative",
+        }
+        for p_out, p_data in p_map_dict.items():
+            out_dict[p_out] = (
+                user_env_dict[p_out] if p_out in user_env_dict else echodata["Environment"][p_data]
+            )
+
+    # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
+    # Note for EK60 data is always in Sonar/Beam_group1
+    for p in out_dict.keys():
+        out_dict[p] = harmonize_env_param_time(
+            out_dict[p], ping_time=echodata["Sonar/Beam_group1"]["ping_time"]
         )
 
     return out_dict
@@ -110,6 +177,7 @@ def get_env_params_EK80(
     echodata: EchoData,
     freq: xr.DataArray,
     user_env_dict: Optional[Dict] = None,
+    ed_group: str = None,
 ) -> Dict:
     """Get env params using user inputs or values from data file.
 
@@ -120,7 +188,14 @@ def get_env_params_EK80(
 
     Parameters
     ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
+    freq : xr.DataArray
+        center frequency for the selected channels
     user_env_dict : dict
+        user input dict containing env params
+    ed_group : str
+        the right Sonar/Beam_groupX given waveform and encode mode
 
     Returns
     -------
@@ -183,16 +258,13 @@ def get_env_params_EK80(
             )
         )
 
+    # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
+    for p in out_dict.keys():
+        if isinstance(out_dict[p], xr.DataArray):
+            if "channel" in out_dict[p].coords:
+                out_dict[p] = out_dict[p].sel(channel=freq["channel"])  # only ch subset needed
+        out_dict[p] = harmonize_env_param_time(
+            out_dict[p], ping_time=echodata[ed_group]["ping_time"]
+        )
+
     return out_dict
-
-
-# TODO: this function is currently unused, consider removing
-def get_env_params(
-    sonar_model: str, echodata: EchoData, env_params: Optional[Dict] = None, **kwarg
-):
-    if sonar_model == "AZFP":
-        return get_env_params_AZFP(echodata=echodata, user_env_dict=env_params)
-    elif sonar_model in ["EK60", "ES70"]:
-        return get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
-    elif sonar_model in ["EK80", "ES80", "EA640"]:
-        return get_env_params_EK80(echodata=echodata, user_env_dict=env_params, **kwarg)

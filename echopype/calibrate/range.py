@@ -1,59 +1,10 @@
-import datetime
-from typing import Dict, Optional, Union
+from typing import Dict
 
-import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
-
-
-def _harmonize_env_param_time(
-    p: Union[int, float, xr.DataArray],
-    ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None,
-):
-    """
-    Harmonize time coordinate between Beam_groupX data and env_params to make sure
-    the timestamps are broadcast correctly in calibration and range calculations.
-
-    Regardless of the source, if `p` is an xr.DataArray, the time coordinate name
-    needs to be `time1` to be consistent with the time coordinate in EchoData["Environment"].
-    If `time1` is of length=1, the dimension `time1` is dropped.
-    Otherwise, `p` is interpolated to `ping_time`.
-    If `p` is not an xr.DataArray it is returned directly.
-
-    Parameters
-    ----------
-    p
-        The environment parameter for timestamp check/correction
-    ping_time
-        Beam_groupX ping_time to interpolate env_params timestamps to.
-        Only used if p.time1 has length >1
-
-    Returns
-    -------
-    Environment parameter with correctly broadcasted timestamps
-    """
-    if isinstance(p, xr.DataArray):
-        if "time1" not in p.coords:
-            return p
-        else:
-            # If there's only 1 time1 value,
-            # or if after dropping NaN there's only 1 time1 value
-            if p["time1"].size == 1 or p.dropna(dim="time1").size == 1:
-                return p.dropna(dim="time1").squeeze(dim="time1").drop("time1")
-
-            # Direct assignment if all timestamps are identical (EK60 data)
-            elif np.all(p["time1"].values == ping_time.values):
-                return p.rename({"time1": "ping_time"})
-
-            elif ping_time is None:
-                raise ValueError(f"ping_time needs to be provided for interpolating {p.name}")
-
-            else:
-                return p.dropna(dim="time1").interp(time1=ping_time)
-    else:
-        return p
+from .env_params import harmonize_env_param_time
 
 
 def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> xr.DataArray:
@@ -114,7 +65,7 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
     bins_to_avg = 1
 
     # Harmonize sound_speed time1 and Beam_group1 ping_time
-    sound_speed = _harmonize_env_param_time(
+    sound_speed = harmonize_env_param_time(
         p=sound_speed,
         ping_time=beam.ping_time,
     )
@@ -212,7 +163,7 @@ def compute_range_EK(
     beam = echodata[ed_group] if chan_sel is None else echodata[ed_group].sel(channel=chan_sel)
 
     # Harmonize sound_speed time1 and Beam_groupX ping_time
-    sound_speed = _harmonize_env_param_time(
+    sound_speed = harmonize_env_param_time(
         p=sound_speed,
         ping_time=beam.ping_time,
     )
