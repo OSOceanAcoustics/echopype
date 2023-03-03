@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Union, List
 
 import numpy as np
 import xarray as xr
@@ -14,6 +14,9 @@ CAL_PARAMS = {
         "angle_offset_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
+        # - transceiver impedance
+        # - transducer impedance
+        # - receiver sampling frequency
     ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
@@ -39,6 +42,52 @@ PARAM_BEAM = {
 
 # TODO: need a function (something like "_check_param_freq_dep")
 # to check user input cal_params and env_params
+
+
+def cal_param_ingestor(
+    p_dict: Dict[Union[float, str], np.array], channel: xr.DataArray
+) -> xr.DataArray:
+    """
+    Organize calibration parameters in dict to xr.DataArray.
+
+    Allowable input dictionary format:
+    - dict{frequency: values}
+    - dict{channel: values}
+    Both frequency and channel has to be identical as in the echodata `channel` dimension
+
+    Parameters
+    ----------
+    p_dict : dict
+        dictionary holding calibration params for one or more frequencies/channels
+    channel : xr.DataArray
+        subset of channels to be calibrated
+    """
+    # Check frequency or channel correspondence
+
+    # Organizer to xr.DataArray
+    pass
+
+
+def check_user_cal_dict(
+    user_dict: Dict[str, Union[float, xr.DataArray]],  # Dict[Union[float, str], np.array]
+    channel: Union[List, xr.DataArray],
+) -> Dict:
+    """
+    Check the format of user-provided cal_params dict.
+    """
+    # Screen parameters: only retain those defined in CAL_PARAMS
+
+    # Check type of each item and convert to xr.DataArray if needed:
+    # - scalar: no change
+    # - list: does NOT allow because there is no explict channel or frequency correpsondence
+    # - xr.DataArray: no change
+    # - dict: use cal_param_ingestor() -- will implement later
+
+    # Check frequency or channel
+    # the channel or frequency dimension has to be identical with the channel subset
+    # to be calibrated; no missing or extra channels/frequencies should exist
+    # (in theory can allow extra ones, but seems better to just require things to be identical)
+    pass
 
 
 def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
@@ -115,6 +164,17 @@ def get_cal_params_EK(
     for p in params_from_vend:
         # substitute if p not in user input
         out_dict[p] = user_cal_dict.get(p, get_vend_cal_params_power(beam=beam, vend=vend, param=p))
+
+    # Params with default values
+    # - transceiver impedance
+    # - transducer impedance
+    # - receiver sampling frequency
+
+    # Interpolate to center frequency if doing broadband calibration
+    # - requires an extra input argument
+    #   - EK80: freq_center (center frequency for BB mode or nominal frequency for CW mode)
+    #   - EK60: frequency_nominal
+    # - variables to include: gain, angle offset, beamwidth, transducer impedance
 
     return out_dict
 
