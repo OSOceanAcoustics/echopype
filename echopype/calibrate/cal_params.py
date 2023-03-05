@@ -14,9 +14,9 @@ CAL_PARAMS = {
         "angle_offset_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
-        # - transceiver impedance
-        # - transducer impedance
-        # - receiver sampling frequency
+        "impedance_transceiver",
+        "impedance_transducer",
+        "receiver_sampling_frequency",
     ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
@@ -44,50 +44,95 @@ PARAM_BEAM = {
 # to check user input cal_params and env_params
 
 
-def cal_param_ingestor(
-    p_dict: Dict[Union[float, str], np.array], channel: xr.DataArray
+def param_dict2da(
+    p_dict: Dict[str, Union[int, float]]
 ) -> xr.DataArray:
     """
     Organize calibration parameters in dict to xr.DataArray.
 
     Allowable input dictionary format:
-    - dict{frequency: values}
     - dict{channel: values}
-    Both frequency and channel has to be identical as in the echodata `channel` dimension
+    - TODO: dict{frequency: values}
 
     Parameters
     ----------
     p_dict : dict
-        dictionary holding calibration params for one or more frequencies/channels
-    channel : xr.DataArray
-        subset of channels to be calibrated
+        dictionary holding calibration params for one or more channels
+        each param has to be a scalar
     """
-    # Check frequency or channel correspondence
+    # TODO: allow passing in np.array as dict values to assemble a frequency-dependent cal da
 
-    # Organizer to xr.DataArray
-    pass
+    k_list = []
+    v_list = []
+    for k, v in p_dict.items():
+        k_list.append(k)  # coordinate
+        v_list.append(v)  # values
+
+    return xr.DataArray(v_list, coords=("channel", k_list), dims="channel")
 
 
-def check_user_cal_dict(
-    user_dict: Dict[str, Union[float, xr.DataArray]],  # Dict[Union[float, str], np.array]
+# TODO: allow Dict[Union[float, str], np.array] as user_dict values
+def sanitize_user_cal_dict(
+    user_dict: Dict[str, Union[float, xr.DataArray]],
     channel: Union[List, xr.DataArray],
+    sonar_model: str,
 ) -> Dict:
     """
-    Check the format of user-provided cal_params dict.
-    """
-    # Screen parameters: only retain those defined in CAL_PARAMS
+    Check the format and organize user-provided cal_params dict.
 
-    # Check type of each item and convert to xr.DataArray if needed:
+    Parameters
+    ----------
+    user_dict : dict
+        a dict containing user input calibration parameters as {parameter name: parameter value}
+        parameter value has to be a scalar (int or float) or an xr.DataArray
+    channel : list or xr.DataArray
+        a list of channels to be calibrated
+        for EK80 data, this list has to corresponds with the subset of channels
+        selected based on waveform_mode and encode_mode
+    """
+    # Make channel a sorted list
+    if not isinstance(channel, (list, xr.DataArray)):
+        raise ValueError("'channel' has to be a list or an xr.DataArray")
+    else:
+        if isinstance(channel, xr.DataArray):
+            return sorted(list(channel.data))  # TODO: check if it works with just sorted()
+        else:
+            return sorted(channel)
+
+    # Screen parameters: only retain those defined in CAL_PARAMS
+    out_dict = dict.fromkeys(CAL_PARAMS[sonar_model])
+    for p_name in user_dict:
+        if p_name in out_dict:
+            out_dict[p_name] = user_dict[p_name]
+
+    # Check allowable type of each param item
     # - scalar: no change
     # - list: does NOT allow because there is no explict channel or frequency correpsondence
     # - xr.DataArray: no change
-    # - dict: use cal_param_ingestor() -- will implement later
+    # TODO: - dict: convert to xr.DataArray
+    for p_name, p_val in out_dict.items():
+        if not isinstance(p_val, (int, float, xr.DataArray)):
+            raise ValueError(
+                f"{p_name} has to be a scalar (int or float) or an xr.DataArray"
+            )
 
-    # Check frequency or channel
-    # the channel or frequency dimension has to be identical with the channel subset
-    # to be calibrated; no missing or extra channels/frequencies should exist
-    # (in theory can allow extra ones, but seems better to just require things to be identical)
-    pass
+        # TODO: allow parameter xr.DataArray to be aligned with frequency as well
+        # If a parameter is an xr.DataArray, its channel coordinate has to be identical with
+        # that of data to be calibrated, ie no missing or extra channels/frequencies should exist
+        # (in theory can allow extra ones, but seems better to just require things to be identical)
+        if isinstance(p_val, xr.DataArray):
+            if "channel" not in p_val.coords:
+                raise ValueError(f"'channel' has to be one of the coordinates of {p_name}")
+            else:
+                # TODO: check if just sorted() works
+                if not (sorted(list(p_val.coords)) == channel):
+                    raise ValueError(
+                        f"The 'channel' coordinate of {p_name} has to match "
+                        "that of the data to be calibrated"
+                    )
+            # TODO: Pre-sort the param xr.DataArray
+
+    return out_dict
 
 
 def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
