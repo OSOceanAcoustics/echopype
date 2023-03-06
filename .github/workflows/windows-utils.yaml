@@ -41,9 +41,10 @@ jobs:
             environment-name: ${{ env.CONDA_ENV }}
             cache-env: true
             cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
+        - name: Print micromamba info
+          run: micromamba info
         - name: Print python environment
-          run: |
-            micromamba info && micromamba list
+          run: micromamba list
         - name: Install dev tools
           run: |
             micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
