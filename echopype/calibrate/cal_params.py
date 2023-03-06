@@ -1,4 +1,4 @@
-from typing import Dict, Union, List
+from typing import Dict, List, Union
 
 import numpy as np
 import xarray as xr
@@ -33,8 +33,8 @@ EK80_DEFAULT_PARAMS = {
         "WBT MINI": 1500000,
         "WBT": 1500000,
         "WBT HP": 187500,
-        "WBT LF": 93750,        
-    }
+        "WBT LF": 93750,
+    },
 }
 
 
@@ -42,9 +42,7 @@ EK80_DEFAULT_PARAMS = {
 # to check user input cal_params and env_params
 
 
-def param_dict2da(
-    p_dict: Dict[str, Union[int, float]]
-) -> xr.DataArray:
+def param_dict2da(p_dict: Dict[str, Union[int, float]]) -> xr.DataArray:
     """
     Organize calibration parameters in dict to xr.DataArray.
 
@@ -112,9 +110,7 @@ def sanitize_user_cal_dict(
     # TODO: - dict: convert to xr.DataArray
     for p_name, p_val in out_dict.items():
         if not isinstance(p_val, (int, float, xr.DataArray)):
-            raise ValueError(
-                f"{p_name} has to be a scalar (int or float) or an xr.DataArray"
-            )
+            raise ValueError(f"{p_name} has to be a scalar (int or float) or an xr.DataArray")
 
         # TODO: allow parameter xr.DataArray to be aligned with frequency as well
         # If a parameter is an xr.DataArray, its channel coordinate has to be identical with
@@ -169,7 +165,9 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
 
 
 def _get_interp_da(
-    da_param: Union[None, xr.DataArray], freq_center: xr.DataArray, alternative: Union[int, float, xr.DataArray]
+    da_param: Union[None, xr.DataArray],
+    freq_center: xr.DataArray,
+    alternative: Union[int, float, xr.DataArray],
 ) -> xr.DataArray:
     """
     Get interpolated xr.DataArray aligned with the channel coordinate.
@@ -206,9 +204,9 @@ def _get_interp_da(
             and ch_id in da_param["cal_channel_id"]
         ):
             param.append(
-                da_param
-                .sel(cal_channel_id=ch_id)
-                .interp(cal_frequency=freq_center.sel(channel=ch_id).data).data.squeeze()
+                da_param.sel(cal_channel_id=ch_id)
+                .interp(cal_frequency=freq_center.sel(channel=ch_id).data)
+                .data.squeeze()
             )
         # if no frequency-dependent param exists, use alternative
         else:
@@ -247,6 +245,7 @@ def get_cal_params_EK_new(
     default_dict : dict
         a dictionary containing default parameters
     """
+
     # Private function to get fs
     def _get_fs():
         if "fs_receiver" in vend:
@@ -276,7 +275,6 @@ def get_cal_params_EK_new(
     # Only fill in params that are None
     for p, v in out_dict.items():
         if v is None:
-
             # Those without CW or BB complications
             if p == "sa_correction":  # pull from data file
                 out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
@@ -307,7 +305,8 @@ def get_cal_params_EK_new(
                 # interpolate for center frequency or use CW values
                 if p in PARAM_BEAM_NAME_MAP.keys():
                     for p, p_beam in PARAM_BEAM_NAME_MAP.items():
-                        # TODO: beamwidth_along/athwartship should be scaled like equivalent_beam_angle
+                        # TODO: beamwidth_along/athwartship should be scaled
+                        #       like equivalent_beam_angle
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
@@ -315,7 +314,7 @@ def get_cal_params_EK_new(
                         )
                 if p == "equivalent_beam_angle":
                     # scaled according to frequency ratio
-                    out_dict[p] = (beam[p] + 20 * np.log10(beam["frequency_nominal"] / freq_center))
+                    out_dict[p] = beam[p] + 20 * np.log10(beam["frequency_nominal"] / freq_center)
                 if p == "gain_correction":
                     # interpolate or pull from narrowband table
                     out_dict[p] = _get_interp_da(
