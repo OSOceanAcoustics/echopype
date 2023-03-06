@@ -42,29 +42,38 @@ EK80_DEFAULT_PARAMS = {
 # to check user input cal_params and env_params
 
 
-def param_dict2da(p_dict: Dict[str, Union[int, float]]) -> xr.DataArray:
+def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray]) -> xr.DataArray:
     """
-    Organize calibration parameters in dict to xr.DataArray.
-
-    Allowable input dictionary format:
-    - dict{channel: values}
-    - TODO: dict{frequency: values}
+    Organize individual parameter in scalar or list to xr.DataArray with channel coordinate.
 
     Parameters
     ----------
-    p_dict : dict
+    p_val : int, float, or list
         dictionary holding calibration params for one or more channels
         each param has to be a scalar
+    channel : list or xr.DataArray
+        values to use for the output channel coordinate
+
+    Returns
+    -------
+    an xr.DataArray with channel coordinate
     """
     # TODO: allow passing in np.array as dict values to assemble a frequency-dependent cal da
 
-    k_list = []
-    v_list = []
-    for k, v in p_dict.items():
-        k_list.append(k)  # coordinate
-        v_list.append(v)  # values
+    if not isinstance(p_val, (int, float, list)):
+        raise ValueError("'p_val' needs to be one of type int, float, or list")
+    else:
+        if isinstance(p_val, list):
+            # Check length if p_val a list
+            if len(p_val) != len(channel):
+                raise ValueError("The lengths of 'p_val' and 'channel' should be identical")
 
-    return xr.DataArray(v_list, coords=("channel", k_list), dims="channel")
+            return xr.DataArray(p_val, dims=["channel"], coords={"channel": channel})
+        else:
+            # if scalar, make a list to form data array
+            return xr.DataArray(
+                [p_val] * len(channel), dims=["channel"], coords={"channel": channel}
+            )
 
 
 # TODO: allow Dict[Union[float, str], np.array] as user_dict values

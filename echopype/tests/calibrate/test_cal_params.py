@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.cal_params import CAL_PARAMS, sanitize_user_cal_dict, _get_interp_da
+from echopype.calibrate.cal_params import CAL_PARAMS, param2da, sanitize_user_cal_dict, _get_interp_da
 
 
 @pytest.fixture
@@ -12,8 +12,32 @@ def freq_center():
 
 
 # check for output dimension: channel as coordinate and input values are the output da values
-def test_param_dict2da():
-    pass
+@pytest.mark.parametrize(
+    ("p_val", "channel", "da_output"),
+    [
+        # input p_val a scalar, input channel a list
+        (1, ["chA", "chB"], xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})),
+        # input p_val a list, input channel an xr.DataArray
+        (
+            [1, 2],
+            xr.DataArray(["chA", "chB"], dims=["channel"], coords={"channel": ["chA", "chB"]}),
+            xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]})
+        ),
+        # input p_val a list with the wrong length: this should fail
+        pytest.param(
+            [1, 2, 3], ["chA", "chB"], None,
+            marks=pytest.mark.xfail(strict=True, reason="Fail since lengths of p_val and channel are not identical")
+        ),
+    ],
+    ids=[
+        "in_p_val_scalar_channel_list",
+        "in_p_val_list_channel_xrda",
+        "in_p_val_list_wrong_length",
+    ]
+)
+def test_param2da(p_val, channel, da_output):
+    da_assembled = param2da(p_val, channel)
+    assert da_assembled.identical(da_output)
 
 
 # input params:
