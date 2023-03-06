@@ -1,6 +1,5 @@
 import os
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Union
 
 from fsspec.mapping import FSMap
