@@ -168,18 +168,34 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     return out_dict
 
 
-def _get_interp_da(da_param, freq_center, alternative):
+def _get_interp_da(
+    da_param: Union[None, xr.DataArray], freq_center: xr.DataArray, alternative: Union[int, float, xr.DataArray]
+) -> xr.DataArray:
     """
-    Get interpolated xr.DataArray aligned with channel coordinate.
+    Get interpolated xr.DataArray aligned with the channel coordinate.
+
+    Interpolation at freq_center when da_param contains frequency-dependent xr.DataArray.
+    When da_param is None or does not contain frequency-dependent xr.DataArray,
+    the alternative (a const or an xr.DataArray with coordinate channel) is used.
 
     Parameters
     ----------
-    da_param : xr.DataArray
-        a parameter data array extracted from the Vendor group
+    da_param : xr.DataArray or None
+        a data array from the Vendor group with frequency-dependent param values.
     freq_center : xr.DataArray
         center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
         alternative for when freq-dep values do not exist
+
+    Returns
+    -------
+    an xr.DataArray aligned with the channel coordinate.
+
+    Note
+    ----
+    Since ``da_param`` is an xr.DataArray from the Vendor-specific group with frequency-dependent
+    param values, the case where ``da_param`` is an xr.DataArray without frequency-dependent
+    param values do not exist. Check all use cases of this function to avoid confusion.
     """
     param = []
     for ch_id in freq_center["channel"].data:
