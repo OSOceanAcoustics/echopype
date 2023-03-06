@@ -7,7 +7,7 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_param_BB, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK, get_cal_params_EK_new, get_param_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
@@ -223,11 +223,19 @@ class CalibrateEK80(CalibrateEK):
         )
 
         # Get cal_params: depends on waveform and encode mode
-        self.cal_params = get_cal_params_EK(
-            beam=beam,
+        self.cal_params = get_cal_params_EK_new(
+            waveform_mode=self.waveform_mode,
+            freq_center=self.freq_center,
+            beam=beam,  # already subset above
             vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
-            user_cal_dict=cal_params,
+            user_dict=self.cal_params,
         )
+
+        # self.cal_params = get_cal_params_EK(
+        #     beam=beam,
+        #     vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
+        #     user_cal_dict=cal_params,
+        # )
 
         # Compute echo range in meters
         self.compute_echo_range(chan_sel=self.chan_sel)
@@ -326,26 +334,13 @@ class CalibrateEK80(CalibrateEK):
 
         ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274  # noqa
         """
-        vend = self.echodata["Vendor_specific"]
-
-        # Get BB angle params from Vendor group
-        angle_params = {}
-        for p in [
-            "angle_offset_alongship",
-            "angle_offset_athwartship",
-            "beamwidth_alongship",
-            "beamwidth_athwartship",
-        ]:
-            angle_params[p] = get_param_BB(vend, p, self.freq_center, self.cal_params)
-
-        # Compute compensation factor
         fac_along = (
-            np.abs(-angle_params["angle_offset_alongship"])
-            / (angle_params["beamwidth_alongship"] / 2)
+            np.abs(-self.cal_params["angle_offset_alongship"])
+            / (self.cal_params["beamwidth_alongship"] / 2)
         ) ** 2
         fac_athwart = (
-            np.abs(-angle_params["angle_offset_athwartship"])
-            / (angle_params["beamwidth_athwartship"] / 2)
+            np.abs(-self.cal_params["angle_offset_athwartship"])
+            / (self.cal_params["beamwidth_athwartship"] / 2)
         ) ** 2
         B_theta_phi_m = 0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart)
 
@@ -442,8 +437,14 @@ class CalibrateEK80(CalibrateEK):
         tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
 
         # Params to clarity in use below
-        z_er, z_et = self._get_impedance()  # transmit and receive impedance
-        gain = self._get_gain()  # gain
+        z_er = self.cal_params["impedance_receive"]
+        z_et = self.cal_params["impedance_transmit"]
+        gain = self.cal_params["gain_correction"]
+
+        # Transceiver gain compensation for BB mode
+        if self.waveform_mode == "BB":
+            gain = gain - self._get_B_theta_phi_m()
+
         absorption = self.env_params["sound_absorption"]
         range_meter = self.range_meter
         sound_speed = self.env_params["sound_speed"]
@@ -475,8 +476,9 @@ class CalibrateEK80(CalibrateEK):
             ch_GPT = vend["transceiver_type"] == "GPT"
             tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
 
-            # equivalent_beam_angle:
-            psifc = self._get_psifc()  # TODO: THIS ONE CARRIES THE BEAM DIMENSION AROUND
+            # equivalent_beam_angle
+            # TODO: THIS ONE CARRIES THE BEAM DIMENSION AROUND
+            psifc = self.cal_params["equivalent_beam_angle"]
 
             out = (
                 10 * np.log10(prx)
