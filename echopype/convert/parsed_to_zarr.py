@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import zarr
 
-from ..utils.io import check_file_permissions
 from ..core import ECHOPYPE_DIR
+from ..utils.io import check_file_permissions
 
 
 class Parsed2Zarr:

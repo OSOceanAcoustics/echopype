@@ -13,9 +13,9 @@ import xarray as xr
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
+from ..core import ECHOPYPE_DIR
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
-from ..core import ECHOPYPE_DIR
 
 if TYPE_CHECKING:
     from ..core import PathHint
@@ -156,13 +156,13 @@ def validate_output_path(
 ) -> str:
     """
     Assembles output file names and path.
-    
+
     The final resulting file will be saved as provided in save path.
     If a directory path is provided then the final file name will use
     the same name as the source file and saved within the directory
     path in `save_path` or echopype's `temp_output` directory.
 
-    Example 1. 
+    Example 1.
     source_file - test.raw
     engine - zarr
     save_path - /path/dir/
@@ -192,7 +192,7 @@ def validate_output_path(
         Either a directory or a file path.
         If it's not provided, we will save output file(s)
         in the echopype's `temp_output` directory.
-    
+
     Returns
     -------
     str
@@ -201,7 +201,7 @@ def validate_output_path(
     Raises
     ------
     ValueError
-        If engine is not one of the supported output engine of 
+        If engine is not one of the supported output engine of
         zarr or netcdf
     TypeError
         If `save_path` is not of type Path or str
