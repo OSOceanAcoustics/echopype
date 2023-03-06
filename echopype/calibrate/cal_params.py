@@ -202,9 +202,19 @@ def _get_interp_da(
 
     Note
     ----
-    Since ``da_param`` is an xr.DataArray from the Vendor-specific group with frequency-dependent
-    param values, the case where ``da_param`` is an xr.DataArray without frequency-dependent
-    param values do not exist. Check all use cases of this function to avoid confusion.
+    ``da_param`` is always an xr.DataArray from the Vendor-specific group.
+    It is possible that only a subset of the channels have frequency-dependent parameter values.
+    The output xr.DataArray here is constructed channel-by-channel to allow for this flexibility.
+
+    ``alternative`` can be one of the following:
+
+    - scalar (int or float): this is the case for impedance_transmit
+    - xr.DataArray with coordinates channel, ping_time, and beam:
+        this is the case for parameters angle_offset_alongship, angle_offset_athwartship,
+                                        beamwidth_alongship, beamwidth_athwartship
+    - xr.DataArray with coordinates channel, ping_time:
+        this is the case for sa_correction and gain_correction,
+        which will be direct output of get_vend_cal_params_power()
     """
     param = []
     for ch_id in freq_center["channel"].data:
@@ -214,19 +224,34 @@ def _get_interp_da(
             and "cal_channel_id" in da_param.coords
             and ch_id in da_param["cal_channel_id"]
         ):
+            # interp variable has ping_time dimension from freq_center
             param.append(
                 da_param.sel(cal_channel_id=ch_id)
-                .interp(cal_frequency=freq_center.sel(channel=ch_id).data)
+                .interp(cal_frequency=freq_center.sel(channel=ch_id))
                 .data.squeeze()
             )
         # if no frequency-dependent param exists, use alternative
         else:
             if isinstance(alternative, xr.DataArray):
-                param.append(alternative.sel(channel=ch_id).data.squeeze())
-            else:  # int or float
-                param.append(alternative)
+                # drop the redundant beam dimension if exist
+                if "beam" in alternative.coords:
+                    param.append(alternative.sel(channel=ch_id).isel(beam=0).data.squeeze())
+                else:
+                    param.append(alternative.sel(channel=ch_id).data.squeeze())
+            elif isinstance(alternative, (int, float)):
+                param.append([alternative] * len(freq_center.sel(channel=ch_id)))  # expand to have ping_time dimension
+            else:
+                raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
 
-    return xr.DataArray(param, dims=["channel"], coords={"channel": freq_center["channel"]})
+    param = np.array(param)
+    if len(param.shape) == 1:  # this means ping_time has length=1
+        param = np.expand_dims(param, axis=1)
+
+    return xr.DataArray(
+        param,
+        dims=["channel", "ping_time"],
+        coords={"channel": freq_center["channel"], "ping_time": freq_center["ping_time"]}
+    )
 
 
 def get_cal_params_EK_new(
@@ -266,7 +291,7 @@ def get_cal_params_EK_new(
             fs = []
             for ch in vend["channel"]:
                 tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
-                fs.append(default_dict["fs"][tcvr_type])
+                fs.append(default_dict["receiver_sampling_frequency"][tcvr_type])
             return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
 
     # Mapping between desired param name with Beam group data variable name
@@ -289,56 +314,60 @@ def get_cal_params_EK_new(
             # Those without CW or BB complications
             if p == "sa_correction":  # pull from data file
                 out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-            if p == "impedance_receive":  # from data file or default dict
+            elif p == "impedance_receive":  # from data file or default dict
                 out_dict[p] = default_dict[p] if p not in vend else vend["impedance_receive"]
-            if p == "receiver_sampling_frequency":  # from data file or default_dict
+            elif p == "receiver_sampling_frequency":  # from data file or default_dict
                 out_dict[p] = _get_fs()
-
-            # CW: params do not require except for impedance_transmit
-            if waveform_mode == "CW":
-                if p in PARAM_BEAM_NAME_MAP.keys():
-                    for p, p_beam in PARAM_BEAM_NAME_MAP.items():
-                        # pull from data file, these should always exist
-                        out_dict[p] = beam[p_beam]
-                if p == "gain_correction":
-                    # pull from data file narrowband table
-                    out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-                if p == "impedance_transmit":
-                    # assemble each channel from data file or default dict
-                    out_dict[p] = _get_interp_da(
-                        da_param=None if p not in vend else vend[p],
-                        freq_center=freq_center,
-                        alternative=default_dict[p],  # pull from default dict
-                    )
-
-            # BB mode: params require interpolation
             else:
-                # interpolate for center frequency or use CW values
-                if p in PARAM_BEAM_NAME_MAP.keys():
-                    for p, p_beam in PARAM_BEAM_NAME_MAP.items():
-                        # TODO: beamwidth_along/athwartship should be scaled
-                        #       like equivalent_beam_angle
+                # CW: params do not require except for impedance_transmit
+                if waveform_mode == "CW":
+                    if p in PARAM_BEAM_NAME_MAP.keys():
+                        for p, p_beam in PARAM_BEAM_NAME_MAP.items():
+                            # pull from data file, these should always exist
+                            out_dict[p] = beam[p_beam]
+                    elif p == "gain_correction":
+                        # pull from data file narrowband table
+                        out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
+                    elif p == "impedance_transmit":
+                        # assemble each channel from data file or default dict
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
-                            alternative=beam[p_beam],  # these should always exist
+                            alternative=default_dict[p],  # pull from default dict
                         )
-                if p == "equivalent_beam_angle":
-                    # scaled according to frequency ratio
-                    out_dict[p] = beam[p] + 20 * np.log10(beam["frequency_nominal"] / freq_center)
-                if p == "gain_correction":
-                    # interpolate or pull from narrowband table
-                    out_dict[p] = _get_interp_da(
-                        da_param=None if "gain" not in vend else vend["gain"],  # freq-dep values
-                        freq_center=freq_center,
-                        alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
-                    )
-                if p == "impedance_transmit":
-                    out_dict[p] = _get_interp_da(
-                        da_param=None if p not in vend else vend[p],
-                        freq_center=freq_center,
-                        alternative=default_dict[p],  # pull from default dict
-                    )
+                    else:
+                        raise ValueError(f"{p} not in the defined set of calibration parameters.")
+
+                # BB mode: params require interpolation
+                else:
+                    # interpolate for center frequency or use CW values
+                    if p in PARAM_BEAM_NAME_MAP.keys():
+                        for p, p_beam in PARAM_BEAM_NAME_MAP.items():
+                            # TODO: beamwidth_along/athwartship should be scaled
+                            #       like equivalent_beam_angle
+                            out_dict[p] = _get_interp_da(
+                                da_param=None if p not in vend else vend[p],
+                                freq_center=freq_center,
+                                alternative=beam[p_beam],  # these should always exist
+                            )
+                    elif p == "equivalent_beam_angle":
+                        # scaled according to frequency ratio
+                        out_dict[p] = beam[p] + 20 * np.log10(beam["frequency_nominal"] / freq_center)
+                    elif p == "gain_correction":
+                        # interpolate or pull from narrowband table
+                        out_dict[p] = _get_interp_da(
+                            da_param=None if "gain" not in vend else vend["gain"],  # freq-dep values
+                            freq_center=freq_center,
+                            alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
+                        )
+                    elif p == "impedance_transmit":
+                        out_dict[p] = _get_interp_da(
+                            da_param=None if p not in vend else vend[p],
+                            freq_center=freq_center,
+                            alternative=default_dict[p],  # pull from default dict
+                        )
+                    else:
+                        raise ValueError(f"{p} not in the defined set of calibration parameters.")
 
     return out_dict
 
