@@ -11,7 +11,6 @@ def freq_center():
     return xr.DataArray([25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]})
 
 
-# check for output dimension: channel as coordinate and input values are the output da values
 @pytest.mark.parametrize(
     ("p_val", "channel", "da_output"),
     [
@@ -40,8 +39,6 @@ def test_param2da(p_val, channel, da_output):
     assert da_assembled.identical(da_output)
 
 
-# input params:
-#   - scalar: no change -- THIS NEEDS EXTRA WORK TO ORGANIZE INPUT SCALAR/LIST TO XR.DATAARRAY
 @pytest.mark.parametrize(
     ("sonar_type", "user_dict", "channel", "out_dict"),
     [
@@ -59,7 +56,7 @@ def test_param2da(p_val, channel, da_output):
         # input param dict
         #   - contains extra param: should come out with only those defined in CAL_PARAMS
         #   - contains missing param: missing ones (wrt CAL_PARAMS) should be empty
-        ("EK", {"extra_param": 1}, ["chA", "chB"], dict.fromkeys(CAL_PARAMS["EK"])),
+        pytest.param("EK", {"extra_param": 1}, ["chA", "chB"], dict.fromkeys(CAL_PARAMS["EK"])),
         # input param:
         #   - is xr.DataArray without channel coorindate: fail with value error
         pytest.param(
@@ -86,6 +83,31 @@ def test_param2da(p_val, channel, da_output):
             dict(dict.fromkeys(CAL_PARAMS["EK"]),
                 **{"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
         ),
+        # input individual param:
+        #   - a scalar needing to be organized to xr.DataArray at output via param2da: should pass
+        pytest.param(
+            "EK",
+            {"sa_correction": 1},
+            ["chA", "chB"],
+            dict(dict.fromkeys(CAL_PARAMS["EK"]),
+                **{"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
+        ),
+        # input individual param:
+        #   - a list needing to be organized to xr.DataArray at output via param2da: should pass
+        pytest.param(
+            "EK",
+            {"sa_correction": [1, 2]},
+            ["chA", "chB"],
+            dict(dict.fromkeys(CAL_PARAMS["EK"]),
+                **{"sa_correction": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
+        ),    
+        # input individual param:
+        #   - a list with wrong length (ie not identical to channel): fail with value error
+        pytest.param(
+            "EK", {"sa_correction": [1, 2, 3]}, ["chA", "chB"], None,
+            marks=pytest.mark.xfail(strict=True,
+                reason="input sa_correction contains a list of wrong length that does not match that of channel"),
+        ),
     ],
     ids=[
         "sonar_type_invalid",
@@ -94,6 +116,9 @@ def test_param2da(p_val, channel, da_output):
         "in_da_no_channel_coord",
         "in_da_channel_not_identical",
         "in_da_channel_identical",
+        "in_scalar",
+        "in_list",
+        "in_list_wrong_length",
     ],
 )
 def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
