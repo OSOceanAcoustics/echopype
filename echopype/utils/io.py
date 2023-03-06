@@ -13,7 +13,6 @@ import xarray as xr
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
-from ..core import ECHOPYPE_DIR
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
 
@@ -29,6 +28,14 @@ SUPPORTED_ENGINES = {
 }
 
 logger = _init_logger(__name__)
+
+
+ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".echopype"
+
+def init_ep_dir():
+    """Initialize hidden directory for echopype"""
+    if not ECHOPYPE_DIR.exists():
+        ECHOPYPE_DIR.mkdir(exist_ok=True)
 
 
 def get_files_from_dir(folder):
