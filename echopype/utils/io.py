@@ -166,7 +166,7 @@ def validate_output_path(
     source_file - test.raw
     engine - zarr
     save_path - /path/dir/
-    output is ~/path/dir/test.zarr
+    output is /path/dir/test.zarr
 
     Example 2.
     source_file - test.raw
@@ -177,8 +177,8 @@ def validate_output_path(
     Example 3.
     source_file - test.raw
     engine - zarr
-    save_path - ~/path/dir/myzarr.zarr
-    output is ~/path/dir/myzarr.zarr
+    save_path - /path/dir/myzarr.zarr
+    output is /path/dir/myzarr.zarr
 
     Parameters
     ----------
