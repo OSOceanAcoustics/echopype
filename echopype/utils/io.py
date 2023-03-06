@@ -214,7 +214,7 @@ def validate_output_path(
     if save_path is None:
         logger.warning("A directory or file path is not provided!")
 
-        out_dir = ECHOPYPE_DIR.joinpath(Path("temp_output"))
+        out_dir = ECHOPYPE_DIR / "temp_output"
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 

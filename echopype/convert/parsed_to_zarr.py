@@ -9,6 +9,7 @@ import pandas as pd
 import zarr
 
 from ..utils.io import check_file_permissions
+from ..core import ECHOPYPE_DIR
 
 
 class Parsed2Zarr:
@@ -40,7 +41,7 @@ class Parsed2Zarr:
         check_file_permissions(current_dir)
 
         # construct temporary directory that will hold the zarr file
-        out_dir = current_dir.joinpath(Path("temp_echopype_output") / "parsed2zarr_temp_files")
+        out_dir = current_dir / ECHOPYPE_DIR / "temp_output" / "parsed2zarr_temp_files"
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 

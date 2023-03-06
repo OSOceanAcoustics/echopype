@@ -59,7 +59,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     if args.local:
-        temp_path = Path("temp_echopype_output")
+        temp_path = Path("~/.echopype")
         dump_path = Path("echopype/test_data/dump")
         if temp_path.exists():
             shutil.rmtree(temp_path)
