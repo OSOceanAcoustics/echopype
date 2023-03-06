@@ -69,9 +69,9 @@ def param_dict2da(p_dict: Dict[str, Union[int, float]]) -> xr.DataArray:
 
 # TODO: allow Dict[Union[float, str], np.array] as user_dict values
 def sanitize_user_cal_dict(
+    sonar_type: str,
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
     channel: Union[List, xr.DataArray],
-    sonar_type: str,
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
     Check the format and organize user-provided cal_params dict.
@@ -88,20 +88,27 @@ def sanitize_user_cal_dict(
     sonar_type : str
         type of sonar, either "EK" or "AZFP"
     """
+    # Check sonar type
+    if sonar_type not in ["EK", "AZFP"]:
+        raise ValueError("'sonar_type' has to be either 'EK' or 'AZFP'")
+
     # Make channel a sorted list
     if not isinstance(channel, (list, xr.DataArray)):
         raise ValueError("'channel' has to be a list or an xr.DataArray")
     else:
         if isinstance(channel, xr.DataArray):
-            return sorted(list(channel.data))  # TODO: check if it works with just sorted()
+            channel = sorted(channel.data)  # TODO: check if it works with just sorted()
         else:
-            return sorted(channel)
+            channel = sorted(channel)
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     out_dict = dict.fromkeys(CAL_PARAMS[sonar_type])
-    for p_name in user_dict:
+    for p_name, p_val in user_dict.items():
         if p_name in out_dict:
-            out_dict[p_name] = user_dict[p_name]
+            # If param is a list, it needs to have the same dimension as channel
+            if isinstance(p_val, list) and len(p_val) != len(channel):
+                raise ValueError(f"{p_name} should have the same length as 'channel'")
+            out_dict[p_name] = p_val
 
     # Check allowable type of each param item
     # - scalar: no change
@@ -109,8 +116,8 @@ def sanitize_user_cal_dict(
     # - xr.DataArray: no change
     # TODO: - dict: convert to xr.DataArray
     for p_name, p_val in out_dict.items():
-        if not isinstance(p_val, (int, float, xr.DataArray)):
-            raise ValueError(f"{p_name} has to be a scalar (int or float) or an xr.DataArray")
+        if p_val is not None and not isinstance(p_val, (int, float, xr.DataArray)):
+            raise ValueError(f"{p_name} has to be a scalar or an xr.DataArray")
 
         # TODO: allow parameter xr.DataArray to be aligned with frequency as well
         # If a parameter is an xr.DataArray, its channel coordinate has to be identical with
@@ -121,7 +128,7 @@ def sanitize_user_cal_dict(
                 raise ValueError(f"'channel' has to be one of the coordinates of {p_name}")
             else:
                 # TODO: check if just sorted() works
-                if not (sorted(list(p_val.coords)) == channel):
+                if not (sorted(p_val.coords["channel"].data) == channel):
                     raise ValueError(
                         f"The 'channel' coordinate of {p_name} has to match "
                         "that of the data to be calibrated"

@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.cal_params import _get_interp_da
+from echopype.calibrate.cal_params import CAL_PARAMS, sanitize_user_cal_dict, _get_interp_da
 
 
 @pytest.fixture
@@ -16,18 +16,79 @@ def test_param_dict2da():
     pass
 
 
-# sonar_model: EK or AZFP
+# sonar_type: EK or AZFP
 # input dict:
 #   - contain extra param: should come out with only those defined in CAL_PARAMS
 #   - contain missing param: missing ones (wrt CAL_PARAMS) should be empty
 # input params:
-#   - scalar: no change
+#   - scalar: no change -- THIS NEEDS EXTRA WORK TO ORGANIZE INPUT SCALAR/LIST TO XR.DATAARRAY
 #   - xr.DataArray without channel coorindate: fail with value error
 #   - xr.DataArray with channel cooridinate not identical to argin channel: fail with value error
-#       - argin channel: list or xr.DataArray
-#   - argin channel is not a list nor an xr.DataArray: fail with value error
-def test_check_user_cal_dict():
-    pass
+# argin channel:
+#   - is not a list nor an xr.DataArray: fail with value error
+@pytest.mark.parametrize(
+    ("sonar_type", "user_dict", "channel", "out_dict"),
+    [
+        # sonar_type only allows EK or AZFP
+        pytest.param(
+            "XYZ", None, None, None,
+            marks=pytest.mark.xfail(strict=True, reason="Fail since sonar_type is not 'EK' nor 'AZFP'")
+        ),
+        # input channel
+        #   - is not a list nor an xr.DataArray: fail with value error
+        pytest.param(
+            "EK", 1, None, None,
+            marks=pytest.mark.xfail(strict=True, reason="Fail since channel has to be either a list or an xr.DataArray"),
+        ),
+        # input param dict
+        #   - contains extra param: should come out with only those defined in CAL_PARAMS
+        #   - contains missing param: missing ones (wrt CAL_PARAMS) should be empty
+        ("EK", {"extra_param": 1}, ["chA", "chB"], dict.fromkeys(CAL_PARAMS["EK"])),
+        # input param:
+        #   - is xr.DataArray without channel coorindate: fail with value error
+        pytest.param(
+            "EK",
+            {"sa_correction": xr.DataArray([1, 1], dims=["some_coords"], coords={"some_coords": ["A", "B"]})},
+            ["chA", "chB"], None,
+            marks=pytest.mark.xfail(strict=True, reason="input sa_correction does not contain a 'channel' coordinate"),
+        ),
+        # input individual param:
+        #   - with channel cooridinate but not identical to argin channel: fail with value error
+        pytest.param(
+            "EK",
+            {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "B"]})},
+            ["chA", "chB"], None,
+            marks=pytest.mark.xfail(strict=True,
+                reason="input sa_correction contains a 'channel' coordinate but it is not identical with input channel"),
+        ),
+        # input individual param:
+        #   - with channel cooridinate identical to argin channel: should pass
+        pytest.param(
+            "EK",
+            {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})},
+            ["chA", "chB"],
+            dict(dict.fromkeys(CAL_PARAMS["EK"]),
+                **{"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
+        ),
+    ],
+    ids=[
+        "sonar_type_invalid",
+        "channel_invalid",
+        "in_extra_param",
+        "in_da_no_channel_coord",
+        "in_da_channel_not_identical",
+        "in_da_channel_identical",
+    ],
+)
+def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
+    sanitized_dict = sanitize_user_cal_dict(sonar_type, user_dict, channel)
+    assert isinstance(sanitized_dict, dict)
+    assert len(sanitized_dict) == len(out_dict)
+    for p_name, p_val in sanitized_dict.items():
+        if isinstance(p_val, xr.DataArray):
+            assert p_val.identical(out_dict[p_name])
+        else:
+            assert p_val == out_dict[p_name]
 
 
 # da_param: None
