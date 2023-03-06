@@ -14,29 +14,27 @@ CAL_PARAMS = {
         "angle_offset_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
-        "impedance_transceiver",
-        "impedance_transducer",
+        "impedance_transmit",  # z_et
+        "impedance_receive",  # z_er
         "receiver_sampling_frequency",
     ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
-# mapping param name between input varname and Vendor/Beam group data variable name
-PARAM_VEND = {
-    "gain": "gain",
-    "angle_offset_alongship": "angle_offset_alongship",
-    "angle_offset_athwartship": "angle_offset_athwartship",
-    "beamwidth_alongship": "beamwidth_alongship",
-    "beamwidth_athwartship": "beamwidth_athwartship",
-    "z_et": "impedance_transmit",
-}
-PARAM_BEAM = {
-    "gain": "gain_correction",
-    "angle_offset_alongship": "angle_offset_alongship",
-    "angle_offset_athwartship": "angle_offset_athwartship",
-    "beamwidth_alongship": "beamwidth_twoway_alongship",
-    "beamwidth_athwartship": "beamwidth_twoway_athwartship",
-    "z_et": "z_et",  # from default EK80 params
+EK80_DEFAULT_PARAMS = {
+    "impedance_transmit": 75,
+    "impedance_receive": 1000,
+    "receiver_sampling_frequency": {  # default full sampling frequency [Hz]
+        "default": 1500000,
+        "GPT": 500000,
+        "SBT": 50000,
+        "WBAT": 1500000,
+        "WBT TUBE": 1500000,
+        "WBT MINI": 1500000,
+        "WBT": 1500000,
+        "WBT HP": 187500,
+        "WBT LF": 93750,        
+    }
 }
 
 
@@ -73,10 +71,10 @@ def param_dict2da(
 
 # TODO: allow Dict[Union[float, str], np.array] as user_dict values
 def sanitize_user_cal_dict(
-    user_dict: Dict[str, Union[float, xr.DataArray]],
+    user_dict: Dict[str, Union[int, float, xr.DataArray]],
     channel: Union[List, xr.DataArray],
-    sonar_model: str,
-) -> Dict:
+    sonar_type: str,
+) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
     Check the format and organize user-provided cal_params dict.
 
@@ -89,6 +87,8 @@ def sanitize_user_cal_dict(
         a list of channels to be calibrated
         for EK80 data, this list has to corresponds with the subset of channels
         selected based on waveform_mode and encode_mode
+    sonar_type : str
+        type of sonar, either "EK" or "AZFP"
     """
     # Make channel a sorted list
     if not isinstance(channel, (list, xr.DataArray)):
@@ -100,7 +100,7 @@ def sanitize_user_cal_dict(
             return sorted(channel)
 
     # Screen parameters: only retain those defined in CAL_PARAMS
-    out_dict = dict.fromkeys(CAL_PARAMS[sonar_model])
+    out_dict = dict.fromkeys(CAL_PARAMS[sonar_type])
     for p_name in user_dict:
         if p_name in out_dict:
             out_dict[p_name] = user_dict[p_name]
@@ -164,6 +164,155 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
         # substitute if None in user input
         out_dict[p] = user_cal_dict.get(p, echodata["Vendor_specific"][p])
+
+    return out_dict
+
+
+def _get_interp_da(da_param, freq_center, alternative):
+    """
+    Get interpolated xr.DataArray aligned with channel coordinate.
+
+    Parameters
+    ----------
+    da_param : xr.DataArray
+        a parameter data array extracted from the Vendor group
+    freq_center : xr.DataArray
+        center frequency (BB) or nominal frequency (CW)
+    alternative : xr.DataArray or int or float
+        alternative for when freq-dep values do not exist
+    """
+    param = []
+    for ch_id in freq_center["channel"].data:
+        # if frequency-dependent param exists as a data array with desired channel
+        if (
+            da_param is not None
+            and "cal_channel_id" in da_param.coords
+            and ch_id in da_param["cal_channel_id"]
+        ):
+            param.append(
+                da_param
+                .sel(cal_channel_id=ch_id)
+                .interp(cal_frequency=freq_center.sel(channel=ch_id).data).data.squeeze()
+            )
+        # if no frequency-dependent param exists, use alternative
+        else:
+            if isinstance(alternative, xr.DataArray):
+                param.append(alternative.sel(channel=ch_id).data.squeeze())
+            else:  # int or float
+                param.append(alternative)
+
+    return xr.DataArray(param, dims=["channel"], coords={"channel": freq_center["channel"]})
+
+
+def get_cal_params_EK_new(
+    waveform_mode: str,
+    freq_center: xr.DataArray,
+    beam: xr.Dataset,
+    vend: xr.Dataset,
+    user_dict: Dict[str, Union[int, float, xr.DataArray]],
+    default_dict: Dict[str, Union[int, float]] = EK80_DEFAULT_PARAMS,
+) -> Dict:
+    """
+    Get cal parameters from user input, data file, or a set of default values.
+
+    Parameters
+    ----------
+    waveform_mode : str
+        transmit waveform mode, either "CW" or "BB"
+    freq_center : xr.DataArray
+        center frequency (BB mode) or nominal frequency (CW mode)
+    beam : xr.Dataset
+        a subset of Sonar/Beam_groupX that contains only the channels to be calibrated
+    vend : xr.Dataset
+        a subset of Vendor_specific that contains only the channels to be calibrated
+    user_dict : dict
+        a dictionary containing user-defined parameters.
+        user-defined parameters take precedance over values in the data file or in default dict.
+    default_dict : dict
+        a dictionary containing default parameters
+    """
+    # Private function to get fs
+    def _get_fs():
+        if "fs_receiver" in vend:
+            return vend["fs_receiver"]
+        else:
+            # loop through channel since transceiver can vary
+            fs = []
+            for ch in vend["channel"]:
+                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
+                fs.append(default_dict["fs"][tcvr_type])
+            return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
+
+    # Mapping between desired param name with Beam group data variable name
+    PARAM_BEAM_NAME_MAP = {
+        "angle_offset_alongship": "angle_offset_alongship",
+        "angle_offset_athwartship": "angle_offset_athwartship",
+        "beamwidth_alongship": "beamwidth_twoway_alongship",
+        "beamwidth_athwartship": "beamwidth_twoway_athwartship",
+        "equivalent_beam_angle": "equivalent_beam_angle",
+    }
+    if waveform_mode == "BB":
+        PARAM_BEAM_NAME_MAP.pop("equivalent_beam_angle")
+
+    # Use sanitized user dict as blueprint
+    out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="EK")
+
+    # Only fill in params that are None
+    for p, v in out_dict.items():
+        if v is None:
+
+            # Those without CW or BB complications
+            if p == "sa_correction":  # pull from data file
+                out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
+            if p == "impedance_receive":  # from data file or default dict
+                out_dict[p] = default_dict[p] if p not in vend else vend["impedance_receive"]
+            if p == "receiver_sampling_frequency":  # from data file or default_dict
+                out_dict[p] = _get_fs()
+
+            # CW: params do not require except for impedance_transmit
+            if waveform_mode == "CW":
+                if p in PARAM_BEAM_NAME_MAP.keys():
+                    for p, p_beam in PARAM_BEAM_NAME_MAP.items():
+                        # pull from data file, these should always exist
+                        out_dict[p] = beam[p_beam]
+                if p == "gain_correction":
+                    # pull from data file narrowband table
+                    out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
+                if p == "impedance_transmit":
+                    # assemble each channel from data file or default dict
+                    out_dict[p] = _get_interp_da(
+                        da_param=None if p not in vend else vend[p],
+                        freq_center=freq_center,
+                        alternative=default_dict[p],  # pull from default dict
+                    )
+
+            # BB mode: params require interpolation
+            else:
+                # interpolate for center frequency or use CW values
+                if p in PARAM_BEAM_NAME_MAP.keys():
+                    for p, p_beam in PARAM_BEAM_NAME_MAP.items():
+                        # TODO: beamwidth_along/athwartship should be scaled like equivalent_beam_angle
+                        out_dict[p] = _get_interp_da(
+                            da_param=None if p not in vend else vend[p],
+                            freq_center=freq_center,
+                            alternative=beam[p_beam],  # these should always exist
+                        )
+                if p == "equivalent_beam_angle":
+                    # scaled according to frequency ratio
+                    out_dict[p] = (beam[p] + 20 * np.log10(beam["frequency_nominal"] / freq_center))
+                if p == "gain_correction":
+                    # interpolate or pull from narrowband table
+                    out_dict[p] = _get_interp_da(
+                        da_param=None if "gain" not in vend else vend["gain"],  # freq-dep values
+                        freq_center=freq_center,
+                        alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
+                    )
+                if p == "impedance_transmit":
+                    out_dict[p] = _get_interp_da(
+                        da_param=None if p not in vend else vend[p],
+                        freq_center=freq_center,
+                        alternative=default_dict[p],  # pull from default dict
+                    )
 
     return out_dict
 
