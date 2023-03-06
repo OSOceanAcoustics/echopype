@@ -239,7 +239,8 @@ def _get_interp_da(
                 else:
                     param.append(alternative.sel(channel=ch_id).data.squeeze())
             elif isinstance(alternative, (int, float)):
-                param.append([alternative] * len(freq_center.sel(channel=ch_id)))  # expand to have ping_time dimension
+                # expand to have ping_time dimension
+                param.append(np.array([alternative] * len(freq_center.sel(channel=ch_id))).squeeze())
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
 
