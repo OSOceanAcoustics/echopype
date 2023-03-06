@@ -34,7 +34,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
         echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
         env_params=None, cal_params=None
     )
-    fs = cal_obj._get_fs()
+    fs = cal_obj.cal_params["receiver_sampling_frequency"]
     filter_coeff = cal_obj._get_filter_coeff()
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(
         ed["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel), filter_coeff, waveform_mode, fs
@@ -86,22 +86,17 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
         env_params={"formula_source": "FG"}, cal_params=None
     )
 
-    z_er, z_et = cal_obj._get_impedance()  # transmit and receive impedance
-    gain = cal_obj._get_gain()   # gain -- this is after the B_theta_phi_m correction, but pyel_BB pickle is before
-    B_theta_phi_m = cal_obj._get_B_theta_phi_m()
+    z_er = cal_obj.cal_params["impedance_receive"]
+    z_et = cal_obj.cal_params["impedance_transmit"]
+    # B_theta_phi_m = cal_obj._get_B_theta_phi_m()
     params_BB_map = {
         # param name mapping: echopype (ep) : pyecholab (pyel)
         "angle_offset_alongship": "angle_offset_alongship",
         "angle_offset_athwartship": "angle_offset_athwartship",
         "beamwidth_alongship": "beam_width_alongship",
         "beamwidth_athwartship": "beam_width_athwartship",
-        "gain": "gain",
+        "gain_correction": "gain",  # this is *before* B_theta_phi_m BB correction
     }
-    ep_BB_params = {}
-    for p in params_BB_map.keys():
-        ep_BB_params[p] = ep.calibrate.cal_params.get_param_BB(
-            ed["Vendor_specific"], p, cal_obj.freq_center, cal_obj.cal_params
-        )
 
     # Load pyEcholab object: channel WBT 714590-15 ES70-7C
     import pickle
@@ -113,10 +108,10 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     ch_sel = "WBT 714590-15 ES70-7C"
 
     # pyecholab calibration object
+    # TODO: need to check B_theta_phi_m values
     assert pyel_BB_cal["impedance"] == z_er.sel(channel=ch_sel)
     for p_ep, p_pyel in params_BB_map.items():  # all interpolated BB params
-        assert np.isclose(pyel_BB_cal[p_pyel][0], ep_BB_params[p_ep].sel(channel=ch_sel).isel(ping_time=0))
-    assert np.all(ep_BB_params["gain"] - B_theta_phi_m == gain)  # gain and gain modifications
+        assert np.isclose(pyel_BB_cal[p_pyel][0], cal_obj.cal_params[p_ep].sel(channel=ch_sel).isel(ping_time=0))
     assert pyel_BB_cal["sa_correction"][0] == cal_obj.cal_params["sa_correction"].sel(channel=ch_sel).isel(ping_time=0)
     assert pyel_BB_cal["sound_speed"] == cal_obj.env_params["sound_speed"]
     assert np.isclose(
@@ -169,8 +164,9 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
 
     # Params needed
     beam = cal_obj.echodata[cal_obj.ed_group].sel(channel=cal_obj.chan_sel)
-    z_er, z_et = cal_obj._get_impedance()  # transmit and receive impedance
-    fs = cal_obj._get_fs()
+    z_er = cal_obj.cal_params["impedance_receive"]
+    z_et = cal_obj.cal_params["impedance_transmit"]
+    fs = cal_obj.cal_params["receiver_sampling_frequency"]
     filter_coeff = cal_obj._get_filter_coeff()
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs)
 

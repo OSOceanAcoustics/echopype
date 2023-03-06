@@ -8,7 +8,7 @@ from echopype.calibrate.cal_params import CAL_PARAMS, param2da, sanitize_user_ca
 
 @pytest.fixture
 def freq_center():
-    return xr.DataArray([25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]})
+    return xr.DataArray([[25, 55]], dims=["ping_time", "channel"], coords={"channel": ["chA", "chB"], "ping_time": [1]})
 
 
 @pytest.mark.parametrize(
@@ -138,12 +138,16 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
     ("da_param", "alternative", "da_output"),
     [
         # da_param: alternative is const: output is xr.DataArray with all const
-        (None, 1, xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})),
+        (
+            None,
+            1,
+            xr.DataArray([[1], [1]], dims=["channel", "ping_time"], coords={"channel": ["chA", "chB"], "ping_time": [1]})
+        ),
         # da_param: alternative is xr.DataArray: output selected with the right channel
         (
             None,
             xr.DataArray([1, 1, 2], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}),
-            xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})
+            xr.DataArray([[1], [1]], dims=["channel", "ping_time"], coords={"channel": ["chA", "chB"], "ping_time": [1]})
         ),
         # da_param: xr.DataArray with freq-dependent values/coordinates
         #   - output should be interpolated with the right values
@@ -157,7 +161,7 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
                         "cal_frequency": [10, 20, 30, 40, 50, 60]},
             ),
             None,
-            xr.DataArray([2.5, 5.5], dims=["channel"], coords={"channel": ["chA", "chB"]}),
+            xr.DataArray([[2.5], [5.5]], dims=["channel", "ping_time"], coords={"ping_time": [1], "channel": ["chA", "chB"]}),
         ),
     ],
     ids=[
