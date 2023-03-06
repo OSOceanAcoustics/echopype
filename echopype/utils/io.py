@@ -15,6 +15,7 @@ from fsspec.implementations.local import LocalFileSystem
 
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
+from ..core import ECHOPYPE_DIR
 
 if TYPE_CHECKING:
     from ..core import PathHint
@@ -151,10 +152,33 @@ def validate_output_path(
     source_file: str,
     engine: str,
     output_storage_options: Dict = {},
-    save_path: Union[None, Path, str] = None,
+    save_path: Optional[Union[Path, str]] = None,
 ) -> str:
     """
-    Assemble output file names and path.
+    Assembles output file names and path.
+    
+    The final resulting file will be saved as provided in save path.
+    If a directory path is provided then the final file name will use
+    the same name as the source file and saved within the directory
+    path in `save_path` or echopype's `temp_output` directory.
+
+    Example 1. 
+    source_file - test.raw
+    engine - zarr
+    save_path - /path/dir/
+    output is ~/path/dir/test.zarr
+
+    Example 2.
+    source_file - test.raw
+    engine - zarr
+    save_path - None
+    output is ~/.echopype/temp_output/test.zarr
+
+    Example 3.
+    source_file - test.raw
+    engine - zarr
+    save_path - ~/path/dir/myzarr.zarr
+    output is ~/path/dir/myzarr.zarr
 
     Parameters
     ----------
@@ -165,8 +189,22 @@ def validate_output_path(
     output_storage_options : dict
         Storage options for remote output path
     save_path : str | Path | None
-        Either a directory or a file. If none then the save path is 'temp_echopype_output/'
-        in the current working directory.
+        Either a directory or a file path.
+        If it's not provided, we will save output file(s)
+        in the echopype's `temp_output` directory.
+    
+    Returns
+    -------
+    str
+        The final string path of the resulting file.
+
+    Raises
+    ------
+    ValueError
+        If engine is not one of the supported output engine of 
+        zarr or netcdf
+    TypeError
+        If `save_path` is not of type Path or str
     """
     if engine not in SUPPORTED_ENGINES:
         ValueError(f"Engine {engine} is not supported for file export.")
@@ -174,12 +212,9 @@ def validate_output_path(
     file_ext = SUPPORTED_ENGINES[engine]["ext"]
 
     if save_path is None:
-        logger.warning("save_path is not provided")
+        logger.warning("A directory or file path is not provided!")
 
-        current_dir = Path.cwd()
-        # Check permission, raise exception if no permission
-        check_file_permissions(current_dir)
-        out_dir = current_dir.joinpath(Path("temp_echopype_output"))
+        out_dir = ECHOPYPE_DIR.joinpath(Path("temp_output"))
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 
