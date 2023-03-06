@@ -522,7 +522,10 @@ class CalibrateEK80(CalibrateEK):
 
         # TODO: out should not have beam dimension at this stage
         # once that dimension is removed from equivalent_beam_angle
-        return out.isel(beam=0).drop("beam")
+        if "beam" in out.coords:
+            return out.isel(beam=0).drop("beam")
+        else:
+            return out
 
     def _compute_cal(self, cal_type) -> xr.Dataset:
         """

@@ -217,6 +217,13 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
                 dims=["channel", "ping_time"],
                 coords={"ping_time": [1], "channel": ["chA", "chB"]}
             ),
+        # TODO: cases where freq_center does not have the ping_time dimension
+        #       this is the case for CW data since freq_center = beam["frequency_nominal"]
+        #       this was caught by the file in test_compute_Sv_ek80_CW_complex()
+        # TODO: cases where freq_center contains only a single frequency
+        #       in this case had to use freq_center.sel(channel=ch_id).size because
+        #       len(freq_center.sel(channel=ch_id)) is an invalid statement
+        #       this was caught by the file in test_compute_Sv_ek80_CW_power_BB_complex()
         ),
     ],
     ids=[

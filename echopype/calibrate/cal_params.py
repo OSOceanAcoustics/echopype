@@ -240,19 +240,22 @@ def _get_interp_da(
                     param.append(alternative.sel(channel=ch_id).data.squeeze())
             elif isinstance(alternative, (int, float)):
                 # expand to have ping_time dimension
-                param.append(np.array([alternative] * len(freq_center.sel(channel=ch_id))).squeeze())
+                param.append(np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze())
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
 
     param = np.array(param)
-    if len(param.shape) == 1:  # this means ping_time has length=1
-        param = np.expand_dims(param, axis=1)
 
-    return xr.DataArray(
-        param,
-        dims=["channel", "ping_time"],
-        coords={"channel": freq_center["channel"], "ping_time": freq_center["ping_time"]}
-    )
+    if "ping_time" in freq_center.coords:
+        if len(param.shape) == 1:  # this means ping_time has length=1
+            param = np.expand_dims(param, axis=1)
+        return xr.DataArray(
+            param,
+            dims=["channel", "ping_time"],
+            coords={"channel": freq_center["channel"], "ping_time": freq_center["ping_time"]}
+        )
+    else:
+        return xr.DataArray(param, dims=["channel"], coords={"channel": freq_center["channel"]})
 
 
 def get_cal_params_EK_new(
@@ -325,7 +328,10 @@ def get_cal_params_EK_new(
                     if p in PARAM_BEAM_NAME_MAP.keys():
                         for p, p_beam in PARAM_BEAM_NAME_MAP.items():
                             # pull from data file, these should always exist
-                            out_dict[p] = beam[p_beam]
+                            if "beam" in beam[p_beam].coords:
+                                out_dict[p] = beam[p_beam].isel(beam=0).drop("beam")
+                            else:
+                                out_dict[p] = beam[p_beam]
                     elif p == "gain_correction":
                         # pull from data file narrowband table
                         out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
