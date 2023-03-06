@@ -58,7 +58,7 @@ def check_zarr_path(
             raise ValueError("The provided zarr_path input must have a '.zarr' suffix!")
 
     # set default source_file name (will be used only if zarr_path is None)
-    source_file = "combined_echodatas.zarr"
+    source_file = "combined_echodata.zarr"
 
     validated_path = validate_output_path(
         source_file=source_file,
