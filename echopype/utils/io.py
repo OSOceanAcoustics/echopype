@@ -32,6 +32,7 @@ logger = _init_logger(__name__)
 
 ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".echopype"
 
+
 def init_ep_dir():
     """Initialize hidden directory for echopype"""
     if not ECHOPYPE_DIR.exists():

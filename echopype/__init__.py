@@ -6,8 +6,8 @@ from . import calibrate, consolidate, mask, preprocess, utils
 from .convert.api import open_raw
 from .echodata.api import open_converted
 from .echodata.combine import combine_echodata
-from .utils.log import verbose
 from .utils.io import init_ep_dir
+from .utils.log import verbose
 
 # Turn off verbosity for echopype
 verbose(override=True)
