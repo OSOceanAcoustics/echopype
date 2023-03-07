@@ -3,7 +3,6 @@ from typing import Dict, List, Union
 import numpy as np
 import xarray as xr
 
-
 CAL_PARAMS = {
     "EK": (  # TODO: consider including impedance?
         "sa_correction",
@@ -82,7 +81,7 @@ def sanitize_user_cal_dict(
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
-    Check the format and organize user-provided cal_params dict.
+    Create a blue print for cal_params dict and check the format/organize user-provided params.
 
     Parameters
     ----------
@@ -159,7 +158,9 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
     """
     # Use sanitized user dict as blueprint
     # out_dict contains only and all of the allowable cal params
-    out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="AZFP")
+    out_dict = sanitize_user_cal_dict(
+        user_dict=user_dict, channel=beam["channel"], sonar_type="AZFP"
+    )
 
     # Only fill in params that are None
     for p, v in out_dict.items():
@@ -316,6 +317,7 @@ def get_cal_params_EK_new(
         PARAM_BEAM_NAME_MAP.pop("equivalent_beam_angle")
 
     # Use sanitized user dict as blueprint
+    # out_dict contains only and all of the allowable cal params
     out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="EK")
 
     # Only fill in params that are None
