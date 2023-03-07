@@ -3,7 +3,6 @@ from typing import Dict, List, Union
 import numpy as np
 import xarray as xr
 
-
 CAL_PARAMS = {
     "EK": (  # TODO: consider including impedance?
         "sa_correction",
@@ -159,7 +158,9 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
     """
     # Use sanitized user dict as blueprint
     # out_dict contains only and all of the allowable cal params
-    out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="AZFP")
+    out_dict = sanitize_user_cal_dict(
+        user_dict=user_dict, channel=beam["channel"], sonar_type="AZFP"
+    )
 
     # Only fill in params that are None
     for p, v in out_dict.items():
