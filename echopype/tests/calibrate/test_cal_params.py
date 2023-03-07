@@ -3,12 +3,44 @@ import pytest
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.cal_params import CAL_PARAMS, param2da, sanitize_user_cal_dict, _get_interp_da
+from echopype.calibrate.cal_params import (
+    CAL_PARAMS, param2da, sanitize_user_cal_dict, _get_interp_da,
+    get_cal_params_AZFP, get_cal_params_EK
+)
 
 
 @pytest.fixture
 def freq_center():
     return xr.DataArray([[25, 55]], dims=["ping_time", "channel"], coords={"channel": ["chA", "chB"], "ping_time": [1]})
+
+
+@pytest.fixture
+def vend_AZFP():
+    """
+    A mock AZFP Vendor_specific group for cal testing.
+    """
+    da = xr.DataArray([10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]})
+    vend = xr.Dataset()
+    for p_name in CAL_PARAMS["AZFP"]:
+        if p_name != "equivalent_beam_angle":
+            da.name = p_name
+            vend[p_name] = da
+    return vend
+
+
+@pytest.fixture
+def beam_AZFP():
+    """
+    A mock AZFP Sonar/Beam_group1 group for cal testing.
+    """
+    beam = xr.Dataset()
+    beam["equivalent_beam_angle"] = xr.DataArray(
+        [[[10, 20]]],
+        dims=["ping_time", "beam", "channel"],
+        coords={"channel": ["chA", "chB"], "ping_time": [1], "beam": [1]},
+        name="equivalent_beam_angle",
+    )
+    return beam.transpose("channel", "ping_time", "beam")["equivalent_beam_angle"]
 
 
 @pytest.mark.parametrize(
@@ -53,6 +85,7 @@ def test_param2da(p_val, channel, da_output):
             "EK", 1, None, None,
             marks=pytest.mark.xfail(strict=True, reason="Fail since channel has to be either a list or an xr.DataArray"),
         ),
+        # TODO: input channel has different order than those in the inarg channel
         # input param dict
         #   - contains extra param: should come out with only those defined in CAL_PARAMS
         #   - contains missing param: missing ones (wrt CAL_PARAMS) should be empty
@@ -238,3 +271,85 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
 def test_get_interp_da(freq_center, da_param, alternative, da_output):
     da_interp = _get_interp_da(da_param, freq_center, alternative)
     assert da_interp.identical(da_output)
+
+
+# test user input param intake
+# - scalar
+# - list
+# - xr.DataArray of coords/dims ('channel')
+@pytest.mark.parametrize(
+    ("user_dict", "out_dict"),
+    [
+        # input param is a scalar
+        (
+            {"EL": 1, "equivalent_beam_angle": 2},
+            dict(
+                {p_name: xr.DataArray([10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}, name=p_name) for p_name in CAL_PARAMS["AZFP"]},
+                **{
+                    "EL": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="EL"),
+                    "equivalent_beam_angle": xr.DataArray([2, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="equivalent_beam_angle"),
+                }
+            ),
+        ),
+        # input param is a list
+        (
+            {"EL": [1, 2], "equivalent_beam_angle": [3, 4]},
+            dict(
+                {p_name: xr.DataArray([10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}, name=p_name) for p_name in CAL_PARAMS["AZFP"]},
+                **{
+                    "EL": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="EL"),
+                    "equivalent_beam_angle": xr.DataArray([3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="equivalent_beam_angle"),
+                }
+            ),
+        ),
+        # input param is a list of wrong length: this should fail
+        pytest.param(
+            {"EL": [1, 2, 3], "equivalent_beam_angle": [3, 4]}, None,
+            marks=pytest.mark.xfail(strict=True, reason="Fail since lengths of input list and channel are not identical"),
+        ),
+        # input param is an xr.DataArray with coordinate 'channel'
+        (
+            {
+                "EL": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="EL"),
+                "equivalent_beam_angle": xr.DataArray([3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="equivalent_beam_angle"),
+            },
+            dict(
+                {p_name: xr.DataArray([10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}, name=p_name) for p_name in CAL_PARAMS["AZFP"]},
+                **{
+                    "EL": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="EL"),
+                    "equivalent_beam_angle": xr.DataArray([3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}, name="equivalent_beam_angle"),
+                }
+            ),
+        ),
+        # input param is an xr.DataArray with coordinate 'channel' but wrong length: this should fail
+        pytest.param(
+            {
+                "EL": xr.DataArray([1, 2, 3], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}, name="EL"),
+                "equivalent_beam_angle": xr.DataArray([3, 4, 5], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}, name="equivalent_beam_angle"),
+            }, None,
+            marks=pytest.mark.xfail(strict=True, reason="Fail since lengths of input data array channel and data channel are not identical"),
+        ),
+    ],
+    ids=[
+        "in_scalar",
+        "in_list",
+        "in_list_wrong_length",
+        "in_da",
+        "in_da_wrong_length",
+    ]
+)
+def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
+    cal_dict = get_cal_params_AZFP(beam=beam_AZFP, vend=vend_AZFP, user_dict=user_dict)
+    for p_name, p_val in cal_dict.items():
+        assert p_val.identical(out_dict[p_name])
+
+
+
+
+# test user input param intake
+# - scalar
+# - list
+# - xr.DataArray of coords/dims ('channel')
+# - xr.DataArray of coords/dims ('cal_channel_id', 'cal_frequency'): NEED TO IMPLEMENT IN SANITIZE_USER_CAL_DICT
+def test_get_cal_params_EK():
+    pass
