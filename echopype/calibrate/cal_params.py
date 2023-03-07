@@ -104,9 +104,9 @@ def sanitize_user_cal_dict(
         raise ValueError("'channel' has to be a list or an xr.DataArray")
     else:
         if isinstance(channel, xr.DataArray):
-            channel = sorted(channel.data)
+            channel_sorted = sorted(channel.data)
         else:
-            channel = sorted(channel)
+            channel_sorted = sorted(channel)
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     #  -- transform params in scalar or list to xr.DataArray
@@ -119,17 +119,20 @@ def sanitize_user_cal_dict(
                 if "channel" not in p_val.coords:
                     raise ValueError(f"'channel' has to be one of the coordinates of {p_name}")
                 else:
-                    if not (sorted(p_val.coords["channel"].data) == channel):
+                    if not (sorted(p_val.coords["channel"].data) == channel_sorted):
                         raise ValueError(
                             f"The 'channel' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
                         )
+                p_val.name = p_name
                 out_dict[p_name] = p_val
 
             # If p_val a scalar or list, make it xr.DataArray
             elif isinstance(p_val, (int, float, list)):
                 # check for list dimension happens within param2da()
-                out_dict[p_name] = param2da(p_val, channel)
+                da = param2da(p_val, channel)
+                da.name = p_name
+                out_dict[p_name] = da
 
             # p_val has to be one of int, float, xr.DataArray
             else:
