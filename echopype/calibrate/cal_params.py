@@ -3,7 +3,6 @@ from typing import Dict, List, Union
 import numpy as np
 import xarray as xr
 
-from ..echodata import EchoData
 
 CAL_PARAMS = {
     "EK": (  # TODO: consider including impedance?
@@ -142,7 +141,7 @@ def sanitize_user_cal_dict(
     return out_dict
 
 
-def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
+def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict) -> dict:
     """
     Get cal params using user inputs or values from data file.
 
@@ -158,19 +157,21 @@ def get_cal_params_AZFP(echodata: EchoData, user_cal_dict: dict) -> dict:
     -------
     A dict containing the calibration parameters for the AZFP echosounder
     """
-    out_dict = dict.fromkeys(CAL_PARAMS["AZFP"])
-    if user_cal_dict is None:
-        user_cal_dict = {}
+    # Use sanitized user dict as blueprint
+    # out_dict contains only and all of the allowable cal params
+    out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="AZFP")
 
-    # Get params from Beam_group1
-    out_dict["equivalent_beam_angle"] = user_cal_dict.get(
-        "equivalent_beam_angle", echodata["Sonar/Beam_group1"]["equivalent_beam_angle"]
-    )
+    # Only fill in params that are None
+    for p, v in out_dict.items():
+        if v is None:
+            # Params from Sonar/Beam_group1
+            if p == "equivalent_beam_angle":
+                # equivalent_beam_angle has dims: channel, ping_time, beam --> only need channel
+                out_dict[p] = beam[p].isel(ping_time=0, beam=0).drop(["ping_time", "beam"])
 
-    # Get params from the Vendor_specific group
-    for p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
-        # substitute if None in user input
-        out_dict[p] = user_cal_dict.get(p, echodata["Vendor_specific"][p])
+            # Params from Vendor_specific group
+            elif p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
+                out_dict[p] = vend[p]  # these params only have the channel dimension
 
     return out_dict
 
