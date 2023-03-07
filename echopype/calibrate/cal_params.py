@@ -74,7 +74,6 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
             )
 
 
-# TODO: allow Dict[Union[float, str], np.array] as user_dict values
 def sanitize_user_cal_dict(
     sonar_type: str,
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
@@ -88,6 +87,9 @@ def sanitize_user_cal_dict(
     user_dict : dict
         a dict containing user input calibration parameters as {parameter name: parameter value}
         parameter value has to be a scalar (int or float) or an xr.DataArray
+        if parameter value is an xr.DataArray, it has to either have 'channel' as a coorindate
+        or have both 'cal_channel_id' and 'cal_frequency' as coordinates
+
     channel : list or xr.DataArray
         a list of channels to be calibrated
         for EK80 data, this list has to corresponds with the subset of channels
@@ -104,9 +106,9 @@ def sanitize_user_cal_dict(
         raise ValueError("'channel' has to be a list or an xr.DataArray")
     else:
         if isinstance(channel, xr.DataArray):
-            channel = sorted(channel.data)
+            channel_sorted = sorted(channel.data)
         else:
-            channel = sorted(channel)
+            channel_sorted = sorted(channel)
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     #  -- transform params in scalar or list to xr.DataArray
@@ -114,16 +116,26 @@ def sanitize_user_cal_dict(
     out_dict = dict.fromkeys(CAL_PARAMS[sonar_type])
     for p_name, p_val in user_dict.items():
         if p_name in out_dict:
-            # if p_val an xr.DataArray, check existence and correspondence of channel coordinate
+            # if p_val an xr.DataArray, check existence and coordinates
             if isinstance(p_val, xr.DataArray):
-                if "channel" not in p_val.coords:
-                    raise ValueError(f"'channel' has to be one of the coordinates of {p_name}")
-                else:
-                    if not (sorted(p_val.coords["channel"].data) == channel):
+                # if 'channel' is a coordinate, it has to match that of the data
+                if "channel" in p_val.coords:
+                    if not (sorted(p_val.coords["channel"].data) == channel_sorted):
                         raise ValueError(
                             f"The 'channel' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
                         )
+                elif "cal_channel_id" in p_val.coords and "cal_frequency" in p_val.coords:
+                    if not (sorted(p_val.coords["cal_channel_id"].data) == channel_sorted):
+                        raise ValueError(
+                            f"The 'cal_channel_id' coordinate of {p_name} has to match "
+                            "that of the data to be calibrated"
+                        )
+                else:
+                    raise ValueError(
+                        f"{p_name} has to either have 'channel' as a coorindate "
+                        "or have both 'cal_channel_id' and 'cal_frequency' as coordinates"
+                    )
                 out_dict[p_name] = p_val
 
             # If p_val a scalar or list, make it xr.DataArray
@@ -192,7 +204,7 @@ def _get_interp_da(
     Parameters
     ----------
     da_param : xr.DataArray or None
-        a data array from the Vendor group with frequency-dependent param values.
+        a data array from the Vendor group or user dict with freq-dependent param values
     freq_center : xr.DataArray
         center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
@@ -314,11 +326,21 @@ def get_cal_params_EK(
         "equivalent_beam_angle": "equivalent_beam_angle",
     }
     if waveform_mode == "BB":
+        # for BB data equivalent_beam_angle needs to be scaled wrt freq_center
         PARAM_BEAM_NAME_MAP.pop("equivalent_beam_angle")
 
     # Use sanitized user dict as blueprint
     # out_dict contains only and all of the allowable cal params
     out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="EK")
+
+    # Interpolate user-input params that contain freq-dependent info
+    # ie those that has coordinate combination (cal_channel_id, cal_frequency)
+    # This only happens for BB mode data
+    if waveform_mode == "BB":
+        for p, v in out_dict.items():
+            if v is not None:
+                if "cal_channel_id" in v.coords:
+                    out_dict[p] = _get_interp_da(v, freq_center, np.nan)
 
     # Only fill in params that are None
     for p, v in out_dict.items():
@@ -332,7 +354,7 @@ def get_cal_params_EK(
                 if not skip_fs:
                     out_dict[p] = _get_fs()
             else:
-                # CW: params do not require except for impedance_transmit
+                # CW: params do not require interpolation, except for impedance_transmit
                 if waveform_mode == "CW":
                     if p in PARAM_BEAM_NAME_MAP.keys():
                         for p, p_beam in PARAM_BEAM_NAME_MAP.items():
@@ -368,7 +390,7 @@ def get_cal_params_EK(
                             )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
-                        out_dict[p] = beam[p] + 20 * np.log10(
+                        out_dict[p] = beam[p].isel(beam=0).drop("beam") + 20 * np.log10(
                             beam["frequency_nominal"] / freq_center
                         )
                     elif p == "gain_correction":
