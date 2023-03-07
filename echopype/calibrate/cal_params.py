@@ -262,7 +262,7 @@ def _get_interp_da(
         return xr.DataArray(param, dims=["channel"], coords={"channel": freq_center["channel"]})
 
 
-def get_cal_params_EK_new(
+def get_cal_params_EK(
     waveform_mode: str,
     freq_center: xr.DataArray,
     beam: xr.Dataset,
