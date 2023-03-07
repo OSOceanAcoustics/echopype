@@ -34,20 +34,33 @@ jobs:
         - name: Set environment variables
           run: |
             echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
-        - name: Setup micromamba
-          uses: mamba-org/provision-with-micromamba@v15
+        - name: Setup miniconda w/mamba
+          uses: conda-incubator/setup-miniconda@v2
           with:
+            python-version: ${{ matrix.python-version }}
+            mamba-version: "*"
+            channels: conda-forge,defaults
+            channel-priority: true
+            activate-environment: ${{ env.CONDA_ENV }}
             environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
-            environment-name: ${{ env.CONDA_ENV }}
-            cache-env: true
-            cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
-        - name: Print micromamba info
-          run: micromamba info
-        - name: Print python environment
-          run: micromamba list
+        # Currently problematic! See https://github.com/mamba-org/mamba/issues/2157
+        # - name: Setup micromamba
+        #   uses: mamba-org/provision-with-micromamba@v15
+        #   with:
+        #     environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
+        #     environment-name: ${{ env.CONDA_ENV }}
+        #     cache-env: true
+        #     cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
+        - name: Print conda info
+          run: |
+            conda info
+            conda list
+            conda config --show-sources
+            conda config --show
+            printenv | sort
         - name: Install dev tools
           run: |
-            micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
+            mamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
         - name: Install echopype
           run: |
             python -m pip install -e .
