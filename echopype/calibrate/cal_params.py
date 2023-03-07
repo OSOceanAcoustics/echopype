@@ -81,7 +81,7 @@ def sanitize_user_cal_dict(
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
-    Check the format and organize user-provided cal_params dict.
+    Create a blue print for cal_params dict and check the format/organize user-provided params.
 
     Parameters
     ----------
@@ -262,7 +262,7 @@ def _get_interp_da(
         return xr.DataArray(param, dims=["channel"], coords={"channel": freq_center["channel"]})
 
 
-def get_cal_params_EK_new(
+def get_cal_params_EK(
     waveform_mode: str,
     freq_center: xr.DataArray,
     beam: xr.Dataset,
@@ -317,6 +317,7 @@ def get_cal_params_EK_new(
         PARAM_BEAM_NAME_MAP.pop("equivalent_beam_angle")
 
     # Use sanitized user dict as blueprint
+    # out_dict contains only and all of the allowable cal params
     out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="EK")
 
     # Only fill in params that are None

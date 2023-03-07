@@ -7,7 +7,7 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK_new, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
@@ -148,7 +148,7 @@ class CalibrateEK60(CalibrateEK):
         beam = self.echodata[self.ed_group]
 
         # Get cal_params
-        self.cal_params = get_cal_params_EK_new(
+        self.cal_params = get_cal_params_EK(
             waveform_mode="CW",
             freq_center=beam["frequency_nominal"],
             beam=beam,
@@ -227,7 +227,7 @@ class CalibrateEK80(CalibrateEK):
         )
 
         # Get cal_params: depends on waveform and encode mode
-        self.cal_params = get_cal_params_EK_new(
+        self.cal_params = get_cal_params_EK(
             waveform_mode=self.waveform_mode,
             freq_center=self.freq_center,
             beam=beam,  # already subset above
