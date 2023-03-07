@@ -136,16 +136,12 @@ def sanitize_user_cal_dict(
                         f"{p_name} has to either have 'channel' as a coorindate "
                         "or have both 'cal_channel_id' and 'cal_frequency' as coordinates"
                     )
-
-                p_val.name = p_name
                 out_dict[p_name] = p_val
 
             # If p_val a scalar or list, make it xr.DataArray
             elif isinstance(p_val, (int, float, list)):
                 # check for list dimension happens within param2da()
-                da = param2da(p_val, channel)
-                da.name = p_name
-                out_dict[p_name] = da
+                out_dict[p_name] = param2da(p_val, channel)
 
             # p_val has to be one of int, float, xr.DataArray
             else:
@@ -208,7 +204,7 @@ def _get_interp_da(
     Parameters
     ----------
     da_param : xr.DataArray or None
-        a data array from the Vendor group with frequency-dependent param values.
+        a data array from the Vendor group or user dict with freq-dependent param values
     freq_center : xr.DataArray
         center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
@@ -337,6 +333,15 @@ def get_cal_params_EK(
     # out_dict contains only and all of the allowable cal params
     out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="EK")
 
+    # Interpolate user-input params that contain freq-dependent info
+    # ie those that has coordinate combination (cal_channel_id, cal_frequency)
+    # This only happens for BB mode data
+    if waveform_mode == "BB":
+        for p, v in out_dict.items():
+            if v is not None:
+                if "cal_channel_id" in v.coords:
+                    out_dict[p] = _get_interp_da(v, freq_center, np.nan)
+
     # Only fill in params that are None
     for p, v in out_dict.items():
         if v is None:
@@ -349,7 +354,7 @@ def get_cal_params_EK(
                 if not skip_fs:
                     out_dict[p] = _get_fs()
             else:
-                # CW: params do not require except for impedance_transmit
+                # CW: params do not require interpolation, except for impedance_transmit
                 if waveform_mode == "CW":
                     if p in PARAM_BEAM_NAME_MAP.keys():
                         for p, p_beam in PARAM_BEAM_NAME_MAP.items():
@@ -385,7 +390,7 @@ def get_cal_params_EK(
                             )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
-                        out_dict[p] = beam[p] + 20 * np.log10(
+                        out_dict[p] = beam[p].isel(beam=0).drop("beam") + 20 * np.log10(
                             beam["frequency_nominal"] / freq_center
                         )
                     elif p == "gain_correction":
