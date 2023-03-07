@@ -383,62 +383,6 @@ def get_cal_params_EK_new(
     return out_dict
 
 
-def get_cal_params_EK(
-    beam: xr.Dataset, vend: xr.Dataset, user_cal_dict: Dict[str, xr.DataArray]
-) -> Dict:
-    """
-    Get cal params using user inputs or values from data file.
-
-    Parameters
-    ----------
-    beam : xr.Dataset
-        A subset of Sonar/Beam_groupX that contains only the channels specified for calibration
-    vend : xr.Dataset
-        A subset of Vendor_specific that contains only the channels specified for calibration
-    user_cal_dict : dict
-        A dictionary containing user-defined calibration parameters.
-        The user-defined calibration parameters will overwrite values in the data file.
-
-    Returns
-    -------
-    A dictionary containing the calibration parameters for the EK echosounders
-    """
-    out_dict = dict.fromkeys(CAL_PARAMS["EK"])
-    if user_cal_dict is None:
-        user_cal_dict = {}
-
-    # Params from the Beam group
-    params_from_beam = [
-        "angle_offset_alongship",
-        "angle_offset_athwartship",
-        "beamwidth_twoway_alongship",
-        "beamwidth_twoway_athwartship",
-        "equivalent_beam_angle",
-    ]
-    for p in params_from_beam:
-        # substitute if p not in user input
-        out_dict[p] = user_cal_dict.get(p, beam[p])
-
-    # Params from the Vendor_specific group
-    params_from_vend = ["sa_correction", "gain_correction"]
-    for p in params_from_vend:
-        # substitute if p not in user input
-        out_dict[p] = user_cal_dict.get(p, get_vend_cal_params_power(beam=beam, vend=vend, param=p))
-
-    # Params with default values
-    # - transceiver impedance
-    # - transducer impedance
-    # - receiver sampling frequency
-
-    # Interpolate to center frequency if doing broadband calibration
-    # - requires an extra input argument
-    #   - EK80: freq_center (center frequency for BB mode or nominal frequency for CW mode)
-    #   - EK60: frequency_nominal
-    # - variables to include: gain, angle offset, beamwidth, transducer impedance
-
-    return out_dict
-
-
 def get_vend_filter_EK80(
     vend: xr.Dataset, channel_id: str, filter_name: str, param_type: str
 ) -> Union[np.ndarray, int]:

@@ -7,7 +7,7 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_cal_params_EK_new, get_param_BB, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK_new, get_param_BB, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
@@ -234,12 +234,6 @@ class CalibrateEK80(CalibrateEK):
             vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
             user_dict=self.cal_params,
         )
-
-        # self.cal_params = get_cal_params_EK(
-        #     beam=beam,
-        #     vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
-        #     user_cal_dict=cal_params,
-        # )
 
         # Compute echo range in meters
         self.compute_echo_range(chan_sel=self.chan_sel)
