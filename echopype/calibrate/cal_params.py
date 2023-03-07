@@ -74,7 +74,6 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
             )
 
 
-# TODO: allow Dict[Union[float, str], np.array] as user_dict values
 def sanitize_user_cal_dict(
     sonar_type: str,
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
@@ -88,6 +87,9 @@ def sanitize_user_cal_dict(
     user_dict : dict
         a dict containing user input calibration parameters as {parameter name: parameter value}
         parameter value has to be a scalar (int or float) or an xr.DataArray
+        if parameter value is an xr.DataArray, it has to either have 'channel' as a coorindate
+        or have both 'cal_channel_id' and 'cal_frequency' as coordinates
+
     channel : list or xr.DataArray
         a list of channels to be calibrated
         for EK80 data, this list has to corresponds with the subset of channels
@@ -114,16 +116,27 @@ def sanitize_user_cal_dict(
     out_dict = dict.fromkeys(CAL_PARAMS[sonar_type])
     for p_name, p_val in user_dict.items():
         if p_name in out_dict:
-            # if p_val an xr.DataArray, check existence and correspondence of channel coordinate
+            # if p_val an xr.DataArray, check existence and coordinates
             if isinstance(p_val, xr.DataArray):
-                if "channel" not in p_val.coords:
-                    raise ValueError(f"'channel' has to be one of the coordinates of {p_name}")
-                else:
+                # if 'channel' is a coordinate, it has to match that of the data
+                if "channel" in p_val.coords:
                     if not (sorted(p_val.coords["channel"].data) == channel_sorted):
                         raise ValueError(
                             f"The 'channel' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
                         )
+                elif "cal_channel_id" in p_val.coords and "cal_frequency" in p_val.coords:
+                    if not (sorted(p_val.coords["cal_channel_id"].data) == channel_sorted):
+                        raise ValueError(
+                            f"The 'cal_channel_id' coordinate of {p_name} has to match "
+                            "that of the data to be calibrated"
+                        )
+                else:
+                    raise ValueError(
+                        f"{p_name} has to either have 'channel' as a coorindate "
+                        "or have both 'cal_channel_id' and 'cal_frequency' as coordinates"
+                    )
+
                 p_val.name = p_name
                 out_dict[p_name] = p_val
 
@@ -317,6 +330,7 @@ def get_cal_params_EK(
         "equivalent_beam_angle": "equivalent_beam_angle",
     }
     if waveform_mode == "BB":
+        # for BB data equivalent_beam_angle needs to be scaled wrt freq_center
         PARAM_BEAM_NAME_MAP.pop("equivalent_beam_angle")
 
     # Use sanitized user dict as blueprint
