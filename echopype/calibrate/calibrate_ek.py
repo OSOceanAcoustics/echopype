@@ -145,12 +145,16 @@ class CalibrateEK60(CalibrateEK):
         # Set the channels to calibrate
         # For EK60 this is all channels
         self.chan_sel = self.echodata[self.ed_group]["channel"]
+        beam = self.echodata[self.ed_group]
 
         # Get cal_params
-        self.cal_params = get_cal_params_EK(
-            beam=echodata[self.ed_group].sel(channel=self.chan_sel),
-            vend=echodata["Vendor_specific"].sel(channel=self.chan_sel),
-            user_cal_dict=cal_params,
+        self.cal_params = get_cal_params_EK_new(
+            waveform_mode="CW",
+            freq_center=beam["frequency_nominal"],
+            beam=beam,
+            vend=self.echodata["Vendor_specific"],
+            user_dict=self.cal_params,
+            skip_fs=True,  # receiver_sampling_frequency does not exist in EK60 data
         )
 
     def compute_Sv(self, **kwargs):

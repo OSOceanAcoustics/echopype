@@ -265,6 +265,7 @@ def get_cal_params_EK_new(
     vend: xr.Dataset,
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
     default_dict: Dict[str, Union[int, float]] = EK80_DEFAULT_PARAMS,
+    skip_fs: bool = False,
 ) -> Dict:
     """
     Get cal parameters from user input, data file, or a set of default values.
@@ -284,6 +285,8 @@ def get_cal_params_EK_new(
         user-defined parameters take precedance over values in the data file or in default dict.
     default_dict : dict
         a dictionary containing default parameters
+    skip_fs : bool
+        whether to skip getting receiver_sampling_frequency; only skip for EK60
     """
 
     # Private function to get fs
@@ -321,7 +324,8 @@ def get_cal_params_EK_new(
             elif p == "impedance_receive":  # from data file or default dict
                 out_dict[p] = default_dict[p] if p not in vend else vend["impedance_receive"]
             elif p == "receiver_sampling_frequency":  # from data file or default_dict
-                out_dict[p] = _get_fs()
+                if not skip_fs:
+                    out_dict[p] = _get_fs()
             else:
                 # CW: params do not require except for impedance_transmit
                 if waveform_mode == "CW":
