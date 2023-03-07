@@ -224,7 +224,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     beam = echodata["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel)
 
     coeff = cal_obj._get_filter_coeff()
-    chirp, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, coeff, "BB", cal_obj._get_fs())
+    chirp, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, coeff, "BB", cal_obj.cal_params["receiver_sampling_frequency"])
 
     pc = ep.calibrate.ek80_complex.compress_pulse(beam=beam, chirp=chirp)
     pc_mean = pc.pulse_compressed_output.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")

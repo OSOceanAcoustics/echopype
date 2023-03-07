@@ -240,7 +240,9 @@ def _get_interp_da(
                     param.append(alternative.sel(channel=ch_id).data.squeeze())
             elif isinstance(alternative, (int, float)):
                 # expand to have ping_time dimension
-                param.append(np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze())
+                param.append(
+                    np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze()
+                )
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
 
@@ -252,7 +254,7 @@ def _get_interp_da(
         return xr.DataArray(
             param,
             dims=["channel", "ping_time"],
-            coords={"channel": freq_center["channel"], "ping_time": freq_center["ping_time"]}
+            coords={"channel": freq_center["channel"], "ping_time": freq_center["ping_time"]},
         )
     else:
         return xr.DataArray(param, dims=["channel"], coords={"channel": freq_center["channel"]})
@@ -363,11 +365,15 @@ def get_cal_params_EK_new(
                             )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
-                        out_dict[p] = beam[p] + 20 * np.log10(beam["frequency_nominal"] / freq_center)
+                        out_dict[p] = beam[p] + 20 * np.log10(
+                            beam["frequency_nominal"] / freq_center
+                        )
                     elif p == "gain_correction":
                         # interpolate or pull from narrowband table
                         out_dict[p] = _get_interp_da(
-                            da_param=None if "gain" not in vend else vend["gain"],  # freq-dep values
+                            da_param=None
+                            if "gain" not in vend
+                            else vend["gain"],  # freq-dep values
                             freq_center=freq_center,
                             alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
                         )
@@ -464,63 +470,3 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
     # Select corresponding index and clean up the original nan elements
     da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
     return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
-
-
-def get_param_BB(
-    vend: xr.Dataset,
-    varname: str,
-    freq_center: xr.DataArray,
-    cal_params_CW: Dict[str, xr.DataArray],
-) -> xr.DataArray:
-    """
-    Get broadband gain or angle factor for calibrating complex samples.
-
-    Interpolate gain or angle factor in the Vendor_specific group to the center frequency
-    of each ping for BB mode samples if nominal frequency is within the calibrated frequency range
-
-    Parameters
-    ----------
-    vend : xr.Dataset
-        Vendor_specific group in an EchoData object
-    varname : str
-        the desired parameter
-    freq_center : xr.DataArray
-        center frequency of the transmit BB signal
-    cal_params_CW : dict
-        a dictionary storing CW calibration parameters as xr.DataArray
-
-    Returns
-    -------
-    An xr.DataArray containing the interpolated gain or angle factor
-    """
-    param = []
-    for ch_id in freq_center["channel"]:
-        # if frequency-dependent gain/angle factor exists in Vendor group,
-        # interpolate at center frequency
-        if "cal_channel_id" in vend.coords and ch_id.data in vend["cal_channel_id"]:
-            param_temp = (
-                vend[PARAM_VEND[varname]]
-                .sel(cal_channel_id=ch_id)
-                .interp(cal_frequency=freq_center.sel(channel=ch_id))
-                .drop(["cal_channel_id", "cal_frequency"])
-                .expand_dims("channel")
-            )
-        # if no frequency-dependent gain/angle factor exists, use CW gain or default value
-        else:
-            if varname != "z_et":
-                param_temp = (
-                    cal_params_CW[PARAM_BEAM[varname]].sel(channel=ch_id)
-                    # .reindex_like(echodata["Sonar/Beam_group1"]["backscatter_r"], method="nearest")  # noqa
-                    .expand_dims("channel")
-                )
-            else:  # make it a data array if param a single value (true for default EK80 params)
-                param_temp = xr.DataArray(
-                    [cal_params_CW[PARAM_BEAM[varname]]],
-                    dims=["channel"],
-                    coords={"channel": [ch_id.data.tolist()]},
-                )
-        param_temp.name = varname
-        param.append(param_temp)
-    param = xr.merge(param)[varname]  # select the single data variable
-
-    return param
