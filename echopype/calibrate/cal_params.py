@@ -161,43 +161,6 @@ def sanitize_user_cal_dict(
     return out_dict
 
 
-def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict) -> dict:
-    """
-    Get cal params using user inputs or values from data file.
-
-    Parameters
-    ----------
-    echodata : EchoData
-        An EchoData object containing data to be calibrated
-    user_cal_dict : dict
-        A dictionary containing user-defined calibration parameters.
-        The user-defined calibration parameters will overwrite values in the data file.
-
-    Returns
-    -------
-    A dict containing the calibration parameters for the AZFP echosounder
-    """
-    # Use sanitized user dict as blueprint
-    # out_dict contains only and all of the allowable cal params
-    out_dict = sanitize_user_cal_dict(
-        user_dict=user_dict, channel=beam["channel"], sonar_type="AZFP"
-    )
-
-    # Only fill in params that are None
-    for p, v in out_dict.items():
-        if v is None:
-            # Params from Sonar/Beam_group1
-            if p == "equivalent_beam_angle":
-                # equivalent_beam_angle has dims: channel, ping_time, beam --> only need channel
-                out_dict[p] = beam[p].isel(ping_time=0, beam=0).drop(["ping_time", "beam"])
-
-            # Params from Vendor_specific group
-            elif p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
-                out_dict[p] = vend[p]  # these params only have the channel dimension
-
-    return out_dict
-
-
 def _get_interp_da(
     da_param: Union[None, xr.DataArray],
     freq_center: xr.DataArray,
@@ -281,6 +244,93 @@ def _get_interp_da(
         )
     else:
         return xr.DataArray(param, dims=["channel"], coords={"channel": freq_center["channel"]})
+
+
+def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) -> xr.DataArray:
+    """
+    Get cal parameters stored in the Vendor_specific group
+    by matching the transmit_duration_nominal with allowable pulse_length.
+
+    Parameters
+    ----------
+    beam : xr.Dataset
+        A subset of Sonar/Beam_groupX that contains only the channels specified for calibration
+    vend : xr.Dataset
+        A subset of Vendor_specific that contains only the channels specified for calibration
+    param : str {"sa_correction", "gain_correction"}
+        name of parameter to retrieve
+
+    Returns
+    -------
+    An xr.DataArray containing the matched ``param``
+    """
+
+    # Check parameter is among those allowed
+    if param not in ["sa_correction", "gain_correction"]:
+        raise ValueError(f"Unknown parameter {param}")
+
+    # Check parameter exists
+    if param not in vend:
+        raise ValueError(f"{param} does not exist in the Vendor_specific group!")
+
+    # Find idx to select the corresponding param value
+    # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
+    transmit_isnull = beam["transmit_duration_nominal"].isnull()
+    idxmin = np.abs(beam["transmit_duration_nominal"] - vend["pulse_length"]).idxmin(
+        dim="pulse_length_bin"
+    )
+
+    # fill nan position with 0 (will remove before return)
+    # and convert to int for indexing
+    idxmin = idxmin.where(~transmit_isnull, 0).astype(int)
+
+    # Get param dataarray into correct shape
+    da_param = (
+        vend[param]
+        .expand_dims(dim={"ping_time": idxmin["ping_time"]})  # expand dims for direct indexing
+        .sortby(idxmin.channel)  # sortby in case channel sequence differs in vend and beam
+    )
+
+    # Select corresponding index and clean up the original nan elements
+    da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
+    return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
+
+
+def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict) -> dict:
+    """
+    Get cal params using user inputs or values from data file.
+
+    Parameters
+    ----------
+    echodata : EchoData
+        An EchoData object containing data to be calibrated
+    user_cal_dict : dict
+        A dictionary containing user-defined calibration parameters.
+        The user-defined calibration parameters will overwrite values in the data file.
+
+    Returns
+    -------
+    A dict containing the calibration parameters for the AZFP echosounder
+    """
+    # Use sanitized user dict as blueprint
+    # out_dict contains only and all of the allowable cal params
+    out_dict = sanitize_user_cal_dict(
+        user_dict=user_dict, channel=beam["channel"], sonar_type="AZFP"
+    )
+
+    # Only fill in params that are None
+    for p, v in out_dict.items():
+        if v is None:
+            # Params from Sonar/Beam_group1
+            if p == "equivalent_beam_angle":
+                # equivalent_beam_angle has dims: channel, ping_time, beam --> only need channel
+                out_dict[p] = beam[p].isel(ping_time=0, beam=0).drop(["ping_time", "beam"])
+
+            # Params from Vendor_specific group
+            elif p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
+                out_dict[p] = vend[p]  # these params only have the channel dimension
+
+    return out_dict
 
 
 def get_cal_params_EK(
@@ -455,53 +505,3 @@ def get_vend_filter_EK80(
         return v
     else:
         return vend.attrs["%s %s decimation" % (channel_id, filter_name)]
-
-
-def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) -> xr.DataArray:
-    """
-    Get cal parameters stored in the Vendor_specific group
-    by matching the transmit_duration_nominal with allowable pulse_length.
-
-    Parameters
-    ----------
-    beam : xr.Dataset
-        A subset of Sonar/Beam_groupX that contains only the channels specified for calibration
-    vend : xr.Dataset
-        A subset of Vendor_specific that contains only the channels specified for calibration
-    param : str {"sa_correction", "gain_correction"}
-        name of parameter to retrieve
-
-    Returns
-    -------
-    An xr.DataArray containing the matched ``param``
-    """
-
-    # Check parameter is among those allowed
-    if param not in ["sa_correction", "gain_correction"]:
-        raise ValueError(f"Unknown parameter {param}")
-
-    # Check parameter exists
-    if param not in vend:
-        raise ValueError(f"{param} does not exist in the Vendor_specific group!")
-
-    # Find idx to select the corresponding param value
-    # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
-    transmit_isnull = beam["transmit_duration_nominal"].isnull()
-    idxmin = np.abs(beam["transmit_duration_nominal"] - vend["pulse_length"]).idxmin(
-        dim="pulse_length_bin"
-    )
-
-    # fill nan position with 0 (will remove before return)
-    # and convert to int for indexing
-    idxmin = idxmin.where(~transmit_isnull, 0).astype(int)
-
-    # Get param dataarray into correct shape
-    da_param = (
-        vend[param]
-        .expand_dims(dim={"ping_time": idxmin["ping_time"]})  # expand dims for direct indexing
-        .sortby(idxmin.channel)  # sortby in case channel sequence differs in vend and beam
-    )
-
-    # Select corresponding index and clean up the original nan elements
-    da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
-    return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
