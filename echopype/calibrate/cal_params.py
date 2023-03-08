@@ -4,7 +4,16 @@ import numpy as np
 import xarray as xr
 
 CAL_PARAMS = {
-    "EK": (  # TODO: consider including impedance?
+    "EK60": (
+        "sa_correction",
+        "gain_correction",
+        "equivalent_beam_angle",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "beamwidth_alongship",
+        "beamwidth_athwartship",
+    ),
+    "EK80": (
         "sa_correction",
         "gain_correction",
         "equivalent_beam_angle",
@@ -84,6 +93,8 @@ def sanitize_user_cal_dict(
 
     Parameters
     ----------
+    sonar_type : str
+        type of sonar, one of "EK60", "EK80", or "AZFP"
     user_dict : dict
         a dict containing user input calibration parameters as {parameter name: parameter value}
         parameter value has to be a scalar (int or float) or an xr.DataArray
@@ -94,12 +105,10 @@ def sanitize_user_cal_dict(
         a list of channels to be calibrated
         for EK80 data, this list has to corresponds with the subset of channels
         selected based on waveform_mode and encode_mode
-    sonar_type : str
-        type of sonar, either "EK" or "AZFP"
     """
     # Check sonar type
-    if sonar_type not in ["EK", "AZFP"]:
-        raise ValueError("'sonar_type' has to be either 'EK' or 'AZFP'")
+    if sonar_type not in ["EK60", "EK80", "AZFP"]:
+        raise ValueError("'sonar_type' has to be one of: 'EK60', 'EK80', or 'AZFP'")
 
     # Make channel a sorted list
     if not isinstance(channel, (list, xr.DataArray)):
@@ -281,7 +290,7 @@ def get_cal_params_EK(
     vend: xr.Dataset,
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
     default_dict: Dict[str, Union[int, float]] = EK80_DEFAULT_PARAMS,
-    skip_fs: bool = False,
+    sonar_type: str = "EK80",
 ) -> Dict:
     """
     Get cal parameters from user input, data file, or a set of default values.
@@ -301,8 +310,8 @@ def get_cal_params_EK(
         user-defined parameters take precedance over values in the data file or in default dict.
     default_dict : dict
         a dictionary containing default parameters
-    skip_fs : bool
-        whether to skip getting receiver_sampling_frequency; only skip for EK60
+    sonar_type : str
+        type of EK sonar, either "EK60" or "EK80"
     """
 
     # Private function to get fs
@@ -331,7 +340,9 @@ def get_cal_params_EK(
 
     # Use sanitized user dict as blueprint
     # out_dict contains only and all of the allowable cal params
-    out_dict = sanitize_user_cal_dict(user_dict=user_dict, channel=beam["channel"], sonar_type="EK")
+    out_dict = sanitize_user_cal_dict(
+        user_dict=user_dict, channel=beam["channel"], sonar_type=sonar_type
+    )
 
     # Interpolate user-input params that contain freq-dependent info
     # ie those that has coordinate combination (cal_channel_id, cal_frequency)
@@ -351,8 +362,7 @@ def get_cal_params_EK(
             elif p == "impedance_receive":  # from data file or default dict
                 out_dict[p] = default_dict[p] if p not in vend else vend["impedance_receive"]
             elif p == "receiver_sampling_frequency":  # from data file or default_dict
-                if not skip_fs:
-                    out_dict[p] = _get_fs()
+                out_dict[p] = _get_fs()
             else:
                 # CW: params do not require interpolation, except for impedance_transmit
                 if waveform_mode == "CW":

@@ -91,18 +91,6 @@ def beam_EK():
     return beam.transpose("channel", "ping_time", "beam")
 
 
-@pytest.fixture
-def out_dict_EK():
-    out_dict = dict.fromkeys(CAL_PARAMS["EK"])
-    for p_name in CAL_PARAMS["EK"]:
-        out_dict[p_name] = xr.DataArray(
-            [[123], [456]],
-            dims=["channel", "ping_time"],
-            coords={"channel": ["chA", "chB"], "ping_time": [1]},
-        )
-    return out_dict
-
-
 @pytest.mark.parametrize(
     ("p_val", "channel", "da_output"),
     [
@@ -142,18 +130,18 @@ def test_param2da(p_val, channel, da_output):
         # input channel
         #   - is not a list nor an xr.DataArray: fail with value error
         pytest.param(
-            "EK", 1, None, None,
+            "EK80", 1, None, None,
             marks=pytest.mark.xfail(strict=True, reason="Fail since channel has to be either a list or an xr.DataArray"),
         ),
         # TODO: input channel has different order than those in the inarg channel
         # input param dict
         #   - contains extra param: should come out with only those defined in CAL_PARAMS
         #   - contains missing param: missing ones (wrt CAL_PARAMS) should be empty
-        pytest.param("EK", {"extra_param": 1}, ["chA", "chB"], dict.fromkeys(CAL_PARAMS["EK"])),
+        pytest.param("EK80", {"extra_param": 1}, ["chA", "chB"], dict.fromkeys(CAL_PARAMS["EK80"])),
         # input param:
         #   - is xr.DataArray without channel coorindate: fail with value error
         pytest.param(
-            "EK",
+            "EK80",
             {"sa_correction": xr.DataArray([1, 1], dims=["some_coords"], coords={"some_coords": ["A", "B"]})},
             ["chA", "chB"], None,
             marks=pytest.mark.xfail(strict=True, reason="input sa_correction does not contain a 'channel' coordinate"),
@@ -161,7 +149,7 @@ def test_param2da(p_val, channel, da_output):
         # input individual param:
         #   - with channel cooridinate but not identical to argin channel: fail with value error
         pytest.param(
-            "EK",
+            "EK80",
             {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "B"]})},
             ["chA", "chB"], None,
             marks=pytest.mark.xfail(strict=True,
@@ -170,34 +158,34 @@ def test_param2da(p_val, channel, da_output):
         # input individual param:
         #   - with channel cooridinate identical to argin channel: should pass
         pytest.param(
-            "EK",
+            "EK80",
             {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})},
             ["chA", "chB"],
-            dict(dict.fromkeys(CAL_PARAMS["EK"]),
+            dict(dict.fromkeys(CAL_PARAMS["EK80"]),
                 **{"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
         ),
         # input individual param:
         #   - a scalar needing to be organized to xr.DataArray at output via param2da: should pass
         pytest.param(
-            "EK",
+            "EK80",
             {"sa_correction": 1},
             ["chA", "chB"],
-            dict(dict.fromkeys(CAL_PARAMS["EK"]),
+            dict(dict.fromkeys(CAL_PARAMS["EK80"]),
                 **{"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
         ),
         # input individual param:
         #   - a list needing to be organized to xr.DataArray at output via param2da: should pass
         pytest.param(
-            "EK",
+            "EK80",
             {"sa_correction": [1, 2]},
             ["chA", "chB"],
-            dict(dict.fromkeys(CAL_PARAMS["EK"]),
+            dict(dict.fromkeys(CAL_PARAMS["EK80"]),
                 **{"sa_correction": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
         ),    
         # input individual param:
         #   - a list with wrong length (ie not identical to channel): fail with value error
         pytest.param(
-            "EK", {"sa_correction": [1, 2, 3]}, ["chA", "chB"], None,
+            "EK80", {"sa_correction": [1, 2, 3]}, ["chA", "chB"], None,
             marks=pytest.mark.xfail(strict=True,
                 reason="input sa_correction contains a list of wrong length that does not match that of channel"),
         ),
@@ -433,7 +421,7 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                         dims=["channel", "ping_time"],
                         coords={"channel": ["chA", "chB"], "ping_time": [1]},
                     )
-                    for p_name in CAL_PARAMS["EK"]
+                    for p_name in CAL_PARAMS["EK80"]
                 },
                 **{
                     "gain_correction": xr.DataArray(
@@ -490,9 +478,64 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
         assert p_val.identical(out_dict[p_name])
 
 
-# Test for EK60 CW case with skip_fs=True
-def test_get_cal_params_EK60():
-    pass
+@pytest.mark.parametrize(
+    ("user_dict", "out_dict"),
+    [
+        # cal_params should not contain:
+        #   impedance_transmit, impedance_receive, receiver_sampling_frequency
+        (
+            {
+                # add sa_correction here to bypass things going into get_vend_cal_params_power
+                "gain_correction": xr.DataArray(
+                    [555, 777], dims=["channel"], coords={"channel": ["chA", "chB"]},
+                ),
+                # add sa_correction here to bypass things going into get_vend_cal_params_power
+                "sa_correction": xr.DataArray(
+                    [111, 222], dims=["channel"], coords={"channel": ["chA", "chB"]},
+                )
+            },
+            dict(
+                {
+                    p_name: xr.DataArray(
+                        [[123], [456]],
+                        dims=["channel", "ping_time"],
+                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                    )
+                    for p_name in [
+                        "sa_correction", "gain_correction", "equivalent_beam_angle",
+                        "angle_offset_alongship", "angle_offset_athwartship",
+                        "beamwidth_alongship", "beamwidth_athwartship",
+                    ]
+                },
+                **{
+                    "gain_correction": xr.DataArray(
+                        [555, 777], dims=["channel"], coords={"channel": ["chA", "chB"]},
+                    ),
+                    "sa_correction": xr.DataArray(
+                        [111, 222], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    ),
+                },
+            ),
+        ),
+    ],
+    ids=[
+        "in_da",
+    ]
+)
+def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict):
+    # Remove some variables from Vendor group to mimic EK60 data
+    vend_EK = vend_EK.drop("impedance_receive").drop("transceiver_type")
+    cal_dict = get_cal_params_EK(
+        waveform_mode="CW", freq_center=freq_center,
+        beam=beam_EK, vend=vend_EK,
+        user_dict=user_dict, sonar_type="EK60"
+    )
+    for p_name, p_val in cal_dict.items():
+        # remove name for all da
+        p_val.name = None
+        out_val = out_dict[p_name]
+        out_val.name = None
+        assert p_val.identical(out_dict[p_name])
 
 
 # TODO: add test for get_vend_cal_params_power

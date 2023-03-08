@@ -154,7 +154,7 @@ class CalibrateEK60(CalibrateEK):
             beam=beam,
             vend=self.echodata["Vendor_specific"],
             user_dict=self.cal_params,
-            skip_fs=True,  # receiver_sampling_frequency does not exist in EK60 data
+            sonar_type="EK60",
         )
 
     def compute_Sv(self, **kwargs):
