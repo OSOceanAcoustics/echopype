@@ -56,7 +56,7 @@ def compare_zarr_vars(ed_zarr: xr.Dataset, ed_no_zarr: xr.Dataset,
 
 
 @pytest.mark.parametrize(
-    ["raw_file", "sonar_model", "offload_to_zarr"],
+    ["raw_file", "sonar_model", "use_swap"],
     [
         ("L0003-D20040909-T161906-EK60.raw", "EK60", True),
         pytest.param(
@@ -71,18 +71,18 @@ def compare_zarr_vars(ed_zarr: xr.Dataset, ed_no_zarr: xr.Dataset,
     ],
     ids=["noaa_offloaded", "noaa_not_offloaded"],
 )
-def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
+def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
     """Tests for memory expansion relief"""
     import os
     from tempfile import TemporaryDirectory
     from echopype.echodata.echodata import EchoData
     name = os.path.basename(raw_file).replace('.raw', '')
-    fname = f"{name}__{offload_to_zarr}.zarr"
+    fname = f"{name}__{use_swap}.zarr"
     file_path = ek60_path / raw_file
     echodata = open_raw(
         raw_file=file_path,
         sonar_model=sonar_model,
-        offload_to_zarr=offload_to_zarr
+        use_swap=use_swap
     )
     # Most likely succeed if it doesn't crash
     assert isinstance(echodata, EchoData)
@@ -92,7 +92,7 @@ def test_raw2zarr(raw_file, sonar_model, offload_to_zarr, ek60_path):
         # If it goes all the way to here it is most likely successful
         assert os.path.exists(output_save_path)
 
-    if offload_to_zarr:
+    if use_swap:
         # create a copy of zarr_file_name. The join is necessary so that we are not referencing zarr_file_name
         temp_zarr_path = ''.join(echodata.parsed2zarr_obj.zarr_file_name)
 
@@ -144,8 +144,8 @@ def test_direct_to_zarr_integration(path_model: str, raw_file: str,
 
     raw_file_path = test_path[path_model] / raw_file
 
-    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, offload_to_zarr=True, max_zarr_mb=100)
-    ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model, offload_to_zarr=False)
+    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, use_swap=True, max_mb=100)
+    ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model, use_swap=False)
 
     for grp in ed_zarr.group_paths:
 

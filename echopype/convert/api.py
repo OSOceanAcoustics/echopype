@@ -313,8 +313,8 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    offload_to_zarr: bool = False,
-    max_zarr_mb: int = 100,
+    use_swap: bool = False,
+    max_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
 
@@ -343,13 +343,14 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
-    offload_to_zarr: bool
+    use_swap: bool
         If True, variables with a large memory footprint will be
-        written to a temporary zarr store called ``temp_echopype_output/parsed2zarr_temp_files``
-        under the current execution folder
-    max_zarr_mb : int
-        maximum MB that each zarr chunk should hold, when offloading
+        written to a temporary zarr store called ``parsed2zarr_temp_files``
+        in the echopype's ``temp_output`` directory
+    max_mb : int
+        The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
+
 
     Returns
     -------
@@ -357,7 +358,7 @@ def open_raw(
 
     Notes
     -----
-    ``offload_to_zarr=True`` is only available for the following
+    ``use_swap=True`` is only available for the following
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
@@ -416,13 +417,13 @@ def open_raw(
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
     # TODO: remove once 'auto' option is added
-    if not isinstance(offload_to_zarr, bool):
-        raise ValueError("offload_to_zarr must be of type bool.")
+    if not isinstance(use_swap, bool):
+        raise ValueError("use_swap must be of type bool.")
 
-    # Ensure offload_to_zarr is 'auto', if it is a string
+    # Ensure use_swap is 'auto', if it is a string
     # TODO: use the following when we allow for 'auto' option
-    # if isinstance(offload_to_zarr, str) and offload_to_zarr != "auto":
-    #     raise ValueError("offload_to_zarr must be a bool or equal to 'auto'.")
+    # if isinstance(use_swap, str) and use_swap != "auto":
+    #     raise ValueError("use_swap must be a bool or equal to 'auto'.")
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
@@ -447,12 +448,12 @@ def open_raw(
         p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
 
         # Determines if writing to zarr is necessary and writes to zarr
-        p2z_flag = offload_to_zarr is True or (
-            offload_to_zarr == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
+        p2z_flag = use_swap is True or (
+            use_swap == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
         )
 
         if p2z_flag:
-            p2z.datagram_to_zarr(max_mb=max_zarr_mb)
+            p2z.datagram_to_zarr(max_mb=max_mb)
             # Rectangularize the transmit data
             parser.rectangularize_transmit_ping_data(data_type="complex")
         else:
