@@ -396,12 +396,11 @@ def get_cal_params_EK(
 
     # Interpolate user-input params that contain freq-dependent info
     # ie those that has coordinate combination (cal_channel_id, cal_frequency)
-    # This only happens for BB mode data
-    if waveform_mode == "BB":
-        for p, v in out_dict.items():
-            if v is not None:
-                if "cal_channel_id" in v.coords:
-                    out_dict[p] = _get_interp_da(v, freq_center, np.nan)
+    # TODO: this will need to change for computing frequency-dependent TS
+    for p, v in out_dict.items():
+        if v is not None:
+            if "cal_channel_id" in v.coords:
+                out_dict[p] = _get_interp_da(v, freq_center, np.nan)
 
     # Only fill in params that are None
     for p, v in out_dict.items():
