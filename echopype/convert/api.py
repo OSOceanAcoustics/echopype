@@ -375,13 +375,13 @@ def open_raw(
     """
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
-    
+
     # Check for path type
     if isinstance(raw_file, Path):
         raw_file = str(raw_file)
     if not isinstance(raw_file, str):
         raise TypeError("File path must be a string or Path")
-    
+
     if sonar_model is None:
         raise ValueError("Sonar model must be specified.")
 
