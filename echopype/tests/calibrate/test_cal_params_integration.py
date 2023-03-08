@@ -13,7 +13,7 @@ def ek80_cal_path(test_path):
 
 def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     """
-    Test cal param intake for EK80 BB complex data.
+    Test frequency-dependent cal param intake for EK80 BB complex calibration.
     """
     ed = ep.open_raw(ek80_cal_path / "2018115-D20181213-T094600.raw", sonar_model="EK80")
 
@@ -63,7 +63,7 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
 
 def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     """
-    Test cal param intake for EK80 CW complex data.
+    Test frequency-dependent cal param intake for EK80 CW complex calibration.
     """
     ed = ep.open_raw(ek80_cal_path / "2018115-D20181213-T094600.raw", sonar_model="EK80")
 
