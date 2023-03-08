@@ -5,7 +5,7 @@ import xarray as xr
 
 from echopype.calibrate.cal_params import (
     CAL_PARAMS, param2da, sanitize_user_cal_dict, _get_interp_da,
-    get_cal_params_AZFP, get_cal_params_EK
+    get_cal_params_AZFP, get_cal_params_EK, get_vend_cal_params_power
 )
 
 
@@ -56,13 +56,17 @@ def vend_EK():
         vend[p_name] = xr.DataArray(
             np.array([[10, 20, 30, 40], [110, 120, 130, 140]]),
             dims=["channel", "pulse_length_bin"],
-            coords={"channel": ["chA", "chB"], "pulse_length_bin": [1, 2, 3, 4]},
+            coords={"channel": ["chA", "chB"], "pulse_length_bin": [0, 1, 2, 3]},
         )
+    vend["pulse_length"] = xr.DataArray(
+            np.array([[64, 128, 256, 512], [128, 256, 512, 1024]]),
+            coords={"channel": vend["channel"], "pulse_length_bin": vend["pulse_length_bin"]}
+    )
     vend["impedance_receive"] = xr.DataArray(
-        [1000, 2000], dims=["channel"], coords={"channel": ["chA", "chB"]}
+        [1000, 2000], coords={"channel": vend["channel"]}
     )
     vend["transceiver_type"] = xr.DataArray(
-        ["WBT", "WBT"], dims=["channel"], coords={"channel": ["chA", "chB"]}
+        ["WBT", "WBT"], coords={"channel": vend["channel"]}
     )
     return vend
 
@@ -83,11 +87,6 @@ def beam_EK():
             coords={"channel": ["chA", "chB"], "ping_time": [1], "beam": [1, 2, 3, 4]},
         )
     beam["frequency_nominal"] = xr.DataArray([25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]})
-    # beam["transmit_duration_nominal"] = xr.DataArray(
-    #     np.array([[3, 3]] * 4),
-    #     dims=["channel", "ping_time"],
-    #     coords={"ping_time": [1], "channel": ["chA", "chB"]}
-    # )
     return beam.transpose("channel", "ping_time", "beam")
 
 
@@ -538,6 +537,47 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
         assert p_val.identical(out_dict[p_name])
 
 
-# TODO: add test for get_vend_cal_params_power
-def test_get_vend_cal_params_power():
-    pass
+@pytest.mark.parametrize(
+    ("param", "beam", "da_output"),
+    [
+        # no NaN entry in transmit_duration_nominal
+        (
+            "sa_correction",
+            xr.DataArray(
+                np.array([[64, 256, 128, 512], [512, 1024, 256, 128]]).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
+                name="transmit_duration_nominal",
+            ).to_dataset(),
+            xr.DataArray(
+                np.array([[10, 30, 20, 40], [130, 140, 120, 110]]).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
+                name="sa_correction",
+            ),
+        ),
+        # with NaN entry in transmit_duration_nominal
+        (
+            "sa_correction",
+            xr.DataArray(
+                np.array([[64, np.nan, 128, 512], [512, 1024, 256, np.nan]]).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
+                name="transmit_duration_nominal",
+            ).to_dataset(),
+            xr.DataArray(
+                np.array([[10, np.nan, 20, 40], [130, 140, 120, np.nan]]).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
+                name="sa_correction",
+            ),
+        ),
+    ],
+    ids=[
+        "in_no_nan",
+        "in_with_nan",
+    ]
+)
+def test_get_vend_cal_params_power(vend_EK, beam, param, da_output):
+    da_param = get_vend_cal_params_power(beam, vend_EK, param)
+    assert da_param.identical(da_output)
