@@ -308,8 +308,8 @@ def _check_file(
 
 
 def open_raw(
-    raw_file: Optional["PathHint"] = None,
-    sonar_model: Optional["SonarModelsHint"] = None,
+    raw_file: "PathHint",
+    sonar_model: "SonarModelsHint",
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
@@ -356,62 +356,48 @@ def open_raw(
     -------
     EchoData object
 
+    Raises
+    ------
+    ValueError
+        If ``sonar_model`` is ``None`` or ``sonar_model``
+        given is unsupported.
+    FileNotFoundError
+        If ``raw_file`` is ``None``.
+    TypeError
+        If ``raw_file`` input is neither ``str`` or
+        ``pathlib.Path`` type.
+
     Notes
     -----
     ``use_swap=True`` is only available for the following
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
-    if (sonar_model is None) and (raw_file is None):
-        logger.warning("Please specify the path to the raw data file and the sonar model.")
-        return
+    if raw_file is None:
+        raise FileNotFoundError("The path to the raw data file must be specified.")
+    
+    # Check for path type
+    if isinstance(raw_file, Path):
+        raw_file = str(raw_file)
+    if not isinstance(raw_file, str):
+        raise TypeError("File path must be a string or Path")
+    
+    if sonar_model is None:
+        raise ValueError("Sonar model must be specified.")
 
     # Check inputs
     if convert_params is None:
         convert_params = {}
     storage_options = storage_options if storage_options is not None else {}
 
-    if sonar_model is None:
-        logger.warning("Please specify the sonar model.")
+    # Uppercased model in case people use lowercase
+    sonar_model = sonar_model.upper()  # type: ignore
 
-        if xml_path is None:
-            sonar_model = "EK60"
-            warnings.warn(
-                "Current behavior is to default sonar_model='EK60' when no XML file is passed in as argument. "  # noqa
-                "Specifying sonar_model='EK60' will be required in the future, "
-                "since .raw extension is used for many Kongsberg/Simrad sonar systems.",
-                DeprecationWarning,
-                2,
-            )
-        else:
-            sonar_model = "AZFP"
-            warnings.warn(
-                "Current behavior is to set sonar_model='AZFP' when an XML file is passed in as argument. "  # noqa
-                "Specifying sonar_model='AZFP' will be required in the future.",
-                DeprecationWarning,
-                2,
-            )
-    else:
-        # Uppercased model in case people use lowercase
-        sonar_model = sonar_model.upper()  # type: ignore
-
-        # Check models
-        if sonar_model not in SONAR_MODELS:
-            raise ValueError(
-                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"  # noqa
-            )
-
-    # Check paths and file types
-    if raw_file is None:
-        raise FileNotFoundError("Please specify the path to the raw data file.")
-
-    # Check for path type
-    if isinstance(raw_file, Path):
-        raw_file = str(raw_file)
-    if not isinstance(raw_file, str):
-        raise TypeError("file must be a string or Path")
-
-    assert sonar_model is not None
+    # Check models
+    if sonar_model not in SONAR_MODELS:
+        raise ValueError(
+            f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"  # noqa
+        )
 
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
