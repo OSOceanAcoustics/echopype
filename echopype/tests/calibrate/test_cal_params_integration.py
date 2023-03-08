@@ -79,8 +79,7 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     )
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
         "BB", freq_center, beam, vend, {"gain_correction": gain_freq_dep}
-    )
-    cal_params_manual["gain_correction"].name = "gain_correction"
+    )    
 
     # Manually add freq-dependent cal params in Vendor group
     # and construct cal object
@@ -97,6 +96,7 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     ds_Sv = ep.calibrate.compute_Sv(
         ed, waveform_mode="BB", encode_mode="complex", cal_params={"gain_correction": gain_freq_dep}
     )
+    cal_params_manual["gain_correction"].name = "gain_correction"
     assert ds_Sv["gain_correction"].identical(cal_params_manual["gain_correction"])
 
 

@@ -416,12 +416,12 @@ def get_cal_params_EK(
                 # CW: params do not require interpolation, except for impedance_transmit
                 if waveform_mode == "CW":
                     if p in PARAM_BEAM_NAME_MAP.keys():
-                        for p, p_beam in PARAM_BEAM_NAME_MAP.items():
-                            # pull from data file, these should always exist
-                            if "beam" in beam[p_beam].coords:
-                                out_dict[p] = beam[p_beam].isel(beam=0).drop("beam")
-                            else:
-                                out_dict[p] = beam[p_beam]
+                        p_beam = PARAM_BEAM_NAME_MAP[p]
+                        # pull from data file, these should always exist
+                        if "beam" in beam[p_beam].coords:
+                            out_dict[p] = beam[p_beam].isel(beam=0).drop("beam")
+                        else:
+                            out_dict[p] = beam[p_beam]
                     elif p == "gain_correction":
                         # pull from data file narrowband table
                         out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
@@ -439,14 +439,14 @@ def get_cal_params_EK(
                 else:
                     # interpolate for center frequency or use CW values
                     if p in PARAM_BEAM_NAME_MAP.keys():
-                        for p, p_beam in PARAM_BEAM_NAME_MAP.items():
-                            # TODO: beamwidth_along/athwartship should be scaled
-                            #       like equivalent_beam_angle
-                            out_dict[p] = _get_interp_da(
-                                da_param=None if p not in vend else vend[p],
-                                freq_center=freq_center,
-                                alternative=beam[p_beam],  # these should always exist
-                            )
+                        p_beam = PARAM_BEAM_NAME_MAP[p]
+                        # TODO: beamwidth_along/athwartship should be scaled
+                        #       like equivalent_beam_angle
+                        out_dict[p] = _get_interp_da(
+                            da_param=None if p not in vend else vend[p],
+                            freq_center=freq_center,
+                            alternative=beam[p_beam],  # these should always exist
+                        )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
                         out_dict[p] = beam[p].isel(beam=0).drop("beam") + 20 * np.log10(
