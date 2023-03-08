@@ -7,8 +7,47 @@ import echopype as ep
 
 
 @pytest.fixture
+def ek60_path(test_path):
+    return test_path['EK60']
+
+
+@pytest.fixture
 def ek80_cal_path(test_path):
     return test_path['EK80_CAL']
+
+
+def test_cal_params_intake_EK60(ek60_path):
+    """
+    Test cal param intake for EK60 calibration.
+    """
+    ed = ep.open_raw(ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", sonar_model="EK60")
+
+    # Assemble external cal param
+    chan = ed["Sonar/Beam_group1"]["channel"]
+    gain_ext = xr.DataArray([100, 200, 300], dims=["channel"], coords={"channel": chan}, name="gain_correction")
+
+    # Manually go through cal params intake
+    cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
+        waveform_mode="CW",
+        freq_center=ed["Sonar/Beam_group1"]["frequency_nominal"],
+        beam=ed["Sonar/Beam_group1"],
+        vend=ed["Vendor_specific"],
+        user_dict={"gain_correction": gain_ext},
+        sonar_type="EK60",
+    )
+
+    # Manually add cal params in Vendor group and construct cal object
+    ed["Vendor_specific"]["gain_correction"].data[0, 1] = gain_ext.data[0]  # GPT  18 kHz 009072058c8d 1-1 ES18-11
+    ed["Vendor_specific"]["gain_correction"].data[1, 2] = gain_ext.data[1]  # GPT  38 kHz 009072058146 2-1 ES38B
+    ed["Vendor_specific"]["gain_correction"].data[2, 4] = gain_ext.data[2]  # GPT 120 kHz 00907205a6d0 4-1 ES120-7C
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK60(echodata=ed, env_params=None, cal_params=None)
+
+    # Check cal params ingested from both ways
+    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop("ping_time").identical(cal_params_manual["gain_correction"])
+
+    # Check against the final cal params in the calibration output
+    ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"gain_correction": gain_ext})
+    assert ds_Sv["gain_correction"].identical(cal_params_manual["gain_correction"])
 
 
 def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
@@ -41,6 +80,7 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
         "BB", freq_center, beam, vend, {"gain_correction": gain_freq_dep}
     )
+    cal_params_manual["gain_correction"].name = "gain_correction"
 
     # Manually add freq-dependent cal params in Vendor group
     # and construct cal object
@@ -57,7 +97,6 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     ds_Sv = ep.calibrate.compute_Sv(
         ed, waveform_mode="BB", encode_mode="complex", cal_params={"gain_correction": gain_freq_dep}
     )
-    cal_params_manual["gain_correction"].name = "gain_correction"
     assert ds_Sv["gain_correction"].identical(cal_params_manual["gain_correction"])
 
 
