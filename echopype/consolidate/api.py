@@ -12,8 +12,8 @@ from .split_beam_angle import (
     add_angle_to_ds,
     get_angle_complex_BB_nopc,
     get_angle_complex_BB_pc,
-    get_angle_complex_CW,
-    get_angle_power_CW,
+    get_angle_complex_samples,
+    get_angle_power_samples,
 )
 
 
@@ -329,7 +329,7 @@ def add_splitbeam_angle(
     ]
     angle_params = {}
     for p_name in angle_param_list:
-        angle_params["p_name"] = source_Sv[p_name].sel(channel=source_Sv["channel"].data)
+        angle_params["p_name"] = source_Sv[p_name]
 
     # fail if source_Sv and ds_beam do not have the same lengths
     # for ping_time, range_sample, and channel
@@ -345,15 +345,17 @@ def add_splitbeam_angle(
     # CW mode data
     if waveform_mode == "CW":
         if encode_mode == "power":  # power data
-            theta, phi = get_angle_power_CW(ds_beam, angle_params)
+            theta, phi = get_angle_power_samples(ds_beam, angle_params)
         else:  # complex data
-            theta, phi = get_angle_complex_CW(ds_beam, angle_params)
+            # operation is identical with BB complex data
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params)
     # BB mode data
     else:
         if pulse_compression:  # with pulse compression
             theta, phi = get_angle_complex_BB_pc(ds_beam=ds_beam)
         else:  # without pulse compression
-            theta, phi = get_angle_complex_BB_nopc(ds_beam=ds_beam, ed=echodata)
+            # operation is identical with CW complex data
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params)
 
     # add theta and phi to source_Sv input
     source_Sv = add_angle_to_ds(
