@@ -12,16 +12,19 @@ import echopype as ep
         ("AZFP", "AZFP", "17082117.01A", "17041823.XML", {"salinity": 30, "pressure": 10}, {}, None, None),
         # EK60
         ("EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw", None, None, None, None, None),
-        # EK80 BB mode
+        # EK80 BB complex
         ("EK80_CAL", "EK80", "2018115-D20181213-T094600.raw", None, None, None, "BB", "complex"),
-        # EK80 BB mode
+        # EK80 CW complex
         ("EK80_CAL", "EK80", "2018115-D20181213-T094600.raw", None, None, None, "CW", "complex"),
+        # EK80 CW power
+        ("EK80", "EK80", "Summer2018--D20180905-T033113.raw", None, None, None, "CW", "power"),
     ],
     ids=[
         "azfp",
         "ek60",
-        "ek80_bb",
-        "ek80_cw",
+        "ek80_bb_complex",
+        "ek80_cw_complex",
+        "ek80_cw_power",
     ]
 )
 def test_range_dimensions(
