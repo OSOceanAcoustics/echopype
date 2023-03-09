@@ -2,34 +2,32 @@ import pytest
 import echopype as ep
 
 
-@pytest.fixture
-def azfp_path(test_path):
-    return test_path['AZFP']
-
-
-@pytest.fixture
-def ek60_path(test_path):
-    return test_path['EK60']
-
-
-@pytest.fixture
-def ek80_cal_path(test_path):
-    return test_path['EK80_CAL']
-
-
 @pytest.mark.parametrize(
-    ("sonar_model", "raw_file", "xml_file", "env_params", "cal_params", "waveform_mode", "encode_mode"),
+    (
+        "test_path_key", "sonar_model", "raw_file", "xml_file",
+        "env_params", "cal_params", "waveform_mode", "encode_mode"
+    ),
     [
         # AZFP
-        ("AZFP", "17082117.01A", "17041823.XML", {"salinity": 30, "pressure": 10}, {}, None, None)
+        ("AZFP", "AZFP", "17082117.01A", "17041823.XML", {"salinity": 30, "pressure": 10}, {}, None, None),
+        # EK60
+        ("EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw", None, None, None, None, None),
     ],
     ids=[
         "azfp",
+        "ek60",
     ]
 )
-def test_range_dimensions(azfp_path, sonar_model, raw_file, xml_file, env_params, cal_params, waveform_mode, encode_mode):
-    ed = ep.open_raw(
-        raw_file=azfp_path / raw_file, sonar_model=sonar_model, xml_path=azfp_path / xml_file
-    )
+def test_range_dimensions(
+    test_path, test_path_key, sonar_model, raw_file, xml_file,
+    env_params, cal_params, waveform_mode, encode_mode,
+):
+    if xml_file is not None:
+        ed = ep.open_raw(
+            raw_file=test_path[test_path_key] / raw_file, sonar_model=sonar_model,
+            xml_path=test_path[test_path_key] / xml_file,
+        )
+    else:
+        ed = ep.open_raw(raw_file=test_path[test_path_key] / raw_file, sonar_model=sonar_model)        
     ds_Sv = ep.calibrate.compute_Sv(echodata=ed, env_params=env_params)
     assert ds_Sv["echo_range"].dims == ("channel", "ping_time", "range_sample")
