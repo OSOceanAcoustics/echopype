@@ -7,6 +7,11 @@ import echopype as ep
 
 
 @pytest.fixture
+def azfp_path(test_path):
+    return test_path['AZFP']
+
+
+@pytest.fixture
 def ek60_path(test_path):
     return test_path['EK60']
 
@@ -14,6 +19,37 @@ def ek60_path(test_path):
 @pytest.fixture
 def ek80_cal_path(test_path):
     return test_path['EK80_CAL']
+
+
+def test_cal_params_intake_AZFP(azfp_path):
+    """
+    Test cal param intake for AZFP calibration.
+    """
+    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
+    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
+    ed = ep.open_raw(azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path)
+
+    # Assemble external cal param and env params
+    chan = ed["Sonar/Beam_group1"]["channel"]
+    EL_ext = xr.DataArray([100, 200, 300, 400], dims=["channel"], coords={"channel": chan}, name="EL")
+    env_ext = {"salinity": 30, "pressure": 10}  # salinity and pressure required for AZFP cal
+
+    # Manually go through cal params intake
+    cal_params_manual = ep.calibrate.cal_params.get_cal_params_AZFP(
+        beam=ed["Sonar/Beam_group1"], vend=ed["Vendor_specific"], user_dict={"EL": EL_ext}
+    )
+
+    # Manually add cal params in Vendor group and construct cal object
+    cal_obj = ep.calibrate.calibrate_azfp.CalibrateAZFP(
+        echodata=ed, cal_params={"EL": EL_ext}, env_params=env_ext
+    )
+
+    # Check cal params ingested from both ways
+    assert cal_obj.cal_params["EL"].identical(cal_params_manual["EL"])
+
+    # Check against the final cal params in the calibration output
+    ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"EL": EL_ext}, env_params=env_ext)
+    assert ds_Sv["EL"].identical(cal_params_manual["EL"])
 
 
 def test_cal_params_intake_EK60(ek60_path):
@@ -79,7 +115,7 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     )
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
         "BB", freq_center, beam, vend, {"gain_correction": gain_freq_dep}
-    )    
+    )
 
     # Manually add freq-dependent cal params in Vendor group
     # and construct cal object
