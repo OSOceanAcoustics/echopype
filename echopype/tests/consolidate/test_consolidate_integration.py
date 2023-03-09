@@ -270,7 +270,12 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             "BB", "complex", False, False,
         ),
     ],
-    ids=["ek60_CW_power", "ek60_CW_power_Sv_path", "ek80_CW_complex", "ek80_BB_complex_no_pulse"]
+    ids=[
+        "ek60_CW_power",
+        "ek60_CW_power_Sv_path",
+        "ek80_CW_complex",
+        "ek80_BB_complex_no_pc",
+    ],
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
                              paths_to_echoview_mat, waveform_mode, encode_mode,

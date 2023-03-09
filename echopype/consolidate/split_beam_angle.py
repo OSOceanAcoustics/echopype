@@ -200,10 +200,12 @@ def get_angle_complex_samples(
         )
     else:
         # beam_type different for some channels, process each channel separately
+        theta, phi = [], []
         for ch_id in bs["channel"].data:
-            theta_ch, phi_ch = _compute_angle_from_complex(
+            theta_ch, phi_ch = _compute_angle_from_complex(                
                 bs=bs.sel(channel=ch_id),
-                beam_type=ds_beam["beam_type"].sel(channel=ch_id),
+                # beam_type is not time-varying
+                beam_type=ds_beam["beam_type"].sel(channel=ch_id).isel(ping_time=0).drop("ping_time"),
                 sens=[
                     angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
                     angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
@@ -221,16 +223,16 @@ def get_angle_complex_samples(
             data=theta,
             coords={
                 "channel": bs["channel"],
-                "ping_time": theta_ch[0]["ping_time"],
-                "range_sample": theta_ch[0]["range_sample"],
+                "ping_time": bs["ping_time"],
+                "range_sample": bs["range_sample"],
             },
         )
         phi = xr.DataArray(
             data=phi,
             coords={
                 "channel": bs["channel"],
-                "ping_time": phi_ch[0]["ping_time"],
-                "range_sample": phi_ch[0]["range_sample"],
+                "ping_time": bs["ping_time"],
+                "range_sample": bs["range_sample"],
             },
         )
 
