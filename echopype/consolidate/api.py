@@ -10,7 +10,6 @@ from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import validate_source_ds_da
 from .split_beam_angle import (
     add_angle_to_ds,
-    get_angle_complex_BB_nopc,
     get_angle_complex_BB_pc,
     get_angle_complex_samples,
     get_angle_power_samples,
@@ -329,7 +328,7 @@ def add_splitbeam_angle(
     ]
     angle_params = {}
     for p_name in angle_param_list:
-        angle_params["p_name"] = source_Sv[p_name]
+        angle_params[p_name] = source_Sv[p_name]
 
     # fail if source_Sv and ds_beam do not have the same lengths
     # for ping_time, range_sample, and channel

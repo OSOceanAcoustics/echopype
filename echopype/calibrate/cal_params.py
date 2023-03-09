@@ -10,6 +10,8 @@ CAL_PARAMS = {
         "equivalent_beam_angle",
         "angle_offset_alongship",
         "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
     ),
@@ -19,6 +21,8 @@ CAL_PARAMS = {
         "equivalent_beam_angle",
         "angle_offset_alongship",
         "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
         "impedance_transmit",  # z_et
@@ -380,6 +384,8 @@ def get_cal_params_EK(
     PARAM_BEAM_NAME_MAP = {
         "angle_offset_alongship": "angle_offset_alongship",
         "angle_offset_athwartship": "angle_offset_athwartship",
+        "angle_sensitivity_alongship": "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship": "angle_sensitivity_athwartship",
         "beamwidth_alongship": "beamwidth_twoway_alongship",
         "beamwidth_athwartship": "beamwidth_twoway_athwartship",
         "equivalent_beam_angle": "equivalent_beam_angle",
