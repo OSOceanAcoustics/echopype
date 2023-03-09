@@ -317,8 +317,19 @@ def add_splitbeam_angle(
     if "channel" not in source_Sv.variables:
         raise ValueError("The input source_Sv Dataset must have a channel dimension!")
 
-    # set ds_beam, select the same channels that are in source_Sv
-    ds_beam = echodata[encode_mode_ed_group].sel(channel=source_Sv.channel.values)
+    # Select ds_beam channels from source_Sv
+    ds_beam = echodata[encode_mode_ed_group].sel(channel=source_Sv["channel"].data)
+
+    # Assemble angle param dict
+    angle_param_list = [
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+    ]
+    angle_params = {}
+    for p_name in angle_param_list:
+        angle_params["p_name"] = source_Sv[p_name].sel(channel=source_Sv["channel"].data)
 
     # fail if source_Sv and ds_beam do not have the same lengths
     # for ping_time, range_sample, and channel
@@ -334,9 +345,9 @@ def add_splitbeam_angle(
     # CW mode data
     if waveform_mode == "CW":
         if encode_mode == "power":  # power data
-            theta, phi = get_angle_power_CW(ds_beam=ds_beam)
+            theta, phi = get_angle_power_CW(ds_beam, angle_params)
         else:  # complex data
-            theta, phi = get_angle_complex_CW(ds_beam=ds_beam)
+            theta, phi = get_angle_complex_CW(ds_beam, angle_params)
     # BB mode data
     else:
         if pulse_compression:  # with pulse compression
