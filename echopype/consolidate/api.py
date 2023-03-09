@@ -205,15 +205,16 @@ def add_splitbeam_angle(
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
     This function calculates the alongship/athwartship angle using data stored
-    in the beam groups of ``echodata``. In cases when angle data does not already exist
-    or cannot be computed from the data, an error is issued and no angle variables are
-    added to the dataset.
+    in the Sonar/Beam_groupX groups of an EchoData object.
+
+    In cases when angle data does not already exist or cannot be computed from the data,
+    an error is issued and no angle variables are added to the dataset.
 
     Parameters
     ----------
     source_Sv: xr.Dataset or str or pathlib.Path
-        The Sv Dataset or path to a file containing the Sv Dataset, which will have the
-        split-beam angle data added to it
+        The Sv Dataset or path to a file containing the Sv Dataset, 
+        to which will the split-beam angles will be added
     echodata: EchoData
         An ``EchoData`` object holding the raw data
     waveform_mode : {"CW", "BB"}
@@ -237,18 +238,17 @@ def add_splitbeam_angle(
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_Sv``
     return_dataset: bool, default=True
-        If True, ``source_Sv`` with the split-beam angle data added to it
-        will be returned, else it will not be returned. A value of ``False``
-        is useful in the situation where ``source_Sv`` is a path and the user
-        only wants to write the split-beam angle data to the path provided.
+        If ``True``, ``source_Sv`` with split-beam angles added will be returned.
+        ``return_dataset=False`` is useful when ``source_Sv`` is a path and
+        users only want to write the split-beam angle data to this path.
 
     Returns
     -------
     xr.Dataset or None
-        If ``return_dataset=False``, nothing will be returned. If ``return_dataset=True``
-        either the input dataset ``source_Sv`` or a lazy-loaded Dataset (obtained from
-        the path provided by ``source_Sv``) with the split-beam angle data added
-        will be returned.
+        If ``return_dataset=False``, nothing will be returned.
+        If ``return_dataset=True``, either the input dataset ``source_Sv``
+        or a lazy-loaded Dataset (from the path ``source_Sv``)
+        with split-beam angles added will be returned.
 
     Raises
     ------
@@ -266,13 +266,9 @@ def add_splitbeam_angle(
 
     Notes
     -----
-    Split-beam angle data potentially exist for the following echosounders depending on
-    the instrument configuration and recording setting:
-
-        - Simrad EK60 echosounder paired with split-beam transducers and
-          configured to store angle data
-        - Simrad EK80 echosounder paired with split-beam transducers and
-          configured to store angle data
+    Split-beam angle data potentially exist for the Simrad EK60 or EK80 echosounders
+    with split-beam transducers and configured to store angle data (along with power samples)
+    or store raw complex samples.
 
     In most cases where the type of samples collected by the echosounder (power/angle
     samples or complex samples) and the transmit waveform (broadband or narrowband)
@@ -280,6 +276,7 @@ def add_splitbeam_angle(
     `echodata`` will be identical. If this is not the case, only angle data corresponding
     to channels existing in ``source_Sv`` will be added.
 
+    TODO: remove the following section once pc option is added
     For EK80 broadband data, the split-beam angles can be estimated from the complex data.
     The current implementation generates angles estimated *without* applying pulse compression.
     Estimating the angle with pulse compression will be added in the near future.
@@ -330,7 +327,7 @@ def add_splitbeam_angle(
     ]
     if not same_dim_lens:
         raise ValueError(
-            "Input source_Sv does not have the same dimension lengths as all dimensions in ds_beam!"
+            "The 'source_Sv' dataset does not have the same dimensions as data in 'echodata'!"
         )
 
     # obtain split-beam angles from
