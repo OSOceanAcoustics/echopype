@@ -6,6 +6,7 @@ import numpy as np
 import xarray as xr
 import echopype
 from echopype.utils.coding import set_time_encodings
+from echopype.echodata import EchoData
 from pathlib import Path
 from echopype.echodata.combine import check_echodatas_input, check_zarr_path, _check_echodata_channels
 from typing import List, Tuple, Dict
@@ -339,6 +340,39 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
 
     # remove temporary directory
     temp_zarr_dir.cleanup()
+
+def test_combine_echodata_combined_and_single(ek60_test_data, sonar_model="EK60"):
+        """
+        Integration test for combine_echodata with
+        a single combined ed and a single echodata
+        """
+        eds = [
+            echopype.open_raw(raw_file=file, sonar_model=sonar_model)
+            for file in ek60_test_data
+        ]
+        # create temporary directory for zarr store
+        temp_zarr_dir = tempfile.TemporaryDirectory()
+        first_zarr = (
+            temp_zarr_dir.name
+            + f"/combined_echodata.zarr"
+        )
+        second_zarr = (
+            temp_zarr_dir.name
+            + f"/combined_echodata2.zarr"
+        )
+        combined_ed = echopype.combine_echodata(eds[:2], zarr_path=first_zarr, overwrite=True)
+        combined_ed2 = echopype.combine_echodata(
+            [combined_ed, eds[-1]],
+            zarr_path=second_zarr,
+            overwrite=True
+        )
+
+        assert isinstance(combined_ed, EchoData)
+        assert isinstance(combined_ed2, EchoData)
+
+        #TODO: Check for contents of combined_ed
+        #TODO: Check for contents of combined_ed2
+        #TODO: Compare contents for single and combined echodata
 
 
 class TestZarrCombine:
