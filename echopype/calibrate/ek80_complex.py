@@ -277,7 +277,7 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
-def compress_pulse(backscatter: xr.DataArray, chirp: Dict):
+def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     """Perform pulse compression on the backscatter data.
 
     Parameters
@@ -313,11 +313,17 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict):
             # exclude_dims={"range_sample"},
         )
 
-        # Expand dimension and add name to allow merge
-        pc = pc.expand_dims(dim="channel")
-        pc.name = "pulse_compressed_output"
         pc_all.append(pc)
 
-    pc_merge = xr.merge(pc_all)
+    pc_all = xr.DataArray(
+        pc_all,
+        coords={
+            "channel": backscatter["channel"],
+            "ping_time": backscatter["ping_time"],
+            "beam": backscatter["beam"],
+            "range_sample": backscatter["range_sample"],
+        }
+    )
+    pc_all.name = "pulse_compressed_output"
 
-    return pc_merge
+    return pc_all

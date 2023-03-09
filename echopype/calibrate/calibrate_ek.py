@@ -298,7 +298,7 @@ class CalibrateEK80(CalibrateEK):
             pc = compress_pulse(
                 backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"], chirp=chirp
             )  # has beam dim
-            prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
+            prx = _get_prx(pc)  # ensure prx is xr.DataArray
         else:
             bs_cw = beam["backscatter_r"] + 1j * beam["backscatter_i"]
             prx = _get_prx(bs_cw)
