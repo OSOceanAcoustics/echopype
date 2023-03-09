@@ -370,9 +370,27 @@ def test_combine_echodata_combined_and_single(ek60_test_data, sonar_model="EK60"
         assert isinstance(combined_ed, EchoData)
         assert isinstance(combined_ed2, EchoData)
 
-        #TODO: Check for contents of combined_ed
-        #TODO: Check for contents of combined_ed2
-        #TODO: Compare contents for single and combined echodata
+        # Ensure that they're from the same file source
+        assert eds[0]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[0].values
+        assert eds[1]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[1].values
+        assert eds[2]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[2].values
+
+        # Check beam_group1. Should be exactly same xr dataset
+        group_path = "Sonar/Beam_group1"
+        ds0 = eds[0][group_path]
+        filt_ds0 = combined_ed[group_path].sel(ping_time=ds0.ping_time)
+        assert filt_ds0.equals(ds0) is True
+
+        ds1 = eds[1][group_path]
+        filt_ds1 = combined_ed[group_path].sel(ping_time=ds1.ping_time)
+        assert filt_ds1.equals(ds1) is True
+
+        ds2 = eds[2][group_path]
+        filt_ds2 = combined_ed2[group_path].sel(ping_time=ds2.ping_time)
+        assert filt_ds2.equals(ds2) is True
+
+        filt_combined = combined_ed2[group_path].sel(ping_time=combined_ed[group_path].ping_time)
+        assert filt_combined.equals(combined_ed[group_path])
 
 
 class TestZarrCombine:
