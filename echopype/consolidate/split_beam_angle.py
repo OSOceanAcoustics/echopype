@@ -189,8 +189,14 @@ def get_angle_complex_samples(
         theta, phi = _compute_angle_from_complex(
             bs=bs,
             beam_type=beam_type_all_ch[0],  # beam_type for all channels
-            sens=angle_params["angle_sensitivity_alongship", "angle_sensitivity_athwartship"],
-            offset=angle_params["angle_offset_alongship", "angle_offset_athwartship"],
+            sens=[
+                angle_params["angle_sensitivity_alongship"],
+                angle_params["angle_sensitivity_athwartship"],
+            ],
+            offset=[
+                angle_params["angle_offset_alongship"],
+                angle_params["angle_offset_athwartship"],
+            ],
         )
     else:
         # beam_type different for some channels, process each channel separately
