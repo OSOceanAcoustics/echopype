@@ -477,36 +477,3 @@ def get_cal_params_EK(
                         raise ValueError(f"{p} not in the defined set of calibration parameters.")
 
     return out_dict
-
-
-def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: str
-) -> Union[np.ndarray, int]:
-    """
-    Get filter coefficients stored in the Vendor_specific group attributes.
-
-    Parameters
-    ----------
-    vend: xr.Dataset
-        EchoData["Vendor_specific"]
-    channel_id : str
-        channel id for which the param to be retrieved
-    filter_name : str
-        name of filter coefficients to retrieve
-    param_type : str
-        'coeff' or 'decimation'
-
-    Returns
-    -------
-    np.ndarray or int
-        The filter coefficient or the decimation factor
-    """
-    if param_type == "coeff":
-        v = vend.attrs["%s %s filter_r" % (channel_id, filter_name)] + 1j * np.array(
-            vend.attrs["%s %s filter_i" % (channel_id, filter_name)]
-        )
-        if v.size == 1:
-            v = np.expand_dims(v, axis=0)  # expand dims for convolution
-        return v
-    else:
-        return vend.attrs["%s %s decimation" % (channel_id, filter_name)]

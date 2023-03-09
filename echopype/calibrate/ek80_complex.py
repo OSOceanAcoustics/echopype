@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, Union
 
 import numpy as np
@@ -101,6 +102,59 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
     )
 
     return ytx_pc_deci, ytx_pc_deci_time
+
+
+def get_vend_filter_EK80(
+    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: str
+) -> Union[np.ndarray, int]:
+    """
+    Get filter coefficients stored in the Vendor_specific group attributes.
+
+    Parameters
+    ----------
+    vend: xr.Dataset
+        EchoData["Vendor_specific"]
+    channel_id : str
+        channel id for which the param to be retrieved
+    filter_name : str
+        name of filter coefficients to retrieve
+    param_type : str
+        'coeff' or 'decimation'
+
+    Returns
+    -------
+    np.ndarray or int
+        The filter coefficient or the decimation factor
+    """
+    if param_type == "coeff":
+        v = vend.attrs["%s %s filter_r" % (channel_id, filter_name)] + 1j * np.array(
+            vend.attrs["%s %s filter_i" % (channel_id, filter_name)]
+        )
+        if v.size == 1:
+            v = np.expand_dims(v, axis=0)  # expand dims for convolution
+        return v
+    else:
+        return vend.attrs["%s %s decimation" % (channel_id, filter_name)]
+
+
+def get_filter_coeff(vend) -> Dict:
+    """
+    Get WBT and PC filter coefficients for constructing the transmit replica.
+
+    Returns
+    -------
+    A dictionary indexed by ``channel`` and values being dictionaries containing
+    filter coefficients and decimation factors for constructing the transmit replica.
+    """
+    coeff = defaultdict(dict)
+    for ch_id in vend["channel"].values:
+        # filter coefficients and decimation factor
+        coeff[ch_id]["wbt_fil"] = get_vend_filter_EK80(vend, ch_id, "WBT", "coeff")
+        coeff[ch_id]["pc_fil"] = get_vend_filter_EK80(vend, ch_id, "PC", "coeff")
+        coeff[ch_id]["wbt_decifac"] = get_vend_filter_EK80(vend, ch_id, "WBT", "decimation")
+        coeff[ch_id]["pc_decifac"] = get_vend_filter_EK80(vend, ch_id, "PC", "decimation")
+
+    return coeff
 
 
 def get_tau_effective(
@@ -223,20 +277,18 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
-def compress_pulse(beam: xr.Dataset, chirp: Dict):
+def compress_pulse(backscatter: xr.DataArray, chirp: Dict):
     """Perform pulse compression on the backscatter data.
 
     Parameters
     ----------
-    beam : xr.Dataset
-        EchoData["Sonar/Beam_group1"] selected with channel subset
+    backscatter : xr.DataArray
+        complex backscatter samples
     chirp : dict
         transmit chirp replica indexed by ``channel``
     """
-    backscatter = beam["backscatter_r"] + 1j * beam["backscatter_i"]
-
     pc_all = []
-    for chan in beam["channel"]:
+    for chan in backscatter["channel"]:
         backscatter_chan = (
             backscatter.sel(channel=chan)
             # .dropna(dim="range_sample", how="all")

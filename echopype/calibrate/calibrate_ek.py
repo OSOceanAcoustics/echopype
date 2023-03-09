@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import Dict
 
 import numpy as np
@@ -7,9 +6,9 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK
 from .calibrate_base import CalibrateBase
-from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
+from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
 from .range import compute_range_EK, range_mod_TVG_EK
 
@@ -262,26 +261,6 @@ class CalibrateEK80(CalibrateEK):
             # All channels are CW
             return {"BB": None, "CW": beam.channel}
 
-    def _get_filter_coeff(self) -> Dict:
-        """
-        Get WBT and PC filter coefficients for constructing the transmit replica.
-
-        Returns
-        -------
-        A dictionary indexed by ``channel`` and values being dictionaries containing
-        filter coefficients and decimation factors for constructing the transmit replica.
-        """
-        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
-        coeff = defaultdict(dict)
-        for ch_id in vend["channel"].values:
-            # filter coefficients and decimation factor
-            coeff[ch_id]["wbt_fil"] = get_vend_filter_EK80(vend, ch_id, "WBT", "coeff")
-            coeff[ch_id]["pc_fil"] = get_vend_filter_EK80(vend, ch_id, "PC", "coeff")
-            coeff[ch_id]["wbt_decifac"] = get_vend_filter_EK80(vend, ch_id, "WBT", "decimation")
-            coeff[ch_id]["pc_decifac"] = get_vend_filter_EK80(vend, ch_id, "PC", "decimation")
-
-        return coeff
-
     def _get_power_from_complex(
         self,
         beam: xr.Dataset,
@@ -316,7 +295,9 @@ class CalibrateEK80(CalibrateEK):
 
         # Compute power
         if self.waveform_mode == "BB":
-            pc = compress_pulse(beam=beam, chirp=chirp)  # has beam dim
+            pc = compress_pulse(
+                backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"], chirp=chirp
+            )  # has beam dim
             prx = _get_prx(pc["pulse_compressed_output"])  # ensure prx is xr.DataArray
         else:
             bs_cw = beam["backscatter_r"] + 1j * beam["backscatter_i"]
@@ -365,7 +346,7 @@ class CalibrateEK80(CalibrateEK):
         vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
 
         # Get transmit signal
-        tx_coeff = self._get_filter_coeff()
+        tx_coeff = get_filter_coeff(vend)
         fs = self.cal_params["receiver_sampling_frequency"]
 
         # Switch to use Anderson implementation for transmit chirp starting v0.6.4
