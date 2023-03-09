@@ -76,7 +76,9 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
     out_dict = {}
 
     # Temperature comes from either user input or data file
-    out_dict["temperature"] = user_env_dict.get("temperature", echodata["Environment"]["temperature"])
+    out_dict["temperature"] = user_env_dict.get(
+        "temperature", echodata["Environment"]["temperature"]
+    )
 
     # Salinity and pressure always come from user input
     if ("salinity" not in user_env_dict) or ("pressure" not in user_env_dict):
