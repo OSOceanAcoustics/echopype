@@ -100,9 +100,6 @@ class CalibrateAZFP(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        # Order the dimensions
-        out["echo_range"] = out["echo_range"].transpose("channel", "ping_time", "range_sample")
-
         return out
 
     def compute_Sv(self, **kwargs):

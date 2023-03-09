@@ -89,7 +89,7 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
 
     range_meter.name = "echo_range"  # add name to facilitate xr.merge
 
-    return range_meter
+    return range_meter.transpose("channel", "ping_time", "range_sample")  # conform with EK range
 
 
 def compute_range_EK(
