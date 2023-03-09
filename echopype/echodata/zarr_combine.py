@@ -852,9 +852,7 @@ class ZarrCombine:
         )
 
     @staticmethod
-    def _modify_prov_filenames(
-        zarr_path: str, storage_options: Dict[str, Any] = {}
-    ) -> None:
+    def _modify_prov_filenames(zarr_path: str, storage_options: Dict[str, Any] = {}) -> None:
         """
         After the ``Provenance`` group has been constructed, the
         coordinate ``filenames`` will be filled with zeros. This
@@ -876,7 +874,7 @@ class ZarrCombine:
             mode="r+",
             storage_options=storage_options,
         )
-        # Assume that this is 1D so zarr_filenames.shape 
+        # Assume that this is 1D so zarr_filenames.shape
         # is expected to return tuple such as (x,)
         zarr_filenames[:] = np.arange(*zarr_filenames.shape)
 
