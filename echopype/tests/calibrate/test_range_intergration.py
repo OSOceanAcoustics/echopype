@@ -18,6 +18,7 @@ import echopype as ep
         ("EK80_CAL", "EK80", "2018115-D20181213-T094600.raw", None, None, None, "CW", "complex"),
         # EK80 CW power
         ("EK80", "EK80", "Summer2018--D20180905-T033113.raw", None, None, None, "CW", "power"),
+        # TODO: EK80 reduced sampling rate
     ],
     ids=[
         "azfp",
