@@ -213,7 +213,7 @@ def add_splitbeam_angle(
     Parameters
     ----------
     source_Sv: xr.Dataset or str or pathlib.Path
-        The Sv Dataset or path to a file containing the Sv Dataset, 
+        The Sv Dataset or path to a file containing the Sv Dataset,
         to which will the split-beam angles will be added
     echodata: EchoData
         An ``EchoData`` object holding the raw data
