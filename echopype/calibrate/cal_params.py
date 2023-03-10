@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Literal
 
 import numpy as np
 import xarray as xr
@@ -339,7 +339,7 @@ def get_cal_params_EK(
     beam: xr.Dataset,
     vend: xr.Dataset,
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
-    default_dict: Dict[str, Union[int, float]] = EK80_DEFAULT_PARAMS,
+    default_params: Dict[str, Union[int, float]] = EK80_DEFAULT_PARAMS,
     sonar_type: str = "EK80",
 ) -> Dict:
     """
@@ -358,7 +358,7 @@ def get_cal_params_EK(
     user_dict : dict
         a dictionary containing user-defined parameters.
         user-defined parameters take precedance over values in the data file or in default dict.
-    default_dict : dict
+    default_params : dict
         a dictionary containing default parameters
     sonar_type : str
         type of EK sonar, either "EK60" or "EK80"
@@ -373,7 +373,7 @@ def get_cal_params_EK(
             fs = []
             for ch in vend["channel"]:
                 tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
-                fs.append(default_dict["receiver_sampling_frequency"][tcvr_type])
+                fs.append(default_params["receiver_sampling_frequency"][tcvr_type])
             return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
 
     # Mapping between desired param name with Beam group data variable name
@@ -409,8 +409,8 @@ def get_cal_params_EK(
             if p == "sa_correction":  # pull from data file
                 out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
             elif p == "impedance_receive":  # from data file or default dict
-                out_dict[p] = default_dict[p] if p not in vend else vend["impedance_receive"]
-            elif p == "receiver_sampling_frequency":  # from data file or default_dict
+                out_dict[p] = default_params[p] if p not in vend else vend["impedance_receive"]
+            elif p == "receiver_sampling_frequency":  # from data file or default_params
                 out_dict[p] = _get_fs()
             else:
                 # CW: params do not require interpolation, except for impedance_transmit
@@ -430,7 +430,7 @@ def get_cal_params_EK(
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
-                            alternative=default_dict[p],  # pull from default dict
+                            alternative=default_params[p],  # pull from default dict
                         )
                     else:
                         raise ValueError(f"{p} not in the defined set of calibration parameters.")
@@ -465,7 +465,7 @@ def get_cal_params_EK(
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
-                            alternative=default_dict[p],  # pull from default dict
+                            alternative=default_params[p],  # pull from default dict
                         )
                     else:
                         raise ValueError(f"{p} not in the defined set of calibration parameters.")
