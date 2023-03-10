@@ -90,7 +90,7 @@ def sanitize_user_cal_dict(
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
-    Create a blue print for cal_params dict and check the format/organize user-provided params.
+    Creates a blueprint for ``cal_params`` dictionary and check the format/organize user-provided parameters.
 
     Parameters
     ----------
