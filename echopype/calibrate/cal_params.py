@@ -203,7 +203,7 @@ def _get_interp_da(
         which will be direct output of get_vend_cal_params_power()
     """
     param = []
-    for ch_id in freq_center["channel"].data:
+    for ch_id in freq_center["channel"].values:
         # if frequency-dependent param exists as a data array with desired channel
         if (
             da_param is not None
