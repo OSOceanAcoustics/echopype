@@ -304,7 +304,7 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
     ----------
     echodata : EchoData
         An EchoData object containing data to be calibrated
-    user_cal_dict : dict
+    user_dict : dict
         A dictionary containing user-defined calibration parameters.
         The user-defined calibration parameters will overwrite values in the data file.
 
