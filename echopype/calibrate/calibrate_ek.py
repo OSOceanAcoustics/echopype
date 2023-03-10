@@ -149,7 +149,7 @@ class CalibrateEK60(CalibrateEK):
 
         # Get cal_params
         self.cal_params = get_cal_params_EK(
-            waveform_mode="CW",
+            waveform_mode=self.waveform_mode,
             freq_center=beam["frequency_nominal"],
             beam=beam,
             vend=self.echodata["Vendor_specific"],
