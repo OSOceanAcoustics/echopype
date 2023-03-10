@@ -63,7 +63,8 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
 
     Returns
     -------
-    an xr.DataArray with channel coordinate
+    xr.DataArray
+        A data array with channel coordinate
     """
     # TODO: allow passing in np.array as dict values to assemble a frequency-dependent cal da
 
