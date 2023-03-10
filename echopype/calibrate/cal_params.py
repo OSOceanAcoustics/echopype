@@ -56,7 +56,7 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
     Parameters
     ----------
     p_val : int, float, or list
-        dictionary holding calibration params for one or more channels
+        a scalar or list holding calibration params for one or more channels
         each param has to be a scalar
     channel : list or xr.DataArray
         values to use for the output channel coordinate
