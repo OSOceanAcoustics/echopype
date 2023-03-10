@@ -140,6 +140,11 @@ def get_vend_filter_EK80(
 def get_filter_coeff(vend: xr.Dataset) -> Dict:
     """
     Get WBT and PC filter coefficients for constructing the transmit replica.
+    
+    Parameters
+    ----------
+    vend: xr.Dataset
+        An xr.Dataset from EchoData["Vendor_specific"]
 
     Returns
     -------
