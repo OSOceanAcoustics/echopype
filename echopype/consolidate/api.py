@@ -270,11 +270,6 @@ def add_splitbeam_angle(
     are identical across all channels, the channels existing in ``source_Sv`` and `
     `echodata`` will be identical. If this is not the case, only angle data corresponding
     to channels existing in ``source_Sv`` will be added.
-
-    TODO: remove the following section once pc option is added
-    For EK80 broadband data, the split-beam angles can be estimated from the complex data.
-    The current implementation generates angles estimated *without* applying pulse compression.
-    Estimating the angle with pulse compression will be added in the near future.
     """
 
     # ensure that echodata was produced by EK60 or EK80-like sensors
