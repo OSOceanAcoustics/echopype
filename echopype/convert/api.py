@@ -345,8 +345,7 @@ def open_raw(
         options for cloud storage
     offload_to_zarr: bool
         If True, variables with a large memory footprint will be
-        written to a temporary zarr store called ``~/.echopype/temp_output/parsed2zarr_temp_files``
-        under the current execution folder
+        written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
     max_zarr_mb : int
         maximum MB that each zarr chunk should hold, when offloading
         variables with a large memory footprint to a temporary zarr store
