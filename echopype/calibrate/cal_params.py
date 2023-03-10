@@ -367,7 +367,10 @@ def get_cal_params_EK(
     sonar_type : str
         Type of EK sonar, either "EK60" or "EK80"
     """
-
+    if not isinstance(waveform_mode, str):
+        raise TypeError("waveform_mode is not type string")
+    elif waveform_mode not in ["CW", "BB"]:
+        raise ValueError("waveform_mode must be 'CW' or 'BB'")
     # Private function to get fs
     def _get_fs():
         if "fs_receiver" in vend:
