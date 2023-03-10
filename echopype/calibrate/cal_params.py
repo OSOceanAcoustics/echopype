@@ -136,7 +136,7 @@ def sanitize_user_cal_dict(
                             "that of the data to be calibrated"
                         )
                 elif "cal_channel_id" in p_val.coords and "cal_frequency" in p_val.coords:
-                    if not (sorted(p_val.coords["cal_channel_id"].data) == channel_sorted):
+                    if not (sorted(p_val.coords["cal_channel_id"].values) == channel_sorted):
                         raise ValueError(
                             f"The 'cal_channel_id' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
