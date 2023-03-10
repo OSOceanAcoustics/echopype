@@ -69,18 +69,18 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
 
     if not isinstance(p_val, (int, float, list)):
         raise ValueError("'p_val' needs to be one of type int, float, or list")
-    else:
-        if isinstance(p_val, list):
-            # Check length if p_val a list
-            if len(p_val) != len(channel):
-                raise ValueError("The lengths of 'p_val' and 'channel' should be identical")
 
-            return xr.DataArray(p_val, dims=["channel"], coords={"channel": channel})
-        else:
-            # if scalar, make a list to form data array
-            return xr.DataArray(
-                [p_val] * len(channel), dims=["channel"], coords={"channel": channel}
-            )
+    if isinstance(p_val, list):
+        # Check length if p_val a list
+        if len(p_val) != len(channel):
+            raise ValueError("The lengths of 'p_val' and 'channel' should be identical")
+
+        return xr.DataArray(p_val, dims=["channel"], coords={"channel": channel})
+    else:
+        # if scalar, make a list to form data array
+        return xr.DataArray(
+            [p_val] * len(channel), dims=["channel"], coords={"channel": channel}
+        )
 
 
 def sanitize_user_cal_dict(
