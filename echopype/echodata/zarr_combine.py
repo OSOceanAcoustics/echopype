@@ -663,8 +663,8 @@ class ZarrCombine:
                     # compare variable names from dataset with the first
                     # file's variable names and only grab the ones that exists
                     # in the current dataset
-                    drop_names = [name for name in drop_names if name in ds_keys]
-                    ds_drop = ds_list[ds_list_ind].drop_vars(drop_names)
+                    final_drop_names = [name for name in drop_names if name in ds_keys]
+                    ds_drop = ds_list[ds_list_ind].drop_vars(final_drop_names)
 
                     # get xarray region for all dims, except dim
                     region = self._get_region(ds_list_ind, set(ds_drop.dims))
