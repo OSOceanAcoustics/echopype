@@ -341,6 +341,7 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
     # remove temporary directory
     temp_zarr_dir.cleanup()
 
+# TODO: Add combine_echodata with combined and multiple. eg [combined, ed1, ed2]
 def test_combine_echodata_combined_and_single(ek60_test_data, sonar_model="EK60"):
         """
         Integration test for combine_echodata with
