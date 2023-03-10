@@ -308,7 +308,7 @@ def add_splitbeam_angle(
         raise ValueError("The input source_Sv Dataset must have a channel dimension!")
 
     # Select ds_beam channels from source_Sv
-    ds_beam = echodata[encode_mode_ed_group].sel(channel=source_Sv["channel"].data)
+    ds_beam = echodata[encode_mode_ed_group].sel(channel=source_Sv["channel"].values)
 
     # Assemble angle param dict
     angle_param_list = [
