@@ -56,7 +56,7 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
     Parameters
     ----------
     p_val : int, float, or list
-        dictionary holding calibration params for one or more channels
+        a scalar or list holding calibration params for one or more channels
         each param has to be a scalar
     channel : list or xr.DataArray
         values to use for the output channel coordinate
@@ -85,22 +85,22 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
 
 
 def sanitize_user_cal_dict(
-    sonar_type: str,
+    sonar_type: Literal["EK60", "EK80", "AZFP"],
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
-    Create a blue print for cal_params dict and check the format/organize user-provided params.
+    Creates a blueprint for ``cal_params`` dictionary and check the format/organize user-provided parameters.
 
     Parameters
     ----------
     sonar_type : str
         type of sonar, one of "EK60", "EK80", or "AZFP"
     user_dict : dict
-        a dict containing user input calibration parameters as {parameter name: parameter value}
-        parameter value has to be a scalar (int or float) or an xr.DataArray
-        if parameter value is an xr.DataArray, it has to either have 'channel' as a coorindate
-        or have both 'cal_channel_id' and 'cal_frequency' as coordinates
+        a dictionary containing user input calibration parameters as {parameter name: parameter value}
+        parameter value has to be a scalar (int or float) or an ``xr.DataArray``.
+        If parameter value is an ``xr.DataArray``, it has to either have 'channel' as a coordinate
+        or have both ``cal_channel_id`` and ``cal_frequency`` as coordinates.
 
     channel : list or xr.DataArray
         a list of channels to be calibrated
@@ -114,11 +114,11 @@ def sanitize_user_cal_dict(
     # Make channel a sorted list
     if not isinstance(channel, (list, xr.DataArray)):
         raise ValueError("'channel' has to be a list or an xr.DataArray")
+
+    if isinstance(channel, xr.DataArray):
+        channel_sorted = sorted(channel.data)
     else:
-        if isinstance(channel, xr.DataArray):
-            channel_sorted = sorted(channel.data)
-        else:
-            channel_sorted = sorted(channel)
+        channel_sorted = sorted(channel)
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     #  -- transform params in scalar or list to xr.DataArray
@@ -136,7 +136,7 @@ def sanitize_user_cal_dict(
                             "that of the data to be calibrated"
                         )
                 elif "cal_channel_id" in p_val.coords and "cal_frequency" in p_val.coords:
-                    if not (sorted(p_val.coords["cal_channel_id"].data) == channel_sorted):
+                    if not (sorted(p_val.coords["cal_channel_id"].values) == channel_sorted):
                         raise ValueError(
                             f"The 'cal_channel_id' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
