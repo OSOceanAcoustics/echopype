@@ -179,8 +179,8 @@ The examples below apply equally to both methods, except as noted.
 A destination folder or file path should be specified with the ``save_path``
 argument in these methods in order to control the location of the converted files.
 If the argument is not specified, the converted ``.nc`` and ``.zarr``
-files are saved into a folder called ``~/.echopype/temp_output`` under the
-current execution folder. This folder will be created if it doesn't already exists.
+files are saved into the directory ``~/.echopype/temp_output``.
+This folder will be created if it doesn't already exists.
 
 
 Specify metadata attributes
