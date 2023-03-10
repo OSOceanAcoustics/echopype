@@ -344,7 +344,7 @@ def add_splitbeam_angle(
         if pulse_compression:  # with pulse compression
             # put receiver fs into the same dict for simplicity
             pc_params = get_filter_coeff(
-                echodata["Vendor_specific"].sel(channel=source_Sv["channel"].data)
+                echodata["Vendor_specific"].sel(channel=source_Sv["channel"].values)
             )
             pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
             theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params)
