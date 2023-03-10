@@ -169,7 +169,7 @@ def _get_interp_da(
     da_param: Union[None, xr.DataArray],
     freq_center: xr.DataArray,
     alternative: Union[int, float, xr.DataArray],
-    BB_fac: float = 1,
+    BB_factor: float = 1,
 ) -> xr.DataArray:
     """
     Get interpolated xr.DataArray aligned with the channel coordinate.
@@ -186,7 +186,7 @@ def _get_interp_da(
         center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
         alternative for when freq-dep values do not exist
-    BB_fac : float
+    BB_factor : float
         scaling factor due to BB transmit signal with different center frequency
         with respect to nominal channel frequency;
         only applies when ``alternative`` from the Sonar/Beam_groupX group is used
@@ -229,7 +229,9 @@ def _get_interp_da(
             )
         # if no frequency-dependent param exists, use alternative
         else:
-            BB_fac_ch = BB_fac.sel(channel=ch_id) if isinstance(BB_fac, xr.DataArray) else BB_fac
+            BB_fac_ch = (
+                BB_factor.sel(channel=ch_id) if isinstance(BB_factor, xr.DataArray) else BB_factor
+            )
             if isinstance(alternative, xr.DataArray):
                 # drop the redundant beam dimension if exist
                 if "beam" in alternative.coords:
@@ -463,16 +465,16 @@ def get_cal_params_EK(
                             "beamwidth_alongship",
                             "beamwidth_athwartship",
                         ]:
-                            BB_fac = freq_center / beam["frequency_nominal"]
+                            BB_factor = freq_center / beam["frequency_nominal"]
                         else:
-                            BB_fac = 1
+                            BB_factor = 1
 
                         p_beam = PARAM_BEAM_NAME_MAP[p]
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
                             alternative=beam[p_beam],  # these should always exist
-                            BB_fac=BB_fac,
+                            BB_factor=BB_factor,
                         )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
