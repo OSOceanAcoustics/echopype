@@ -371,6 +371,7 @@ def get_cal_params_EK(
         raise TypeError("waveform_mode is not type string")
     elif waveform_mode not in ["CW", "BB"]:
         raise ValueError("waveform_mode must be 'CW' or 'BB'")
+
     # Private function to get fs
     def _get_fs():
         if "fs_receiver" in vend:
