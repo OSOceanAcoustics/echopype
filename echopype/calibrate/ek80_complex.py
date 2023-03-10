@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Union
+from typing import Dict, Union, Literal
 
 import numpy as np
 import xarray as xr
