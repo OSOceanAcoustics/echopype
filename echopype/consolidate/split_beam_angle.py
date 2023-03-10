@@ -112,11 +112,6 @@ def get_angle_power_samples(
     phi: xr.Dataset
         Split-beam athwartship angle
 
-    Raises
-    ------
-    NotImplementedError
-        If all ``beam_type`` values are not equal to 1
-
     Notes
     -----
     Can be used on both EK60 and EK80 data
