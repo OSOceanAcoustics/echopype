@@ -128,7 +128,7 @@ def sanitize_user_cal_dict(
             if isinstance(p_val, xr.DataArray):
                 # if 'channel' is a coordinate, it has to match that of the data
                 if "channel" in p_val.coords:
-                    if not (sorted(p_val.coords["channel"].data) == channel_sorted):
+                    if not (sorted(p_val.coords["channel"].values) == channel_sorted):
                         raise ValueError(
                             f"The 'channel' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
