@@ -97,7 +97,7 @@ def sanitize_user_cal_dict(
     sonar_type : str
         type of sonar, one of "EK60", "EK80", or "AZFP"
     user_dict : dict
-        a dict containing user input calibration parameters as {parameter name: parameter value}
+        a dictionary containing user input calibration parameters as {parameter name: parameter value}
         parameter value has to be a scalar (int or float) or an xr.DataArray
         if parameter value is an xr.DataArray, it has to either have 'channel' as a coorindate
         or have both 'cal_channel_id' and 'cal_frequency' as coordinates
