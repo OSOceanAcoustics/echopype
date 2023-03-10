@@ -85,7 +85,7 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
 
 
 def sanitize_user_cal_dict(
-    sonar_type: str,
+    sonar_type: Literal["EK60", "EK80", "AZFP"],
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
