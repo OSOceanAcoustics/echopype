@@ -56,10 +56,10 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
     Parameters
     ----------
     p_val : int, float, or list
-        a scalar or list holding calibration params for one or more channels
-        each param has to be a scalar
+        A scalar or list holding calibration params for one or more channels.
+        Each param has to be a scalar.
     channel : list or xr.DataArray
-        values to use for the output channel coordinate
+        Values to use for the output channel coordinate
 
     Returns
     -------
@@ -88,21 +88,23 @@ def sanitize_user_cal_dict(
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
-    Creates a blueprint for ``cal_params`` dictionary and check the format/organize user-provided parameters.
+    Creates a blueprint for ``cal_params`` dictionary and
+    check the format/organize user-provided parameters.
 
     Parameters
     ----------
     sonar_type : str
-        type of sonar, one of "EK60", "EK80", or "AZFP"
+        Type of sonar, one of "EK60", "EK80", or "AZFP"
     user_dict : dict
-        a dictionary containing user input calibration parameters as {parameter name: parameter value}
-        parameter value has to be a scalar (int or float) or an ``xr.DataArray``.
+        A dictionary containing user input calibration parameters
+        as {parameter name: parameter value}.
+        Parameter value has to be a scalar (int or float) or an ``xr.DataArray``.
         If parameter value is an ``xr.DataArray``, it has to either have 'channel' as a coordinate
         or have both ``cal_channel_id`` and ``cal_frequency`` as coordinates.
 
     channel : list or xr.DataArray
-        a list of channels to be calibrated
-        for EK80 data, this list has to corresponds with the subset of channels
+        A list of channels to be calibrated.
+        For EK80 data, this list has to corresponds with the subset of channels
         selected based on waveform_mode and encode_mode
     """
     # Check sonar type
@@ -175,11 +177,11 @@ def _get_interp_da(
     Parameters
     ----------
     da_param : xr.DataArray or None
-        a data array from the Vendor group or user dict with freq-dependent param values
+        A data array from the Vendor group or user dict with freq-dependent param values
     freq_center : xr.DataArray
-        center frequency (BB) or nominal frequency (CW)
+        Center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
-        alternative for when freq-dep values do not exist
+        Alternative for when freq-dep values do not exist
 
     Returns
     -------
@@ -258,7 +260,7 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
     vend : xr.Dataset
         A subset of Vendor_specific that contains only the channels specified for calibration
     param : str {"sa_correction", "gain_correction"}
-        name of parameter to retrieve
+        Name of parameter to retrieve
 
     Returns
     -------
@@ -303,9 +305,9 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
     Parameters
     ----------
     beam : xr.Dataset
-        a subset of Sonar/Beam_groupX that contains only the channels to be calibrated
+        A subset of Sonar/Beam_groupX that contains only the channels to be calibrated
     vend : xr.Dataset
-        a subset of Vendor_specific that contains only the channels to be calibrated
+        A subset of Vendor_specific that contains only the channels to be calibrated
     user_dict : dict
         A dictionary containing user-defined calibration parameters.
         The user-defined calibration parameters will overwrite values in the data file.
@@ -350,20 +352,20 @@ def get_cal_params_EK(
     Parameters
     ----------
     waveform_mode : str
-        transmit waveform mode, either "CW" or "BB"
+        Transmit waveform mode, either "CW" or "BB"
     freq_center : xr.DataArray
-        center frequency (BB mode) or nominal frequency (CW mode)
+        Center frequency (BB mode) or nominal frequency (CW mode)
     beam : xr.Dataset
-        a subset of Sonar/Beam_groupX that contains only the channels to be calibrated
+        A subset of Sonar/Beam_groupX that contains only the channels to be calibrated
     vend : xr.Dataset
-        a subset of Vendor_specific that contains only the channels to be calibrated
+        A subset of Vendor_specific that contains only the channels to be calibrated
     user_dict : dict
-        a dictionary containing user-defined parameters.
-        user-defined parameters take precedance over values in the data file or in default dict.
+        A dictionary containing user-defined parameters.
+        User-defined parameters take precedance over values in the data file or in default dict.
     default_params : dict
-        a dictionary containing default parameters
+        A dictionary containing default parameters
     sonar_type : str
-        type of EK sonar, either "EK60" or "EK80"
+        Type of EK sonar, either "EK60" or "EK80"
     """
 
     # Private function to get fs
@@ -476,7 +478,7 @@ def get_cal_params_EK(
 
 
 def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: str
+    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: Literal["coeff", "decimation"]
 ) -> Union[np.ndarray, int]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
@@ -486,11 +488,11 @@ def get_vend_filter_EK80(
     vend: xr.Dataset
         EchoData["Vendor_specific"]
     channel_id : str
-        channel id for which the param to be retrieved
+        Channel id for which the param to be retrieved
     filter_name : str
-        name of filter coefficients to retrieve
+        Name of filter coefficients to retrieve
     param_type : str
-        'coeff' or 'decimation'
+        Parameter type, either 'coeff' or 'decimation'
 
     Returns
     -------
