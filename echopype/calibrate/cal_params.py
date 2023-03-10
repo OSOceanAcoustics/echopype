@@ -334,7 +334,7 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
 
 
 def get_cal_params_EK(
-    waveform_mode: str,
+    waveform_mode: Literal["CW", "BB"],
     freq_center: xr.DataArray,
     beam: xr.Dataset,
     vend: xr.Dataset,
