@@ -228,7 +228,7 @@ def test_ek80_BB_power_echoview(ek80_path):
 
     pc = ep.calibrate.ek80_complex.compress_pulse(
         backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"], chirp=chirp)
-    pc_mean = pc.pulse_compressed_output.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")
+    pc_mean = pc.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")
 
     # Read EchoView pc raw power output
     df = pd.read_csv(ek80_bb_pc_test_path, header=None, skiprows=[0])
