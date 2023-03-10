@@ -25,7 +25,8 @@ doi: 10.5281/zenodo.3906999
 # require having to update this file with each release
 version: 0.6.4
 date-released: 2023-01-03
-url: "https://github.com/OSOceanAcoustics/echopype"
+url: "https://echopype.readthedocs.io"
+repository-code: "https://github.com/OSOceanAcoustics/echopype"
 preferred-citation:
   type: article
   authors:
