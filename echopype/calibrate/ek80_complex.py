@@ -113,7 +113,7 @@ def get_vend_filter_EK80(
     Parameters
     ----------
     vend: xr.Dataset
-        EchoData["Vendor_specific"]
+        An xr.Dataset from EchoData["Vendor_specific"]
     channel_id : str
         channel id for which the param to be retrieved
     filter_name : str
