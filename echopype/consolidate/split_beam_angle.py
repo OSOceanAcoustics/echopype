@@ -7,12 +7,12 @@ from typing import List, Optional, Tuple
 import numpy as np
 import xarray as xr
 
-from ..echodata import EchoData
+from ..calibrate.ek80_complex import compress_pulse, get_transmit_signal
 
 
 def _compute_angle_from_complex(
-    bs: xr.Dataset, beam_type: int, sens: List[xr.DataArray], offset: List[xr.DataArray]
-):
+    bs: xr.DataArray, beam_type: int, sens: List[xr.DataArray], offset: List[xr.DataArray]
+) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Compute split-beam angles from raw data from transducer sectors.
 
@@ -21,7 +21,7 @@ def _compute_angle_from_complex(
 
     Parameters
     ----------
-    bs: xr.Dataset
+    bs: xr.DataArray
         Complex backscatter samples from a single channel or multiple channels
     beam_type: int
         The type of beam being considered
@@ -36,9 +36,9 @@ def _compute_angle_from_complex(
 
     Returns
     -------
-    theta: xr.Dataset
+    theta: xr.DataArray
         The calculated split-beam alongship angle for a specific channel
-    phi: xr.Dataset
+    phi: xr.DataArray
         The calculated split-beam athwartship angle for a specific channel
 
     Notes
@@ -92,7 +92,9 @@ def _compute_angle_from_complex(
     return theta, phi
 
 
-def get_angle_power_samples(ds_beam: xr.Dataset, angle_params: dict) -> Tuple[xr.Dataset, xr.Dataset]:
+def get_angle_power_samples(
+    ds_beam: xr.Dataset, angle_params: dict
+) -> Tuple[xr.Dataset, xr.Dataset]:
     """
     Obtain split-beam angle from CW mode power samples.
 
@@ -157,7 +159,7 @@ def get_angle_power_samples(ds_beam: xr.Dataset, angle_params: dict) -> Tuple[xr
 
 
 def get_angle_complex_samples(
-    ds_beam: xr.Dataset, angle_params: dict
+    ds_beam: xr.Dataset, angle_params: dict, pc_params: dict = None
 ) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Obtain split-beam angle from CW or BB mode complex samples.
@@ -168,6 +170,9 @@ def get_angle_complex_samples(
         An ``EchoData`` Sonar/Beam_group1 group (complex samples always in Beam_group1)
     angle_params : dict
         A dict containing angle_offset/angle_sensitivity params from the calibrated dataset
+    pc_params : dict
+        Parameters needed for pulse compression
+        This dict also serves as a flag for whether to apply pulse compression
 
     Returns
     -------
@@ -179,6 +184,16 @@ def get_angle_complex_samples(
 
     # Get complex backscatter samples
     bs = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
+
+    # Pulse compression if pc_params exists
+    if pc_params is not None:
+        tx, tx_time = get_transmit_signal(
+            beam=ds_beam,
+            coeff=pc_params,  # this is filter_coeff with fs added
+            waveform_mode="BB",
+            fs=pc_params["receiver_sampling_frequency"],  # this is the added fs
+        )
+        bs = compress_pulse(backscatter=bs, chirp=tx)  # has beam dim
 
     # Compute angles
     # unique beam_type existing in the dataset
@@ -202,10 +217,12 @@ def get_angle_complex_samples(
         # beam_type different for some channels, process each channel separately
         theta, phi = [], []
         for ch_id in bs["channel"].data:
-            theta_ch, phi_ch = _compute_angle_from_complex(                
+            theta_ch, phi_ch = _compute_angle_from_complex(
                 bs=bs.sel(channel=ch_id),
                 # beam_type is not time-varying
-                beam_type=ds_beam["beam_type"].sel(channel=ch_id).isel(ping_time=0).drop("ping_time"),
+                beam_type=(
+                    ds_beam["beam_type"].sel(channel=ch_id).isel(ping_time=0).drop("ping_time")
+                ),
                 sens=[
                     angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
                     angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
@@ -242,32 +259,6 @@ def get_angle_complex_samples(
         phi = phi.drop("beam")
 
     return theta, phi
-
-
-def get_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
-    """
-    Obtain split-beam angle from BB mode complex samples, with pulse compression.
-
-    Parameters
-    ----------
-    ds_beam: xr.Dataset
-        An ``EchoData`` Sonar/Beam_group1 group (complex samples always in Beam_group1)
-
-    Returns
-    -------
-    theta: xr.Dataset
-        Split-beam alongship angle
-    phi: xr.Dataset
-        Split-beam athwartship angle
-    """
-
-    # TODO: make sure to check that the appropriate beam_type is being used
-    raise NotImplementedError(
-        "Obtaining the split-beam angle data using pulse compressed "
-        "backscatter has not been implemented!"
-    )
-
-    return xr.DataArray(), xr.DataArray()
 
 
 def add_angle_to_ds(

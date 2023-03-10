@@ -324,6 +324,5 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
             "range_sample": backscatter["range_sample"],
         }
     )
-    pc_all.name = "pulse_compressed_output"
 
     return pc_all

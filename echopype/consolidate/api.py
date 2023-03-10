@@ -5,15 +5,11 @@ from typing import Optional, Union
 import numpy as np
 import xarray as xr
 
+from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import validate_source_ds_da
-from .split_beam_angle import (
-    add_angle_to_ds,
-    get_angle_complex_BB_pc,
-    get_angle_complex_samples,
-    get_angle_power_samples,
-)
+from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
@@ -351,7 +347,12 @@ def add_splitbeam_angle(
     # BB mode data
     else:
         if pulse_compression:  # with pulse compression
-            theta, phi = get_angle_complex_BB_pc(ds_beam=ds_beam)
+            # put receiver fs into the same dict for simplicity
+            pc_params = get_filter_coeff(
+                echodata["Vendor_specific"].sel(channel=source_Sv["channel"].data)
+            )
+            pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params)
         else:  # without pulse compression
             # operation is identical with CW complex data
             theta, phi = get_angle_complex_samples(ds_beam, angle_params)
