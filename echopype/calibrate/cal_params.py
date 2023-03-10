@@ -114,7 +114,7 @@ def sanitize_user_cal_dict(
         raise ValueError("'channel' has to be a list or an xr.DataArray")
 
     if isinstance(channel, xr.DataArray):
-        channel_sorted = sorted(channel.data)
+        channel_sorted = sorted(channel.values)
     else:
         channel_sorted = sorted(channel)
 
