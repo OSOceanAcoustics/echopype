@@ -310,7 +310,7 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
 
     Returns
     -------
-    A dict containing the calibration parameters for the AZFP echosounder
+    A dictionary containing the calibration parameters for the AZFP echosounder
     """
     # Use sanitized user dict as blueprint
     # out_dict contains only and all of the allowable cal params
