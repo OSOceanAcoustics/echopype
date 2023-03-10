@@ -79,9 +79,7 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
         return xr.DataArray(p_val, dims=["channel"], coords={"channel": channel})
     else:
         # if scalar, make a list to form data array
-        return xr.DataArray(
-            [p_val] * len(channel), dims=["channel"], coords={"channel": channel}
-        )
+        return xr.DataArray([p_val] * len(channel), dims=["channel"], coords={"channel": channel})
 
 
 def sanitize_user_cal_dict(
