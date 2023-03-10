@@ -105,7 +105,7 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
 
 
 def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: str
+    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: Literal["coeff", "decimation"]
 ) -> Union[np.ndarray, int]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
@@ -113,7 +113,7 @@ def get_vend_filter_EK80(
     Parameters
     ----------
     vend: xr.Dataset
-        EchoData["Vendor_specific"]
+        An xr.Dataset from EchoData["Vendor_specific"]
     channel_id : str
         channel id for which the param to be retrieved
     filter_name : str
@@ -127,19 +127,24 @@ def get_vend_filter_EK80(
         The filter coefficient or the decimation factor
     """
     if param_type == "coeff":
-        v = vend.attrs["%s %s filter_r" % (channel_id, filter_name)] + 1j * np.array(
-            vend.attrs["%s %s filter_i" % (channel_id, filter_name)]
+        v = vend.attrs[f"{channel_id} {filter_name} filter_r"] + 1j * np.array(
+            vend.attrs[f"{channel_id} {filter_name} filter_i"]
         )
         if v.size == 1:
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
-        return vend.attrs["%s %s decimation" % (channel_id, filter_name)]
+        return vend.attrs[f"{channel_id} {filter_name} decimation"]
 
 
-def get_filter_coeff(vend) -> Dict:
+def get_filter_coeff(vend: xr.Dataset) -> Dict:
     """
     Get WBT and PC filter coefficients for constructing the transmit replica.
+
+    Parameters
+    ----------
+    vend: xr.Dataset
+        An xr.Dataset from EchoData["Vendor_specific"]
 
     Returns
     -------
