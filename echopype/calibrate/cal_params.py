@@ -141,7 +141,7 @@ def sanitize_user_cal_dict(
                         )
                 else:
                     raise ValueError(
-                        f"{p_name} has to either have 'channel' as a coorindate "
+                        f"{p_name} has to either have 'channel' as a coordinate "
                         "or have both 'cal_channel_id' and 'cal_frequency' as coordinates"
                     )
                 out_dict[p_name] = p_val
