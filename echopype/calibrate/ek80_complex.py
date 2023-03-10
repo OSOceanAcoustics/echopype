@@ -322,7 +322,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
             "ping_time": backscatter["ping_time"],
             "beam": backscatter["beam"],
             "range_sample": backscatter["range_sample"],
-        }
+        },
     )
 
     return pc_all
