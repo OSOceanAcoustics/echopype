@@ -86,7 +86,7 @@ all files from the same deployment.
     by allowing users to directly write variables that may consume a large amount of memory
     into a temporary zarr store (see `#774 <https://github.com/OSOceanAcoustics/echopype/pull/774>`_).
 
-    This feature is accessible through ``open_raw`` via arguments ``offload_to_zarr`` and ``max_zarr_mb``
+    This feature is accessible through ``open_raw`` via arguments ``use_swap`` and ``max_mb``
     and is only available for the following echosounders: EK60, ES70, EK80, ES80, EA640.
     See :ref:`API reference <api-open_raw>` for usage.
     This is currently a beta feature that will benefit from user feedback.
