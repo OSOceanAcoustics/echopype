@@ -137,7 +137,7 @@ def get_vend_filter_EK80(
         return vend.attrs[f"{channel_id} {filter_name} decimation"]
 
 
-def get_filter_coeff(vend) -> Dict:
+def get_filter_coeff(vend: xr.Dataset) -> Dict:
     """
     Get WBT and PC filter coefficients for constructing the transmit replica.
 
