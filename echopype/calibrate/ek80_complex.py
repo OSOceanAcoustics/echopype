@@ -134,7 +134,7 @@ def get_vend_filter_EK80(
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
-        return vend.attrs["%s %s decimation" % (channel_id, filter_name)]
+        return vend.attrs[f"{channel_id} {filter_name} decimation"]
 
 
 def get_filter_coeff(vend) -> Dict:
