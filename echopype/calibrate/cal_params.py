@@ -183,7 +183,8 @@ def _get_interp_da(
 
     Returns
     -------
-    an xr.DataArray aligned with the channel coordinate.
+    xr.DataArray
+        Data array aligned with the channel coordinate.
 
     Note
     ----
