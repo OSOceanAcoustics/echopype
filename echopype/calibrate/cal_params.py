@@ -169,6 +169,7 @@ def _get_interp_da(
     da_param: Union[None, xr.DataArray],
     freq_center: xr.DataArray,
     alternative: Union[int, float, xr.DataArray],
+    BB_fac: float = 1,
 ) -> xr.DataArray:
     """
     Get interpolated xr.DataArray aligned with the channel coordinate.
@@ -185,6 +186,12 @@ def _get_interp_da(
         center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
         alternative for when freq-dep values do not exist
+    BB_fac : float
+        scaling factor due to BB transmit signal with different center frequency
+        with respect to nominal channel frequency;
+        only applies when ``alternative`` from the Sonar/Beam_groupX group is used
+        for params ``angle_sensitivity_alongship/athwartship`` and
+        ``beamwidth_alongship/athwartship`` (``see get_cal_params_EK`` for detail)
 
     Returns
     -------
@@ -222,16 +229,19 @@ def _get_interp_da(
             )
         # if no frequency-dependent param exists, use alternative
         else:
+            BB_fac_ch = BB_fac.sel(channel=ch_id) if isinstance(BB_fac, xr.DataArray) else BB_fac
             if isinstance(alternative, xr.DataArray):
                 # drop the redundant beam dimension if exist
                 if "beam" in alternative.coords:
-                    param.append(alternative.sel(channel=ch_id).isel(beam=0).data.squeeze())
+                    param.append(
+                        (alternative.sel(channel=ch_id).isel(beam=0) * BB_fac_ch).data.squeeze()
+                    )
                 else:
-                    param.append(alternative.sel(channel=ch_id).data.squeeze())
+                    param.append((alternative.sel(channel=ch_id) * BB_fac_ch).data.squeeze())
             elif isinstance(alternative, (int, float)):
                 # expand to have ping_time dimension
                 param.append(
-                    np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze()
+                    np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze() * BB_fac_ch
                 )
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
@@ -445,13 +455,23 @@ def get_cal_params_EK(
                 else:
                     # interpolate for center frequency or use CW values
                     if p in PARAM_BEAM_NAME_MAP.keys():
+                        # only scale these params if alternative is used
+                        if p in [
+                            "angle_sensitivity_alongship",
+                            "angle_sensitivity_athwartship",
+                            "beamwidth_alongship",
+                            "beamwidth_athwartship",
+                        ]:
+                            BB_fac = freq_center / beam["frequency_nominal"]
+                        else:
+                            BB_fac = 1
+
                         p_beam = PARAM_BEAM_NAME_MAP[p]
-                        # TODO: beamwidth_along/athwartship should be scaled
-                        #       like equivalent_beam_angle
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
                             alternative=beam[p_beam],  # these should always exist
+                            BB_fac=BB_fac,
                         )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
