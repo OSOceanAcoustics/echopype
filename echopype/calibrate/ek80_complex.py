@@ -128,7 +128,7 @@ def get_vend_filter_EK80(
     """
     if param_type == "coeff":
         v = vend.attrs[f"{channel_id} {filter_name} filter_r"] + 1j * np.array(
-            vend.attrs["%s %s filter_i" % (channel_id, filter_name)]
+            vend.attrs[f"{channel_id} {filter_name} filter_i"]
         )
         if v.size == 1:
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
