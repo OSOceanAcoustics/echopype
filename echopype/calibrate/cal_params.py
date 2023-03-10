@@ -302,8 +302,10 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
 
     Parameters
     ----------
-    echodata : EchoData
-        An EchoData object containing data to be calibrated
+    beam : xr.Dataset
+        a subset of Sonar/Beam_groupX that contains only the channels to be calibrated
+    vend : xr.Dataset
+        a subset of Vendor_specific that contains only the channels to be calibrated
     user_dict : dict
         A dictionary containing user-defined calibration parameters.
         The user-defined calibration parameters will overwrite values in the data file.
