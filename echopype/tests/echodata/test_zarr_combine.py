@@ -23,6 +23,7 @@ def ek60_test_data(test_path):
         ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
         ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
         ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T024811.raw")
     ]
     return [test_path["EK60"].joinpath(*f) for f in files]
 
@@ -341,8 +342,20 @@ def test_append_ds_list_to_zarr(append_ds_list_params):
     # remove temporary directory
     temp_zarr_dir.cleanup()
 
-# TODO: Add combine_echodata with combined and multiple. eg [combined, ed1, ed2]
-def test_combine_echodata_combined_and_single(ek60_test_data, sonar_model="EK60"):
+@pytest.mark.parametrize("test_param", [
+        "single",
+        pytest.param(
+            "multi",
+            marks=pytest.mark.xfail(
+                reason=(
+                    'Not yet supported. Some bug found at '
+                    '`zarr_combine.py::_append_provenance_attr_vars`.'
+                )
+            )
+        )
+    ]
+)
+def test_combine_echodata_combined_and_others(ek60_test_data, test_param, sonar_model="EK60"):
         """
         Integration test for combine_echodata with
         a single combined ed and a single echodata
@@ -362,8 +375,12 @@ def test_combine_echodata_combined_and_single(ek60_test_data, sonar_model="EK60"
             + f"/combined_echodata2.zarr"
         )
         combined_ed = echopype.combine_echodata(eds[:2], zarr_path=first_zarr, overwrite=True)
+        if test_param == "single":
+            data_inputs = [combined_ed, eds[2]]
+        else:
+            data_inputs = [combined_ed, eds[2], eds[3]]
         combined_ed2 = echopype.combine_echodata(
-            [combined_ed, eds[-1]],
+            data_inputs,
             zarr_path=second_zarr,
             overwrite=True
         )
@@ -375,6 +392,8 @@ def test_combine_echodata_combined_and_single(ek60_test_data, sonar_model="EK60"
         assert eds[0]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[0].values
         assert eds[1]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[1].values
         assert eds[2]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[2].values
+        if test_param == "multi":
+            assert eds[3]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[3].values
 
         # Check beam_group1. Should be exactly same xr dataset
         group_path = "Sonar/Beam_group1"
@@ -389,6 +408,11 @@ def test_combine_echodata_combined_and_single(ek60_test_data, sonar_model="EK60"
         ds2 = eds[2][group_path]
         filt_ds2 = combined_ed2[group_path].sel(ping_time=ds2.ping_time)
         assert filt_ds2.equals(ds2) is True
+
+        if test_param == "multi":
+            ds3 = eds[3][group_path]
+            filt_ds3 = combined_ed2[group_path].sel(ping_time=ds3.ping_time)
+            assert filt_ds3.equals(ds3) is True
 
         filt_combined = combined_ed2[group_path].sel(ping_time=combined_ed[group_path].ping_time)
         assert filt_combined.equals(combined_ed[group_path])
