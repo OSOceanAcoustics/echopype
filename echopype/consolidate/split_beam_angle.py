@@ -146,8 +146,8 @@ def get_angle_power_samples(
             "from split-beam transducers!"
         )
 
-    # TODO: review and remove this block
     # drop the beam dimension in theta and phi, if it exists
+    # this cannot be removed because beam dimension exists in all power data (beam dim: length=1)
     if "beam" in theta.dims:
         theta = theta.drop("beam").squeeze(dim="beam")
         phi = phi.drop("beam").squeeze(dim="beam")
@@ -250,12 +250,6 @@ def get_angle_complex_samples(
                 "range_sample": bs["range_sample"],
             },
         )
-
-    # TODO: review and remove this block
-    # drop the beam dimension in theta and phi, if it exists
-    if "beam" in theta.coords:
-        theta = theta.drop_vars("beam")
-        phi = phi.drop("beam")
 
     return theta, phi
 
