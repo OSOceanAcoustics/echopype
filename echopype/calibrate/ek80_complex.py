@@ -292,6 +292,11 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         complex backscatter samples
     chirp : dict
         transmit chirp replica indexed by ``channel``
+
+    Returns
+    -------
+    xr.DataArray
+        A data array containing pulse compression output.
     """
     pc_all = []
     for chan in backscatter["channel"]:
