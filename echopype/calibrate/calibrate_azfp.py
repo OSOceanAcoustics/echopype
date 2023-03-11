@@ -11,6 +11,9 @@ class CalibrateAZFP(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params=None, cal_params=None, **kwargs):
         super().__init__(echodata, env_params, cal_params)
 
+        # Set sonar_type
+        self.sonar_type = "AZFP"
+
         # load env and cal parameters
         self.env_params = get_env_params_AZFP(echodata=self.echodata, user_env_dict=self.env_params)
         self.cal_params = get_cal_params_AZFP(
@@ -99,9 +102,6 @@ class CalibrateAZFP(CalibrateBase):
 
         # Add env and cal parameters
         out = self._add_params_to_output(out)
-
-        # Order the dimensions
-        out["echo_range"] = out["echo_range"].transpose("channel", "ping_time", "range_sample")
 
         return out
 

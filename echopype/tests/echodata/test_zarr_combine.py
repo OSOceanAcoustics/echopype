@@ -34,7 +34,7 @@ def ek60_test_data(test_path):
                 "randint_high": 5000,
                 "num_datasets": 20,
                 "group": "test_group",
-                "zarr_name": "combined_echodatas.zarr",
+                "zarr_name": "combined_echodata.zarr",
                 "delayed_ds_list": False,
             }
         ),
@@ -44,7 +44,7 @@ def ek60_test_data(test_path):
                 "randint_high": 5000,
                 "num_datasets": 20,
                 "group": "test_group",
-                "zarr_name": "combined_echodatas.zarr",
+                "zarr_name": "combined_echodata.zarr",
                 "delayed_ds_list": True,
             }
         ),

@@ -128,6 +128,9 @@ class CalibrateEK60(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, **kwargs):
         super().__init__(echodata, env_params, cal_params)
 
+        # Set sonar_type
+        self.sonar_type = "EK60"
+
         # Get env_params
         self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
         self.waveform_mode = "CW"
@@ -148,12 +151,12 @@ class CalibrateEK60(CalibrateEK):
 
         # Get cal_params
         self.cal_params = get_cal_params_EK(
-            waveform_mode="CW",
+            waveform_mode=self.waveform_mode,
             freq_center=beam["frequency_nominal"],
             beam=beam,
             vend=self.echodata["Vendor_specific"],
             user_dict=self.cal_params,
-            sonar_type="EK60",
+            sonar_type=self.sonar_type,
         )
 
     def compute_Sv(self, **kwargs):
@@ -182,6 +185,9 @@ class CalibrateEK80(CalibrateEK):
 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
+
+        # Set sonar_type
+        self.sonar_type = "EK80"
 
         # The waveform and encode mode combination checked in calibrate/api.py::_compute_cal
         # so just doing assignment here

@@ -86,7 +86,7 @@ all files from the same deployment.
     by allowing users to directly write variables that may consume a large amount of memory
     into a temporary zarr store (see `#774 <https://github.com/OSOceanAcoustics/echopype/pull/774>`_).
 
-    This feature is accessible through ``open_raw`` via arguments ``offload_to_zarr`` and ``max_zarr_mb``
+    This feature is accessible through ``open_raw`` via arguments ``use_swap`` and ``max_mb``
     and is only available for the following echosounders: EK60, ES70, EK80, ES80, EA640.
     See :ref:`API reference <api-open_raw>` for usage.
     This is currently a beta feature that will benefit from user feedback.
@@ -179,8 +179,8 @@ The examples below apply equally to both methods, except as noted.
 A destination folder or file path should be specified with the ``save_path``
 argument in these methods in order to control the location of the converted files.
 If the argument is not specified, the converted ``.nc`` and ``.zarr``
-files are saved into a folder called ``temp_echopype_output`` under the
-current execution folder. This folder will be created if it doesn't already exists.
+files are saved into the directory ``~/.echopype/temp_output``.
+This folder will be created if it doesn't already exists.
 
 
 Specify metadata attributes
@@ -227,7 +227,7 @@ the platform code from the
 .. ``combine`` argument (the default is ``combine=False``). In that case,
 .. ``save_path`` must be specified explicitly. If ``save_path`` is only a filename
 .. rather than a full file path, the combined output file will be saved to the
-.. default ``temp_echopype_output`` folder.
+.. default ``~/.echopype/temp_output`` folder.
 
 .. .. code-block:: python
 
