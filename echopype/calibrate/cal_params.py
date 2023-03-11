@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Literal, Union
 
 import numpy as np
 import xarray as xr
@@ -56,54 +56,55 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
     Parameters
     ----------
     p_val : int, float, or list
-        dictionary holding calibration params for one or more channels
-        each param has to be a scalar
+        A scalar or list holding calibration params for one or more channels.
+        Each param has to be a scalar.
     channel : list or xr.DataArray
-        values to use for the output channel coordinate
+        Values to use for the output channel coordinate
 
     Returns
     -------
-    an xr.DataArray with channel coordinate
+    xr.DataArray
+        A data array with channel coordinate
     """
     # TODO: allow passing in np.array as dict values to assemble a frequency-dependent cal da
 
     if not isinstance(p_val, (int, float, list)):
         raise ValueError("'p_val' needs to be one of type int, float, or list")
-    else:
-        if isinstance(p_val, list):
-            # Check length if p_val a list
-            if len(p_val) != len(channel):
-                raise ValueError("The lengths of 'p_val' and 'channel' should be identical")
 
-            return xr.DataArray(p_val, dims=["channel"], coords={"channel": channel})
-        else:
-            # if scalar, make a list to form data array
-            return xr.DataArray(
-                [p_val] * len(channel), dims=["channel"], coords={"channel": channel}
-            )
+    if isinstance(p_val, list):
+        # Check length if p_val a list
+        if len(p_val) != len(channel):
+            raise ValueError("The lengths of 'p_val' and 'channel' should be identical")
+
+        return xr.DataArray(p_val, dims=["channel"], coords={"channel": channel})
+    else:
+        # if scalar, make a list to form data array
+        return xr.DataArray([p_val] * len(channel), dims=["channel"], coords={"channel": channel})
 
 
 def sanitize_user_cal_dict(
-    sonar_type: str,
+    sonar_type: Literal["EK60", "EK80", "AZFP"],
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
-    Create a blue print for cal_params dict and check the format/organize user-provided params.
+    Creates a blueprint for ``cal_params`` dictionary and
+    check the format/organize user-provided parameters.
 
     Parameters
     ----------
     sonar_type : str
-        type of sonar, one of "EK60", "EK80", or "AZFP"
+        Type of sonar, one of "EK60", "EK80", or "AZFP"
     user_dict : dict
-        a dict containing user input calibration parameters as {parameter name: parameter value}
-        parameter value has to be a scalar (int or float) or an xr.DataArray
-        if parameter value is an xr.DataArray, it has to either have 'channel' as a coorindate
-        or have both 'cal_channel_id' and 'cal_frequency' as coordinates
+        A dictionary containing user input calibration parameters
+        as {parameter name: parameter value}.
+        Parameter value has to be a scalar (int or float) or an ``xr.DataArray``.
+        If parameter value is an ``xr.DataArray``, it has to either have 'channel' as a coordinate
+        or have both ``cal_channel_id`` and ``cal_frequency`` as coordinates.
 
     channel : list or xr.DataArray
-        a list of channels to be calibrated
-        for EK80 data, this list has to corresponds with the subset of channels
+        A list of channels to be calibrated.
+        For EK80 data, this list has to corresponds with the subset of channels
         selected based on waveform_mode and encode_mode
     """
     # Check sonar type
@@ -113,11 +114,11 @@ def sanitize_user_cal_dict(
     # Make channel a sorted list
     if not isinstance(channel, (list, xr.DataArray)):
         raise ValueError("'channel' has to be a list or an xr.DataArray")
+
+    if isinstance(channel, xr.DataArray):
+        channel_sorted = sorted(channel.values)
     else:
-        if isinstance(channel, xr.DataArray):
-            channel_sorted = sorted(channel.data)
-        else:
-            channel_sorted = sorted(channel)
+        channel_sorted = sorted(channel)
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     #  -- transform params in scalar or list to xr.DataArray
@@ -129,20 +130,20 @@ def sanitize_user_cal_dict(
             if isinstance(p_val, xr.DataArray):
                 # if 'channel' is a coordinate, it has to match that of the data
                 if "channel" in p_val.coords:
-                    if not (sorted(p_val.coords["channel"].data) == channel_sorted):
+                    if not (sorted(p_val.coords["channel"].values) == channel_sorted):
                         raise ValueError(
                             f"The 'channel' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
                         )
                 elif "cal_channel_id" in p_val.coords and "cal_frequency" in p_val.coords:
-                    if not (sorted(p_val.coords["cal_channel_id"].data) == channel_sorted):
+                    if not (sorted(p_val.coords["cal_channel_id"].values) == channel_sorted):
                         raise ValueError(
                             f"The 'cal_channel_id' coordinate of {p_name} has to match "
                             "that of the data to be calibrated"
                         )
                 else:
                     raise ValueError(
-                        f"{p_name} has to either have 'channel' as a coorindate "
+                        f"{p_name} has to either have 'channel' as a coordinate "
                         "or have both 'cal_channel_id' and 'cal_frequency' as coordinates"
                     )
                 out_dict[p_name] = p_val
@@ -176,15 +177,16 @@ def _get_interp_da(
     Parameters
     ----------
     da_param : xr.DataArray or None
-        a data array from the Vendor group or user dict with freq-dependent param values
+        A data array from the Vendor group or user dict with freq-dependent param values
     freq_center : xr.DataArray
-        center frequency (BB) or nominal frequency (CW)
+        Center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
-        alternative for when freq-dep values do not exist
+        Alternative for when freq-dep values do not exist
 
     Returns
     -------
-    an xr.DataArray aligned with the channel coordinate.
+    xr.DataArray
+        Data array aligned with the channel coordinate.
 
     Note
     ----
@@ -203,7 +205,7 @@ def _get_interp_da(
         which will be direct output of get_vend_cal_params_power()
     """
     param = []
-    for ch_id in freq_center["channel"].data:
+    for ch_id in freq_center["channel"].values:
         # if frequency-dependent param exists as a data array with desired channel
         if (
             da_param is not None
@@ -258,7 +260,7 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
     vend : xr.Dataset
         A subset of Vendor_specific that contains only the channels specified for calibration
     param : str {"sa_correction", "gain_correction"}
-        name of parameter to retrieve
+        Name of parameter to retrieve
 
     Returns
     -------
@@ -302,15 +304,17 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
 
     Parameters
     ----------
-    echodata : EchoData
-        An EchoData object containing data to be calibrated
-    user_cal_dict : dict
+    beam : xr.Dataset
+        A subset of Sonar/Beam_groupX that contains only the channels to be calibrated
+    vend : xr.Dataset
+        A subset of Vendor_specific that contains only the channels to be calibrated
+    user_dict : dict
         A dictionary containing user-defined calibration parameters.
         The user-defined calibration parameters will overwrite values in the data file.
 
     Returns
     -------
-    A dict containing the calibration parameters for the AZFP echosounder
+    A dictionary containing the calibration parameters for the AZFP echosounder
     """
     # Use sanitized user dict as blueprint
     # out_dict contains only and all of the allowable cal params
@@ -334,12 +338,12 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
 
 
 def get_cal_params_EK(
-    waveform_mode: str,
+    waveform_mode: Literal["CW", "BB"],
     freq_center: xr.DataArray,
     beam: xr.Dataset,
     vend: xr.Dataset,
     user_dict: Dict[str, Union[int, float, xr.DataArray]],
-    default_dict: Dict[str, Union[int, float]] = EK80_DEFAULT_PARAMS,
+    default_params: Dict[str, Union[int, float]] = EK80_DEFAULT_PARAMS,
     sonar_type: str = "EK80",
 ) -> Dict:
     """
@@ -348,21 +352,25 @@ def get_cal_params_EK(
     Parameters
     ----------
     waveform_mode : str
-        transmit waveform mode, either "CW" or "BB"
+        Transmit waveform mode, either "CW" or "BB"
     freq_center : xr.DataArray
-        center frequency (BB mode) or nominal frequency (CW mode)
+        Center frequency (BB mode) or nominal frequency (CW mode)
     beam : xr.Dataset
-        a subset of Sonar/Beam_groupX that contains only the channels to be calibrated
+        A subset of Sonar/Beam_groupX that contains only the channels to be calibrated
     vend : xr.Dataset
-        a subset of Vendor_specific that contains only the channels to be calibrated
+        A subset of Vendor_specific that contains only the channels to be calibrated
     user_dict : dict
-        a dictionary containing user-defined parameters.
-        user-defined parameters take precedance over values in the data file or in default dict.
-    default_dict : dict
-        a dictionary containing default parameters
+        A dictionary containing user-defined parameters.
+        User-defined parameters take precedance over values in the data file or in default dict.
+    default_params : dict
+        A dictionary containing default parameters
     sonar_type : str
-        type of EK sonar, either "EK60" or "EK80"
+        Type of EK sonar, either "EK60" or "EK80"
     """
+    if not isinstance(waveform_mode, str):
+        raise TypeError("waveform_mode is not type string")
+    elif waveform_mode not in ["CW", "BB"]:
+        raise ValueError("waveform_mode must be 'CW' or 'BB'")
 
     # Private function to get fs
     def _get_fs():
@@ -373,7 +381,7 @@ def get_cal_params_EK(
             fs = []
             for ch in vend["channel"]:
                 tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
-                fs.append(default_dict["receiver_sampling_frequency"][tcvr_type])
+                fs.append(default_params["receiver_sampling_frequency"][tcvr_type])
             return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
 
     # Mapping between desired param name with Beam group data variable name
@@ -409,8 +417,8 @@ def get_cal_params_EK(
             if p == "sa_correction":  # pull from data file
                 out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
             elif p == "impedance_receive":  # from data file or default dict
-                out_dict[p] = default_dict[p] if p not in vend else vend["impedance_receive"]
-            elif p == "receiver_sampling_frequency":  # from data file or default_dict
+                out_dict[p] = default_params[p] if p not in vend else vend["impedance_receive"]
+            elif p == "receiver_sampling_frequency":  # from data file or default_params
                 out_dict[p] = _get_fs()
             else:
                 # CW: params do not require interpolation, except for impedance_transmit
@@ -430,7 +438,7 @@ def get_cal_params_EK(
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
-                            alternative=default_dict[p],  # pull from default dict
+                            alternative=default_params[p],  # pull from default dict
                         )
                     else:
                         raise ValueError(f"{p} not in the defined set of calibration parameters.")
@@ -465,7 +473,7 @@ def get_cal_params_EK(
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
-                            alternative=default_dict[p],  # pull from default dict
+                            alternative=default_params[p],  # pull from default dict
                         )
                     else:
                         raise ValueError(f"{p} not in the defined set of calibration parameters.")
@@ -474,7 +482,7 @@ def get_cal_params_EK(
 
 
 def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: str
+    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: Literal["coeff", "decimation"]
 ) -> Union[np.ndarray, int]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
@@ -484,11 +492,11 @@ def get_vend_filter_EK80(
     vend: xr.Dataset
         EchoData["Vendor_specific"]
     channel_id : str
-        channel id for which the param to be retrieved
+        Channel id for which the param to be retrieved
     filter_name : str
-        name of filter coefficients to retrieve
+        Name of filter coefficients to retrieve
     param_type : str
-        'coeff' or 'decimation'
+        Parameter type, either 'coeff' or 'decimation'
 
     Returns
     -------
@@ -496,11 +504,11 @@ def get_vend_filter_EK80(
         The filter coefficient or the decimation factor
     """
     if param_type == "coeff":
-        v = vend.attrs["%s %s filter_r" % (channel_id, filter_name)] + 1j * np.array(
-            vend.attrs["%s %s filter_i" % (channel_id, filter_name)]
+        v = vend.attrs[f"{channel_id} {filter_name} filter_r"] + 1j * np.array(
+            vend.attrs[f"{channel_id} {filter_name} filter_i"]
         )
         if v.size == 1:
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
-        return vend.attrs["%s %s decimation" % (channel_id, filter_name)]
+        return vend.attrs[f"{channel_id} {filter_name} decimation"]

@@ -8,6 +8,7 @@ class CalibrateBase(abc.ABC):
 
     def __init__(self, echodata: EchoData, env_params=None, cal_params=None):
         self.echodata = echodata
+        self.sonar_type = None
 
         if env_params is None:
             self.env_params = {}

@@ -58,7 +58,7 @@ def check_zarr_path(
             raise ValueError("The provided zarr_path input must have a '.zarr' suffix!")
 
     # set default source_file name (will be used only if zarr_path is None)
-    source_file = "combined_echodatas.zarr"
+    source_file = "combined_echodata.zarr"
 
     validated_path = validate_output_path(
         source_file=source_file,
@@ -534,7 +534,7 @@ def combine_echodata(
     * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined
       ``EchoData`` object will be copied from the first ``EchoData`` object in the given list.
     * If no ``zarr_path`` is provided, the combined zarr file will be
-      ``'temp_echopype_output/combined_echodatas.zarr'`` under the current working directory.
+      ``'~/.echopype/temp_output/combined_echodata.zarr'``.
     * If no ``client`` is provided, then a client with a local scheduler will be used. The
       created scheduler and client will be shutdown once computation has finished.
     * For each run of this function, we print our the client dashboard link.

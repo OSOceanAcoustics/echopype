@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 if TYPE_CHECKING:
-    from ..core import SonarModelsHint
-from ..core import SONAR_MODELS, init_ep_dir
+    from echopype.core import SonarModelsHint
+from echopype.core import SONAR_MODELS
 import echopype.core
 
 
@@ -66,21 +66,3 @@ def test_file_extension_validation_should_fail(
         raise ValueError(
             f"\"{ext}\" should have been rejected for sonar model {sonar_model}"
         )
-
-
-def test_init_ep_dir(monkeypatch):
-    temp_user_dir = tempfile.TemporaryDirectory()
-    echopype_dir = Path(temp_user_dir.name) / ".echopype"
-
-    # Create the .echopype in a temp dir instead of user space.
-    # Doing this will avoid accidentally deleting current
-    # working directory
-    monkeypatch.setattr(echopype.core, "ECHOPYPE_DIR", echopype_dir)
-
-    assert echopype.core.ECHOPYPE_DIR.exists() is False
-
-    init_ep_dir()
-
-    assert echopype.core.ECHOPYPE_DIR.exists() is True
-
-    temp_user_dir.cleanup()
