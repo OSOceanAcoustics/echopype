@@ -145,6 +145,7 @@ def get_angle_power_samples(
             "from split-beam transducers!"
         )
 
+    # TODO: review and remove this block
     # drop the beam dimension in theta and phi, if it exists
     if "beam" in theta.dims:
         theta = theta.drop("beam").squeeze(dim="beam")
@@ -248,6 +249,7 @@ def get_angle_complex_samples(
             },
         )
 
+    # TODO: review and remove this block
     # drop the beam dimension in theta and phi, if it exists
     if "beam" in theta.coords:
         theta = theta.drop_vars("beam")
