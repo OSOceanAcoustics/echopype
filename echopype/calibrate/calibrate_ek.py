@@ -7,7 +7,7 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK, get_param_BB, get_vend_filter_EK80
+from .cal_params import get_cal_params_EK, get_vend_filter_EK80
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
@@ -129,6 +129,9 @@ class CalibrateEK60(CalibrateEK):
     def __init__(self, echodata, env_params, cal_params, **kwargs):
         super().__init__(echodata, env_params, cal_params)
 
+        # Set sonar_type
+        self.sonar_type = "EK60"
+
         # Get env_params
         self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
         self.waveform_mode = "CW"
@@ -145,12 +148,16 @@ class CalibrateEK60(CalibrateEK):
         # Set the channels to calibrate
         # For EK60 this is all channels
         self.chan_sel = self.echodata[self.ed_group]["channel"]
+        beam = self.echodata[self.ed_group]
 
         # Get cal_params
         self.cal_params = get_cal_params_EK(
-            beam=echodata[self.ed_group].sel(channel=self.chan_sel),
-            vend=echodata["Vendor_specific"].sel(channel=self.chan_sel),
-            user_cal_dict=cal_params,
+            waveform_mode=self.waveform_mode,
+            freq_center=beam["frequency_nominal"],
+            beam=beam,
+            vend=self.echodata["Vendor_specific"],
+            user_dict=self.cal_params,
+            sonar_type=self.sonar_type,
         )
 
     def compute_Sv(self, **kwargs):
@@ -179,6 +186,9 @@ class CalibrateEK80(CalibrateEK):
 
     def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
         super().__init__(echodata, env_params, cal_params)
+
+        # Set sonar_type
+        self.sonar_type = "EK80"
 
         # The waveform and encode mode combination checked in calibrate/api.py::_compute_cal
         # so just doing assignment here
@@ -224,9 +234,11 @@ class CalibrateEK80(CalibrateEK):
 
         # Get cal_params: depends on waveform and encode mode
         self.cal_params = get_cal_params_EK(
-            beam=beam,
+            waveform_mode=self.waveform_mode,
+            freq_center=self.freq_center,
+            beam=beam,  # already subset above
             vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
-            user_cal_dict=cal_params,
+            user_dict=self.cal_params,
         )
 
         # Compute echo range in meters
@@ -326,93 +338,17 @@ class CalibrateEK80(CalibrateEK):
 
         ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274  # noqa
         """
-        vend = self.echodata["Vendor_specific"]
-
-        # Get BB angle params from Vendor group
-        angle_params = {}
-        for p in [
-            "angle_offset_alongship",
-            "angle_offset_athwartship",
-            "beamwidth_alongship",
-            "beamwidth_athwartship",
-        ]:
-            angle_params[p] = get_param_BB(vend, p, self.freq_center, self.cal_params)
-
-        # Compute compensation factor
         fac_along = (
-            np.abs(-angle_params["angle_offset_alongship"])
-            / (angle_params["beamwidth_alongship"] / 2)
+            np.abs(-self.cal_params["angle_offset_alongship"])
+            / (self.cal_params["beamwidth_alongship"] / 2)
         ) ** 2
         fac_athwart = (
-            np.abs(-angle_params["angle_offset_athwartship"])
-            / (angle_params["beamwidth_athwartship"] / 2)
+            np.abs(-self.cal_params["angle_offset_athwartship"])
+            / (self.cal_params["beamwidth_athwartship"] / 2)
         ) ** 2
         B_theta_phi_m = 0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart)
 
         return B_theta_phi_m
-
-    def _get_fs(self):
-        """
-        Get receiver sampling frequency from either data or default values
-        """
-        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
-        if "fs_receiver" in vend:
-            return vend["fs_receiver"]
-        else:
-            # Most robust to loop through channel
-            fs = []
-            for ch in vend["channel"]:
-                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
-                fs.append(self.EK80_params["fs"][tcvr_type])
-            return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
-
-    def _get_impedance(self):
-        """
-        Get transmit and receiver impedance from either data or default values
-        """
-        vend = self.echodata["Vendor_specific"]
-        if "impedance_receive" not in vend:
-            z_er = self.EK80_params["z_er"]
-        else:
-            z_er = vend["impedance_receive"].sel(channel=self.chan_sel)
-        if "impedance_transmit" not in vend:
-            z_et = self.EK80_params["z_et"]
-        else:
-            for ch in self.chan_sel:  # some BB channels may not contain BB cal info
-                z_et = get_param_BB(vend, "z_et", self.freq_center, self.EK80_params)
-        return z_er, z_et
-
-    def _get_gain(self):
-        vend = self.echodata["Vendor_specific"]
-        if self.waveform_mode == "BB" and "gain" in self.echodata["Vendor_specific"]:
-            # If frequency-dependent gain exists, interpolate at true center frequency
-            gain = get_param_BB(vend, "gain", self.freq_center, self.cal_params)
-        else:
-            # use gain already retrieved in init
-            gain = self.cal_params["gain_correction"]
-
-        # Transceiver gain compensation for BB mode
-        if self.waveform_mode == "BB":
-            gain = gain - self._get_B_theta_phi_m()
-
-        return gain
-
-    def _get_psifc(self):
-        """
-        Get equivalent_beam_angle, scaled by center frequency if needed.
-
-        Identical within each channel regardless of ping_time/beam,
-        but drop only the beam dimension here,
-        to allow scaling for potential center frequency changes.
-        """
-        beam = self.echodata[self.ed_group]
-        psifc = self.cal_params["equivalent_beam_angle"]
-        if self.waveform_mode == "BB":
-            # if BB scale according to true center frequency
-            psifc += 20 * np.log10(  # TODO: BUGS! should be 20 * log10 [WJ resolved 2022/12/27]
-                beam["frequency_nominal"].sel(channel=self.chan_sel) / self.freq_center
-            )
-        return psifc
 
     def _cal_complex_samples(self, cal_type: str, complex_ed_group: str) -> xr.Dataset:
         """Calibrate complex data from EK80.
@@ -436,14 +372,20 @@ class CalibrateEK80(CalibrateEK):
 
         # Get transmit signal
         tx_coeff = self._get_filter_coeff()
-        fs = self._get_fs()
+        fs = self.cal_params["receiver_sampling_frequency"]
 
         # Switch to use Anderson implementation for transmit chirp starting v0.6.4
         tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
 
         # Params to clarity in use below
-        z_er, z_et = self._get_impedance()  # transmit and receive impedance
-        gain = self._get_gain()  # gain
+        z_er = self.cal_params["impedance_receive"]
+        z_et = self.cal_params["impedance_transmit"]
+        gain = self.cal_params["gain_correction"]
+
+        # Transceiver gain compensation for BB mode
+        if self.waveform_mode == "BB":
+            gain = gain - self._get_B_theta_phi_m()
+
         absorption = self.env_params["sound_absorption"]
         range_meter = self.range_meter
         sound_speed = self.env_params["sound_speed"]
@@ -475,8 +417,9 @@ class CalibrateEK80(CalibrateEK):
             ch_GPT = vend["transceiver_type"] == "GPT"
             tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
 
-            # equivalent_beam_angle:
-            psifc = self._get_psifc()  # TODO: THIS ONE CARRIES THE BEAM DIMENSION AROUND
+            # equivalent_beam_angle
+            # TODO: THIS ONE CARRIES THE BEAM DIMENSION AROUND
+            psifc = self.cal_params["equivalent_beam_angle"]
 
             out = (
                 10 * np.log10(prx)
@@ -520,7 +463,10 @@ class CalibrateEK80(CalibrateEK):
 
         # TODO: out should not have beam dimension at this stage
         # once that dimension is removed from equivalent_beam_angle
-        return out.isel(beam=0).drop("beam")
+        if "beam" in out.coords:
+            return out.isel(beam=0).drop("beam")
+        else:
+            return out
 
     def _compute_cal(self, cal_type) -> xr.Dataset:
         """

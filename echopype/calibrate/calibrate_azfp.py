@@ -9,13 +9,20 @@ from .range import compute_range_AZFP
 
 class CalibrateAZFP(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params=None, cal_params=None, **kwargs):
-        super().__init__(echodata, env_params)
+        super().__init__(echodata, env_params, cal_params)
+
+        # Set sonar_type
+        self.sonar_type = "AZFP"
 
         # load env and cal parameters
-        self.env_params = get_env_params_AZFP(echodata=echodata, user_env_dict=env_params)
-        self.cal_params = get_cal_params_AZFP(echodata=echodata, user_cal_dict=cal_params)
+        self.env_params = get_env_params_AZFP(echodata=self.echodata, user_env_dict=self.env_params)
+        self.cal_params = get_cal_params_AZFP(
+            beam=self.echodata["Sonar/Beam_group1"],
+            vend=self.echodata["Vendor_specific"],
+            user_dict=self.cal_params,
+        )
 
-        # self.range_meter computed under self._cal_power()
+        # self.range_meter computed under self._cal_power_samples()
         # because the implementation is different for Sv and TS
 
     def compute_echo_range(self, cal_type):
@@ -57,7 +64,8 @@ class CalibrateAZFP(CalibrateBase):
         EL = (
             self.cal_params["EL"]
             - 2.5 / a
-            + self.echodata["Sonar/Beam_group1"].backscatter_r / (26214 * a)
+            + self.echodata["Sonar/Beam_group1"]["backscatter_r"].squeeze("beam", drop=True)
+            / (26214 * a)
         )  # eq.(5)  # has beam dim due to backscatter_r
 
         if cal_type == "Sv":
@@ -98,9 +106,7 @@ class CalibrateAZFP(CalibrateBase):
         # Order the dimensions
         out["echo_range"] = out["echo_range"].transpose("channel", "ping_time", "range_sample")
 
-        # Squeeze out the beam dim
-        # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
-        return out.squeeze("beam", drop=True)
+        return out
 
     def compute_Sv(self, **kwargs):
         return self._cal_power_samples(cal_type="Sv")

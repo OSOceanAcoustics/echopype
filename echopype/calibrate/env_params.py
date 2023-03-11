@@ -76,10 +76,8 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
     out_dict = {}
 
     # Temperature comes from either user input or data file
-    out_dict["temperature"] = (
-        user_env_dict["temperature"]
-        if "temperature" in user_env_dict
-        else echodata["Environment"]["temperature"]
+    out_dict["temperature"] = user_env_dict.get(
+        "temperature", echodata["Environment"]["temperature"]
     )
 
     # Salinity and pressure always come from user input
@@ -91,16 +89,16 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
 
     # Always calculate sound speed and absorption
     out_dict["sound_speed"] = uwa.calc_sound_speed(
-        temperature=user_env_dict["temperature"],
-        salinity=user_env_dict["salinity"],
-        pressure=user_env_dict["pressure"],
+        temperature=out_dict["temperature"],
+        salinity=out_dict["salinity"],
+        pressure=out_dict["pressure"],
         formula_source="AZFP",
     )
     out_dict["sound_absorption"] = uwa.calc_absorption(
         frequency=echodata["Sonar/Beam_group1"]["frequency_nominal"],
-        temperature=user_env_dict["temperature"],
-        salinity=user_env_dict["salinity"],
-        pressure=user_env_dict["pressure"],
+        temperature=out_dict["temperature"],
+        salinity=out_dict["salinity"],
+        pressure=out_dict["pressure"],
         formula_source="AZFP",
     )
 
