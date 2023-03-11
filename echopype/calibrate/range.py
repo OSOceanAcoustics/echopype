@@ -6,6 +6,8 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from .env_params import harmonize_env_param_time
 
+DIMENSION_ORDER = ["channel", "ping_time", "range_sample"]
+
 
 def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> xr.DataArray:
     """
@@ -87,9 +89,11 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
         - range_offset
     )
 
-    range_meter.name = "echo_range"  # add name to facilitate xr.merge
+    # add name to facilitate xr.merge
+    range_meter.name = "echo_range"
 
-    return range_meter.transpose("channel", "ping_time", "range_sample")  # conform with EK range
+    # make order of dims conform with the order of backscatter data
+    return range_meter.transpose(*DIMENSION_ORDER)
 
 
 def compute_range_EK(
@@ -171,7 +175,7 @@ def compute_range_EK(
     # Range in meters, not modified for TVG compensation
     range_meter = beam["range_sample"] * beam["sample_interval"] * sound_speed / 2
     # make order of dims conform with the order of backscatter data
-    range_meter = range_meter.transpose("channel", "ping_time", "range_sample")
+    range_meter = range_meter.transpose(*DIMENSION_ORDER)
 
     # set entries with NaN backscatter data to NaN
     if "beam" in beam["backscatter_r"].dims:
