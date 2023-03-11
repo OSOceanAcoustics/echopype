@@ -103,7 +103,8 @@ def get_angle_power_samples(
     ds_beam: xr.Dataset
         An ``EchoData`` Sonar/Beam_group1 group (complex samples always in Beam_group1)
     angle_params : dict
-        A dictionary containing angle_offset/angle_sensitivity parameters from the calibrated dataset
+        A dictionary containing angle_offset/angle_sensitivity parameters
+        from the calibrated dataset
 
     Returns
     -------
@@ -165,7 +166,8 @@ def get_angle_complex_samples(
     ds_beam : xr.Dataset
         An ``EchoData`` Sonar/Beam_group1 group (complex samples always in Beam_group1)
     angle_params : dict
-        A dictionary containing angle_offset/angle_sensitivity parameters from the calibrated dataset
+        A dictionary containing angle_offset/angle_sensitivity parameters
+        from the calibrated dataset
     pc_params : dict
         Parameters needed for pulse compression
         This dict also serves as a flag for whether to apply pulse compression
