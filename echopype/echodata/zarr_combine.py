@@ -309,7 +309,8 @@ class ZarrCombine:
             var_encoding[name].update(get_zarr_compression(val, COMPRESSION_SETTINGS["zarr"]))
 
         # set the chunk encoding
-        var_encoding[name]["chunks"] = chnk_shape
+        # cast to int type just to be safe
+        var_encoding[name]["chunks"] = [int(c) for c in chnk_shape]
 
         return var_encoding
 
@@ -478,7 +479,7 @@ class ZarrCombine:
         zarr_chunk_size = min(self.dims_max[dim], self.max_append_chunk_size)
 
         # get the indices of the final combined array that are in each uniform chunk
-        uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, zarr_chunk_size)
+        uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, int(zarr_chunk_size))
 
         # construct a mapping between the uniform chunk and the indices
         uniform_chunk_dict = dict(zip(range(len(uniform_chunk)), uniform_chunk))
@@ -656,7 +657,14 @@ class ZarrCombine:
             for uniform_ind, non_uniform_dict in chunk_mapping.items():
                 for ds_list_ind, dim_slice in non_uniform_dict.items():
                     # get ds containing only variables who have dim in their dims
-                    ds_drop = ds_list[ds_list_ind].drop_vars(drop_names)
+                    cur_ds = ds_list[ds_list_ind]
+                    # get all variable names from dataset
+                    ds_keys = [k for k in cur_ds.variables.keys()]
+                    # compare variable names from dataset with the first
+                    # file's variable names and only grab the ones that exists
+                    # in the current dataset
+                    final_drop_names = [name for name in drop_names if name in ds_keys]
+                    ds_drop = ds_list[ds_list_ind].drop_vars(final_drop_names)
 
                     # get xarray region for all dims, except dim
                     region = self._get_region(ds_list_ind, set(ds_drop.dims))
@@ -844,9 +852,7 @@ class ZarrCombine:
         )
 
     @staticmethod
-    def _modify_prov_filenames(
-        zarr_path: str, len_eds: int, storage_options: Dict[str, Any] = {}
-    ) -> None:
+    def _modify_prov_filenames(zarr_path: str, storage_options: Dict[str, Any] = {}) -> None:
         """
         After the ``Provenance`` group has been constructed, the
         coordinate ``filenames`` will be filled with zeros. This
@@ -857,8 +863,6 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        len_eds: int
-            The number of ``EchoData`` objects being combined
         storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
@@ -870,8 +874,9 @@ class ZarrCombine:
             mode="r+",
             storage_options=storage_options,
         )
-
-        zarr_filenames[:] = np.arange(len_eds)
+        # Assume that this is 1D so zarr_filenames.shape
+        # is expected to return tuple such as (x,)
+        zarr_filenames[:] = np.arange(*zarr_filenames.shape)
 
     def combine(
         self,
@@ -995,7 +1000,7 @@ class ZarrCombine:
         )
 
         # change filenames numbering to range(len(eds))
-        self._modify_prov_filenames(zarr_path, len_eds=len(eds), storage_options=storage_options)
+        self._modify_prov_filenames(zarr_path, storage_options=storage_options)
 
         if consolidated:
             # consolidate at the end if consolidated flag is True
