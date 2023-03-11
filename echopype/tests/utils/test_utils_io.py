@@ -3,10 +3,18 @@ import fsspec
 from pathlib import Path
 import pytest
 from typing import Tuple
+import tempfile
 import platform
 import xarray as xr
 
-from echopype.utils.io import sanitize_file_path, validate_output_path, env_indep_joinpath, validate_source_ds_da
+from echopype.utils.io import (
+    sanitize_file_path,
+    validate_output_path,
+    env_indep_joinpath,
+    validate_source_ds_da,
+    init_ep_dir
+)
+import echopype.utils.io
 
 
 @pytest.mark.parametrize(
@@ -294,3 +302,20 @@ def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_f
     else:
         assert isinstance(source_ds_output, str)
         assert file_type_output == true_file_type
+
+def test_init_ep_dir(monkeypatch):
+    temp_user_dir = tempfile.TemporaryDirectory()
+    echopype_dir = Path(temp_user_dir.name) / ".echopype"
+
+    # Create the .echopype in a temp dir instead of user space.
+    # Doing this will avoid accidentally deleting current
+    # working directory
+    monkeypatch.setattr(echopype.utils.io, "ECHOPYPE_DIR", echopype_dir)
+
+    assert echopype.utils.io.ECHOPYPE_DIR.exists() is False
+
+    init_ep_dir()
+
+    assert echopype.utils.io.ECHOPYPE_DIR.exists() is True
+
+    temp_user_dir.cleanup()

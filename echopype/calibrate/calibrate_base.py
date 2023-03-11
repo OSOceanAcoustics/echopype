@@ -1,7 +1,6 @@
 import abc
 
 from ..echodata import EchoData
-from .env_params_old import EnvParams
 
 
 class CalibrateBase(abc.ABC):
@@ -9,18 +8,21 @@ class CalibrateBase(abc.ABC):
 
     def __init__(self, echodata: EchoData, env_params=None, cal_params=None):
         self.echodata = echodata
+        self.sonar_type = None
 
-        # TODO: clean up init of env_params here: can just leave it as None
-        if isinstance(env_params, EnvParams):
-            env_params = env_params._apply(echodata)
-        elif env_params is None:
-            env_params = {}
-        elif not isinstance(env_params, dict):
-            raise ValueError(
-                "invalid env_params type; provide an EnvParams instance, a dict, or None"
-            )
-        self.env_params = env_params
-        self.cal_params = cal_params
+        if env_params is None:
+            self.env_params = {}
+        elif isinstance(env_params, dict):
+            self.env_params = env_params
+        else:
+            raise ValueError("'env_params' has to be None or a dict")
+
+        if cal_params is None:
+            self.cal_params = {}
+        elif isinstance(cal_params, dict):
+            self.cal_params = cal_params
+        else:
+            raise ValueError("'cal_params' has to be None or a dict")
 
         # range_meter is computed in compute_Sv/TS in child class
         self.range_meter = None
