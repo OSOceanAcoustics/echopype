@@ -269,12 +269,21 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "BB", "complex", False, False,
         ),
+        # (
+        #     "EK80", "EK80", "Summer2018--D20180905-T033113.raw",
+        #     [
+        #         'splitbeam/Summer2018--D20180905-T033113_angles_T1_nopc.mat',  # change this
+        #         'splitbeam/Summer2018--D20180905-T033113_angles_T2_nopc.mat',  # change this
+        #     ],
+        #     "CW", "power", False, False,
+        # ),
     ],
     ids=[
         "ek60_CW_power",
         "ek60_CW_power_Sv_path",
         "ek80_CW_complex",
         "ek80_BB_complex_no_pc",
+        # "ek80_CW_power",
     ],
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
