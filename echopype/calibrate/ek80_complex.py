@@ -148,8 +148,9 @@ def get_filter_coeff(vend: xr.Dataset) -> Dict:
 
     Returns
     -------
-    A dictionary indexed by ``channel`` and values being dictionaries containing
-    filter coefficients and decimation factors for constructing the transmit replica.
+    dict
+        A dictionary indexed by ``channel`` and values being dictionaries containing
+        filter coefficients and decimation factors for constructing the transmit replica.
     """
     coeff = defaultdict(dict)
     for ch_id in vend["channel"].values:
