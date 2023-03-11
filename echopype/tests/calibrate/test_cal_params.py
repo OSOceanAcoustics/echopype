@@ -78,7 +78,9 @@ def beam_EK():
     """
     beam = xr.Dataset()
     for p_name in [
-        "equivalent_beam_angle", "angle_offset_alongship", "angle_offset_athwartship",
+        "equivalent_beam_angle",
+        "angle_offset_alongship", "angle_offset_athwartship",
+        "angle_sensitivity_alongship", "angle_sensitivity_athwartship",
         "beamwidth_twoway_alongship", "beamwidth_twoway_athwartship"
     ]:
         beam[p_name] = xr.DataArray(
@@ -503,6 +505,7 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
                     for p_name in [
                         "sa_correction", "gain_correction", "equivalent_beam_angle",
                         "angle_offset_alongship", "angle_offset_athwartship",
+                        "angle_sensitivity_alongship", "angle_sensitivity_athwartship",
                         "beamwidth_alongship", "beamwidth_athwartship",
                     ]
                 },

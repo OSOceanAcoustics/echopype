@@ -10,6 +10,8 @@ CAL_PARAMS = {
         "equivalent_beam_angle",
         "angle_offset_alongship",
         "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
     ),
@@ -19,6 +21,8 @@ CAL_PARAMS = {
         "equivalent_beam_angle",
         "angle_offset_alongship",
         "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
         "impedance_transmit",  # z_et
@@ -166,6 +170,7 @@ def _get_interp_da(
     da_param: Union[None, xr.DataArray],
     freq_center: xr.DataArray,
     alternative: Union[int, float, xr.DataArray],
+    BB_factor: float = 1,
 ) -> xr.DataArray:
     """
     Get interpolated xr.DataArray aligned with the channel coordinate.
@@ -182,6 +187,12 @@ def _get_interp_da(
         Center frequency (BB) or nominal frequency (CW)
     alternative : xr.DataArray or int or float
         Alternative for when freq-dep values do not exist
+    BB_factor : float
+        scaling factor due to BB transmit signal with different center frequency
+        with respect to nominal channel frequency;
+        only applies when ``alternative`` from the Sonar/Beam_groupX group is used
+        for params ``angle_sensitivity_alongship/athwartship`` and
+        ``beamwidth_alongship/athwartship`` (``see get_cal_params_EK`` for detail)
 
     Returns
     -------
@@ -220,16 +231,22 @@ def _get_interp_da(
             )
         # if no frequency-dependent param exists, use alternative
         else:
+            BB_factor_ch = (
+                BB_factor.sel(channel=ch_id) if isinstance(BB_factor, xr.DataArray) else BB_factor
+            )
             if isinstance(alternative, xr.DataArray):
                 # drop the redundant beam dimension if exist
                 if "beam" in alternative.coords:
-                    param.append(alternative.sel(channel=ch_id).isel(beam=0).data.squeeze())
+                    param.append(
+                        (alternative.sel(channel=ch_id).isel(beam=0) * BB_factor_ch).data.squeeze()
+                    )
                 else:
-                    param.append(alternative.sel(channel=ch_id).data.squeeze())
+                    param.append((alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze())
             elif isinstance(alternative, (int, float)):
                 # expand to have ping_time dimension
                 param.append(
                     np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze()
+                    * BB_factor_ch
                 )
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
@@ -388,6 +405,8 @@ def get_cal_params_EK(
     PARAM_BEAM_NAME_MAP = {
         "angle_offset_alongship": "angle_offset_alongship",
         "angle_offset_athwartship": "angle_offset_athwartship",
+        "angle_sensitivity_alongship": "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship": "angle_sensitivity_athwartship",
         "beamwidth_alongship": "beamwidth_twoway_alongship",
         "beamwidth_athwartship": "beamwidth_twoway_athwartship",
         "equivalent_beam_angle": "equivalent_beam_angle",
@@ -447,13 +466,23 @@ def get_cal_params_EK(
                 else:
                     # interpolate for center frequency or use CW values
                     if p in PARAM_BEAM_NAME_MAP.keys():
+                        # only scale these params if alternative is used
+                        if p in [
+                            "angle_sensitivity_alongship",
+                            "angle_sensitivity_athwartship",
+                            "beamwidth_alongship",
+                            "beamwidth_athwartship",
+                        ]:
+                            BB_factor = freq_center / beam["frequency_nominal"]
+                        else:
+                            BB_factor = 1
+
                         p_beam = PARAM_BEAM_NAME_MAP[p]
-                        # TODO: beamwidth_along/athwartship should be scaled
-                        #       like equivalent_beam_angle
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
                             alternative=beam[p_beam],  # these should always exist
+                            BB_factor=BB_factor,
                         )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
@@ -479,36 +508,3 @@ def get_cal_params_EK(
                         raise ValueError(f"{p} not in the defined set of calibration parameters.")
 
     return out_dict
-
-
-def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: Literal["coeff", "decimation"]
-) -> Union[np.ndarray, int]:
-    """
-    Get filter coefficients stored in the Vendor_specific group attributes.
-
-    Parameters
-    ----------
-    vend: xr.Dataset
-        EchoData["Vendor_specific"]
-    channel_id : str
-        Channel id for which the param to be retrieved
-    filter_name : str
-        Name of filter coefficients to retrieve
-    param_type : str
-        Parameter type, either 'coeff' or 'decimation'
-
-    Returns
-    -------
-    np.ndarray or int
-        The filter coefficient or the decimation factor
-    """
-    if param_type == "coeff":
-        v = vend.attrs[f"{channel_id} {filter_name} filter_r"] + 1j * np.array(
-            vend.attrs[f"{channel_id} {filter_name} filter_i"]
-        )
-        if v.size == 1:
-            v = np.expand_dims(v, axis=0)  # expand dims for convolution
-        return v
-    else:
-        return vend.attrs[f"{channel_id} {filter_name} decimation"]

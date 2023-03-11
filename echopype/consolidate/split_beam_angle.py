@@ -7,239 +7,22 @@ from typing import List, Optional, Tuple
 import numpy as np
 import xarray as xr
 
-from ..echodata import EchoData
-
-
-def get_angle_power_CW(ds_beam: xr.Dataset) -> Tuple[xr.Dataset, xr.Dataset]:
-    """
-    Obtains the split-beam angle data from power encoded data with CW waveform.
-
-    Parameters
-    ----------
-    ds_beam: xr.Dataset
-        An ``EchoData`` beam group containing angle information needed for
-        split-beam angle calculation
-
-    Returns
-    -------
-    theta: xr.Dataset
-        The calculated split-beam alongship angle
-    phi: xr.Dataset
-        The calculated split-beam athwartship angle
-
-    Raises
-    ------
-    NotImplementedError
-        If all ``beam_type`` values are not equal to 1
-
-    Notes
-    -----
-    Can be used on both EK60 and EK80 data
-
-    Computation done for ``beam_type=1``:
-    ``physical_angle = ((raw_angle * 180 / 128) / sensitivity) - offset``
-    """
-
-    # raw_angle scaling constant
-    conversion_const = 180.0 / 128.0
-
-    def _e2f(angle_type: str) -> xr.Dataset:
-        """Convert electric angle to physical angle for split-beam data"""
-        return (
-            conversion_const
-            * ds_beam[f"angle_{angle_type}"]
-            / ds_beam[f"angle_sensitivity_{angle_type}"]
-            - ds_beam[f"angle_offset_{angle_type}"]
-        )
-
-    # add split-beam angle if at least one channel is split-beam
-    # in the case when some channels are split-beam and some single-beam
-    # the single-beam channels will be all NaNs and _e2f would run through and output NaNs
-    if not np.all(ds_beam["beam_type"].data == 0):
-        # obtain split-beam alongship angle
-        theta = _e2f(angle_type="alongship")
-
-        # obtain split-beam athwartship angle
-        phi = _e2f(angle_type="athwartship")
-
-    else:
-        raise ValueError(
-            "Computing physical split-beam angle is only available for data "
-            "from split-beam transducers!"
-        )
-
-    # drop the beam dimension in theta and phi, if it exists
-    if "beam" in theta.dims:
-        theta = theta.drop("beam").squeeze(dim="beam")
-        phi = phi.drop("beam").squeeze(dim="beam")
-
-    return theta, phi
-
-
-def get_angle_complex_CW(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
-    """
-    Obtains the split-beam angle data from complex encoded data with CW waveform.
-
-    Parameters
-    ----------
-    ds_beam: xr.Dataset
-        An ``EchoData`` beam group containing angle information needed for
-        split-beam angle calculation
-
-    Returns
-    -------
-    theta: xr.Dataset
-        The calculated split-beam alongship angle
-    phi: xr.Dataset
-        The calculated split-beam athwartship angle
-    """
-
-    # ensure that the beam_type is appropriate for calculation
-    if np.all(ds_beam["beam_type"].data == 1):
-        # get complex representation of backscatter
-        backscatter = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
-
-        # get angle sensitivity alongship and athwartship
-        angle_sensitivity_alongship = ds_beam["angle_sensitivity_alongship"].isel(
-            ping_time=0, beam=0
-        )
-        angle_sensitivity_athwartship = ds_beam["angle_sensitivity_athwartship"].isel(
-            ping_time=0, beam=0
-        )
-
-        # get angle offset alongship and athwartship
-        angle_offset_alongship = ds_beam["angle_offset_alongship"].isel(ping_time=0, beam=0)
-        angle_offset_athwartship = ds_beam["angle_offset_athwartship"].isel(ping_time=0, beam=0)
-
-        # obtain the split-beam angle data
-        theta, phi = _compute_angle_from_complex(
-            bs=backscatter,
-            beam_type=1,
-            sens=[angle_sensitivity_alongship, angle_sensitivity_athwartship],
-            offset=[angle_offset_alongship, angle_offset_athwartship],
-        )
-
-    else:
-        raise NotImplementedError("Computing split-beam angle is only available for beam_type=1!")
-
-    # drop the beam dimension in theta and phi, if it exists
-    if "beam" in theta.coords:
-        theta = theta.drop_vars("beam")
-        phi = phi.drop("beam")
-
-    return theta, phi
-
-
-def _get_interp_offset(
-    param: str, chan_id: str, freq_center: xr.DataArray, ed: EchoData
-) -> np.ndarray:
-    """
-    Obtains an angle offset by first interpolating the
-    ``angle_offset_alongship`` or ``angle_offset_athwartship``
-    data found in the ``Vendor_specific`` group and then
-    selecting the offset corresponding to the center frequency
-    value for ``channel=chan_id``.
-
-    Parameters
-    ----------
-    param: {"angle_offset_alongship", "angle_offset_athwartship"}
-        The angle offset data to select in the ``Vendor_specific`` group
-    chan_id: str
-        The channel used to select the center frequency value
-    freq_center: xr.DataArray
-        A DataArray filled with center frequency values with coordinate ``channel``
-    ed: EchoData
-        An ``EchoData`` object holding the raw data
-
-    Returns
-    -------
-    np.ndarray
-        Array filled with the requested angle offset values
-    """
-
-    freq_wanted = freq_center.sel(channel=chan_id)
-    return (
-        ed["Vendor_specific"][param].sel(cal_channel_id=chan_id).interp(cal_frequency=freq_wanted)
-    ).values
-
-
-def _get_offset(
-    ds_beam: xr.Dataset, fc: xr.DataArray, freq_nominal: xr.DataArray, ed: EchoData
-) -> Tuple[xr.DataArray, xr.DataArray]:
-    """
-    Obtains the alongship and athwartship angle offsets.
-
-    Parameters
-    ----------
-    ds_beam: xr.Dataset
-        The dataset corresponding to a beam group
-    fc: xr.DataArray
-        Array corresponding to the center frequency
-    freq_nominal: xr.DataArray
-        Array of frequency nominal values
-    ed: EchoData
-        An ``EchoData`` object holding the raw data
-
-    Returns
-    -------
-    offset_along: xr.DataArray
-        Array corresponding to the angle alongship offset
-    offset_athwart: xr.DataArray
-        Array corresponding to the angle athwartship offset
-    """
-
-    # initialize lists that will hold offsets
-    offset_along = []
-    offset_athwart = []
-
-    # obtain the offsets for each channel
-    for ch in fc["channel"].values:
-        if ch in ed["Vendor_specific"]["cal_channel_id"]:
-            # calculate offsets using Vendor_specific values
-            offset_along.append(
-                _get_interp_offset(
-                    param="angle_offset_alongship", chan_id=ch, freq_center=fc, ed=ed
-                )
-            )
-            offset_athwart.append(
-                _get_interp_offset(
-                    param="angle_offset_athwartship", chan_id=ch, freq_center=fc, ed=ed
-                )
-            )
-        else:
-            # calculate offsets using data in ds_beam
-            offset_along.append(
-                ds_beam["angle_offset_alongship"].sel(channel=ch).isel(ping_time=0, beam=0)
-                * fc.sel(channel=ch)
-                / freq_nominal.sel(channel=ch)
-            )
-            offset_athwart.append(
-                ds_beam["angle_offset_athwartship"].sel(channel=ch).isel(ping_time=0, beam=0)
-                * fc.sel(channel=ch)
-                / freq_nominal.sel(channel=ch)
-            )
-
-    # construct offset DataArrays from lists
-    offset_along = xr.DataArray(
-        offset_along, coords={"channel": fc["channel"], "ping_time": fc["ping_time"]}
-    )
-    offset_athwart = xr.DataArray(
-        offset_athwart, coords={"channel": fc["channel"], "ping_time": fc["ping_time"]}
-    )
-    return offset_along, offset_athwart
+from ..calibrate.ek80_complex import compress_pulse, get_transmit_signal
 
 
 def _compute_angle_from_complex(
-    bs: xr.Dataset, beam_type: int, sens: List[xr.DataArray], offset: List[xr.DataArray]
-):
+    bs: xr.DataArray, beam_type: int, sens: List[xr.DataArray], offset: List[xr.DataArray]
+) -> Tuple[xr.DataArray, xr.DataArray]:
     """
-    Obtains the split-beam angle data alongship and athwartship
-    using data from a single channel.
+    Compute split-beam angles from raw data from transducer sectors.
+
+    Can be used for data from a single channel or multiple channels,
+    depending on what is in ``bs``.
 
     Parameters
     ----------
-    bs: xr.Dataset
-        Complex representation of backscatter
+    bs: xr.DataArray
+        Complex backscatter samples from a single channel or multiple channels
     beam_type: int
         The type of beam being considered
     sens: list of xr.DataArray
@@ -253,9 +36,9 @@ def _compute_angle_from_complex(
 
     Returns
     -------
-    theta: xr.Dataset
+    theta: xr.DataArray
         The calculated split-beam alongship angle for a specific channel
-    phi: xr.Dataset
+    phi: xr.DataArray
         The calculated split-beam athwartship angle for a specific channel
 
     Notes
@@ -309,113 +92,166 @@ def _compute_angle_from_complex(
     return theta, phi
 
 
-def get_angle_complex_BB_nopc(
-    ds_beam: xr.Dataset, ed: EchoData
-) -> Tuple[xr.DataArray, xr.DataArray]:
+def get_angle_power_samples(
+    ds_beam: xr.Dataset, angle_params: dict
+) -> Tuple[xr.Dataset, xr.Dataset]:
     """
-    Obtains the split-beam angle data from complex samples from broadband transmit signals
-    without pulse compression.
+    Obtain split-beam angle from CW mode power samples.
 
     Parameters
     ----------
     ds_beam: xr.Dataset
-        An ``EchoData`` beam group containing angle information needed for
-        split-beam angle calculation
-    ed: EchoData
-        An ``EchoData`` object holding the raw data
+        An ``EchoData`` Sonar/Beam_group1 group (complex samples always in Beam_group1)
+    angle_params : dict
+        A dictionary containing angle_offset/angle_sensitivity parameters
+        from the calibrated dataset
 
     Returns
     -------
     theta: xr.Dataset
-        The calculated split-beam alongship angle
+        Split-beam alongship angle
     phi: xr.Dataset
-        The calculated split-beam athwartship angle
+        Split-beam athwartship angle
+
+    Notes
+    -----
+    Can be used on both EK60 and EK80 data
+
+    Computation done for ``beam_type=1``:
+    ``physical_angle = ((raw_angle * 180 / 128) / sensitivity) - offset``
     """
 
-    # nominal frequency [Hz]
-    freq_nominal = ds_beam["frequency_nominal"]
+    # raw_angle scaling constant
+    conversion_const = 180.0 / 128.0
 
-    # calculate center frequency
-    freq_center = (ds_beam["frequency_start"] + ds_beam["frequency_end"]).isel(beam=0) / 2
-
-    # obtain the angle alongship and athwartship offsets
-    offset_along, offset_athwart = _get_offset(
-        ds_beam=ds_beam, fc=freq_center, freq_nominal=freq_nominal, ed=ed
-    )
-
-    # obtain the angle sensitivity values alongship and athwartship
-    sens_along = ds_beam["angle_sensitivity_alongship"].isel(beam=0) * freq_center / freq_nominal
-    sens_athwart = (
-        ds_beam["angle_sensitivity_athwartship"].isel(beam=0) * freq_center / freq_nominal
-    )
-
-    # get complex representation of backscatter
-    backscatter = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
-
-    # initialize list that will hold split-beam angle data for each channel
-    theta_channels = []
-    phi_channels = []
-
-    # obtain the split-beam angle data for each channel
-    for chan_id in backscatter.channel.values:
-        theta, phi = _compute_angle_from_complex(
-            bs=backscatter.sel(channel=chan_id),
-            beam_type=int(ds_beam["beam_type"].sel(channel=chan_id).isel(ping_time=0)),
-            sens=[sens_along.sel(channel=chan_id), sens_athwart.sel(channel=chan_id)],
-            offset=[offset_along.sel(channel=chan_id), offset_athwart.sel(channel=chan_id)],
+    def _e2f(angle_type: str) -> xr.Dataset:
+        """Convert electric angle to physical angle for split-beam data"""
+        return (
+            conversion_const
+            * ds_beam[f"angle_{angle_type}"]
+            / angle_params[f"angle_sensitivity_{angle_type}"]
+            - angle_params[f"angle_offset_{angle_type}"]
         )
 
-        theta_channels.append(theta)
-        phi_channels.append(phi)
+    # add split-beam angle if at least one channel is split-beam
+    # in the case when some channels are split-beam and some single-beam
+    # the single-beam channels will be all NaNs and _e2f would run through and output NaNs
+    if not np.all(ds_beam["beam_type"].data == 0):
+        theta = _e2f(angle_type="alongship")  # split-beam alongship angle
+        phi = _e2f(angle_type="athwartship")  # split-beam athwartship angle
 
-    # collect and construct final DataArrays for split-beam angle data
-    theta = xr.DataArray(
-        data=theta_channels,
-        coords={
-            "channel": backscatter.channel,
-            "ping_time": theta_channels[0].ping_time,
-            "range_sample": theta_channels[0].range_sample,
-        },
-    )
+    else:
+        raise ValueError(
+            "Computing physical split-beam angle is only available for data "
+            "from split-beam transducers!"
+        )
 
-    phi = xr.DataArray(
-        data=phi_channels,
-        coords={
-            "channel": backscatter.channel,
-            "ping_time": phi_channels[0].ping_time,
-            "range_sample": phi_channels[0].range_sample,
-        },
-    )
+    # drop the beam dimension in theta and phi, if it exists
+    # this cannot be removed because beam dimension exists in all power data (beam dim: length=1)
+    if "beam" in theta.dims:
+        theta = theta.drop("beam").squeeze(dim="beam")
+        phi = phi.drop("beam").squeeze(dim="beam")
 
     return theta, phi
 
 
-def get_angle_complex_BB_pc(ds_beam: xr.Dataset) -> Tuple[xr.DataArray, xr.DataArray]:
+def get_angle_complex_samples(
+    ds_beam: xr.Dataset, angle_params: dict, pc_params: dict = None
+) -> Tuple[xr.DataArray, xr.DataArray]:
     """
-    Obtains the split-beam angle data from complex samples from broadband transmit signals
-    after pulse compression.
+    Obtain split-beam angle from CW or BB mode complex samples.
 
     Parameters
     ----------
-    ds_beam: xr.Dataset
-        An ``EchoData`` beam group containing angle information needed for
-        split-beam angle calculation
+    ds_beam : xr.Dataset
+        An ``EchoData`` Sonar/Beam_group1 group (complex samples always in Beam_group1)
+    angle_params : dict
+        A dictionary containing angle_offset/angle_sensitivity parameters
+        from the calibrated dataset
+    pc_params : dict
+        Parameters needed for pulse compression
+        This dict also serves as a flag for whether to apply pulse compression
 
     Returns
     -------
-    theta: xr.Dataset
-        The calculated split-beam alongship angle
-    phi: xr.Dataset
-        The calculated split-beam athwartship angle
+    theta : xr.Dataset
+        Split-beam alongship angle
+    phi : xr.Dataset
+        Split-beam athwartship angle
     """
 
-    # TODO: make sure to check that the appropriate beam_type is being used
-    raise NotImplementedError(
-        "Obtaining the split-beam angle data using pulse compressed "
-        "backscatter has not been implemented!"
-    )
+    # Get complex backscatter samples
+    bs = ds_beam["backscatter_r"] + 1j * ds_beam["backscatter_i"]
 
-    return xr.DataArray(), xr.DataArray()
+    # Pulse compression if pc_params exists
+    if pc_params is not None:
+        tx, tx_time = get_transmit_signal(
+            beam=ds_beam,
+            coeff=pc_params,  # this is filter_coeff with fs added
+            waveform_mode="BB",
+            fs=pc_params["receiver_sampling_frequency"],  # this is the added fs
+        )
+        bs = compress_pulse(backscatter=bs, chirp=tx)  # has beam dim
+
+    # Compute angles
+    # unique beam_type existing in the dataset
+    beam_type_all_ch = np.unique(ds_beam["beam_type"].isel(ping_time=0).data)
+
+    if beam_type_all_ch.size == 1:
+        # If beam_type is the same for all channels, process all channels at once
+        theta, phi = _compute_angle_from_complex(
+            bs=bs,
+            beam_type=beam_type_all_ch[0],  # beam_type for all channels
+            sens=[
+                angle_params["angle_sensitivity_alongship"],
+                angle_params["angle_sensitivity_athwartship"],
+            ],
+            offset=[
+                angle_params["angle_offset_alongship"],
+                angle_params["angle_offset_athwartship"],
+            ],
+        )
+    else:
+        # beam_type different for some channels, process each channel separately
+        theta, phi = [], []
+        for ch_id in bs["channel"].data:
+            theta_ch, phi_ch = _compute_angle_from_complex(
+                bs=bs.sel(channel=ch_id),
+                # beam_type is not time-varying
+                beam_type=(
+                    ds_beam["beam_type"].sel(channel=ch_id).isel(ping_time=0).drop("ping_time")
+                ),
+                sens=[
+                    angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
+                    angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
+                ],
+                offset=[
+                    angle_params["angle_offset_alongship"].sel(channel=ch_id),
+                    angle_params["angle_offset_athwartship"].sel(channel=ch_id),
+                ],
+            )
+            theta.append(theta_ch)
+            phi.append(phi_ch)
+
+        # Combine angles from all channels
+        theta = xr.DataArray(
+            data=theta,
+            coords={
+                "channel": bs["channel"],
+                "ping_time": bs["ping_time"],
+                "range_sample": bs["range_sample"],
+            },
+        )
+        phi = xr.DataArray(
+            data=phi,
+            coords={
+                "channel": bs["channel"],
+                "ping_time": bs["ping_time"],
+                "range_sample": bs["range_sample"],
+            },
+        )
+
+    return theta, phi
 
 
 def add_angle_to_ds(
@@ -480,15 +316,15 @@ def add_angle_to_ds(
         else:
             splitb_ds.to_zarr(store=source_ds_path, mode="a", **storage_options)
 
+        if return_dataset:
+            # open up and return Dataset in source_ds_path
+            return xr.open_dataset(source_ds_path, engine=file_type, chunks={}, **storage_options)
+
     else:
         # add the split-beam angles to the provided Dataset
         ds["angle_alongship"] = theta
         ds["angle_athwartship"] = phi
 
-    if return_dataset and (source_ds_path is not None):
-        # open up and return Dataset in source_ds_path
-        return xr.open_dataset(source_ds_path, engine=file_type, chunks={}, **storage_options)
-
-    elif return_dataset:
-        # return input dataset with split-beam angle data
-        return ds
+        if return_dataset:
+            # return input dataset with split-beam angle data
+            return ds

@@ -269,8 +269,22 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "BB", "complex", False, False,
         ),
+        # (
+        #     "EK80", "EK80", "Summer2018--D20180905-T033113.raw",
+        #     [
+        #         'splitbeam/Summer2018--D20180905-T033113_angles_T1_nopc.mat',  # change this
+        #         'splitbeam/Summer2018--D20180905-T033113_angles_T2_nopc.mat',  # change this
+        #     ],
+        #     "CW", "power", False, False,
+        # ),
     ],
-    ids=["ek60_CW_power", "ek60_CW_power_Sv_path", "ek80_CW_complex", "ek80_BB_complex_no_pulse"]
+    ids=[
+        "ek60_CW_power",
+        "ek60_CW_power_Sv_path",
+        "ek80_CW_complex",
+        "ek80_BB_complex_no_pc",
+        # "ek80_CW_power",
+    ],
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
                              paths_to_echoview_mat, waveform_mode, encode_mode,
@@ -298,7 +312,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
         # assign input to a path
         ds_Sv = zarr_path
 
-    # add the split-beam angles to an empty Dataset
+    # add the split-beam angles to Sv dataset
     ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed,
                                                waveform_mode=waveform_mode,
                                                encode_mode=encode_mode,
@@ -333,6 +347,53 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
     if temp_dir:
         # remove the temporary directory, if it was created
         temp_dir.cleanup()
+
+
+def test_add_splitbeam_angle_BB_pc(test_path):
+
+    # obtain the EchoData object with the data needed for the calculation
+    ed = ep.open_raw(test_path["EK80_CAL"] / "2018115-D20181213-T094600.raw", sonar_model="EK80")
+
+    # compute Sv as it is required for the split-beam angle calculation
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+
+    # add the split-beam angles to Sv dataset
+    ds_Sv = ep.consolidate.add_splitbeam_angle(
+        source_Sv=ds_Sv, echodata=ed,
+        waveform_mode="BB", encode_mode="complex", pulse_compression=True
+    )
+
+    # Load pyecholab pickle
+    import pickle
+    with open(test_path["EK80_EXT"] / "pyecholab/pyel_BB_splitbeam.pickle", 'rb') as handle:
+        pyel_BB_p_data = pickle.load(handle)
+
+    # Compare 70kHz channel
+    chan_sel = "WBT 714590-15 ES70-7C"
+
+    # Compare cal params
+    # dict mappgin:  {pyecholab : echopype}
+    cal_params_dict = {
+        "angle_sensitivity_alongship": "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship": "angle_sensitivity_athwartship",
+        "beam_width_alongship": "beamwidth_alongship",
+        "beam_width_athwartship": "beamwidth_athwartship",
+    }
+    for p_pyel, p_ep in cal_params_dict.items():
+        assert np.allclose(pyel_BB_p_data["cal_parms"][p_pyel],
+                           ds_Sv[p_ep].sel(channel=chan_sel).values)
+
+    # alongship angle
+    pyel_vals = pyel_BB_p_data["alongship_physical"]
+    ep_vals = ds_Sv["angle_alongship"].sel(channel=chan_sel).values
+    assert pyel_vals.shape == ep_vals.shape
+    assert np.allclose(pyel_vals, ep_vals, atol=1e-5)
+
+    # athwartship angle
+    pyel_vals = pyel_BB_p_data["athwartship_physical"]
+    ep_vals = ds_Sv["angle_athwartship"].sel(channel=chan_sel).values
+    assert pyel_vals.shape == ep_vals.shape
+    assert np.allclose(pyel_vals, ep_vals, atol=1e-6)
 
 
 # TODO: need a test for power/angle data, with mock EchoData object

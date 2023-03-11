@@ -35,7 +35,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
         env_params=None, cal_params=None
     )
     fs = cal_obj.cal_params["receiver_sampling_frequency"]
-    filter_coeff = cal_obj._get_filter_coeff()
+    filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(ed["Vendor_specific"].sel(channel=cal_obj.chan_sel))
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(
         ed["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel), filter_coeff, waveform_mode, fs
     )
@@ -167,7 +167,7 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
     z_er = cal_obj.cal_params["impedance_receive"]
     z_et = cal_obj.cal_params["impedance_transmit"]
     fs = cal_obj.cal_params["receiver_sampling_frequency"]
-    filter_coeff = cal_obj._get_filter_coeff()
+    filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(ed["Vendor_specific"].sel(channel=cal_obj.chan_sel))
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs)
 
     # Get power from complex samples
@@ -223,11 +223,12 @@ def test_ek80_BB_power_echoview(ek80_path):
     )
     beam = echodata["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel)
 
-    coeff = cal_obj._get_filter_coeff()
+    coeff = ep.calibrate.ek80_complex.get_filter_coeff(echodata["Vendor_specific"].sel(channel=cal_obj.chan_sel))
     chirp, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, coeff, "BB", cal_obj.cal_params["receiver_sampling_frequency"])
 
-    pc = ep.calibrate.ek80_complex.compress_pulse(beam=beam, chirp=chirp)
-    pc_mean = pc.pulse_compressed_output.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")
+    pc = ep.calibrate.ek80_complex.compress_pulse(
+        backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"], chirp=chirp)
+    pc_mean = pc.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")
 
     # Read EchoView pc raw power output
     df = pd.read_csv(ek80_bb_pc_test_path, header=None, skiprows=[0])
