@@ -103,7 +103,7 @@ def get_angle_power_samples(
     ds_beam: xr.Dataset
         An ``EchoData`` Sonar/Beam_group1 group (complex samples always in Beam_group1)
     angle_params : dict
-        A dict containing angle_offset/angle_sensitivity params from the calibrated dataset
+        A dictionary containing angle_offset/angle_sensitivity parameters from the calibrated dataset
 
     Returns
     -------
