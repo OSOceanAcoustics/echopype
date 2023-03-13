@@ -8,7 +8,7 @@ dependencies:
   - pynmea2
   - pytz
   - scipy
-  - xarray==2022.3.0
+  - xarray
   - zarr
   - fsspec
   - s3fs==2022.5.0
