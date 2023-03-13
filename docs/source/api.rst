@@ -72,6 +72,13 @@ qc
    :no-inheritance-diagram:
    :no-heading:
 
+mask
+^^^^
+
+.. automodapi:: echopype.mask
+   :no-inheritance-diagram:
+   :no-heading:
+
 Utilities
 ---------
 

@@ -1,9 +1,10 @@
 from collections import defaultdict
 from itertools import islice
-from typing import Any, Dict, Hashable, List, Set, Tuple
+from typing import Any, Dict, Hashable, List, Optional, Set, Tuple
 
 import dask
 import dask.array
+import fsspec
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -11,6 +12,7 @@ import zarr
 from dask.distributed import Lock
 
 from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression
+from ..utils.io import env_indep_joinpath
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
 from .echodata import EchoData
@@ -24,7 +26,6 @@ class ZarrCombine:
     """
 
     def __init__(self):
-
         # all possible time dimensions
         self.possible_time_dims = {"time1", "time2", "time3", "ping_time"}
 
@@ -69,11 +70,9 @@ class ZarrCombine:
         ed_time_dim = set(ds_list[0].dims).intersection(self.possible_time_dims)
 
         for time in ed_time_dim:
-
             # gather the first time of each Dataset
             first_times = []
             for ds in ds_list:
-
                 times = ds[time].values
                 if isinstance(times, np.ndarray):
                     # store first time if we have an array
@@ -86,7 +85,6 @@ class ZarrCombine:
 
             # skip check if all first times are NaT
             if not np.isnan(first_times).all():
-
                 is_descending = (np.diff(first_times) < np.timedelta64(0, "ns")).any()
 
                 if is_descending:
@@ -94,43 +92,6 @@ class ZarrCombine:
                         f"The coordinate {time} is not in ascending order for "
                         f"group {ed_name}, combine cannot be used!"
                     )
-
-    @staticmethod
-    def _check_channels(ds_list: List[xr.Dataset], ed_name: str) -> None:
-        """
-        Makes sure that each Dataset in ``ds_list`` has the
-        same number of channels and the same name for each
-        of these channels.
-
-        Parameters
-        ----------
-        ds_list: list of xr.Dataset
-            List of Datasets to be combined
-        ed_name: str
-            The name of the ``EchoData`` group being combined
-        """
-
-        if "channel" in ds_list[0].dims:
-
-            # check to make sure we have the same number of channels in each ds
-            if np.unique([len(ds["channel"].values) for ds in ds_list]).size == 1:
-
-                # make each array an element of a numpy array
-                channel_arrays = np.array([ds["channel"].values for ds in ds_list])
-
-                # check for unique rows
-                if np.unique(channel_arrays, axis=0).shape[0] > 1:
-
-                    raise RuntimeError(
-                        f"All {ed_name} groups do not have that same channel coordinate, "
-                        f"combine cannot be used!"
-                    )
-
-            else:
-                raise RuntimeError(
-                    f"All {ed_name} groups do not have that same number of channel coordinates, "
-                    f"combine cannot be used!"
-                )
 
     @staticmethod
     def _compare_attrs(attr1: dict, attr2: dict) -> List[str]:
@@ -173,9 +134,7 @@ class ZarrCombine:
         # make sure that all values are identical
         numpy_keys = []
         for key in attr1.keys():
-
             if isinstance(attr1[key], np.ndarray):
-
                 numpy_keys.append(key)
 
                 if not np.allclose(attr1[key], attr2[key], rtol=1e-12, atol=1e-12, equal_nan=True):
@@ -184,7 +143,6 @@ class ZarrCombine:
                         f"same, combine cannot be used!"
                     )
             elif key in ["date_created", "conversion_time"]:
-
                 if not isinstance(attr1[key], type(attr2[key])):
                     raise RuntimeError(
                         f"The attribute {key}'s type amongst the ds lists "
@@ -192,7 +150,6 @@ class ZarrCombine:
                     )
 
             else:
-
                 if attr1[key] != attr2[key]:
                     raise RuntimeError(
                         f"The attribute {key}'s value amongst the ds lists are not the "
@@ -240,7 +197,6 @@ class ZarrCombine:
         """
 
         self._check_ascending_ds_times(ds_list, ed_name)
-        self._check_channels(ds_list, ed_name)
 
         # Dataframe with column as dim names and rows as the different Datasets
         self.dims_df = pd.DataFrame([ds.dims for ds in ds_list])
@@ -263,7 +219,6 @@ class ZarrCombine:
 
         # collect Dataset attributes
         for count, ds in enumerate(ds_list):
-
             # get reduced attributes that do not include numpy keys
             red_attrs = {key: val for key, val in ds.attrs.items() if key not in numpy_keys}
 
@@ -354,7 +309,8 @@ class ZarrCombine:
             var_encoding[name].update(get_zarr_compression(val, COMPRESSION_SETTINGS["zarr"]))
 
         # set the chunk encoding
-        var_encoding[name]["chunks"] = chnk_shape
+        # cast to int type just to be safe
+        var_encoding[name]["chunks"] = [int(c) for c in chnk_shape]
 
         return var_encoding
 
@@ -398,17 +354,14 @@ class ZarrCombine:
         encodings = dict()
         const_names = []
         for name, val in ds_model.variables.items():
-
             # get all dimensions of val that are also append dimensions
             append_dims_in_val = set(val.dims).intersection(self.append_dims)
 
             if not append_dims_in_val:
-
                 # collect the names of all constant variables/dimensions
                 const_names.append(str(name))
 
             else:
-
                 # create lazy DataArray representation
                 temp_arr, chnk_shape = self._get_temp_arr(list(val.dims), val.dtype)
 
@@ -449,9 +402,7 @@ class ZarrCombine:
         # get the initial region
         region = dict()
         for dim in ds_dims:
-
             if dim not in self.append_dims:
-
                 region[dim] = slice(0, self.dims_df.loc[ds_ind][dim])
 
         return region
@@ -528,7 +479,7 @@ class ZarrCombine:
         zarr_chunk_size = min(self.dims_max[dim], self.max_append_chunk_size)
 
         # get the indices of the final combined array that are in each uniform chunk
-        uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, zarr_chunk_size)
+        uniform_chunk = self._uniform_chunks_as_np_array(x_no_chunk, int(zarr_chunk_size))
 
         # construct a mapping between the uniform chunk and the indices
         uniform_chunk_dict = dict(zip(range(len(uniform_chunk)), uniform_chunk))
@@ -564,14 +515,11 @@ class ZarrCombine:
         # construct the uniform to non-uniform mapping
         final_mapping = defaultdict(dict)
         for u_key, u_val in uniform_chunk_dict.items():
-
             for og_key, og_val in og_chunk_dict.items():
-
                 # find the intersection of uniform and non-uniform chunk indices
                 intersect = np.intersect1d(u_val, og_val)
 
                 if len(intersect) > 0:
-
                     # get min and max indices in intersect
                     min_val = intersect.min()
                     max_val = intersect.max()
@@ -633,6 +581,7 @@ class ZarrCombine:
                 compute=True,
                 storage_options=storage_options,
                 synchronizer=zarr.ThreadSynchronizer(),
+                consolidated=False,
             )
 
             # TODO: put a check to make sure that the chunk has been written
@@ -683,9 +632,9 @@ class ZarrCombine:
             compute=False,
             group=zarr_group,
             encoding=encodings,
-            consolidated=None,
             storage_options=storage_options,
             synchronizer=zarr.ThreadSynchronizer(),
+            consolidated=False,
         )
 
         # get all dimensions in ds that are append dimensions
@@ -695,7 +644,6 @@ class ZarrCombine:
         # in ds_list to the zarr store
         delayed_to_zarr = []
         for dim in ds_append_dims:
-
             # collect all variables/coordinates that should be dropped
             drop_names = [
                 var_name
@@ -708,9 +656,15 @@ class ZarrCombine:
 
             for uniform_ind, non_uniform_dict in chunk_mapping.items():
                 for ds_list_ind, dim_slice in non_uniform_dict.items():
-
                     # get ds containing only variables who have dim in their dims
-                    ds_drop = ds_list[ds_list_ind].drop_vars(drop_names)
+                    cur_ds = ds_list[ds_list_ind]
+                    # get all variable names from dataset
+                    ds_keys = [k for k in cur_ds.variables.keys()]
+                    # compare variable names from dataset with the first
+                    # file's variable names and only grab the ones that exists
+                    # in the current dataset
+                    final_drop_names = [name for name in drop_names if name in ds_keys]
+                    ds_drop = ds_list[ds_list_ind].drop_vars(final_drop_names)
 
                     # get xarray region for all dims, except dim
                     region = self._get_region(ds_list_ind, set(ds_drop.dims))
@@ -728,7 +682,12 @@ class ZarrCombine:
                     # write the subset of each Dataset to a zarr file
                     delayed_to_zarr.append(
                         self.write_to_file(
-                            ds_in, lock_name, zarr_path, zarr_group, region, storage_options
+                            ds_in,
+                            lock_name,
+                            zarr_path,
+                            zarr_group,
+                            region,
+                            storage_options,
                         )
                     )
 
@@ -772,7 +731,6 @@ class ZarrCombine:
 
         # write constant vars to zarr using the first element of ds_list
         for var in const_vars:
-
             # make sure to choose the dataset with the largest size for variable
             if var in self.dims_df:
                 ds_list_ind = int(self.dims_df[var].argmax())
@@ -780,7 +738,11 @@ class ZarrCombine:
                 ds_list_ind = int(0)
 
             ds_list[ds_list_ind][[var]].to_zarr(
-                zarr_path, group=zarr_group, mode="a", storage_options=storage_options
+                zarr_path,
+                group=zarr_group,
+                mode="a",
+                storage_options=storage_options,
+                consolidated=False,
             )
 
     def _write_append_dims(
@@ -812,9 +774,7 @@ class ZarrCombine:
         ds_append_dims = set(ds_list[0].dims).intersection(self.append_dims)
 
         for dim in ds_append_dims:
-
             for count, ds in enumerate(ds_list):
-
                 # obtain the appropriate region to write to
                 if count == 0:
                     region = {str(dim): slice(0, self.dims_csum[dim][count])}
@@ -830,6 +790,7 @@ class ZarrCombine:
                     compute=True,
                     storage_options=storage_options,
                     synchronizer=zarr.ThreadSynchronizer(),
+                    consolidated=False,
                 )
 
     def _append_provenance_attr_vars(
@@ -852,15 +813,12 @@ class ZarrCombine:
 
         xr_dict = dict()
         for name, val in self.group_attrs.items():
-
             if "attrs" in name:
-
                 # create Dataset variables
                 coord_name = name[:-1] + "_key"
                 xr_dict[name] = {"dims": ["echodata_filename", coord_name], "data": val}
 
             else:
-
                 # create Dataset coordinates
                 xr_dict[name] = {"dims": [name], "data": val}
 
@@ -890,13 +848,11 @@ class ZarrCombine:
             group="Provenance",
             mode="a",
             storage_options=storage_options,
-            consolidated=True,
+            consolidated=False,
         )
 
     @staticmethod
-    def _modify_prov_filenames(
-        zarr_path: str, len_eds: int, storage_options: Dict[str, Any] = {}
-    ) -> None:
+    def _modify_prov_filenames(zarr_path: str, storage_options: Dict[str, Any] = {}) -> None:
         """
         After the ``Provenance`` group has been constructed, the
         coordinate ``filenames`` will be filled with zeros. This
@@ -907,8 +863,6 @@ class ZarrCombine:
         ----------
         zarr_path: str
             The full path of the final combined zarr store
-        len_eds: int
-            The number of ``EchoData`` objects being combined
         storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
@@ -916,10 +870,13 @@ class ZarrCombine:
 
         # obtain the filenames zarr array
         zarr_filenames = zarr.open_array(
-            zarr_path + "/Provenance/filenames", mode="r+", storage_options=storage_options
+            env_indep_joinpath(zarr_path, "Provenance", "filenames"),
+            mode="r+",
+            storage_options=storage_options,
         )
-
-        zarr_filenames[:] = np.arange(len_eds)
+        # Assume that this is 1D so zarr_filenames.shape
+        # is expected to return tuple such as (x,)
+        zarr_filenames[:] = np.arange(*zarr_filenames.shape)
 
     def combine(
         self,
@@ -928,6 +885,8 @@ class ZarrCombine:
         storage_options: Dict[str, Any] = {},
         sonar_model: str = None,
         echodata_filenames: List[str] = [],
+        ed_group_chan_sel: Dict[str, Optional[List[str]]] = {},
+        consolidated: bool = True,
     ) -> EchoData:
         """
         Combines all ``EchoData`` objects in ``eds`` by
@@ -940,6 +899,7 @@ class ZarrCombine:
             The full path of the final combined zarr store
         eds: list of EchoData object
             The list of ``EchoData`` objects to be combined
+            The list of ``EchoData`` objects to be combined
         storage_options: dict
             Any additional parameters for the storage
             backend (ignored for local paths)
@@ -947,6 +907,14 @@ class ZarrCombine:
             The sonar model used for all elements in ``eds``
         echodata_filenames : list of str
             The source files names for all elements in ``eds``
+        ed_group_chan_sel: dict
+            A dictionary with keys corresponding to the ``EchoData`` groups
+            and values specify what channels should be selected within that
+            group. If a value is ``None``, then a subset of channels should
+            not be selected.
+        consolidated: bool
+            Flag to consolidate zarr metadata.
+            Defaults to ``True``
 
         Returns
         -------
@@ -984,18 +952,24 @@ class ZarrCombine:
 
         # loop through all possible group and write them to a zarr store
         for grp_info in EchoData.group_map.values():
-
             # obtain the appropriate group name
             if grp_info["ep_group"]:
                 ed_group = grp_info["ep_group"]
             else:
                 ed_group = "Top-level"
 
-            # collect the group Dataset from all eds
-            ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+            # collect the group Dataset from all eds that have their channels unselected
+            all_chan_ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+
+            # select only the appropriate channels from each Dataset
+            ds_list = [
+                ds.sel(channel=ed_group_chan_sel[ed_group])
+                if ed_group_chan_sel[ed_group] is not None
+                else ds
+                for ds in all_chan_ds_list
+            ]
 
             if ds_list:  # necessary because a group may not be present
-
                 const_names = self._append_ds_list_to_zarr(
                     zarr_path,
                     ds_list=ds_list,
@@ -1005,16 +979,33 @@ class ZarrCombine:
                 )
 
                 self._append_const_to_zarr(
-                    const_names, ds_list, zarr_path, grp_info["ep_group"], storage_options
+                    const_names,
+                    ds_list,
+                    zarr_path,
+                    grp_info["ep_group"],
+                    storage_options,
                 )
 
-                self._write_append_dims(ds_list, zarr_path, grp_info["ep_group"], storage_options)
+                self._write_append_dims(
+                    ds_list,
+                    zarr_path,
+                    grp_info["ep_group"],
+                    storage_options,
+                )
 
         # append all group attributes before combination to zarr store
-        self._append_provenance_attr_vars(zarr_path, storage_options=storage_options)
+        self._append_provenance_attr_vars(
+            zarr_path,
+            storage_options=storage_options,
+        )
 
         # change filenames numbering to range(len(eds))
-        self._modify_prov_filenames(zarr_path, len_eds=len(eds), storage_options=storage_options)
+        self._modify_prov_filenames(zarr_path, storage_options=storage_options)
+
+        if consolidated:
+            # consolidate at the end if consolidated flag is True
+            store = fsspec.get_mapper(zarr_path, **storage_options)
+            zarr.consolidate_metadata(store=store)
 
         # open lazy loaded combined EchoData object
         ed_combined = open_converted(
@@ -1022,6 +1013,7 @@ class ZarrCombine:
             chunks={},
             synchronizer=zarr.ThreadSynchronizer(),
             storage_options=storage_options,
+            backend_kwargs={"consolidated": consolidated},
         )  # TODO: is this appropriate for chunks?
 
         return ed_combined

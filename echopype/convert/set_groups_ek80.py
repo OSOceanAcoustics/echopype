@@ -49,10 +49,13 @@ class SetGroupsEK80(SetGroupsBase):
     beamgroups_possible = [
         {
             "name": "Beam_group1",
-            "descr": (
-                "contains backscatter data (either complex samples or uncalibrated power samples)"  # noqa
-                " and other beam or channel-specific data"
-            ),
+            "descr": {
+                "power": "contains backscatter power (uncalibrated) and "
+                "other beam or channel-specific data,"
+                " including split-beam angle data when they exist.",
+                "complex": "contains complex backscatter data and other "
+                "beam or channel-specific data.",
+            },
         },
         {
             "name": "Beam_group2",
@@ -145,12 +148,12 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
 
-        vars = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
-        for var_name in vars:
-            if var_name in self.parser_obj.environment:
-                dict_env[var_name] = (
+        varnames = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+        for vn in varnames:
+            if vn in self.parser_obj.environment:
+                dict_env[vn] = (
                     ["time1"],
-                    [self.parser_obj.environment[var_name]],
+                    [self.parser_obj.environment[vn]],
                 )
 
         ds = xr.Dataset(
@@ -185,7 +188,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
         return set_time_encodings(ds)
 
-    def set_sonar(self, beam_group_count=1) -> xr.Dataset:
+    def set_sonar(self, beam_group_type: list = ["power", None]) -> xr.Dataset:
         # Collect unique variables
         params = [
             "transducer_frequency",
@@ -203,12 +206,25 @@ class SetGroupsEK80(SetGroupsBase):
             for param in params:
                 var[param].append(data[param])
 
-        # Create dataset
+        # obtain the correct beam_group and corresponding description from beamgroups_possible
+        for idx, beam in enumerate(beam_group_type):
+            if beam is None:
+                # obtain values from an element where the key 'descr' does not have keys
+                self._beamgroups.append(self.beamgroups_possible[idx])
+            else:
+                # obtain values from an element where the key 'descr' DOES have keys
+                self._beamgroups.append(
+                    {
+                        "name": self.beamgroups_possible[idx]["name"],
+                        "descr": self.beamgroups_possible[idx]["descr"][beam],
+                    }
+                )
+
         # Add beam_group and beam_group_descr variables sharing a common dimension
         # (beam_group), using the information from self._beamgroups
-        self._beamgroups = self.beamgroups_possible[:beam_group_count]
         beam_groups_vars, beam_groups_coord = self._beam_groups_vars()
 
+        # Create dataset
         sonar_vars = {
             "frequency_nominal": (
                 ["channel"],
@@ -618,7 +634,6 @@ class SetGroupsEK80(SetGroupsBase):
             "frequency_start" in self.parser_obj.ping_data_dict.keys()
             and self.parser_obj.ping_data_dict["frequency_start"][ch]
         ):
-
             ds_f_start_end = xr.Dataset(
                 {
                     "frequency_start": (
@@ -779,7 +794,6 @@ class SetGroupsEK80(SetGroupsBase):
         return ds_tmp
 
     def _assemble_ds_power(self, ch):
-
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
@@ -1055,7 +1069,6 @@ class SetGroupsEK80(SetGroupsBase):
             ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
 
         if not self.parsed2zarr_obj.temp_zarr_dir:
-
             # Assemble dataset for backscatter data and other ping-by-ping data
             ds_complex = []
             ds_power = []
@@ -1126,9 +1139,19 @@ class SetGroupsEK80(SetGroupsBase):
         """Set the Vendor_specific group."""
         config = self.parser_obj.config_datagram["configuration"]
 
-        # Table for sa_correction and gain indexed by pulse_length (exist for all channels)
+        # Channel-specific parameters
+        # exist for all channels:
+        #   - sa_correction
+        #   - gain (indexed by pulse_length)
+        # may not exist for data from earlier EK80 software:
+        #   - impedance
+        #   - receiver sampling frequency
+        #   - transceiver type
         table_params = [
             "transducer_frequency",
+            "impedance",  # receive impedance (z_er), different from transmit impedance (z_et)
+            "rx_sample_frequency",  # receiver sampling frequency
+            "transceiver_type",
             "pulse_duration",
             "sa_correction",
             "gain",
@@ -1139,7 +1162,8 @@ class SetGroupsEK80(SetGroupsBase):
         for ch in self.sorted_channel["all"]:
             v = self.parser_obj.config_datagram["configuration"][ch]
             for p in table_params:
-                param_dict[p].append(v[p])
+                if p in v:  # only for parameter that exist in configuration dict
+                    param_dict[p].append(v[p])
 
         # make values into numpy arrays
         for p in param_dict.keys():
@@ -1191,6 +1215,37 @@ class SetGroupsEK80(SetGroupsBase):
             },
         )
 
+        # Parameters that may or may not exist (due to EK80 software version)
+        if "impedance" in param_dict:
+            ds_table["impedance_receive"] = xr.DataArray(
+                param_dict["impedance"],
+                dims=["channel"],
+                coords={"channel": ds_table["channel"]},
+                attrs={
+                    "units": "ohm",
+                    "long_name": "Receiver impedance",
+                },
+            )
+        if "rx_sample_frequency" in param_dict:
+            ds_table["fs_receiver"] = xr.DataArray(
+                param_dict["rx_sample_frequency"].astype(float),
+                dims=["channel"],
+                coords={"channel": ds_table["channel"]},
+                attrs={
+                    "units": "Hz",
+                    "long_name": "Receiver sampling frequency",
+                },
+            )
+        if "transceiver_type" in param_dict:
+            ds_table["transceiver_type"] = xr.DataArray(
+                param_dict["transceiver_type"],
+                dims=["channel"],
+                coords={"channel": ds_table["channel"]},
+                attrs={
+                    "long_name": "Transceiver type",
+                },
+            )
+
         # Broadband calibration parameters: use the zero padding approach
         cal_ch_ids = [
             ch for ch in self.sorted_channel["all"] if "calibration" in config[ch]
@@ -1204,7 +1259,7 @@ class SetGroupsEK80(SetGroupsBase):
             #                 f"{config[ch]['channel_id_short']}")
             cal_params = [
                 "gain",
-                "impedance",
+                "impedance",  # transmit impedance (z_et), different from receive impedance (z_er)
                 "phase",
                 "beamwidth_alongship",
                 "beamwidth_athwartship",
@@ -1213,7 +1268,8 @@ class SetGroupsEK80(SetGroupsBase):
             ]
             param_dict = {}
             for p in cal_params:
-                param_dict[p] = (["cal_frequency"], config[ch_id]["calibration"][p])
+                if p in config[ch_id]["calibration"]:  # only for parameters that exist in dict
+                    param_dict[p] = (["cal_frequency"], config[ch_id]["calibration"][p])
             ds_ch = xr.Dataset(
                 data_vars=param_dict,
                 coords={
@@ -1233,6 +1289,9 @@ class SetGroupsEK80(SetGroupsBase):
             ] = "ID of channels containing broadband calibration information"
             ds_cal.append(ds_ch)
         ds_cal = xr.merge(ds_cal)
+
+        if "impedance" in ds_cal:
+            ds_cal = ds_cal.rename_vars({"impedance": "impedance_transmit"})
 
         #  Save decimation factors and filter coefficients
         coeffs = dict()

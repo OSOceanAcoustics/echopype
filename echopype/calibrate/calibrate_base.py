@@ -1,43 +1,34 @@
 import abc
 
 from ..echodata import EchoData
-from .env_params import EnvParams
-
-CAL_PARAMS = {
-    "EK": ("sa_correction", "gain_correction", "equivalent_beam_angle"),
-    "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
-}
 
 
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
 
-    def __init__(self, echodata: EchoData, env_params=None):
+    def __init__(self, echodata: EchoData, env_params=None, cal_params=None):
         self.echodata = echodata
-        if isinstance(env_params, EnvParams):
-            env_params = env_params._apply(echodata)
-        elif env_params is None:
-            env_params = {}
-        elif not isinstance(env_params, dict):
-            raise ValueError(
-                "invalid env_params type; provide an EnvParams instance, a dict, or None"
-            )
-        self.env_params = env_params  # env_params are set in child class
-        self.cal_params = None  # cal_params are set in child class
+        self.sonar_type = None
+
+        if env_params is None:
+            self.env_params = {}
+        elif isinstance(env_params, dict):
+            self.env_params = env_params
+        else:
+            raise ValueError("'env_params' has to be None or a dict")
+
+        if cal_params is None:
+            self.cal_params = {}
+        elif isinstance(cal_params, dict):
+            self.cal_params = cal_params
+        else:
+            raise ValueError("'cal_params' has to be None or a dict")
 
         # range_meter is computed in compute_Sv/TS in child class
         self.range_meter = None
 
     @abc.abstractmethod
-    def get_env_params(self, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def get_cal_params(self, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def compute_range_meter(self, **kwargs):
+    def compute_echo_range(self, **kwargs):
         """Calculate range (``echo_range``) in units meter.
 
         Returns
@@ -48,7 +39,7 @@ class CalibrateBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def _cal_power(self, cal_type, **kwargs):
+    def _cal_power_samples(self, cal_type, **kwargs):
         """Calibrate power data for EK60, EK80, and AZFP.
 
         Parameters

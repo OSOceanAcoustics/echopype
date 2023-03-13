@@ -1,18 +1,24 @@
 from textwrap import dedent
 
+import os
 import fsspec
+from pathlib import Path
+import shutil
 
 from datatree import DataTree
 from zarr.errors import GroupNotFoundError
 
 import echopype
-from echopype.calibrate.env_params import EnvParams
+from echopype.calibrate.env_params_old import EnvParams
 from echopype.echodata import EchoData
 from echopype import open_converted
+from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 
 import pytest
 import xarray as xr
 import numpy as np
+
+from utils import get_mock_echodata, check_consolidated
 
 
 @pytest.fixture(scope="module")
@@ -191,27 +197,45 @@ def range_check_files(request, test_path):
 
 
 class TestEchoData:
+    expected_groups = {
+        'Top-level',
+        'Environment',
+        'Platform',
+        'Platform/NMEA',
+        'Provenance',
+        'Sonar',
+        'Sonar/Beam_group1',
+        'Vendor_specific',
+    }
+
+    @pytest.fixture(scope="class")
+    def mock_echodata(self):
+        return get_mock_echodata()
+
     @pytest.fixture(scope="class")
     def converted_zarr(self, single_ek60_zarr):
         return single_ek60_zarr
 
+    def create_ed(self, converted_raw_path):
+        return EchoData.from_file(converted_raw_path=converted_raw_path)
+
     def test_constructor(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
-        expected_groups = [
-            'Top-level',
-            'Environment',
-            'Platform',
-            'Provenance',
-            'Sonar',
-            'Sonar/Beam_group1',
-            'Vendor_specific',
-        ]
+        ed = self.create_ed(converted_zarr)
 
         assert ed.sonar_model == 'EK60'
         assert ed.converted_raw_path == converted_zarr
         assert ed.storage_options == {}
-        for group in expected_groups:
+        for group in self.expected_groups:
             assert isinstance(ed[group], xr.Dataset)
+
+    def test_group_paths(self, converted_zarr):
+        ed = self.create_ed(converted_zarr)
+        assert ed.group_paths == self.expected_groups
+
+    def test_nbytes(self, converted_zarr):
+        ed = self.create_ed(converted_zarr)
+        assert isinstance(ed.nbytes, float)
+        assert ed.nbytes == 4688692.0
 
     def test_repr(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
@@ -224,16 +248,16 @@ class TestEchoData:
             │   └── NMEA: contains information specific to the NMEA protocol.
             ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
             ├── Sonar: contains sonar system metadata and sonar beam groups.
-            │   └── Beam_group1: contains backscatter data (either complex samples or uncalibrated power samples) and other beam or channel-specific data, including split-beam angle data when they exist.
+            │   └── Beam_group1: contains backscatter power (uncalibrated) and other beam or channel-specific data, including split-beam angle data when they exist.
             └── Vendor_specific: contains vendor-specific information about the sonar and the data."""
         )
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))
         assert expected_repr == actual
 
     def test_repr_html(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         assert hasattr(ed, "_repr_html_")
         html_repr = ed._repr_html_().strip()
         assert (
@@ -251,7 +275,7 @@ class TestEchoData:
     def test_setattr(self, converted_zarr):
         sample_data = xr.Dataset({"x": [0, 0, 0]})
         sample_data2 = xr.Dataset({"y": [0, 0, 0]})
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         current_ed_beam = ed["Sonar/Beam_group1"]
         current_ed_top = ed['Top-level']
         ed["Sonar/Beam_group1"] = sample_data
@@ -264,7 +288,7 @@ class TestEchoData:
         assert ed['Top-level'].equals(current_ed_top) is False
 
     def test_getitem(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         beam = ed['Sonar/Beam_group1']
         assert isinstance(beam, xr.Dataset)
         assert ed['MyGroup'] is None
@@ -276,7 +300,7 @@ class TestEchoData:
             assert isinstance(e, ValueError)
 
     def test_setitem(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         ed['Sonar/Beam_group1'] = ed['Sonar/Beam_group1'].rename({'beam': 'beam_newname'})
 
         assert sorted(ed['Sonar/Beam_group1'].dims.keys()) == ['beam_newname', 'channel', 'ping_time', 'range_sample']
@@ -287,7 +311,7 @@ class TestEchoData:
             assert isinstance(e, GroupNotFoundError)
 
     def test_get_dataset(self, converted_zarr):
-        ed = EchoData.from_file(converted_raw_path=converted_zarr)
+        ed = self.create_ed(converted_raw_path=converted_zarr)
         node = DataTree()
         result = ed._EchoData__get_dataset(node)
 
@@ -296,6 +320,28 @@ class TestEchoData:
 
         assert result is None
         assert isinstance(ed_result, xr.Dataset)
+
+    @pytest.mark.parametrize("consolidated", [True, False])
+    def test_to_zarr_consolidated(self, mock_echodata, consolidated):
+        """
+        Tests to_zarr consolidation. Currently, this test uses a mock EchoData object that only
+        has attributes. The consolidated flag provided will be used in every to_zarr call (which 
+        is used to write each EchoData group to zarr_path). 
+        """
+        zarr_path = Path('test.zarr')
+        mock_echodata.to_zarr(str(zarr_path), consolidated=consolidated, overwrite=True)
+
+        check = True if consolidated else False
+        zmeta_path = zarr_path / ".zmetadata"
+
+        assert zmeta_path.exists() is check
+
+        if check is True:
+            check_consolidated(mock_echodata, zmeta_path)
+
+        # clean up the zarr file
+        shutil.rmtree(zarr_path)
+
 
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):
@@ -326,82 +372,82 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
             assert isinstance(e, ValueError) is True
 
 
-def test_compute_range(compute_range_samples):
-    (
-        filepath,
-        sonar_model,
-        azfp_xml_path,
-        azfp_cal_type,
-        ek_waveform_mode,
-        ek_encode_mode,
-    ) = compute_range_samples
-    ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
-    rng = np.random.default_rng(0)
-    stationary_env_params = EnvParams(
-        xr.Dataset(
-            data_vars={
-                "pressure": ("time3", np.arange(50)),
-                "salinity": ("time3", np.arange(50)),
-                "temperature": ("time3", np.arange(50)),
-            },
-            coords={
-                "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
-            }
-        ),
-        data_kind="stationary"
-    )
-    if "time3" in ed["Platform"] and sonar_model != "AD2CP":
-        ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
-    else:
-        try:
-            ed.compute_range(stationary_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
-        except ValueError:
-            pass
-        else:
-            raise AssertionError
+# def test_compute_range(compute_range_samples):
+#     (
+#         filepath,
+#         sonar_model,
+#         azfp_xml_path,
+#         azfp_cal_type,
+#         ek_waveform_mode,
+#         ek_encode_mode,
+#     ) = compute_range_samples
+#     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
+#     rng = np.random.default_rng(0)
+#     stationary_env_params = EnvParams(
+#         xr.Dataset(
+#             data_vars={
+#                 "pressure": ("time3", np.arange(50)),
+#                 "salinity": ("time3", np.arange(50)),
+#                 "temperature": ("time3", np.arange(50)),
+#             },
+#             coords={
+#                 "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+#             }
+#         ),
+#         data_kind="stationary"
+#     )
+#     if "time3" in ed["Platform"] and sonar_model != "AD2CP":
+#         ed.compute_range(stationary_env_params, azfp_cal_type, ek_waveform_mode)
+#     else:
+#         try:
+#             ed.compute_range(stationary_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
+#         except ValueError:
+#             pass
+#         else:
+#             raise AssertionError
 
 
-    mobile_env_params = EnvParams(
-        xr.Dataset(
-            data_vars={
-                "pressure": ("time", np.arange(100)),
-                "salinity": ("time", np.arange(100)),
-                "temperature": ("time", np.arange(100)),
-            },
-            coords={
-                "latitude": ("time", rng.random(size=100) + 44),
-                "longitude": ("time", rng.random(size=100) - 125),
-            }
-        ),
-        data_kind="mobile"
-    )
-    if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():
-        ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
-    else:
-        try:
-            ed.compute_range(mobile_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
-        except ValueError:
-            pass
-        else:
-            raise AssertionError
+#     mobile_env_params = EnvParams(
+#         xr.Dataset(
+#             data_vars={
+#                 "pressure": ("time", np.arange(100)),
+#                 "salinity": ("time", np.arange(100)),
+#                 "temperature": ("time", np.arange(100)),
+#             },
+#             coords={
+#                 "latitude": ("time", rng.random(size=100) + 44),
+#                 "longitude": ("time", rng.random(size=100) - 125),
+#             }
+#         ),
+#         data_kind="mobile"
+#     )
+#     if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():
+#         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
+#     else:
+#         try:
+#             ed.compute_range(mobile_env_params, ek_waveform_mode="CW", azfp_cal_type="Sv")
+#         except ValueError:
+#             pass
+#         else:
+#             raise AssertionError
 
-    env_params = {"sound_speed": 343}
-    if sonar_model == "AD2CP":
-        try:
-            ed.compute_range(
-                env_params, ek_waveform_mode="CW", azfp_cal_type="Sv"
-            )
-        except ValueError:
-            pass  # AD2CP is not currently supported in ed.compute_range
-        else:
-            raise AssertionError
-    else:
-        echo_range = ed.compute_range(
-            env_params,
-            azfp_cal_type,
-            ek_waveform_mode,
-        )
-        assert isinstance(echo_range, xr.DataArray)
+#     env_params = {"sound_speed": 343}
+#     if sonar_model == "AD2CP":
+#         try:
+#             ed.compute_range(
+#                 env_params, ek_waveform_mode="CW", azfp_cal_type="Sv"
+#             )
+#         except ValueError:
+#             pass  # AD2CP is not currently supported in ed.compute_range
+#         else:
+#             raise AssertionError
+#     else:
+#         echo_range = ed.compute_range(
+#             env_params,
+#             azfp_cal_type,
+#             ek_waveform_mode,
+#         )
+#         assert isinstance(echo_range, xr.DataArray)
 
 
 def test_nan_range_entries(range_check_files):
@@ -409,11 +455,15 @@ def test_nan_range_entries(range_check_files):
     echodata = echopype.open_raw(ek_file, sonar_model=sonar_model)
     if sonar_model == "EK80":
         ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
-        range_output = echodata.compute_range(env_params=[], ek_waveform_mode='BB')
+        cal_obj = CalibrateEK80(
+            echodata, env_params=None, cal_params=None, waveform_mode="BB", encode_mode="complex",
+        )
+        range_output = cal_obj.range_meter
         nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
     else:
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
-        range_output = echodata.compute_range(env_params=[])
+        cal_obj = CalibrateEK60(echodata, env_params={}, cal_params=None)
+        range_output = cal_obj.range_meter
         nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
 
     nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()

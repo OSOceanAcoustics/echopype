@@ -1,6 +1,7 @@
 import xarray as xr
 
 from ..echodata import EchoData
+from ..echodata.simrad import check_input_args_combination
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
@@ -30,14 +31,7 @@ def _compute_cal(
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
-        elif waveform_mode not in ("BB", "CW"):
-            raise ValueError("Input waveform_mode not recognized!")
-        elif encode_mode not in ("complex", "power"):
-            raise ValueError("Input encode_mode not recognized!")
-        elif waveform_mode == "BB" and encode_mode == "power":
-            raise ValueError(
-                "Data from broadband ('BB') transmission must be recorded as complex samples"
-            )
+        check_input_args_combination(waveform_mode, encode_mode)
     elif echodata.sonar_model in ("EK60", "AZFP"):
         if waveform_mode is not None and waveform_mode != "CW":
             logger.warning(
@@ -59,6 +53,15 @@ def _compute_cal(
         encode_mode=encode_mode,
     )
 
+    # Perform calibration
+    if cal_type == "Sv":
+        cal_ds = cal_obj.compute_Sv()
+    elif cal_type == "TS":
+        cal_ds = cal_obj.compute_TS()
+    else:
+        raise ValueError("cal_type must be Sv or TS")
+
+    # Add attributes
     def add_attrs(cal_type, ds):
         """Add attributes to backscattering strength dataset.
         cal_type: Sv or TS
@@ -84,13 +87,9 @@ def _compute_cal(
                 }
             )
 
-    # Perform calibration
-    if cal_type == "Sv":
-        cal_ds = cal_obj.compute_Sv(waveform_mode=waveform_mode, encode_mode=encode_mode)
-    else:
-        cal_ds = cal_obj.compute_TS(waveform_mode=waveform_mode, encode_mode=encode_mode)
-
     add_attrs(cal_type, cal_ds)
+
+    # Add provinance
     # Provenance source files may originate from raw files (echodata.source_files)
     # or converted files (echodata.converted_raw_path)
     if echodata.source_file is not None:
@@ -109,8 +108,8 @@ def _compute_cal(
         .assign_attrs(prov_dict)
     )
 
+    # Add water_level to the created xr.Dataset
     if "water_level" in echodata["Platform"].data_vars.keys():
-        # add water_level to the created xr.Dataset
         cal_ds["water_level"] = echodata["Platform"].water_level
 
     return cal_ds

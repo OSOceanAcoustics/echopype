@@ -1,4 +1,3 @@
-import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
@@ -52,6 +51,11 @@ def to_file(
         whether or not to use parallel processing. (Not yet implemented)
     output_storage_options : dict
         Additional keywords to pass to the filesystem class.
+    **kwargs : dict, optional
+        Extra arguments to either `xr.Dataset.to_netcdf`
+        or `xr.Dataset.to_zarr`: refer to each method documentation
+        for a list of all possible arguments.
+
     """
     if parallel:
         raise NotImplementedError("Parallel conversion is not yet implemented.")
@@ -88,13 +92,14 @@ def to_file(
             ),
             engine=engine,
             compress=compress,
+            **kwargs,
         )
 
     # Link path to saved file with attribute as if from open_converted
     echodata.converted_raw_path = output_file
 
 
-def _save_groups_to_file(echodata, output_path, engine, compress=True):
+def _save_groups_to_file(echodata, output_path, engine, compress=True, **kwargs):
     """Serialize all groups to file."""
     # TODO: in terms of chunking, would using rechunker at the end be faster and more convenient?
     # TODO: investigate chunking before we save Dataset to a file
@@ -106,6 +111,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         mode="w",
         engine=engine,
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Environment group
@@ -116,6 +122,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
         group="Environment",
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Platform group
@@ -126,6 +133,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
         group="Platform",
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Platform/NMEA group: some sonar model does not produce NMEA data
@@ -137,6 +145,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             engine=engine,
             group="Platform/NMEA",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            **kwargs,
         )
 
     # Provenance group
@@ -147,6 +156,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         mode="a",
         engine=engine,
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # Sonar group
@@ -157,6 +167,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         mode="a",
         engine=engine,
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
     # /Sonar/Beam_groupX group
@@ -169,6 +180,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
                 engine=engine,
                 group=f"Sonar/Beam_group{i}",
                 compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+                **kwargs,
             )
     else:
         io.save_file(
@@ -178,6 +190,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
             engine=engine,
             group=f"Sonar/{BEAM_SUBGROUP_DEFAULT}",
             compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+            **kwargs,
         )
         if echodata["Sonar/Beam_group2"] is not None:
             # some sonar model does not produce Sonar/Beam_group2
@@ -188,6 +201,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
                 engine=engine,
                 group="Sonar/Beam_group2",
                 compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+                **kwargs,
             )
 
     # Vendor_specific group
@@ -198,6 +212,7 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True):
         engine=engine,
         group="Vendor_specific",
         compression_settings=COMPRESSION_SETTINGS[engine] if compress else None,
+        **kwargs,
     )
 
 
@@ -292,13 +307,13 @@ def _check_file(
 
 
 def open_raw(
-    raw_file: Optional["PathHint"] = None,
-    sonar_model: Optional["SonarModelsHint"] = None,
+    raw_file: "PathHint",
+    sonar_model: "SonarModelsHint",
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    offload_to_zarr: bool = False,
-    max_zarr_mb: int = 100,
+    use_swap: bool = False,
+    max_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
 
@@ -327,86 +342,72 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict
         options for cloud storage
-    offload_to_zarr: bool
+    use_swap: bool
         If True, variables with a large memory footprint will be
-        written to a temporary zarr store called ``temp_echopype_output/parsed2zarr_temp_files``
-        under the current execution folder
-    max_zarr_mb : int
-        maximum MB that each zarr chunk should hold, when offloading
+        written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
+    max_mb : int
+        The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
+
 
     Returns
     -------
     EchoData object
 
+    Raises
+    ------
+    ValueError
+        If ``sonar_model`` is ``None`` or ``sonar_model``
+        given is unsupported.
+    FileNotFoundError
+        If ``raw_file`` is ``None``.
+    TypeError
+        If ``raw_file`` input is neither ``str`` or
+        ``pathlib.Path`` type.
+
     Notes
     -----
-    ``offload_to_zarr=True`` is only available for the following
+    ``use_swap=True`` is only available for the following
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
-    if (sonar_model is None) and (raw_file is None):
-        logger.warning("Please specify the path to the raw data file and the sonar model.")
-        return
+    if raw_file is None:
+        raise FileNotFoundError("The path to the raw data file must be specified.")
+
+    # Check for path type
+    if isinstance(raw_file, Path):
+        raw_file = str(raw_file)
+    if not isinstance(raw_file, str):
+        raise TypeError("File path must be a string or Path")
+
+    if sonar_model is None:
+        raise ValueError("Sonar model must be specified.")
 
     # Check inputs
     if convert_params is None:
         convert_params = {}
     storage_options = storage_options if storage_options is not None else {}
 
-    if sonar_model is None:
-        logger.warning("Please specify the sonar model.")
+    # Uppercased model in case people use lowercase
+    sonar_model = sonar_model.upper()  # type: ignore
 
-        if xml_path is None:
-            sonar_model = "EK60"
-            warnings.warn(
-                "Current behavior is to default sonar_model='EK60' when no XML file is passed in as argument. "  # noqa
-                "Specifying sonar_model='EK60' will be required in the future, "
-                "since .raw extension is used for many Kongsberg/Simrad sonar systems.",
-                DeprecationWarning,
-                2,
-            )
-        else:
-            sonar_model = "AZFP"
-            warnings.warn(
-                "Current behavior is to set sonar_model='AZFP' when an XML file is passed in as argument. "  # noqa
-                "Specifying sonar_model='AZFP' will be required in the future.",
-                DeprecationWarning,
-                2,
-            )
-    else:
-        # Uppercased model in case people use lowercase
-        sonar_model = sonar_model.upper()  # type: ignore
-
-        # Check models
-        if sonar_model not in SONAR_MODELS:
-            raise ValueError(
-                f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"  # noqa
-            )
-
-    # Check paths and file types
-    if raw_file is None:
-        raise FileNotFoundError("Please specify the path to the raw data file.")
-
-    # Check for path type
-    if isinstance(raw_file, Path):
-        raw_file = str(raw_file)
-    if not isinstance(raw_file, str):
-        raise TypeError("file must be a string or Path")
-
-    assert sonar_model is not None
+    # Check models
+    if sonar_model not in SONAR_MODELS:
+        raise ValueError(
+            f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"  # noqa
+        )
 
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
     # TODO: remove once 'auto' option is added
-    if not isinstance(offload_to_zarr, bool):
-        raise ValueError("offload_to_zarr must be of type bool.")
+    if not isinstance(use_swap, bool):
+        raise ValueError("use_swap must be of type bool.")
 
-    # Ensure offload_to_zarr is 'auto', if it is a string
+    # Ensure use_swap is 'auto', if it is a string
     # TODO: use the following when we allow for 'auto' option
-    # if isinstance(offload_to_zarr, str) and offload_to_zarr != "auto":
-    #     raise ValueError("offload_to_zarr must be a bool or equal to 'auto'.")
+    # if isinstance(use_swap, str) and use_swap != "auto":
+    #     raise ValueError("use_swap must be a bool or equal to 'auto'.")
 
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
@@ -427,17 +428,16 @@ def open_raw(
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-
         # Create sonar_model-specific p2z object
         p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
 
         # Determines if writing to zarr is necessary and writes to zarr
-        p2z_flag = offload_to_zarr is True or (
-            offload_to_zarr == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
+        p2z_flag = use_swap is True or (
+            use_swap == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
         )
 
         if p2z_flag:
-            p2z.datagram_to_zarr(max_mb=max_zarr_mb)
+            p2z.datagram_to_zarr(max_mb=max_mb)
             # Rectangularize the transmit data
             parser.rectangularize_transmit_ping_data(data_type="complex")
         else:
@@ -485,14 +485,21 @@ def open_raw(
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
 
-    valid_beam_groups_count = 0
+    beam_group_type = []
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
-            valid_beam_groups_count += 1
+            # fill in beam_group_type (only necessary for EK80, ES80, EA640)
+            if idx == 1:
+                # choose the appropriate description key for Beam_group1
+                beam_group_type.append("complex" if "backscatter_i" in beam_group else "power")
+            else:
+                # provide None for all other beam groups (since the description does not have a key)
+                beam_group_type.append(None)
+
             tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
 
     if sonar_model in ["EK80", "ES80", "EA640"]:
-        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_count=valid_beam_groups_count)
+        tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_type=beam_group_type)
     else:
         tree_dict["Sonar"] = setgrouper.set_sonar()
 

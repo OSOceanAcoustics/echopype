@@ -32,6 +32,8 @@ MODULES_TO_TEST = {
     "utils": {},
     "visualize": {},
     "metrics": {},
+    "mask": {},
+    "consolidate": {},
 }
 
 if __name__ == "__main__":
@@ -57,7 +59,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     if args.local:
-        temp_path = Path("temp_echopype_output")
+        temp_path = Path("~/.echopype/temp_output")
         dump_path = Path("echopype/test_data/dump")
         if temp_path.exists():
             shutil.rmtree(temp_path)

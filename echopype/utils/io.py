@@ -2,11 +2,14 @@
 echopype utilities for file handling
 """
 import os
+import pathlib
+import platform
 import sys
-from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Union
+from pathlib import Path, WindowsPath
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import fsspec
+import xarray as xr
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
@@ -27,13 +30,22 @@ SUPPORTED_ENGINES = {
 logger = _init_logger(__name__)
 
 
+ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".echopype"
+
+
+def init_ep_dir():
+    """Initialize hidden directory for echopype"""
+    if not ECHOPYPE_DIR.exists():
+        ECHOPYPE_DIR.mkdir(exist_ok=True)
+
+
 def get_files_from_dir(folder):
     """Retrieves all Netcdf and Zarr files from a given folder"""
     valid_ext = [".nc", ".zarr"]
     return [f for f in os.listdir(folder) if os.path.splitext(f)[1] in valid_ext]
 
 
-def save_file(ds, path, mode, engine, group=None, compression_settings=None):
+def save_file(ds, path, mode, engine, group=None, compression_settings=None, **kwargs):
     """
     Saves a dataset to netcdf or zarr depending on the engine
     If ``compression_settings`` are set, compress all variables with those settings
@@ -44,9 +56,9 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None):
 
     # Allows saving both NetCDF and Zarr files from an xarray dataset
     if engine == "netcdf4":
-        ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding)
+        ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, **kwargs)
     elif engine == "zarr":
-        ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding)
+        ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding, **kwargs)
     else:
         raise ValueError(f"{engine} is not a supported save format")
 
@@ -58,9 +70,13 @@ def get_file_format(file):
     elif isinstance(file, FSMap):
         file = file.root
 
-    if file.endswith(".nc"):
+    if isinstance(file, str) and file.endswith(".nc"):
         return "netcdf4"
-    elif file.endswith(".zarr"):
+    elif isinstance(file, str) and file.endswith(".zarr"):
+        return "zarr"
+    elif isinstance(file, pathlib.Path) and file.suffix == ".nc":
+        return "netcdf4"
+    elif isinstance(file, pathlib.Path) and file.suffix == ".zarr":
         return "zarr"
     else:
         raise ValueError(f"Unsupported file format: {os.path.splitext(file)[1]}")
@@ -144,10 +160,33 @@ def validate_output_path(
     source_file: str,
     engine: str,
     output_storage_options: Dict = {},
-    save_path: Union[None, Path, str] = None,
+    save_path: Optional[Union[Path, str]] = None,
 ) -> str:
     """
-    Assemble output file names and path.
+    Assembles output file names and path.
+
+    The final resulting file will be saved as provided in save path.
+    If a directory path is provided then the final file name will use
+    the same name as the source file and saved within the directory
+    path in `save_path` or echopype's `temp_output` directory.
+
+    Example 1.
+    source_file - test.raw
+    engine - zarr
+    save_path - /path/dir/
+    output is /path/dir/test.zarr
+
+    Example 2.
+    source_file - test.raw
+    engine - zarr
+    save_path - None
+    output is ~/.echopype/temp_output/test.zarr
+
+    Example 3.
+    source_file - test.raw
+    engine - zarr
+    save_path - /path/dir/myzarr.zarr
+    output is /path/dir/myzarr.zarr
 
     Parameters
     ----------
@@ -158,8 +197,22 @@ def validate_output_path(
     output_storage_options : dict
         Storage options for remote output path
     save_path : str | Path | None
-        Either a directory or a file. If none then the save path is 'temp_echopype_output/'
-        in the current working directory.
+        Either a directory or a file path.
+        If it's not provided, we will save output file(s)
+        in the echopype's `temp_output` directory.
+
+    Returns
+    -------
+    str
+        The final string path of the resulting file.
+
+    Raises
+    ------
+    ValueError
+        If engine is not one of the supported output engine of
+        zarr or netcdf
+    TypeError
+        If `save_path` is not of type Path or str
     """
     if engine not in SUPPORTED_ENGINES:
         ValueError(f"Engine {engine} is not supported for file export.")
@@ -167,12 +220,9 @@ def validate_output_path(
     file_ext = SUPPORTED_ENGINES[engine]["ext"]
 
     if save_path is None:
-        logger.warning("save_path is not provided")
+        logger.warning("A directory or file path is not provided!")
 
-        current_dir = Path.cwd()
-        # Check permission, raise exception if no permission
-        check_file_permissions(current_dir)
-        out_dir = current_dir.joinpath(Path("temp_echopype_output"))
+        out_dir = ECHOPYPE_DIR / "temp_output"
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 
@@ -181,9 +231,15 @@ def validate_output_path(
     elif not isinstance(save_path, Path) and not isinstance(save_path, str):
         raise TypeError("save_path must be a string or Path")
     else:
+        # convert save_path into a nicely formatted Windows path if we are on
+        # a Windows machine and the path is not a cloud storage path. Then convert back to a string.
+        if platform.system() == "Windows":
+            if isinstance(save_path, str) and ("://" not in save_path):
+                save_path = str(WindowsPath(save_path).absolute())
+
         if isinstance(save_path, str):
             # Clean folder path by stripping '/' at the end
-            if save_path.endswith("/"):
+            if save_path.endswith("/") or save_path.endswith("\\"):
                 save_path = save_path[:-1]
 
             # Determine whether this is a directory or not
@@ -280,3 +336,84 @@ def check_file_permissions(FILE_DIR):
                 TEST_FILE.unlink()
     except Exception:
         raise PermissionError("Writing to specified path is not permitted.")
+
+
+def env_indep_joinpath(*args: Tuple[str, ...]) -> str:
+    """
+    Joins a variable number of paths taking into account the form of
+    cloud storage paths.
+
+    Parameters
+    ----------
+    *args: tuple of str
+        A variable number of strings that should be joined in the order
+        they are provided
+
+    Returns
+    -------
+    joined_path: str
+        Full path constructed by joining all input strings
+    """
+
+    if "://" in args[0]:
+        # join paths for cloud storage path
+        joined_path = r"/".join(args)
+    else:
+        # join paths for non-cloud storage path
+        joined_path = os.path.join(*args)
+
+    return joined_path
+
+
+def validate_source_ds_da(
+    source_ds_da: Union[xr.Dataset, xr.DataArray, str, Path], storage_options: Optional[dict]
+) -> Tuple[Union[xr.Dataset, str, xr.DataArray], Optional[str]]:
+    """
+    This function ensures that ``source_ds_da`` is of the correct
+    type and validates the path of ``source_ds_da``, if it is provided.
+
+    Parameters
+    ----------
+    source_ds_da: xr.Dataset, xr.DataArray, str or pathlib.Path
+        A source that points to a Dataset or DataArray. If the input is a path,
+        it specifies the path to a zarr or netcdf file.
+    storage_options: dict, optional
+        Any additional parameters for the storage backend, corresponding to the
+        path provided for ``source_ds_da``
+
+    Returns
+    -------
+    source_ds_da: xr.Dataset or xr.DataArray or str
+        A Dataset or DataArray which will be the same as the input ``source_ds_da`` or
+        a validated path to a zarr or netcdf file
+    file_type: {"netcdf4", "zarr"}, optional
+        The file type of the input path if ``source_ds_da`` is a path, otherwise ``None``
+    """
+
+    # initialize file_type
+    file_type = None
+
+    # make sure that storage_options is of the appropriate type
+    if not isinstance(storage_options, dict):
+        raise TypeError("storage_options must be a dict!")
+
+    # check that source_ds_da is of the correct type, if it is a path validate
+    # the path and open the Dataset or DataArray using xarray
+    if not isinstance(source_ds_da, (xr.Dataset, xr.DataArray, str, Path)):
+        raise TypeError("source_ds_da must be a Dataset or DataArray or str or pathlib.Path!")
+    elif isinstance(source_ds_da, (str, Path)):
+        # determine if we obtained a zarr or netcdf file
+        file_type = get_file_format(source_ds_da)
+
+        # validate source_ds_da if it is a path
+        source_ds_da = validate_output_path(
+            source_file="blank",  # will be unused since source_ds cannot be none
+            engine=file_type,
+            output_storage_options=storage_options,
+            save_path=source_ds_da,
+        )
+
+        # check that the path exists
+        check_file_existence(file_path=source_ds_da, storage_options=storage_options)
+
+    return source_ds_da, file_type
