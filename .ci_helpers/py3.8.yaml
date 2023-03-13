@@ -3,14 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - python=3.8
-  - dask
-  - netCDF4
-  - pynmea2
-  - pytz
-  - scipy
-  - xarray
-  - zarr
-  - fsspec
-  - s3fs==2022.5.0
-  - matplotlib-base
-  - cmocean
+  - pip
+  - pip:
+    - -r requirements.txt
