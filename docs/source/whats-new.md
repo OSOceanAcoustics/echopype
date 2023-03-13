@@ -11,7 +11,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 This is a minor release that includes important performance enhancements that allow user-provided calibration parameters for broadband and narrowband calibration, new functionalities to compute and attach split-beam angles to calibrated Sv dataset, perform frequency-differencing and masking, as well as a number of bug fixes and other improvements.
 
 ## New features
-- Allow passing in cal_params for calibration (#955)
+- Allow passing in `cal_params` as a dictionary for narrowband and broadband calibration (#955)
 - Add default chunk encoding for zarr output (#939)
 - Add `add_splitbeam_angle` function to the `consolidate` subpackage (#916, #971)
 - Add a new `mask` subpackage
@@ -32,6 +32,7 @@ This is a minor release that includes important performance enhancements that al
 - Create and use the default echopype home directory (#896, #954)
   - This default directory is at `~/.echopype`
 - Refactor the `calibrate` subpackage (#904)
+  - routines for `env_params` and `cal_params` intake and range computation are now in different modules rather than methods in each classes
   - Tidy up `cal_params` related routines (#953)
   - Revise `env_params` related routines (#952)
 - Improving pulse compressed broadband Sv computation and echo range computation (#944)
