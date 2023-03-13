@@ -8,7 +8,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This is a minor release that includes important performance enhancements that allow user-provided calibration parameters for broadband and narrowband calibration, new functionalities to compute and attach split-beam angles to calibrated Sv dataset, perform frequency-differencing and masking, as well as a number of bug fixes and other improvements.
+This is a release that includes important performance enhancements that allow user-provided calibration parameters for broadband and narrowband calibration, new functionalities to compute and attach split-beam angles to calibrated Sv dataset, perform frequency-differencing and masking, as well as a number of bug fixes and other improvements.
 
 ## New features
 - Allow passing in `cal_params` as a dictionary for narrowband and broadband calibration (#955)
