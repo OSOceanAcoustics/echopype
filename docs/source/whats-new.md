@@ -50,7 +50,7 @@ This is a release that includes important performance enhancements that allow us
 
 ## Infrastructure
 - Update docker build for arm64 mac silicon chips (#964)
-- Fix windows github actions workflow (#947)
+- Fix windows github actions workflow for utils module (#947)
 - Remove mamba dependency (#946)
 - Fix pre-commit ci and update RTD config for jupyter-book (#934)
 
