@@ -290,7 +290,6 @@ class SetGroupsBase(abc.ABC):
         )
 
         for var_name in add_ping_time_names:
-
             ds[var_name] = (
                 ds[var_name]
                 .expand_dims(dim={"ping_time": ds.ping_time}, axis=ds[var_name].ndim)

@@ -1,203 +1,257 @@
-from typing import Dict, List
+import datetime
+from typing import Dict, Optional, Union
 
 import numpy as np
-import scipy.interpolate
 import xarray as xr
-from typing_extensions import Literal
 
-DataKind = Literal["stationary", "mobile", "organized"]
-InterpMethod = Literal["linear", "nearest", "zero", "slinear", "quadratic", "cubic"]
-ExtrapMethod = Literal["linear", "nearest"]
-VALID_INTERP_METHODS: Dict[DataKind, List[InterpMethod]] = {
-    "stationary": ["linear", "nearest", "zero", "slinear", "quadratic", "cubic"],
-    "mobile": ["linear", "nearest", "cubic"],
-    "organized": ["linear", "nearest"],
-}
+from ..echodata import EchoData
+from ..utils import uwa
+
+# TODO: create default dict with empty values but specific keys for out_dict
+# like in cal_params, right now it is initiated as {}
 
 
-class EnvParams:
-    def __init__(
-        self,
-        env_params: xr.Dataset,
-        data_kind: DataKind,
-        interp_method: InterpMethod = "linear",
-        extrap_method: ExtrapMethod = "linear",
-    ):
-        """
-        Class to hold and interpolate external environmental data for calibration purposes.
+def harmonize_env_param_time(
+    p: Union[int, float, xr.DataArray],
+    ping_time: Optional[Union[xr.DataArray, datetime.datetime]] = None,
+):
+    """
+    Harmonize time coordinate between Beam_groupX data and env_params to make sure
+    the timestamps are broadcast correctly in calibration and range calculations.
 
-        This class can be used as the `env_params` parameter in `echopype.calibrate.compute_Sv`
-        or `echopype.calibrate.compute_TS`. It is intended to be used with environmental parameters
-        indexed by time. Environmental parameters will be interpolated onto dimensions within
-        the Platform group of the `EchoData` object being used for calibration.
+    Regardless of the source, if `p` is an xr.DataArray, the time coordinate name
+    needs to be `time1` to be consistent with the time coordinate in EchoData["Environment"].
+    If `time1` is of length=1, the dimension `time1` is dropped.
+    Otherwise, `p` is interpolated to `ping_time`.
+    If `p` is not an xr.DataArray it is returned directly.
 
-        Parameters
-        ----------
-        env_params : xr.Dataset
-            The environmental parameters to use for calibration. This data will be interpolated with
-            a provided `EchoData` object.
+    Parameters
+    ----------
+    p
+        The environment parameter for timestamp check/correction
+    ping_time
+        Beam_groupX ping_time to interpolate env_params timestamps to.
+        Only used if p.time1 has length >1
 
-            When `data_kind` is `"stationary"`, env_params must have a coordinate `"time3"`.
-            When `data_kind` is `"mobile"`, env_params must have coordinates `"latitude"`
-            and `"longitude"`.
-            When `data_kind` is `"organized"`, env_params must have coordinates `"time"`,
-            `"latitude"`, and `"longitude"`. This `data_kind` is not currently supported.
-        data_kind : {"stationary", "mobile", "organized"}
-            The type of the environmental parameters.
-
-            `"stationary"`: environmental parameters from a fixed location
-            (for example, a single CTD).
-            `"mobile"` environmental parameters from a moving location (for example, a ship).
-            `"organized"`: environmental parameters from many fixed locations
-            (for example, multiple CTDs).
-        interp_method: {"linear", "nearest", "zero", "slinear", "quadratic", "cubic"}
-            Method for interpolation of environmental parameters with the data from the
-            provided `EchoData` object.
-
-            When `data_kind` is `"stationary"`, valid `interp_method`s are `"linear"`, `"nearest"`,
-            `"zero"`, `"slinear"`, `"quadratic"`, and `"cubic"`
-            (see <https://docs.scipy.org/doc/scipy/reference/reference/generated/scipy.interpolate.interp1d.html>).
-            When `data_kind` is `"mobile"`, valid `interp_method`s are `"linear"`, `"nearest"`, and `"cubic"`
-            (see <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.griddata.html>).
-            When `data_kind` is `"organized"`, valid `interp_method`s are `"linear"` and `"nearest"`
-            (see <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interpn.html>).
-        extrap_method: {"linear", "nearest"}
-            Method for extrapolation of environmental parameters with the data from the
-            provided `EchoData` object. Currently only supported when `data_kind` is `"stationary"`.
-
-        Notes
-        -----
-        Currently cases where `data_kind` is `"organized"` are not supported; support will be added
-        in a future version.
-
-        Examples
-        --------
-        >>> env_params = xr.open_dataset("env_params.nc")
-        >>> EnvParams(env_params, data_kind="mobile", interp_method="linear")
-        >>> echopype.calibrate.compute_Sv(echodata, env_params=env_params)
-        """  # noqa
-        if interp_method not in VALID_INTERP_METHODS[data_kind]:
-            raise ValueError(f"invalid interp_method {interp_method} for data_kind {data_kind}")
-
-        self.env_params = env_params
-        self.data_kind = data_kind
-        self.interp_method = interp_method
-        self.extrap_method = extrap_method
-
-    def _apply(self, echodata) -> Dict[str, xr.DataArray]:
-        if self.data_kind == "stationary":
-            dims = ["time3"]
-        elif self.data_kind == "mobile":
-            dims = ["latitude", "longitude"]
-        elif self.data_kind == "organized":
-            dims = ["time", "latitude", "longitude"]
+    Returns
+    -------
+    Environment parameter with correctly broadcasted timestamps
+    """
+    if isinstance(p, xr.DataArray):
+        if "time1" not in p.coords:
+            return p
         else:
-            raise ValueError("invalid data_kind")
+            # If there's only 1 time1 value,
+            # or if after dropping NaN there's only 1 time1 value
+            if p["time1"].size == 1 or p.dropna(dim="time1").size == 1:
+                return p.dropna(dim="time1").squeeze(dim="time1").drop("time1")
 
-        for dim in dims:
-            if dim not in echodata["Platform"]:
-                raise ValueError(
-                    f"could not interpolate env_params; EchoData is missing dimension {dim}"
-                )
+            # Direct assignment if all timestamps are identical (EK60 data)
+            elif np.all(p["time1"].values == ping_time.values):
+                return p.rename({"time1": "ping_time"})
 
-        env_params = self.env_params
+            elif ping_time is None:
+                raise ValueError(f"ping_time needs to be provided for interpolating {p.name}")
 
-        if self.data_kind == "mobile":
-            if np.isnan(echodata["Platform"]["time1"]).all():
-                raise ValueError("cannot perform mobile interpolation without time1")
-            # compute_range needs indexing by ping_time
-            interp_plat = echodata["Platform"].interp(
-                {"time1": echodata["Sonar/Beam_group1"]["ping_time"]}
-            )
+            else:
+                return p.dropna(dim="time1").interp(time1=ping_time)
+    else:
+        return p
 
-            result = {}
-            for var, values in env_params.data_vars.items():
-                points = np.column_stack(
-                    (env_params["latitude"].data, env_params["longitude"].data)
-                )
-                values = values.data
-                xi = np.column_stack(
-                    (
-                        interp_plat["latitude"].data,
-                        interp_plat["longitude"].data,
-                    )
-                )
-                interp = scipy.interpolate.griddata(points, values, xi, method=self.interp_method)
-                result[var] = ("time1", interp)
-            env_params = xr.Dataset(
-                # we expect env_params to have coordinate time1
-                data_vars=result,
-                coords={"time1": interp_plat["ping_time"].data},
-            )
-        else:
-            # TODO: organized case
-            min_max = {
-                dim: {"min": env_params[dim].min(), "max": env_params[dim].max()} for dim in dims
-            }
 
-            extrap = env_params.interp(
-                {dim: echodata["Platform"][dim].data for dim in dims},
-                method=self.extrap_method,
-                # scipy interp uses "extrapolate" but scipy interpn uses None
-                kwargs={"fill_value": "extrapolate" if len(dims) == 1 else None},
-            )
-            # only keep unique indexes; xarray requires that indexes be unique
-            extrap_unique_idx = {dim: np.unique(extrap[dim], return_index=True)[1] for dim in dims}
-            extrap = extrap.isel(**extrap_unique_idx)
-            interp = env_params.interp(
-                {dim: echodata["Platform"][dim].data for dim in dims},
-                method=self.interp_method,
-            )
-            interp_unique_idx = {dim: np.unique(interp[dim], return_index=True)[1] for dim in dims}
-            interp = interp.isel(**interp_unique_idx)
+def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None):
+    """Get env params using user inputs or values from data file.
 
-            if self.extrap_method is not None:
-                less = extrap.sel(
-                    {dim: extrap[dim][extrap[dim] < min_max[dim]["min"]] for dim in dims}
-                )
-                middle = interp.sel(
-                    {
-                        dim: interp[dim][
-                            np.logical_and(
-                                interp[dim] >= min_max[dim]["min"],
-                                interp[dim] <= min_max[dim]["max"],
-                            )
-                        ]
-                        for dim in dims
-                    }
-                )
-                greater = extrap.sel(
-                    {dim: extrap[dim][extrap[dim] > min_max[dim]["max"]] for dim in dims}
-                )
+    Parameters
+    ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
+    user_env_dict : dict
+        user input dict containing env params
 
-                # remove empty datasets (xarray does not allow any dims from any datasets
-                # to be length 0 in combine_by_coords)
-                non_zero_dims = [
-                    ds
-                    for ds in (less, middle, greater)
-                    if all(dim_len > 0 for dim_len in ds.dims.values())
-                ]
-                env_params = xr.combine_by_coords(non_zero_dims)
+    Returns
+    -------
+    A dictionary containing the calibration parameters.
+    """
+    out_dict = {}
 
-        # if self.data_kind == "organized":
-        #     # get platform latitude and longitude indexed by ping_time
-        #     interp_plat = echodata["Platform"].interp(
-        #         {"time": echodata["Platform"]["ping_time"]}
-        #     )
-        #     # get env_params latitude and longitude indexed by ping_time
-        #     env_params = env_params.interp(
-        #         {
-        #             "latitude": interp_plat["latitude"],
-        #             "longitude": interp_plat["longitude"],
-        #         }
-        #     )
+    # Temperature comes from either user input or data file
+    out_dict["temperature"] = user_env_dict.get(
+        "temperature", echodata["Environment"]["temperature"]
+    )
 
-        if self.data_kind == "stationary":
-            # renaming time3 (from Platform group) to time1 because we expect
-            # environmental parameters to have dimension time1
-            return {
-                var: env_params[var].rename({"time3": "time1"})
-                for var in ("temperature", "salinity", "pressure")
-            }
-        else:
-            return {var: env_params[var] for var in ("temperature", "salinity", "pressure")}
+    # Salinity and pressure always come from user input
+    if ("salinity" not in user_env_dict) or ("pressure" not in user_env_dict):
+        raise ReferenceError("Please supply both salinity and pressure in env_params.")
+    else:
+        out_dict["salinity"] = user_env_dict["salinity"]
+        out_dict["pressure"] = user_env_dict["pressure"]
+
+    # Always calculate sound speed and absorption
+    out_dict["sound_speed"] = uwa.calc_sound_speed(
+        temperature=out_dict["temperature"],
+        salinity=out_dict["salinity"],
+        pressure=out_dict["pressure"],
+        formula_source="AZFP",
+    )
+    out_dict["sound_absorption"] = uwa.calc_absorption(
+        frequency=echodata["Sonar/Beam_group1"]["frequency_nominal"],
+        temperature=out_dict["temperature"],
+        salinity=out_dict["salinity"],
+        pressure=out_dict["pressure"],
+        formula_source="AZFP",
+    )
+
+    # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
+    # Note for AZFP data is always in Sonar/Beam_group1
+    for p in out_dict.keys():
+        out_dict[p] = harmonize_env_param_time(
+            out_dict[p], ping_time=echodata["Sonar/Beam_group1"]["ping_time"]
+        )
+
+    return out_dict
+
+
+def get_env_params_EK60(echodata: EchoData, user_env_dict: Optional[Dict] = None) -> Dict:
+    """Get env params using user inputs or values from data file.
+
+    EK60 file by default contains only sound speed and absorption.
+    In cases when temperature, salinity, and pressure values are supplied
+    by the user simultaneously, the sound speed and absorption are re-calculated.
+
+    Parameters
+    ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
+    user_env_dict : dict
+        user input dict containing env params
+
+    Returns
+    -------
+    A dictionary containing the calibration parameters.
+    """
+    # Initiate input/output dict
+    out_dict = {}
+    if user_env_dict is None:
+        user_env_dict = {}
+
+    # Re-calculate environment parameters if user supply all env variables
+    tsp_all_exist = np.all([p in user_env_dict for p in ["temperature", "salinity", "pressure"]])
+
+    if tsp_all_exist:
+        out_dict["sound_speed"] = uwa.calc_sound_speed(
+            temperature=user_env_dict["temperature"],
+            salinity=user_env_dict["salinity"],
+            pressure=user_env_dict["pressure"],
+        )
+        out_dict["sound_absorption"] = uwa.calc_absorption(
+            frequency=echodata["Sonar/Beam_group1"]["frequency_nominal"],
+            temperature=user_env_dict["temperature"],
+            salinity=user_env_dict["salinity"],
+            pressure=user_env_dict["pressure"],
+        )
+    # Otherwise get sound speed and absorption from user inputs or raw data file
+    else:
+        p_map_dict = {
+            "sound_speed": "sound_speed_indicative",
+            "sound_absorption": "absorption_indicative",
+        }
+        for p_out, p_data in p_map_dict.items():
+            out_dict[p_out] = user_env_dict.get(p_out, echodata["Environment"][p_data])
+
+    # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
+    # Note for EK60 data is always in Sonar/Beam_group1
+    for p in out_dict.keys():
+        out_dict[p] = harmonize_env_param_time(
+            out_dict[p], ping_time=echodata["Sonar/Beam_group1"]["ping_time"]
+        )
+
+    return out_dict
+
+
+def get_env_params_EK80(
+    echodata: EchoData,
+    freq: xr.DataArray,
+    user_env_dict: Optional[Dict] = None,
+    ed_group: str = None,
+) -> Dict:
+    """Get env params using user inputs or values from data file.
+
+    EK80 file by default contains sound speed, temperature, depth, salinity, and acidity,
+    therefore absorption is always calculated unless it is supplied by the user.
+    In cases when temperature, salinity, and pressure values are supplied
+    by the user simultaneously, both the sound speed and absorption are re-calculated.
+
+    Parameters
+    ----------
+    echodata : EchoData
+        an echodata object containing the env params to be pulled from
+    freq : xr.DataArray
+        center frequency for the selected channels
+    user_env_dict : dict
+        user input dict containing env params
+    ed_group : str
+        the right Sonar/Beam_groupX given waveform and encode mode
+
+    Returns
+    -------
+    A dictionary containing the environmental parameters.
+    """
+
+    # Initiate input/output dict
+    out_dict = {}
+    if user_env_dict is None:
+        user_env_dict = {}
+
+    # Re-calculate environment parameters if user supply all env variables
+    tsp_all_exist = np.all([p in user_env_dict for p in ["temperature", "salinity", "pressure"]])
+
+    if tsp_all_exist:
+        out_dict["sound_speed"] = uwa.calc_sound_speed(
+            temperature=user_env_dict["temperature"],
+            salinity=user_env_dict["salinity"],
+            pressure=user_env_dict["pressure"],
+        )
+        out_dict["sound_absorption"] = uwa.calc_absorption(
+            frequency=freq,
+            temperature=user_env_dict["temperature"],
+            salinity=user_env_dict["salinity"],
+            pressure=user_env_dict["pressure"],
+        )
+    # Otherwise
+    #  get temperature, salinity, and pressure from raw data file
+    #  get sound speed from user inputs or raw data file
+    #  get absorption from user inputs or computing from env params stored in raw data file
+    else:
+        # pressure is encoded as "depth" in EK80  # TODO: change depth to pressure in EK80 file?
+        for p_user, p_data in zip(
+            ["temperature", "salinity", "pressure", "pH", "sound_speed"],
+            ["temperature", "salinity", "depth", "acidity", "sound_speed_indicative"],
+        ):
+            out_dict[p_user] = user_env_dict.get(p_user, echodata["Environment"][p_data])
+
+        out_dict["sound_absorption"] = user_env_dict.get(
+            "sound_absorption",
+            uwa.calc_absorption(
+                frequency=freq,
+                temperature=out_dict["temperature"],
+                salinity=out_dict["salinity"],
+                pressure=out_dict["pressure"],
+                sound_speed=out_dict["sound_speed"],
+                pH=out_dict["pH"],
+                formula_source=(
+                    user_env_dict["formula_source"] if "formula_source" in user_env_dict else "FG"
+                ),
+            ),
+        )
+
+    # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
+    for p in out_dict.keys():
+        if isinstance(out_dict[p], xr.DataArray):
+            if "channel" in out_dict[p].coords:
+                out_dict[p] = out_dict[p].sel(channel=freq["channel"])  # only ch subset needed
+        out_dict[p] = harmonize_env_param_time(
+            out_dict[p], ping_time=echodata[ed_group]["ping_time"]
+        )
+
+    return out_dict

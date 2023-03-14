@@ -33,14 +33,10 @@ repos:
     hooks:
       - id: flake8
 
-  - repo: https://github.com/executablebooks/jupyter-book
-    rev: v0.12.3
-    hooks:
-    - id: jb-to-sphinx
-      args: ["docs/source"]
-
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.2
     hooks:
       - id: codespell
-        args: ["--skip=*.ipynb", "-w", "docs/source", "echopype"]
+        # Checks spelling in `docs/source` and `echopype` dirs ONLY
+        # Ignores `.ipynb` files and `_build` folders
+        args: ["--skip=*.ipynb,docs/source/_build", "-w", "docs/source", "echopype"]

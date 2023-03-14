@@ -21,7 +21,6 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         # get the channel sort rule for EK60 type sensors
         if "transceivers" in self.parser_obj.config_datagram:
-
             # get channel and channel_id association and sort by channel_id
             channels_old = list(self.parser_obj.config_datagram["transceivers"].keys())
 

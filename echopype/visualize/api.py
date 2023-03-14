@@ -4,6 +4,8 @@ import xarray as xr
 
 from .plot import _plot_echogram, FacetGrid, QuadMesh
 from ..echodata import EchoData
+from ..calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
+from ..calibrate.calibrate_azfp import CalibrateAZFP
 from ..utils.log import _init_logger
 
 logger = _init_logger(__name__)
@@ -137,12 +139,35 @@ def create_echogram(
                         "Data from broadband ('BB') transmission must be recorded as complex samples"  # noqa
                     )
 
-            range_in_meter = data.compute_range(
-                env_params=range_kwargs.get('env_params', {}),
-                azfp_cal_type=range_kwargs.get('azfp_cal_type', None),
-                ek_waveform_mode=range_kwargs.get('waveform_mode', 'CW'),
-                ek_encode_mode=range_kwargs.get('encode_mode', 'power'),
-            )
+            # Compute range via calibration objects
+            if data.sonar_model == "AZFP":
+                cal_obj = CalibrateAZFP(
+                    echodata=data,
+                    env_params=range_kwargs.get("env_params", {}),
+                    cal_params=None,
+                    waveform_mode=None,
+                    encode_mode=None,
+                )
+                if range_kwargs["azfp_cal_type"] is None:
+                    raise ValueError("azfp_cal_type must be specified when sonar_model is AZFP")
+                cal_obj.compute_echo_range(cal_type=range_kwargs["azfp_cal_type"])
+            elif data.sonar_model in ("EK60", "EK80", "ES70", "ES80", "EA640"):
+                if data.sonar_model in ["EK60", "ES70"]:
+                    cal_obj = CalibrateEK60(
+                        echodata=data,
+                        env_params=range_kwargs.get("env_params", {}),
+                        cal_params=None,
+                    )
+                else:
+                    cal_obj = CalibrateEK80(
+                        echodata=data,
+                        env_params=range_kwargs.get("env_params", {}),
+                        cal_params=None,
+                        waveform_mode=range_kwargs.get("waveform_mode", "CW"),
+                        encode_mode=range_kwargs.get("encode_mode", "power"),
+                    )
+            range_in_meter = cal_obj.range_meter
+
             range_in_meter.attrs = range_attrs
             if water_level is not None:
                 range_in_meter = _add_water_level(

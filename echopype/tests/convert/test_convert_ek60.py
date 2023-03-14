@@ -27,7 +27,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
     )
     ek60_matlab_path = str(
         ek60_path.joinpath(
-            'from_matlab/DY1801_EK60-D20180211-T164025_rawData.mat'
+            'from_matlab', 'DY1801_EK60-D20180211-T164025_rawData.mat'
         )
     )
 
@@ -95,7 +95,7 @@ def test_convert_ek60_echoview_raw(ek60_path):
     )
     ek60_csv_path = [
         ek60_path.joinpath(
-            'from_echoview/DY1801_EK60-D20180211-T164025-Power%d.csv' % freq
+            'from_echoview', 'DY1801_EK60-D20180211-T164025-Power%d.csv' % freq
         )
         for freq in [18, 38, 70, 120, 200]
     ]

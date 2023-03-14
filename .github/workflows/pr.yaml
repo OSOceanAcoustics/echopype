@@ -61,7 +61,7 @@ jobs:
       - name: Install dev tools
         shell: bash -l {0}
         run: |
-          mamba install -c conda-forge --yes --file requirements-dev.txt
+          micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
       - name: Install echopype
         shell: bash -l {0}
         run: |

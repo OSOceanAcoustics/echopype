@@ -118,7 +118,6 @@ class ParseEK(ParseBase):
                 self.config_datagram["timestamp"].replace(tzinfo=None), "[ms]"
             )
             if "configuration" in self.config_datagram:
-
                 for v in self.config_datagram["configuration"].values():
                     if "pulse_duration" not in v and "pulse_length" in v:
                         # it seems like sometimes this field can appear with the name "pulse_length"
@@ -382,7 +381,6 @@ class ParseEK(ParseBase):
         if ("power" in reduced_datagram.keys()) and (
             isinstance(reduced_datagram["power"], np.ndarray)
         ):
-
             # Manufacturer-specific power conversion factor
             INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
@@ -443,7 +441,6 @@ class ParseEK(ParseBase):
         """
         lens = np.array([len(item) for item in data_list])
         if np.unique(lens).size != 1:  # if some pings have different lengths along range
-
             if data_list[0].ndim == 2:
                 # Angle data have an extra dimension for alongship and athwartship samples
                 mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T

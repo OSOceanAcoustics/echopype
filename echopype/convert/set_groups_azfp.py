@@ -66,7 +66,6 @@ class SetGroupsAZFP(SetGroupsBase):
         serial_number = self.parser_obj.unpacked_data["serial_number"]
 
         if serial_number.size == 1:
-
             freq_as_str = self.freq_sorted.astype(int).astype(str)
 
             # TODO: replace str(i+1) with Frequency Number from XML

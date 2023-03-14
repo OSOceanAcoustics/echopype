@@ -113,7 +113,6 @@ def check_and_correct_reversed_time(
     """
 
     if time_str in combined_group and exist_reversed_time(combined_group, time_str):
-
         logger.warning(
             f"{ed_group} {time_str} reversal detected; {time_str} will be corrected"  # noqa
             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)"
@@ -170,7 +169,11 @@ def create_old_time_array(group: str, old_time_in: xr.DataArray) -> xr.DataArray
 
 
 def orchestrate_reverse_time_check(
-    ed_comb: EchoData, zarr_store: str, possible_time_dims: List[str], storage_options: dict
+    ed_comb: EchoData,
+    zarr_store: str,
+    possible_time_dims: List[str],
+    storage_options: dict,
+    consolidated: bool = True,
 ) -> None:
     """
     Performs a reverse time check of all groups and
@@ -194,6 +197,9 @@ def orchestrate_reverse_time_check(
         ``ed_comb``, which should be checked
     storage_options: dict
         Additional keywords to pass to the filesystem class.
+    consolidated : bool
+        Flag to consolidate zarr metadata.
+        Defaults to ``True``
 
     Notes
     -----
@@ -206,10 +212,15 @@ def orchestrate_reverse_time_check(
 
     # set Provenance attribute to zero in zarr (Dataset needed for metadata creation)
     only_attrs_ds = xr.Dataset(attrs=ed_comb["Provenance"].attrs)
-    only_attrs_ds.to_zarr(zarr_store, group="Provenance", mode="a", storage_options=storage_options)
+    only_attrs_ds.to_zarr(
+        zarr_store,
+        group="Provenance",
+        mode="a",
+        storage_options=storage_options,
+        consolidated=consolidated,
+    )
 
     for group in ed_comb.group_paths:
-
         if group != "Platform/NMEA":
             # Platform/NMEA is skipped because we found that the times which correspond to
             # other non-GPS messages are often out of order and correcting them is not
@@ -221,13 +232,11 @@ def orchestrate_reverse_time_check(
             ed_comb_time_dims = set(ed_comb[group].dims).intersection(possible_time_dims)
 
             for time in ed_comb_time_dims:
-
                 old_time = check_and_correct_reversed_time(
                     combined_group=ed_comb[group], time_str=time, ed_group=group
                 )
 
                 if old_time is not None:
-
                     old_time_array = create_old_time_array(group, old_time)
 
                     # put old times in Provenance and modify attribute
@@ -238,10 +247,18 @@ def orchestrate_reverse_time_check(
                     old_time_ds = old_time_array.to_dataset()
                     old_time_ds.attrs = ed_comb["Provenance"].attrs
                     old_time_ds.to_zarr(
-                        zarr_store, group="Provenance", mode="a", storage_options=storage_options
+                        zarr_store,
+                        group="Provenance",
+                        mode="a",
+                        storage_options=storage_options,
+                        consolidated=consolidated,
                     )
 
                     # save corrected time to zarr store
                     ed_comb[group][[time]].to_zarr(
-                        zarr_store, group=group, mode="r+", storage_options=storage_options
+                        zarr_store,
+                        group=group,
+                        mode="r+",
+                        storage_options=storage_options,
+                        consolidated=consolidated,
                     )

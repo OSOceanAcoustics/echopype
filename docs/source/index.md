@@ -35,6 +35,13 @@ of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 
+## Citing echopype
+
+Please cite echopype as follows:
+
+Lee, W., Mayorga, E., Setiawan, L., Majeed, I., Nguyen, K., & Staneva, V. (2021). Echopype: A Python library for interoperable and scalable processing of water column sonar data for biological information. arXiv preprint arXiv:2111.00187
+
+Citation information and project metadata are stored in `CITATION.cff`, which uses the [Citation File Format](https://citation-file-format.github.io/).
 
 ## License
 
