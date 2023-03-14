@@ -43,6 +43,8 @@ def test_env_params_intake_AZFP(azfp_path):
 
     # Check against the final env params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, env_params=env_ext)
+    assert ds_Sv["formula_source_sound_speed"] == "AZFP"
+    assert ds_Sv["formula_source_absorption"] == "AZFP"
     assert ds_Sv["sound_speed"].identical(env_params_manual["sound_speed"])
     assert ds_Sv["sound_absorption"].identical(env_params_manual["sound_absorption"])
 
@@ -57,7 +59,7 @@ def test_env_params_intake_EK60(ek60_path):
     env_ext = {"temperature": 10, "salinity": 30, "pressure": 100}
 
     # Manually go through env params intake
-    env_params_manual = ep.calibrate.env_params.get_env_params_EK60(echodata=ed, user_env_dict=env_ext)
+    env_params_manual = ep.calibrate.env_params.get_env_params_EK60(echodata=ed, user_dict=env_ext)
     for p in env_params_manual.keys():
         env_params_manual[p] = ep.calibrate.env_params.harmonize_env_param_time(
             env_params_manual[p], ping_time=ed["Sonar/Beam_group1"]["ping_time"]
@@ -65,6 +67,8 @@ def test_env_params_intake_EK60(ek60_path):
 
     # Check against the final env params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, env_params=env_ext)
+    assert ds_Sv["formula_source_sound_speed"] == "Mackenzie"
+    assert ds_Sv["formula_source_absorption"] == "FG"
     assert ds_Sv["sound_speed"].values == env_params_manual["sound_speed"]
     assert np.all(ds_Sv["sound_absorption"].values == env_params_manual["sound_absorption"].values)
     

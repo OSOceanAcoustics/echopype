@@ -132,7 +132,7 @@ class CalibrateEK60(CalibrateEK):
         self.sonar_type = "EK60"
 
         # Get env_params
-        self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
+        self.env_params = get_env_params_EK60(echodata=echodata, user_dict=env_params)
         self.waveform_mode = "CW"
         self.encode_mode = "power"
 
@@ -150,7 +150,7 @@ class CalibrateEK60(CalibrateEK):
         beam = self.echodata[self.ed_group]
 
         # Get env_params
-        self.env_params = get_env_params_EK60(echodata=self.echodata, user_env_dict=self.env_params)
+        self.env_params = get_env_params_EK60(echodata=self.echodata, user_dict=self.env_params)
 
         # Get cal_params
         self.cal_params = get_cal_params_EK(
