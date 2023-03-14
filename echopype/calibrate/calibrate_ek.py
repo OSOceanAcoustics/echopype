@@ -149,6 +149,11 @@ class CalibrateEK60(CalibrateEK):
         self.chan_sel = self.echodata[self.ed_group]["channel"]
         beam = self.echodata[self.ed_group]
 
+        # Get env_params
+        self.env_params = get_env_params_EK60(
+            echodata=self.echodata, user_env_dict=self.env_params
+        )
+
         # Get cal_params
         self.cal_params = get_cal_params_EK(
             waveform_mode=self.waveform_mode,
@@ -225,9 +230,9 @@ class CalibrateEK80(CalibrateEK):
 
         # Get env_params: depends on waveform mode
         self.env_params = get_env_params_EK80(
-            echodata=echodata,
+            echodata=self.echodata,
             freq=self.freq_center,
-            user_env_dict=env_params,
+            user_env_dict=self.env_params,
             ed_group=self.ed_group,
         )
 
