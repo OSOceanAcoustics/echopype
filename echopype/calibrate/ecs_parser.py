@@ -210,9 +210,8 @@ class ECSParser:
         ev_cal_params = dict().fromkeys(sources)
 
         # FileSet settings: apply to all sources
-        fileset_dict = self.parsed_params["fileset"].copy()
         for src in sources:
-            ev_cal_params[src] = fileset_dict
+            ev_cal_params[src] = self.parsed_params["fileset"].copy()
 
         # SourceCal settings: overwrite FileSet settings for each source
         for src in sources:
