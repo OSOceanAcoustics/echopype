@@ -243,7 +243,9 @@ def get_env_params_EK60(echodata: EchoData, user_dict: Optional[Dict] = None) ->
     out_dict = sanitize_user_env_dict(user_dict=user_dict, channel=beam["channel"])
 
     # Re-calculate environment parameters if user supply all env variables
-    tsp_all_exist = np.all([out_dict[p] is not None for p in ["temperature", "salinity", "pressure"]])
+    tsp_all_exist = np.all(
+        [out_dict[p] is not None for p in ["temperature", "salinity", "pressure"]]
+    )
 
     # Remove temperature, salinity, pressure so that it is not included in the final env param set
     if not tsp_all_exist:
@@ -264,7 +266,7 @@ def get_env_params_EK60(echodata: EchoData, user_dict: Optional[Dict] = None) ->
                         temperature=out_dict["temperature"],
                         salinity=out_dict["salinity"],
                         pressure=out_dict["pressure"],
-                        formula_source=out_dict["formula_source_sound_speed"]
+                        formula_source=out_dict["formula_source_sound_speed"],
                     )
                 else:
                     out_dict[p] = echodata["Environment"]["sound_speed_indicative"]
