@@ -1,10 +1,13 @@
 from typing import TYPE_CHECKING
+import tempfile
+from pathlib import Path
 
 import pytest
 
 if TYPE_CHECKING:
-    from ..core import SonarModelsHint
-from ..core import SONAR_MODELS
+    from echopype.core import SonarModelsHint
+from echopype.core import SONAR_MODELS
+import echopype.core
 
 
 @pytest.mark.parametrize(

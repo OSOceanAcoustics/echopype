@@ -5,6 +5,16 @@
 # Required
 version: 2
 
+# Set the version of Python and other tools you might need
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.8"
+  jobs:
+    pre_build:
+      # Generate the Sphinx configuration for this Jupyter Book so it builds.
+      - "jupyter-book config sphinx docs/source"
+
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
    configuration: docs/source/conf.py
@@ -18,7 +28,6 @@ formats: []
 
 # Optionally set the version of Python and requirements required to build your docs
 python:
-   version: "3.8"
    install:
       - requirements: docs/requirements.txt
       - method: pip

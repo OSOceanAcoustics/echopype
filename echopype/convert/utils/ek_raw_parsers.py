@@ -53,7 +53,6 @@ class _SimradDatagramParser(object):
         return self._headers[version][:]
 
     def validate_data_header(self, data):
-
         if isinstance(data, dict):
             type_ = data["type"][:3]
             version = int(data["type"][3])
@@ -74,7 +73,6 @@ class _SimradDatagramParser(object):
         return type_, version
 
     def from_string(self, raw_string, bytes_read):
-
         header = raw_string[:4]
         if sys.version_info.major > 2:
             header = header.decode()
@@ -82,7 +80,6 @@ class _SimradDatagramParser(object):
         return self._unpack_contents(raw_string, bytes_read, version=version)
 
     def to_string(self, data={}):
-
         id_, version = self.validate_data_header(data)
         datagram_content_str = self._pack_contents(data, version=version)
         return self.finalize_datagram(datagram_content_str)
@@ -174,12 +171,10 @@ class SimradDepthParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
-
             lengths = [
                 len(data["depth"]),
                 len(data["reflectivity"]),
@@ -273,12 +268,10 @@ class SimradBottomParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
-
             if len(data["depth"]) != data["transceiver_count"]:
                 logger.warning(
                     "# of depth values %d does not match transceiver count %d",
@@ -362,12 +355,10 @@ class SimradAnnotationParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
-
             for field in self.header_fields(version):
                 datagram_contents.append(data[field])
 
@@ -469,12 +460,10 @@ class SimradNMEAParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
-
             for field in self.header_fields(version):
                 datagram_contents.append(data[field])
 
@@ -563,12 +552,10 @@ class SimradMRUParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
-
             for field in self.header_fields(version):
                 datagram_contents.append(data[field])
 
@@ -819,7 +806,6 @@ class SimradXMLParser(_SimradDatagramParser):
 
             #  parse it
             if data["subtype"] == "configuration":
-
                 #  parse the Transceiver section
                 for tcvr in root.iter("Transceiver"):
                     #  parse the Transceiver section
@@ -951,7 +937,6 @@ class SimradXMLParser(_SimradDatagramParser):
                         )
 
             elif data["subtype"] == "parameter":
-
                 #  parse the parameter XML datagram
                 for h in root.iter("Channel"):
                     parm_xml = h.attrib
@@ -959,7 +944,6 @@ class SimradXMLParser(_SimradDatagramParser):
                     dict_to_dict(parm_xml, data["parameter"], self.parameter_parsing_options)
 
             elif data["subtype"] == "environment":
-
                 #  parse the environment XML datagram
                 for h in root.iter("Environment"):
                     env_xml = h.attrib
@@ -998,7 +982,6 @@ class SimradXMLParser(_SimradDatagramParser):
         datagram_contents = []
 
         if version == 0:
-
             for field in self.header_fields(version):
                 datagram_contents.append(data[field])
 
@@ -1064,7 +1047,6 @@ class SimradFILParser(_SimradDatagramParser):
         _SimradDatagramParser.__init__(self, "FIL", headers)
 
     def _unpack_contents(self, raw_string, bytes_read, version):
-
         data = {}
         header_values = struct.unpack(
             self.header_fmt(version), raw_string[: self.header_size(version)]
@@ -1094,12 +1076,10 @@ class SimradFILParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
-
             pass
 
         elif version == 1:
@@ -1284,7 +1264,6 @@ class SimradConfigParser(_SimradDatagramParser):
         }
 
     def _unpack_contents(self, raw_string, bytes_read, version):
-
         data = {}
         round6 = lambda x: round(x, ndigits=6)  # noqa
         header_values = struct.unpack(
@@ -1302,7 +1281,6 @@ class SimradConfigParser(_SimradDatagramParser):
         data["bytes_read"] = bytes_read
 
         if version == 0:
-
             data["transceivers"] = {}
 
             for field in ["transect_name", "version", "survey_name", "sounder_name"]:
@@ -1396,12 +1374,10 @@ class SimradConfigParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
-
             if data["transceiver_count"] != len(data["transceivers"]):
                 logger.warning("Mismatch between 'transceiver_count' and actual # of transceivers")
                 data["transceiver_count"] = len(data["transceivers"])
@@ -1571,7 +1547,6 @@ class SimradRawParser(_SimradDatagramParser):
         _SimradDatagramParser.__init__(self, "RAW", headers)
 
     def _unpack_contents(self, raw_string, bytes_read, version):
-
         header_values = struct.unpack(
             self.header_fmt(version), raw_string[: self.header_size(version)]
         )
@@ -1587,7 +1562,6 @@ class SimradRawParser(_SimradDatagramParser):
         data["bytes_read"] = bytes_read
 
         if version == 0:
-
             if data["count"] > 0:
                 block_size = data["count"] * 2
                 indx = self.header_size(version)
@@ -1614,14 +1588,12 @@ class SimradRawParser(_SimradDatagramParser):
 
         # RAW3 and RAW4 have the same format, only Datatype Bit 0-1 not used in RAW4
         elif version == 3 or version == 4:
-
             # result = 1j*Data[...,1]; result += Data[...,0]
 
             #  clean up the channel ID
             data["channel_id"] = data["channel_id"].strip("\x00")
 
             if data["count"] > 0:
-
                 #  set the initial block size and indx value.
                 block_size = data["count"] * 2
                 indx = self.header_size(version)
@@ -1676,13 +1648,11 @@ class SimradRawParser(_SimradDatagramParser):
         return data
 
     def _pack_contents(self, data, version):
-
         datagram_fmt = self.header_fmt(version)
 
         datagram_contents = []
 
         if version == 0:
-
             if data["count"] > 0:
                 if (int(data["mode"]) & 0x1) and (len(data.get("power", [])) != data["count"]):
                     logger.warning(
@@ -1707,7 +1677,6 @@ class SimradRawParser(_SimradDatagramParser):
                 datagram_contents.append(data[field])
 
             if data["count"] > 0:
-
                 if int(data["mode"]) & 0x1:
                     datagram_fmt += "%dh" % (data["count"])
                     datagram_contents.extend(data["power"])

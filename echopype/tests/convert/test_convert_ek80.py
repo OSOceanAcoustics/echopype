@@ -93,7 +93,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
     """Compare parsed EK80 CW power/angle data with Matlab parsed data."""
     ek80_raw_path_bb = str(ek80_path.joinpath('D20170912-T234910.raw'))
     ek80_matlab_path_bb = str(
-        ek80_path.joinpath('from_matlab/D20170912-T234910_data.mat')
+        ek80_path.joinpath('from_matlab', 'D20170912-T234910_data.mat')
     )
 
     # Convert file
@@ -155,13 +155,13 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
     freq_list = [18, 38, 70, 120, 200]
     ek80_echoview_power_csv = [
         ek80_path.joinpath(
-            'from_echoview/D20190822-T161221/%dkHz.power.csv' % freq
+            'from_echoview', 'D20190822-T161221', '%dkHz.power.csv' % freq
         )
         for freq in freq_list
     ]
     ek80_echoview_angle_csv = [
         ek80_path.joinpath(
-            'from_echoview/D20190822-T161221/%dkHz.angles.points.csv' % freq
+            'from_echoview', 'D20190822-T161221', '%dkHz.angles.points.csv' % freq
         )
         for freq in freq_list
     ]
@@ -259,7 +259,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
     """Compare parsed EK80 BB data with csv exported by EchoView."""
     ek80_raw_path_bb = ek80_path.joinpath('D20170912-T234910.raw')
     ek80_echoview_bb_power_csv = ek80_path.joinpath(
-        'from_echoview/D20170912-T234910/70 kHz raw power.complex.csv'
+        'from_echoview', 'D20170912-T234910', '70 kHz raw power.complex.csv'
     )
 
     # Convert file

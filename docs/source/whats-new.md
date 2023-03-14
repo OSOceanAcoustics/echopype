@@ -4,6 +4,60 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.6.4 (2023 March 13)
+
+## Overview
+
+This is a release that includes important performance enhancements that allow user-provided calibration parameters for broadband and narrowband calibration, new functionalities to compute and attach split-beam angles to calibrated Sv dataset, perform frequency-differencing and masking, as well as a number of bug fixes and other improvements.
+
+## New features
+- Allow passing in `cal_params` as a dictionary for narrowband and broadband calibration (#955)
+- Add default chunk encoding for zarr output (#939)
+- Add `add_splitbeam_angle` function to the `consolidate` subpackage (#916, #971)
+- Add a new `mask` subpackage
+  - Add `apply_mask` function to the `mask` subpackage (#912)
+  - Add `frequency-differencing` function to the `mask` subpackage (#901)
+- Allow selection of a subset of channels when combining multiple echodata objects (#892)
+  - This is done via the added `channel_selection` input argument to `combine_echodata`
+- Add default consolidated flag for `echodata.to_zarr` (#855)
+- Generalize and improve efficiency of `compute_MVBS` (#878)
+  - Allow `echo_range` that vary with `ping_time`
+  - Allow `Sv` data that are dask arrays
+- Add `.nbytes` to obtain that data size of an `echodata` object (#874)
+- Add new data variables from the raw data files to facilitate EK80 calibration (#944)
+  - transceiver type, transmit impedance, receive impedance, receiver sampling frequency
+
+## Enhancements and other changes
+- Unify the order of dimensions of `echo_range` across all sonar models (#968)
+- Create and use the default echopype home directory (#896, #954)
+  - This default directory is at `~/.echopype`
+- Refactor the `calibrate` subpackage (#904)
+  - routines for `env_params` and `cal_params` intake and range computation are now in different modules rather than methods in each classes
+  - Tidy up `cal_params` related routines (#953)
+  - Revise `env_params` related routines (#952)
+- Improving pulse compressed broadband Sv computation and echo range computation (#944)
+  - The resulting values are tested against pyEcholab and Echoview outputs
+  - Note there is unresolved discrepancy between pyEcholab/Echopype outputs with Echoview outputs for the first section of Sv values
+- Change input argument names for `open_raw` (#962)
+  - Change `offload_to_zarr` to `use_swap`
+  - Change `max_zarr_mb` to `max_mb`
+
+## Bug fixes
+- Handling of provenance attributes in apply-mask and add-depth, especially for testing (#930)
+- Fix bugs in combining multiple echodata objects (the `combine_echodata` function)
+  - Fix meta_source_filenames bug and enable (meta)source_filenames appending of path and list (#913)
+- Fix bugs in `env_params` intake for calibration (#952)
+
+## Infrastructure
+- Update docker build for arm64 mac silicon chips (#964)
+- Fix windows github actions workflow for utils module (#947)
+- Remove mamba dependency (#946)
+- Fix pre-commit ci and update RTD config for jupyter-book (#934)
+
+
+
+
+
 # v0.6.3 (2022 October 15)
 
 ## Overview

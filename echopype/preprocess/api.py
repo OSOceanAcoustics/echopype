@@ -7,64 +7,8 @@ import pandas as pd
 import xarray as xr
 
 from ..utils.prov import echopype_prov_attrs
+from .mvbs import get_MVBS_along_channels
 from .noise_est import NoiseEst
-
-
-def _check_range_uniqueness(da):
-    """
-    Check if range (``echo_range``) changes across ping in a given frequency channel.
-    """
-    # squeeze to remove "channel" dim if present
-    # TODO: not sure why not already removed for the AZFP case. Investigate.
-    da = da.squeeze()
-
-    # remove pings with NaN entries if exist
-    # since goal here is to check uniqueness
-    if np.unique(da.isnull(), axis=0).shape[0] != 1:
-        da = da.dropna(dim="ping_time", how="any")
-
-    # remove padded NaN entries if exist for all pings
-    da = da.dropna(dim="range_sample", how="all")
-
-    ping_time_idx = np.argwhere([dim == "ping_time" for dim in da.dims])[0][0]
-    if np.unique(da, axis=ping_time_idx).shape[ping_time_idx] == 1:
-        return xr.DataArray(data=True, coords={"channel": da["channel"].values})
-    else:
-        return xr.DataArray(data=False, coords={"channel": da["channel"].values})
-
-
-def _freq_MVBS(ds, rint, pbin):
-    # squeeze to remove "channel" dim if present
-    # TODO: not sure why not already removed for the AZFP case. Investigate.
-    ds = ds.squeeze()
-
-    # average should be done in linear domain
-    sv = 10 ** (ds["Sv"] / 10)
-
-    # set 1D coordinate using the 1st ping echo_range since identical for all pings
-    # remove padded NaN entries if exist for all pings
-    er = (
-        ds["echo_range"]
-        .dropna(dim="range_sample", how="all")
-        .dropna(dim="ping_time")
-        .isel(ping_time=0)
-    )
-
-    # use first ping er as indexer for sv
-    sv = sv.sel(range_sample=er.range_sample.values)
-    sv.coords["echo_range"] = (["range_sample"], er.values)
-    sv = sv.swap_dims({"range_sample": "echo_range"})
-    sv_groupby_bins = (
-        sv.resample(ping_time=pbin, skipna=True)
-        .mean(skipna=True)
-        .groupby_bins("echo_range", bins=rint, right=False, include_lowest=True)
-        .mean(skipna=True)
-    )
-    sv_groupby_bins.coords["echo_range"] = (["echo_range_bins"], rint[:-1])
-    sv_groupby_bins = sv_groupby_bins.swap_dims({"echo_range_bins": "echo_range"}).drop_vars(
-        "echo_range_bins"
-    )
-    return 10 * np.log10(sv_groupby_bins)
 
 
 def _set_MVBS_attrs(ds):
@@ -115,18 +59,27 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     A dataset containing bin-averaged Sv
     """
 
-    if not ds_Sv["echo_range"].groupby("channel").apply(_check_range_uniqueness).all():
-        raise ValueError(
-            "echo_range variable changes across pings in at least one of the frequency channels."
-        )
-
-    # Groupby freq in case of different echo_range (from different sampling intervals)
+    # create bin information for echo_range
     range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
-    ds_MVBS = (
-        ds_Sv.groupby("channel")
-        .apply(_freq_MVBS, args=(range_interval, ping_time_bin))
-        .to_dataset()
+
+    # create bin information needed for ping_time
+    ping_interval = (
+        ds_Sv.ping_time.resample(ping_time=ping_time_bin, skipna=True).asfreq().ping_time.values
     )
+
+    # calculate the MVBS along each channel
+    MVBS_values = get_MVBS_along_channels(ds_Sv, range_interval, ping_interval)
+
+    # create MVBS dataset
+    ds_MVBS = xr.Dataset(
+        data_vars={"Sv": (["channel", "ping_time", "echo_range"], MVBS_values)},
+        coords={
+            "ping_time": ping_interval,
+            "channel": ds_Sv.channel,
+            "echo_range": range_interval[:-1],
+        },
+    )
+
     # Added this check to support the test in test_process.py::test_compute_MVBS
     if "filenames" in ds_MVBS.variables:
         ds_MVBS = ds_MVBS.drop_vars("filenames")

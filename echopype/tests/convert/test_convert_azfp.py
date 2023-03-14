@@ -43,10 +43,10 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
     azfp_matlab_data_path = str(
-        azfp_path.joinpath('from_matlab/17082117_matlab_Data.mat')
+        azfp_path.joinpath('from_matlab', '17082117_matlab_Data.mat')
     )
     azfp_matlab_output_path = str(
-        azfp_path.joinpath('from_matlab/17082117_matlab_Output_Sv.mat')
+        azfp_path.joinpath('from_matlab', '17082117_matlab_Output_Sv.mat')
     )
 
     # Convert file
@@ -123,7 +123,7 @@ def test_convert_azfp_01a_raw_echoview(azfp_path):
 
     # Read csv files exported by EchoView
     azfp_csv_path = [
-        azfp_path.joinpath('from_echoview/17082117-raw%d.csv' % freq)
+        azfp_path.joinpath('from_echoview', '17082117-raw%d.csv' % freq)
         for freq in [38, 125, 200, 455]
     ]
     channels = []

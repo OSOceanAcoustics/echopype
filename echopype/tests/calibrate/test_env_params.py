@@ -1,4 +1,4 @@
-from echopype.echodata import EchoData
+from echopype.calibrate.env_params import harmonize_env_param_time
 
 import xarray as xr
 import numpy as np
@@ -7,7 +7,7 @@ import numpy as np
 def test_harmonize_env_param_time():
     # Scalar
     p = 10.05
-    assert EchoData._harmonize_env_param_time(p=p) == 10.05
+    assert harmonize_env_param_time(p=p) == 10.05
 
     # time1 length=1, should return length=1 numpy array
     p = xr.DataArray(
@@ -17,7 +17,7 @@ def test_harmonize_env_param_time():
         },
         dims=["time1"]
     )
-    assert EchoData._harmonize_env_param_time(p=p) == 1
+    assert harmonize_env_param_time(p=p) == 1
 
     # time1 length>1, interpolate to tareget ping_time
     p = xr.DataArray(
@@ -29,7 +29,7 @@ def test_harmonize_env_param_time():
     )
     # ping_time target is identical to time1
     ping_time_target = p["time1"].rename({"time1": "ping_time"})
-    p_new = EchoData._harmonize_env_param_time(p=p, ping_time=ping_time_target)
+    p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target)
     assert (p_new["ping_time"] == ping_time_target).all()
     assert (p_new.data == p.data).all()
     # ping_time target requires actual interpolation
@@ -40,10 +40,6 @@ def test_harmonize_env_param_time():
         },
         dims=["ping_time"]
     )
-    p_new = EchoData._harmonize_env_param_time(p=p, ping_time=ping_time_target["ping_time"])
+    p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target["ping_time"])
     assert p_new["ping_time"] == ping_time_target["ping_time"]
     assert p_new.data == 0.5
-
-
-
-    
