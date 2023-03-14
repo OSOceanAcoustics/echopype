@@ -33,7 +33,7 @@ def test_env_params_intake_AZFP(azfp_path):
     env_ext = {"salinity": 30, "pressure": 100}
 
     # Manually go through env params intake
-    env_params_manual = ep.calibrate.env_params.get_env_params_AZFP(echodata=ed, user_env_dict=env_ext)
+    env_params_manual = ep.calibrate.env_params.get_env_params_AZFP(echodata=ed, user_dict=env_ext)
     for p in env_params_manual.keys():
         env_params_manual[p] = ep.calibrate.env_params.harmonize_env_param_time(
             env_params_manual[p], ping_time=ed["Sonar/Beam_group1"]["ping_time"]

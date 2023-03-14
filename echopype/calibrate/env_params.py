@@ -1,14 +1,22 @@
 import datetime
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 
 import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
+from .cal_params import param2da
 from ..utils import uwa
 
-# TODO: create default dict with empty values but specific keys for out_dict
-# like in cal_params, right now it is initiated as {}
+
+ENV_PARAMS = (
+    "sound_speed",
+    "sound_absorption",
+    "temperature",
+    "salinity",
+    "pressure",
+    "pH",
+)
 
 
 def harmonize_env_param_time(
@@ -59,7 +67,74 @@ def harmonize_env_param_time(
         return p
 
 
-def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None):
+def sanitize_user_env_dict(
+    user_dict: Dict[str, Union[int, float, xr.DataArray]],
+    channel: Union[List, xr.DataArray],
+) -> Dict[str, Union[int, float, xr.DataArray]]:
+    """
+    Creates a blueprint for ``env_params`` dictionary and
+    check the format/organize user-provided parameters.
+
+    This function is very similar to ``sanitize_user_cal_dict`` but much simpler,
+    without the interpolation routines needed for calibration parameters.
+
+    user_dict : dict
+        A dictionary containing user input calibration parameters
+        as {parameter name: parameter value}.
+        Parameter value has to be a scalar (int or float) or an ``xr.DataArray``.
+        If parameter value is an ``xr.DataArray``, it has to have a'channel' as a coordinate.
+
+    channel : list or xr.DataArray
+        A list of channels to be calibrated.
+        For EK80 data, this list has to corresponds with the subset of channels
+        selected based on waveform_mode and encode_mode    
+    """
+    # Make channel a sorted list
+    if not isinstance(channel, (list, xr.DataArray)):
+        raise ValueError("'channel' has to be a list or an xr.DataArray")
+
+    if isinstance(channel, xr.DataArray):
+        channel_sorted = sorted(channel.values)
+    else:
+        channel_sorted = sorted(channel)
+
+    # Screen parameters: only retain those defined in ENV_PARAMS
+    #  -- keep params in scalar as scalar
+    #  -- transform params in list to xr.DataArray
+    #  -- directly pass through those that are xr.DataArray
+    out_dict = dict.fromkeys(ENV_PARAMS)
+    for p_name, p_val in user_dict.items():
+        if p_name in out_dict:
+            # if p_val an xr.DataArray, check existence and coordinates
+            if isinstance(p_val, xr.DataArray):
+                # if 'channel' is a coordinate, it has to match that of the data
+                if "channel" in p_val.coords:
+                    if not (sorted(p_val.coords["channel"].values) == channel_sorted):
+                        raise ValueError(
+                            f"The 'channel' coordinate of {p_name} has to match "
+                            "that of the data to be calibrated"
+                        )
+                else:
+                    raise ValueError(f"{p_name} has to have 'channel' as a coordinate")
+                out_dict[p_name] = p_val
+            
+            # If p_val a scalar, do nothing
+            elif isinstance(p_val, (int, float)):
+                out_dict[p_name] = p_val
+
+            # If p_val a list, make it xr.DataArray
+            elif isinstance(p_val, list):
+                # check for list dimension happens within param2da()
+                out_dict[p_name] = param2da(p_val, channel)
+            
+            # p_val has to be one of int, float, xr.DataArray
+            else:
+                raise ValueError(f"{p_name} has to be a scalar, list, or an xr.DataArray")
+
+    return out_dict
+
+
+def get_env_params_AZFP(echodata: EchoData, user_dict: Optional[dict] = None):
     """Get env params using user inputs or values from data file.
 
     Parameters
@@ -73,40 +148,46 @@ def get_env_params_AZFP(echodata: EchoData, user_env_dict: Optional[dict] = None
     -------
     A dictionary containing the calibration parameters.
     """
-    out_dict = {}
+    # AZFP only has 1 beam group
+    beam = echodata["Sonar/Beam_group1"]
 
-    # Temperature comes from either user input or data file
-    out_dict["temperature"] = user_env_dict.get(
-        "temperature", echodata["Environment"]["temperature"]
-    )
+    # Use sanitized user dict as blueprint
+    # out_dict contains only and all of the allowable cal params
+    out_dict = sanitize_user_env_dict(user_dict=user_dict, channel=beam["channel"])
+    out_dict.pop("pH")  # AZFP formulae do not use pH
 
-    # Salinity and pressure always come from user input
-    if ("salinity" not in user_env_dict) or ("pressure" not in user_env_dict):
+    # For AZFP, salinity and pressure always come from user input
+    if ("salinity" not in out_dict) or ("pressure" not in out_dict):
         raise ReferenceError("Please supply both salinity and pressure in env_params.")
-    else:
-        out_dict["salinity"] = user_env_dict["salinity"]
-        out_dict["pressure"] = user_env_dict["pressure"]
 
-    # Always calculate sound speed and absorption
-    out_dict["sound_speed"] = uwa.calc_sound_speed(
-        temperature=out_dict["temperature"],
-        salinity=out_dict["salinity"],
-        pressure=out_dict["pressure"],
-        formula_source="AZFP",
-    )
-    out_dict["sound_absorption"] = uwa.calc_absorption(
-        frequency=echodata["Sonar/Beam_group1"]["frequency_nominal"],
-        temperature=out_dict["temperature"],
-        salinity=out_dict["salinity"],
-        pressure=out_dict["pressure"],
-        formula_source="AZFP",
-    )
+    # Needs to fill in temperature first before sound speed and absorption can be calculated
+    if out_dict["temperature"] is None:
+        out_dict["temperature"] = echodata["Environment"]["temperature"]
+
+    # Only fill in params that are None
+    for p, v in out_dict.items():
+        if v is None:
+            if p == "sound_speed":
+                out_dict[p] = uwa.calc_sound_speed(
+                    temperature=out_dict["temperature"],
+                    salinity=out_dict["salinity"],
+                    pressure=out_dict["pressure"],
+                    formula_source="AZFP",
+                )
+            elif p == "sound_absorption":
+                out_dict[p] = uwa.calc_absorption(
+                    frequency=beam["frequency_nominal"],
+                    temperature=out_dict["temperature"],
+                    salinity=out_dict["salinity"],
+                    pressure=out_dict["pressure"],
+                    formula_source="AZFP",
+                )
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
     # Note for AZFP data is always in Sonar/Beam_group1
     for p in out_dict.keys():
         out_dict[p] = harmonize_env_param_time(
-            out_dict[p], ping_time=echodata["Sonar/Beam_group1"]["ping_time"]
+            out_dict[p], ping_time=beam["ping_time"]
         )
 
     return out_dict
