@@ -16,6 +16,10 @@ class CalibrateAZFP(CalibrateBase):
         # Set sonar_type
         self.sonar_type = "AZFP"
 
+        # Screen for ECS file: currently not support
+        if self.ecs_file is not None:
+            raise ValueError("Using ECS file for calibration is not currently supported for AZFP!")
+
         # load env and cal parameters
         self.env_params = get_env_params_AZFP(echodata=self.echodata, user_env_dict=self.env_params)
         self.cal_params = get_cal_params_AZFP(

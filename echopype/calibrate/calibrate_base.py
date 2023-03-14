@@ -1,6 +1,10 @@
 import abc
 
 from ..echodata import EchoData
+from ..utils.log import _init_logger
+
+logger = _init_logger(__name__)
+
 
 
 class CalibrateBase(abc.ABC):
@@ -9,21 +13,34 @@ class CalibrateBase(abc.ABC):
     def __init__(self, echodata: EchoData, env_params=None, cal_params=None, ecs_file=None):
         self.echodata = echodata
         self.sonar_type = None
-        self.ecs_file = ecs_file
 
-        if env_params is None:
-            self.env_params = {}
-        elif isinstance(env_params, dict):
-            self.env_params = env_params
-        else:
-            raise ValueError("'env_params' has to be None or a dict")
+        # Set ECS to overwrite user-provided dict
+        if self.ecs_file is not None:
+            if env_params is not None or cal_params is not None:
+                logger.warning(
+                    "The ECS file takes precedence when it is provided. "
+                    "Parameter values provided in 'env_params' and 'cal_params' will not be used!"
+                )
 
-        if cal_params is None:
-            self.cal_params = {}
-        elif isinstance(cal_params, dict):
-            self.cal_params = cal_params
+            # TODO: Parse ECS file and organize into dataset
+
+            # TODO: Set self.env_params and self.cal_params from ECS dataset
+
         else:
-            raise ValueError("'cal_params' has to be None or a dict")
+
+            if env_params is None:
+                self.env_params = {}
+            elif isinstance(env_params, dict):
+                self.env_params = env_params
+            else:
+                raise ValueError("'env_params' has to be None or a dict")
+
+            if cal_params is None:
+                self.cal_params = {}
+            elif isinstance(cal_params, dict):
+                self.cal_params = cal_params
+            else:
+                raise ValueError("'cal_params' has to be None or a dict")
 
         # range_meter is computed in compute_Sv/TS in child class
         self.range_meter = None
