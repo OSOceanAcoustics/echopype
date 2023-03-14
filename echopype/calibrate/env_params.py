@@ -1,13 +1,12 @@
 import datetime
-from typing import Dict, Optional, Union, List
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from .cal_params import param2da
 from ..utils import uwa
-
+from .cal_params import param2da
 
 ENV_PARAMS = (
     "sound_speed",
@@ -91,7 +90,7 @@ def sanitize_user_env_dict(
     channel : list or xr.DataArray
         A list of channels to be calibrated.
         For EK80 data, this list has to corresponds with the subset of channels
-        selected based on waveform_mode and encode_mode    
+        selected based on waveform_mode and encode_mode
 
     Returns
     -------
@@ -104,7 +103,6 @@ def sanitize_user_env_dict(
         because this parameter is frequency-dependen.
     """
     # TODO: check allowable formula sources for sound speed and absorption
-
 
     # Make channel a sorted list
     if not isinstance(channel, (list, xr.DataArray)):
@@ -138,7 +136,7 @@ def sanitize_user_env_dict(
                 else:
                     raise ValueError(f"{p_name} has to have 'channel' as a coordinate")
                 out_dict[p_name] = p_val
-            
+
             # If p_val a scalar or str, do nothing
             elif isinstance(p_val, (int, float, str)):
                 out_dict[p_name] = p_val
@@ -147,7 +145,7 @@ def sanitize_user_env_dict(
             elif isinstance(p_val, list):
                 # check for list dimension happens within param2da()
                 out_dict[p_name] = param2da(p_val, channel)
-            
+
             # p_val has to be one of int, float, xr.DataArray
             else:
                 raise ValueError(f"{p_name} has to be a scalar, list, or an xr.DataArray")
@@ -214,9 +212,7 @@ def get_env_params_AZFP(echodata: EchoData, user_dict: Optional[dict] = None):
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
     # Note for AZFP data is always in Sonar/Beam_group1
     for p in out_dict.keys():
-        out_dict[p] = harmonize_env_param_time(
-            out_dict[p], ping_time=beam["ping_time"]
-        )
+        out_dict[p] = harmonize_env_param_time(out_dict[p], ping_time=beam["ping_time"])
 
     return out_dict
 
