@@ -49,10 +49,6 @@ EK80_DEFAULT_PARAMS = {
 }
 
 
-# TODO: need a function (something like "_check_param_freq_dep")
-# to check user input cal_params and env_params
-
-
 def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray]) -> xr.DataArray:
     """
     Organize individual parameter in scalar or list to xr.DataArray with channel coordinate.

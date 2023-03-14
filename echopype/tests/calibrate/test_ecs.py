@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.ecs_parser import ECSParser, ev2ep, check_source_channel_order
+from echopype.calibrate.ecs import ECSParser, ev2ep, check_source_channel_order
 
 
 data_dir = Path("./echopype/test_data/ecs")
