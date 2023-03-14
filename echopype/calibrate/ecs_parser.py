@@ -95,7 +95,7 @@ class ECSParser:
                 else:
                     if line != "\n" and source is not None:
                         tmp = PARAM_MATCHER.match(line)
-                        if tmp["skip"] == "":  # not skipping
+                        if tmp["skip"] == "" or tmp["param"] == "Frequency":  # not skipping
                             param_val[source][tmp["param"]] = tmp["val"]
         return param_val
 
