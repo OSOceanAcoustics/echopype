@@ -8,8 +8,10 @@ from .range import compute_range_AZFP
 
 
 class CalibrateAZFP(CalibrateBase):
-    def __init__(self, echodata: EchoData, env_params=None, cal_params=None, **kwargs):
-        super().__init__(echodata, env_params, cal_params)
+    def __init__(
+        self, echodata: EchoData, env_params=None, cal_params=None, ecs_file=None, **kwargs
+    ):
+        super().__init__(echodata, env_params, cal_params, ecs_file)
 
         # Set sonar_type
         self.sonar_type = "AZFP"

@@ -16,8 +16,8 @@ logger = _init_logger(__name__)
 
 
 class CalibrateEK(CalibrateBase):
-    def __init__(self, echodata: EchoData, env_params, cal_params):
-        super().__init__(echodata, env_params, cal_params)
+    def __init__(self, echodata: EchoData, env_params, cal_params, ecs_file, **kwargs):
+        super().__init__(echodata, env_params, cal_params, ecs_file)
 
     def compute_echo_range(self, chan_sel: xr.DataArray = None):
         """
@@ -125,8 +125,8 @@ class CalibrateEK(CalibrateBase):
 
 
 class CalibrateEK60(CalibrateEK):
-    def __init__(self, echodata, env_params, cal_params, **kwargs):
-        super().__init__(echodata, env_params, cal_params)
+    def __init__(self, echodata: EchoData, env_params, cal_params, ecs_file, **kwargs):
+        super().__init__(echodata, env_params, cal_params, ecs_file)
 
         # Set sonar_type
         self.sonar_type = "EK60"
@@ -183,8 +183,17 @@ class CalibrateEK80(CalibrateEK):
         "WBT LF": 93750,
     }
 
-    def __init__(self, echodata, env_params, cal_params, waveform_mode, encode_mode):
-        super().__init__(echodata, env_params, cal_params)
+    def __init__(
+        self,
+        echodata: EchoData,
+        env_params,
+        cal_params,
+        waveform_mode,
+        encode_mode,
+        ecs_file=None,
+        **kwargs
+    ):
+        super().__init__(echodata, env_params, cal_params, ecs_file)
 
         # Set sonar_type
         self.sonar_type = "EK80"

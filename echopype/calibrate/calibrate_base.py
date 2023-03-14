@@ -6,9 +6,10 @@ from ..echodata import EchoData
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
 
-    def __init__(self, echodata: EchoData, env_params=None, cal_params=None):
+    def __init__(self, echodata: EchoData, env_params=None, cal_params=None, ecs_file=None):
         self.echodata = echodata
         self.sonar_type = None
+        self.ecs_file = ecs_file
 
         if env_params is None:
             self.env_params = {}

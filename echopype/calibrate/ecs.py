@@ -310,7 +310,8 @@ def check_source_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.
     # Set both datasets to align with frequency
     freq_ref.name = "frequency_nominal"
     freq_ref = (
-        freq_ref.to_dataset().set_coords("frequency_nominal")
+        freq_ref.to_dataset()
+        .set_coords("frequency_nominal")
         .swap_dims({"channel": "frequency_nominal"})
     )
     ds_in = ds_in.set_coords("frequency_nominal").swap_dims({"channel": "frequency_nominal"})
