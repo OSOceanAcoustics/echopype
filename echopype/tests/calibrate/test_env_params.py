@@ -43,3 +43,8 @@ def test_harmonize_env_param_time():
     p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target["ping_time"])
     assert p_new["ping_time"] == ping_time_target["ping_time"]
     assert p_new.data == 0.5
+
+
+# TODO: unit test for get_env_params_AZFP/EK60/EK80
+# - make sure the combination is correctly passed in
+# - make sure the sound speed and absorption are correctly calculated
