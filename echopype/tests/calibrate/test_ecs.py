@@ -1,7 +1,11 @@
 from pathlib import Path
 from datetime import datetime
 
-from echopype.calibrate.ecs_parser import ECSParser
+import numpy as np
+import xarray as xr
+
+from echopype.calibrate.ecs_parser import ECSParser, ev2ep, check_source_channel_order
+
 
 data_dir = Path("./echopype/test_data/ecs")
 
@@ -75,10 +79,33 @@ def test_convert_ecs():
     )
     assert ecs.parsed_params == CORRECT_PARSED_PARAMS
 
-    cal_params = ecs.get_cal_params()
+    dict_ev_params = ecs.get_cal_params()
 
+    # TODO: comprehensively test dict_cal_params values
     # Test SourceCal overwrite FileSet settings
-    assert cal_params["T1"]["SoundSpeed"] == 1480.60
+    assert dict_ev_params["T1"]["SoundSpeed"] == 1480.60
 
     # Test overwrite by LocalCal
-    assert cal_params["T2"]["TwoWayBeamAngle"] == -17.37
+    assert dict_ev_params["T2"]["TwoWayBeamAngle"] == -17.37
+
+    ds_cal, ds_env = ev2ep(dict_ev_params)
+
+
+def test_check_source_channel_order():
+
+    ds_in = xr.Dataset(
+        {
+            "var1": (["channel"], [1, 2, 3]),
+            "frequency_nominal": (["channel"], [18000, 38000, 120000]),
+        }
+    )
+    freq_ref = xr.DataArray(
+        [38000, 18000, 120000],
+        coords={"channel": ["chB", "chA", "chC"]},
+        dims=["channel"],
+    )
+
+    ds_out = check_source_channel_order(ds_in, freq_ref)
+
+    assert np.all(ds_out["channel"].values == ["chB", "chA", "chC"])  # channel follow those of freq_ref
+    assert not "frequency_nominal" in ds_out  # frequency_nominal has been dropped
