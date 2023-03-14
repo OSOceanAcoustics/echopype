@@ -63,6 +63,27 @@ CORRECT_PARSED_PARAMS = {
     "localcal": {"MyCal": {"TwoWayBeamAngle": -17.37}},
 }
 
+env_params_dict = {
+    "sound_speed": [1480.6, 1480.6, 1480.6],
+    "sound_absorption": [0.002822, 0.009855, 0.032594],
+    "frequency_nominal": [1.8e+04, 3.8e+04, 1.2e+05],
+}
+CORRECT_ENV_DATASET = xr.Dataset({k: (["channel"], v) for k, v in env_params_dict.items()})
+
+cal_params_dict = {
+    "sa_correction": [-0.7, -0.52, -0.3],
+    "gain_correction": [22.95, 26.07, 26.55],
+    "frequency_nominal": [1.8e+04, 3.8e+04, 1.2e+05],
+    "beamwidth_athwartship": [10.82, 6.85, 6.52],
+    "angle_offset_athwartship": [0.25, 0.0, 0.37],
+    "angle_sensitivity_athwartship": [13.89, 21.970001, 23.12],
+    "beamwidth_alongship": [10.9, 6.81, 6.58],
+    "angle_offset_alongship": [-0.18, -0.08, -0.05],
+    "angle_sensitivity_alongship": [13.89, 21.970001, 23.12],
+    "equivalent_beam_angle": [-17.37, -17.37, -17.37],
+}
+CORRECT_CAL_DATASET = xr.Dataset({k: (["channel"], v) for k, v in cal_params_dict.items()})
+
 
 def test_convert_ecs():
     # Test converting an EV calibration file (ECS)
@@ -79,16 +100,19 @@ def test_convert_ecs():
     )
     assert ecs.parsed_params == CORRECT_PARSED_PARAMS
 
+    # Test ECS hierarchy
     dict_ev_params = ecs.get_cal_params()
 
-    # TODO: comprehensively test dict_cal_params values
-    # Test SourceCal overwrite FileSet settings
+    # SourceCal overwrite FileSet settings
     assert dict_ev_params["T1"]["SoundSpeed"] == 1480.60
 
-    # Test overwrite by LocalCal
+    # LocalCal overwrites SourceCal
     assert dict_ev_params["T2"]["TwoWayBeamAngle"] == -17.37
 
+    # Test assembled datasets
     ds_cal, ds_env = ev2ep(dict_ev_params)
+    assert ds_cal.identical(CORRECT_CAL_DATASET)
+    assert ds_env.identical(CORRECT_ENV_DATASET)
 
 
 def test_check_source_channel_order():
