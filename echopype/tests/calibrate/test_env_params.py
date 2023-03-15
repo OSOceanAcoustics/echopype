@@ -1,7 +1,9 @@
-from echopype.calibrate.env_params import harmonize_env_param_time
+import pytest
 
-import xarray as xr
 import numpy as np
+import xarray as xr
+
+from echopype.calibrate.env_params import harmonize_env_param_time, sanitize_user_env_dict, ENV_PARAMS
 
 
 def test_harmonize_env_param_time():
@@ -43,6 +45,49 @@ def test_harmonize_env_param_time():
     p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target["ping_time"])
     assert p_new["ping_time"] == ping_time_target["ping_time"]
     assert p_new.data == 0.5
+
+
+@pytest.mark.parametrize(
+    ("user_dict", "channel", "out_dict"),
+    [
+        # dict all scalars, channel a list, output should be all scalars
+        #   - this behavior departs from sanitize_user_cal_dict, which will make scalars into xr.DataArray
+        (
+            {"temperature": 10, "salinity": 20},
+            ["chA", "chB"],
+            dict(
+                dict.fromkeys(ENV_PARAMS), **{"temperature": 10, "salinity": 20}
+            )
+        ),
+        # dict has xr.DataArray, channel a list with matching values with those in dict
+        (
+            {"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})},
+            ["chA", "chB"],
+            dict(
+                dict.fromkeys(ENV_PARAMS),
+                **{"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})}
+            )
+        ),
+        # dict has xr.DataArray, channel a list with non-matching values with those in dict: XFAIL
+        # dict has xr.DataArray, channel a xr.DataArray
+        # dict has sound_absorption as a scalar: XFAIL
+    ],
+    ids=[
+        "in_scalar_channel_list_out_scalar",
+        "in_da_channel_list_out_da",
+    ]
+)
+def test_sanitize_user_env_dict(user_dict, channel, out_dict):
+    """
+    Only test the case where the input sound_absorption is not an xr.DataArray nor a list,
+    since other cases are tested under test_cal_params::test_sanitize_user_cal_dict
+    """
+    env_dict = sanitize_user_env_dict(user_dict, channel)
+    for p, v in env_dict.items():
+        if isinstance(v, xr.DataArray):
+            assert v.identical(out_dict[p])
+        else:
+            assert v == out_dict[p]
 
 
 # TODO: unit test for get_env_params_AZFP/EK60/EK80

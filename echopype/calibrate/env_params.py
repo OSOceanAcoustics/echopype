@@ -69,7 +69,7 @@ def harmonize_env_param_time(
 
 
 def sanitize_user_env_dict(
-    user_dict: Dict[str, Union[int, float, xr.DataArray]],
+    user_dict: Dict[str, Union[int, float, list, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
@@ -102,8 +102,6 @@ def sanitize_user_env_dict(
         The user-provided 'sound_absorption' parameter has to be a list or an xr.DataArray,
         because this parameter is frequency-dependen.
     """
-    # TODO: check allowable formula sources for sound speed and absorption
-
     # Make channel a sorted list
     if not isinstance(channel, (list, xr.DataArray)):
         raise ValueError("'channel' has to be a list or an xr.DataArray")
@@ -120,8 +118,8 @@ def sanitize_user_env_dict(
     out_dict = dict.fromkeys(ENV_PARAMS)
     for p_name, p_val in user_dict.items():
         if p_name in out_dict:
-            # Param "sound_absorption" has to be an xr.DataArray because it is freq-dependent
-            if p_name == "sound_absorption" and not (p_val, xr.DataArray):
+            # Param "sound_absorption" has to be an xr.DataArray or a list because it is freq-dep
+            if p_name == "sound_absorption" and not (p_val, (xr.DataArray, list)):
                 raise ValueError(
                     "The 'sound_absorption' parameter has to be an xr.DataArray, "
                     "with 'channel' as an coordinate."
