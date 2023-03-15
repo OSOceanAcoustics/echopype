@@ -112,7 +112,7 @@ def compute_range_EK(
         An EchoData object holding data from an AZFP echosounder
     env_params : dict
         A dictionary holding environmental parameters needed for computing range
-        See echopype.calibrate.env_params.get_env_params_EK60() or .get_env_params_EK80()
+        See echopype.calibrate.env_params.get_env_params_EK
     waveform_mode : {"CW", "BB"}
         Type of transmit waveform.
         Required only for data from the EK80 echosounder.
