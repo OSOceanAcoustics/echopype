@@ -76,7 +76,7 @@ def test_env_params_intake_EK60_with_input(ek60_path):
     assert ds_Sv["formula_absorption"] == "FG"
     assert ds_Sv["sound_speed"].values == env_params_manual["sound_speed"]
     assert np.all(ds_Sv["sound_absorption"].values == env_params_manual["sound_absorption"].values)
-    
+
 
 def test_env_params_intake_EK60_no_input(ek60_path):
     """
@@ -118,7 +118,8 @@ def test_env_params_intake_EK80_no_input(ek80_cal_path):
     assert np.all(ds_Sv["sound_absorption"].values == absorption_ref.values)
 
 
-def test_env_params_intake_EK80_with_input(ek80_cal_path):
+# TODO: Consolidate this and the one with EK60 with input
+def test_env_params_intake_EK80_with_input_scalar(ek80_cal_path):
     """
     Test default env param extraction for EK80 calibration.
     """
@@ -138,7 +139,7 @@ def test_env_params_intake_EK80_with_input(ek80_cal_path):
         salinity=env_ext["salinity"],
         pressure=env_ext["pressure"],
         formula_source="Mackenzie",
-    )    
+    )
     sound_speed_ref = ep.calibrate.env_params.harmonize_env_param_time(
         sound_speed_ref, ping_time=ed["Sonar/Beam_group1"]["ping_time"]
     )
@@ -160,3 +161,26 @@ def test_env_params_intake_EK80_with_input(ek80_cal_path):
 
     assert np.all(cal_obj.env_params["sound_absorption"].values == absorption_ref.values)
     assert np.all(ds_Sv["sound_absorption"].values == absorption_ref.values)
+
+
+def test_env_params_intake_EK80_with_input_da(ek80_cal_path):
+    """
+    Test default env param extraction for EK80 calibration.
+    """
+    ed = ep.open_raw(ek80_cal_path / "2018115-D20181213-T094600.raw", sonar_model="EK80")
+
+    # Assemble external env param
+    env_ext = {
+        "temperature": 10, "salinity": 30, "sound_speed": 1498,
+        "sound_absorption": xr.DataArray(
+            np.arange(1, 5) * 0.01,
+            coords={"channel": ['WBT 714581-15 ES18', 'WBT 714583-15 ES120-7C',
+                                'WBT 714597-15 ES333-7C', 'WBT 714605-15 ES200-7C']})
+    }
+
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="complex", env_params=env_ext)
+
+    assert env_ext["sound_speed"] == ds_Sv["sound_speed"].values
+    assert np.all(env_ext["sound_absorption"].values == ds_Sv["sound_absorption"].values)
+    for p_name in ["temperature", "salinity", "pressure", "pH"]:
+        assert p_name not in ds_Sv

@@ -122,7 +122,10 @@ def sanitize_user_env_dict(
         if p_name in out_dict:
             # Param "sound_absorption" has to be an xr.DataArray because it is freq-dependent
             if p_name == "sound_absorption" and not (p_val, xr.DataArray):
-                raise ValueError("The 'sound_absorption' parameter has to be an xr.DataArray!")
+                raise ValueError(
+                    "The 'sound_absorption' parameter has to be an xr.DataArray, "
+                    "with 'channel' as an coordinate."
+                )
 
             # If p_val an xr.DataArray, check existence and coordinates
             if isinstance(p_val, xr.DataArray):
@@ -287,12 +290,13 @@ def get_env_params_EK(
 
     # Calculation sound speed and absorption requires at least T, S, P
     # tsp_all_exist controls wherher to calculate sound speed and absorption
-    tsp_all_exist = np.all(
-        [out_dict[p] is not None for p in ["temperature", "salinity", "pressure"]]
+    tspa_all_exist = np.all(
+        [out_dict[p] is not None for p in ["temperature", "salinity", "pressure", "pH"]]
     )
 
     # If EK80, get env parameters from data if not going values from user dict
-    if not tsp_all_exist and sonar_type == "EK80":
+    # This is because we always have to compute sound absorption for EK80 data
+    if not tspa_all_exist and sonar_type == "EK80":
         for p_user, p_data in zip(
             ["temperature", "salinity", "pressure", "pH"],  # name in defined env params
             ["temperature", "salinity", "depth", "acidity"],  # name in EK80 data
@@ -301,7 +305,7 @@ def get_env_params_EK(
 
     # Sound speed
     if out_dict["sound_speed"] is None:
-        if not tsp_all_exist:
+        if not tspa_all_exist:
             # sounds speed always exist in EK60 and EK80 data
             out_dict["sound_speed"] = env["sound_speed_indicative"]
             out_dict.pop("formula_sound_speed")
@@ -316,21 +320,19 @@ def get_env_params_EK(
                 pressure=out_dict["pressure"],
                 formula_source=out_dict["formula_sound_speed"],
             )
+    else:
+        out_dict.pop("formula_sound_speed")  # remove this since no calculation
 
     # Sound absorption
     if out_dict["sound_absorption"] is None:
-        if not tsp_all_exist and sonar_type != "EK80":  # this should not happen for EK80
+        if not tspa_all_exist and sonar_type != "EK80":  # this should not happen for EK80
             # absorption always exist in EK60 data
             out_dict["sound_absorption"] = env["absorption_indicative"]
             out_dict.pop("formula_absorption")
         else:
-            if out_dict["pH"] is None:
-                # absorption computation requires pH
-                raise ValueError("'pH' has to exist to calculate sound absorption")
-            else:
-                # default to FG absorption if pH exists in user dict
-                if out_dict["formula_absorption"] is None:
-                    out_dict["formula_absorption"] = "FG"
+            # default to FG absorption if not in user dict
+            if out_dict["formula_absorption"] is None:
+                out_dict["formula_absorption"] = "FG"
 
             out_dict["sound_absorption"] = uwa.calc_absorption(
                 frequency=freq,
@@ -341,10 +343,12 @@ def get_env_params_EK(
                 sound_speed=out_dict["sound_speed"],
                 formula_source=out_dict["formula_absorption"],
             )
+    else:
+        out_dict.pop("formula_absorption")  # remove this since no calculation
 
     # Remove params if calculation for either sound speed or absorption didn't happen
     if not ("formula_sound_speed" in out_dict or "formula_absorption" in out_dict):
-        [out_dict.pop(p) for p in ["temperature", "salinity", "pressure"]]
+        [out_dict.pop(p) for p in ["temperature", "salinity", "pressure", "pH"]]
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
     # Note for EK60 data is always in Sonar/Beam_group1
