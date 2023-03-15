@@ -88,5 +88,33 @@ def test_env_params_intake_EK60_no_input(ek60_path):
     assert np.all(ds_Sv["sound_absorption"].values == ed["Environment"]["absorption_indicative"].values)
 
 
+def test_env_params_intake_EK80_no_input(ek80_cal_path):
+    """
+    Test default env param extraction for EK80 calibration.
+    """
+    ed = ep.open_raw(ek80_cal_path / "2018115-D20181213-T094600.raw", sonar_model="EK80")
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+
+    # Use sound speed stored in Environment group
+    assert ds_Sv["sound_speed"].values == ed["Environment"]["sound_speed_indicative"].values
+
+    # Manually compute absorption
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
+        echodata=ed, waveform_mode="BB", encode_mode="complex", cal_params=None, env_params=None
+    )
+    absorption_ref = ep.utils.uwa.calc_absorption(
+        frequency=cal_obj.freq_center,
+        temperature=ed["Environment"]["temperature"],
+        salinity=ed["Environment"]["salinity"],
+        pressure=ed["Environment"]["depth"],
+        pH=ed["Environment"]["acidity"],
+        formula_source="FG",
+    )
+    absorption_ref = ep.calibrate.env_params.harmonize_env_param_time(
+        absorption_ref, ping_time=ed["Sonar/Beam_group1"]["ping_time"]
+    )
+    assert np.all(cal_obj.env_params["sound_absorption"].values == absorption_ref.values)    
+    assert np.all(ds_Sv["sound_absorption"].values == absorption_ref.values)
+
 
 # TODO: add tests for EK80 BB/CW complex and CW power

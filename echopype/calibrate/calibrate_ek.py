@@ -229,11 +229,12 @@ class CalibrateEK80(CalibrateEK):
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
 
         # Get env_params: depends on waveform mode
-        self.env_params = get_env_params_EK80(
-            echodata=self.echodata,
+        self.env_params = get_env_params_EK(
+            sonar_type=self.sonar_type,
+            beam=beam,
+            env=self.echodata["Environment"],
+            user_dict=self.env_params,
             freq=self.freq_center,
-            user_env_dict=self.env_params,
-            ed_group=self.ed_group,
         )
 
         # Get cal_params: depends on waveform and encode mode
