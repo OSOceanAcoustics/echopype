@@ -9,7 +9,7 @@ from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
-from .env_params import get_env_params_EK60, get_env_params_EK80
+from .env_params import get_env_params_EK, get_env_params_EK80
 from .range import compute_range_EK, range_mod_TVG_EK
 
 logger = _init_logger(__name__)
@@ -133,16 +133,21 @@ class CalibrateEK60(CalibrateEK):
         self.waveform_mode = "CW"
         self.encode_mode = "power"
 
-        # Get env_params
-        self.env_params = get_env_params_EK60(echodata=self.echodata, user_dict=self.env_params)
-
-        # Compute range
-        self.compute_echo_range()
-
         # Get the right ed_group for CW power samples
         self.ed_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
+
+        # Get env_params
+        self.env_params = get_env_params_EK(
+            sonar_type=self.sonar_type,
+            beam=self.echodata[self.ed_group],
+            env=self.echodata["Environment"],
+            user_dict=self.env_params,
+        )
+
+        # Compute range
+        self.compute_echo_range()
 
         # Set the channels to calibrate
         # For EK60 this is all channels
