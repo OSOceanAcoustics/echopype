@@ -3,7 +3,28 @@ import pytest
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.env_params import harmonize_env_param_time, sanitize_user_env_dict, ENV_PARAMS
+import echopype as ep
+from echopype.calibrate.env_params import (
+    harmonize_env_param_time,
+    sanitize_user_env_dict,
+    ENV_PARAMS,
+    get_env_params_AZFP
+)
+
+
+@pytest.fixture
+def azfp_path(test_path):
+    return test_path['AZFP']
+
+
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path['EK60']
+
+
+@pytest.fixture
+def ek80_cal_path(test_path):
+    return test_path['EK80_CAL']
 
 
 def test_harmonize_env_param_time():
@@ -83,6 +104,66 @@ def test_sanitize_user_env_dict(user_dict, channel, out_dict):
     since other cases are tested under test_cal_params::test_sanitize_user_cal_dict
     """
     env_dict = sanitize_user_env_dict(user_dict, channel)
+    for p, v in env_dict.items():
+        if isinstance(v, xr.DataArray):
+            assert v.identical(out_dict[p])
+        else:
+            assert v == out_dict[p]
+
+
+@pytest.mark.parametrize(
+    ("env_ext", "out_dict"),
+    [
+        # pH should not exist in the output Sv dataset, formula sources should both be AZFP
+        (
+            {"temperature": 10, "salinity": 20, "pressure": 100, "pH": 8.1},
+            dict(
+                dict.fromkeys(ENV_PARAMS), **{"temperature": 10, "salinity": 20, "pressure": 100}
+            )
+        ),
+        # not including salinity or pressure: XFAIL
+        pytest.param(
+            {"temperature": 10, "pressure": 100, "pH": 8.1}, None,
+            marks=pytest.mark.xfail(strict=True, reason="Fail since cal_channel_id in input param does not match channel of data"),
+        ),
+    ],
+    ids=[
+        "default",
+        "no_salinity",
+    ]
+)
+def test_get_env_params_AZFP(azfp_path, env_ext, out_dict):
+    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
+    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
+    ed = ep.open_raw(azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path)
+
+    env_dict = get_env_params_AZFP(echodata=ed, user_dict=env_ext)
+
+    out_dict = dict(
+        out_dict,
+        **{
+            "sound_speed": ep.utils.uwa.calc_sound_speed(
+                temperature=env_dict["temperature"],
+                salinity=env_dict["salinity"],
+                pressure=env_dict["pressure"],
+                formula_source="AZFP"
+            ),
+            "sound_absorption": ep.utils.uwa.calc_absorption(
+                frequency=ed["Sonar/Beam_group1"]["frequency_nominal"],
+                temperature=env_dict["temperature"],
+                salinity=env_dict["salinity"],
+                pressure=env_dict["pressure"],
+                formula_source="AZFP",
+            ),
+            "formula_sound_speed": "AZFP",
+            "formula_absorption": "AZFP",
+        }
+    )
+
+    assert "pH" not in env_dict
+    assert env_dict["formula_absorption"] == "AZFP"
+    assert env_dict["formula_sound_speed"] == "AZFP"
+
     for p, v in env_dict.items():
         if isinstance(v, xr.DataArray):
             assert v.identical(out_dict[p])
