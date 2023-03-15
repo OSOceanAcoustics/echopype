@@ -134,7 +134,7 @@ class CalibrateEK60(CalibrateEK):
         self.sonar_type = "EK60"
 
         # Get env_params
-        self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=env_params)
+        self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=self.env_params)
         self.waveform_mode = "CW"
         self.encode_mode = "power"
 
