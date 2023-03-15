@@ -65,6 +65,8 @@ class CalibrateEK(CalibrateBase):
         tvg_mod_range = range_mod_TVG_EK(
             self.echodata, self.ed_group, self.range_meter, sound_speed
         )
+        tvg_mod_range = tvg_mod_range.where(tvg_mod_range > 0, np.nan)
+
         spreading_loss = 20 * np.log10(tvg_mod_range)
         absorption_loss = 2 * absorption * tvg_mod_range
 
@@ -375,11 +377,14 @@ class CalibrateEK80(CalibrateEK):
 
         # TVG compensation with modified range
         tvg_mod_range = range_mod_TVG_EK(self.echodata, self.ed_group, range_meter, sound_speed)
+        tvg_mod_range = tvg_mod_range.where(tvg_mod_range > 0, np.nan)
+
         spreading_loss = 20 * np.log10(tvg_mod_range)
         absorption_loss = 2 * absorption * tvg_mod_range
 
         # Get power from complex samples
         prx = self._get_power_from_complex(beam=beam, chirp=tx, z_et=z_et, z_er=z_er)
+        prx = prx.where(prx > 0, np.nan)
 
         # Compute based on cal_type
         if cal_type == "Sv":
