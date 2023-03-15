@@ -117,4 +117,44 @@ def test_env_params_intake_EK80_no_input(ek80_cal_path):
     assert np.all(ds_Sv["sound_absorption"].values == absorption_ref.values)
 
 
-# TODO: add tests for EK80 BB/CW complex and CW power
+def test_env_params_intake_EK80_with_input(ek80_cal_path):
+    """
+    Test default env param extraction for EK80 calibration.
+    """
+    ed = ep.open_raw(ek80_cal_path / "2018115-D20181213-T094600.raw", sonar_model="EK80")
+
+    # Assemble external env param
+    env_ext = {"temperature": 10, "salinity": 30, "pressure": 100, "pH": 8.1}
+
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="complex", env_params=env_ext)
+
+    # Manually compute absorption
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
+        echodata=ed, waveform_mode="CW", encode_mode="complex", cal_params=None, env_params=env_ext
+    )
+    sound_speed_ref = ep.utils.uwa.calc_sound_speed(
+        temperature=env_ext["temperature"],
+        salinity=env_ext["salinity"],
+        pressure=env_ext["pressure"],
+        formula_source="Mackenzie",
+    )    
+    sound_speed_ref = ep.calibrate.env_params.harmonize_env_param_time(
+        sound_speed_ref, ping_time=ed["Sonar/Beam_group1"]["ping_time"]
+    )
+    absorption_ref = ep.utils.uwa.calc_absorption(
+        frequency=cal_obj.freq_center,
+        temperature=env_ext["temperature"],
+        salinity=env_ext["salinity"],
+        pressure=env_ext["pressure"],
+        pH=env_ext["pH"],
+        formula_source="FG",
+    )
+    absorption_ref = ep.calibrate.env_params.harmonize_env_param_time(
+        absorption_ref, ping_time=ed["Sonar/Beam_group1"]["ping_time"]
+    )
+
+    assert np.all(cal_obj.env_params["sound_speed"] == sound_speed_ref)
+    assert np.all(ds_Sv["sound_speed"] == sound_speed_ref)
+
+    assert np.all(cal_obj.env_params["sound_absorption"].values == absorption_ref.values)
+    assert np.all(ds_Sv["sound_absorption"].values == absorption_ref.values)

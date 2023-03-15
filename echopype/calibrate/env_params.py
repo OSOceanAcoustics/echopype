@@ -293,8 +293,8 @@ def get_env_params_EK(
     # tsp_all_exist controls wherher to calculate sound speed and absorption
     tsp_all_exist = np.all([out_dict[p] is not None for p in ["temperature", "salinity", "pressure"]])
 
-    # If EK80, try to get env parameters from data
-    if sonar_type == "EK80":
+    # If EK80, get env parameters from data if not going values from user dict
+    if not tsp_all_exist and sonar_type == "EK80":
         for p_user, p_data in zip(
             ["temperature", "salinity", "pressure", "pH"],  # name in defined env params
             ["temperature", "salinity", "depth", "acidity"],  # name in EK80 data
