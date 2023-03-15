@@ -9,7 +9,7 @@ from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
-from .env_params import get_env_params_EK, get_env_params_EK80
+from .env_params import get_env_params_EK
 from .range import compute_range_EK, range_mod_TVG_EK
 
 logger = _init_logger(__name__)

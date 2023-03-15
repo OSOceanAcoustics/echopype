@@ -259,7 +259,7 @@ def get_env_params_EK(
     by the user simultaneously, both the sound speed and absorption are re-calculated.
 
     """
-    if not sonar_type in ["EK60", "EK80"]:
+    if sonar_type not in ["EK60", "EK80"]:
         raise ValueError("'sonar_type' has to be 'EK60' or 'EK80'")
 
     # EK80 calibration requires freq, which is the channel center frequency
