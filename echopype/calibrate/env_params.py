@@ -15,8 +15,8 @@ ENV_PARAMS = (
     "salinity",
     "pressure",
     "pH",
-    "formula_source_sound_speed",
-    "formula_source_absorption",
+    "formula_sound_speed",
+    "formula_absorption",
 )
 
 
@@ -185,10 +185,10 @@ def get_env_params_AZFP(echodata: EchoData, user_dict: Optional[dict] = None):
         out_dict["temperature"] = echodata["Environment"]["temperature"]
 
     # Set sound speed and absorption formula source if not in user_dict
-    if out_dict["formula_source_sound_speed"] is None:
-        out_dict["formula_source_sound_speed"] = "AZFP"
-    if out_dict["formula_source_absorption"] is None:
-        out_dict["formula_source_absorption"] = "AZFP"
+    if out_dict["formula_sound_speed"] is None:
+        out_dict["formula_sound_speed"] = "AZFP"
+    if out_dict["formula_absorption"] is None:
+        out_dict["formula_absorption"] = "AZFP"
 
     # Only fill in params that are None
     for p, v in out_dict.items():
@@ -198,7 +198,7 @@ def get_env_params_AZFP(echodata: EchoData, user_dict: Optional[dict] = None):
                     temperature=out_dict["temperature"],
                     salinity=out_dict["salinity"],
                     pressure=out_dict["pressure"],
-                    formula_source=out_dict["formula_source_sound_speed"],
+                    formula_source=out_dict["formula_sound_speed"],
                 )
             elif p == "sound_absorption":
                 out_dict[p] = uwa.calc_absorption(
@@ -206,7 +206,7 @@ def get_env_params_AZFP(echodata: EchoData, user_dict: Optional[dict] = None):
                     temperature=out_dict["temperature"],
                     salinity=out_dict["salinity"],
                     pressure=out_dict["pressure"],
-                    formula_source=out_dict["formula_source_absorption"],
+                    formula_source=out_dict["formula_absorption"],
                 )
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
@@ -275,18 +275,18 @@ def get_env_params_EK(
 
     # Check absorption and sound speed formula
     if (
-        out_dict["formula_source_absorption"] is not None
-        and not out_dict["formula_source_absorption"] in ["AM", "FG"]
+        out_dict["formula_absorption"] is not None
+        and not out_dict["formula_absorption"] in ["AM", "FG"]
     ):
         raise ValueError(
-            "'formula_source_absorption' has to be None, 'FG' or 'AM' for EK echosounders."
+            "'formula_absorption' has to be None, 'FG' or 'AM' for EK echosounders."
         )
     if (
-        out_dict["formula_source_sound_speed"] is not None
-        and out_dict["formula_source_sound_speed"] != "Mackenzie"
+        out_dict["formula_sound_speed"] is not None
+        and out_dict["formula_sound_speed"] != "Mackenzie"
     ):
         raise ValueError(
-            "'formula_source_absorption' has to be None or 'Mackenzie' for EK echosounders."
+            "'formula_absorption' has to be None or 'Mackenzie' for EK echosounders."
         )
 
     # Calculation sound speed and absorption requires at least T, S, P
@@ -307,17 +307,17 @@ def get_env_params_EK(
         if not tsp_all_exist:
             # sounds speed always exist in EK60 and EK80 data
             out_dict["sound_speed"] = env["sound_speed_indicative"]
-            out_dict.pop("formula_source_sound_speed")
+            out_dict.pop("formula_sound_speed")
         else:
             # default to Mackenzie sound speed formula if not in user dict
-            if out_dict["formula_source_sound_speed"] is None:
-                out_dict["formula_source_sound_speed"] = "Mackenzie"
+            if out_dict["formula_sound_speed"] is None:
+                out_dict["formula_sound_speed"] = "Mackenzie"
 
             out_dict["sound_speed"] = uwa.calc_sound_speed(
                 temperature=out_dict["temperature"],
                 salinity=out_dict["salinity"],
                 pressure=out_dict["pressure"],
-                formula_source=out_dict["formula_source_sound_speed"],
+                formula_source=out_dict["formula_sound_speed"],
             )
 
     # Sound absorption
@@ -325,15 +325,15 @@ def get_env_params_EK(
         if not tsp_all_exist and sonar_type != "EK80":  # this should not happen for EK80
             # absorption always exist in EK60 data
             out_dict["sound_absorption"] = env["absorption_indicative"]
-            out_dict.pop("formula_source_absorption")
+            out_dict.pop("formula_absorption")
         else:
             if out_dict["pH"] is None:
                 # absorption computation requires pH
                 raise ValueError("'pH' has to exist to calculate sound absorption")
             else:
                 # default to FG absorption if pH exists in user dict
-                if out_dict["formula_source_absorption"] is None:
-                    out_dict["formula_source_absorption"] = "FG"
+                if out_dict["formula_absorption"] is None:
+                    out_dict["formula_absorption"] = "FG"
 
             out_dict["sound_absorption"] = uwa.calc_absorption(
                 frequency=freq,
@@ -341,11 +341,12 @@ def get_env_params_EK(
                 salinity=out_dict["salinity"],
                 pressure=out_dict["pressure"],
                 pH=out_dict["pH"],
-                formula_source=out_dict["formula_source_absorption"],
+                sound_speed=out_dict["sound_speed"],
+                formula_source=out_dict["formula_absorption"],
             )
 
     # Remove params if calculation for either sound speed or absorption didn't happen
-    if not ("formula_source_sound_speed" in out_dict or "formula_source_absorption" in out_dict):
+    if not ("formula_sound_speed" in out_dict or "formula_absorption" in out_dict):
         [out_dict.pop(p) for p in ["temperature", "salinity", "pressure"]]
 
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)

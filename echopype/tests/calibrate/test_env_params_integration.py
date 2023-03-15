@@ -43,8 +43,8 @@ def test_env_params_intake_AZFP(azfp_path):
 
     # Check against the final env params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, env_params=env_ext)
-    assert ds_Sv["formula_source_sound_speed"] == "AZFP"
-    assert ds_Sv["formula_source_absorption"] == "AZFP"
+    assert ds_Sv["formula_sound_speed"] == "AZFP"
+    assert ds_Sv["formula_absorption"] == "AZFP"
     assert ds_Sv["sound_speed"].identical(env_params_manual["sound_speed"])
     assert ds_Sv["sound_absorption"].identical(env_params_manual["sound_absorption"])
 
@@ -72,8 +72,8 @@ def test_env_params_intake_EK60_with_input(ek60_path):
 
     # Check against the final env params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, env_params=env_ext)
-    assert ds_Sv["formula_source_sound_speed"] == "Mackenzie"
-    assert ds_Sv["formula_source_absorption"] == "FG"
+    assert ds_Sv["formula_sound_speed"] == "Mackenzie"
+    assert ds_Sv["formula_absorption"] == "FG"
     assert ds_Sv["sound_speed"].values == env_params_manual["sound_speed"]
     assert np.all(ds_Sv["sound_absorption"].values == env_params_manual["sound_absorption"].values)
     
@@ -108,6 +108,7 @@ def test_env_params_intake_EK80_no_input(ek80_cal_path):
         salinity=ed["Environment"]["salinity"],
         pressure=ed["Environment"]["depth"],
         pH=ed["Environment"]["acidity"],
+        sound_speed=ed["Environment"]["sound_speed_indicative"],
         formula_source="FG",
     )
     absorption_ref = ep.calibrate.env_params.harmonize_env_param_time(
@@ -147,6 +148,7 @@ def test_env_params_intake_EK80_with_input(ek80_cal_path):
         salinity=env_ext["salinity"],
         pressure=env_ext["pressure"],
         pH=env_ext["pH"],
+        sound_speed=sound_speed_ref,
         formula_source="FG",
     )
     absorption_ref = ep.calibrate.env_params.harmonize_env_param_time(
