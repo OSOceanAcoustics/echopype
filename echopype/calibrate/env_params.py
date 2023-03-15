@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Optional, Union, Literal
+from typing import Dict, List, Literal, Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -234,7 +234,7 @@ def get_env_params_EK(
     beam : xr.Dataset
         A subset of Sonar/Beam_groupX that contains only the channels specified for calibration
     env : xr.Dataset
-        A subset of Environment group that contains only the channels specified for calibration    
+        A subset of Environment group that contains only the channels specified for calibration
     user_dict : dict
         User input dict containing env params
     freq : xr.DataArray
@@ -274,24 +274,22 @@ def get_env_params_EK(
     out_dict = sanitize_user_env_dict(user_dict=user_dict, channel=beam["channel"])
 
     # Check absorption and sound speed formula
-    if (
-        out_dict["formula_absorption"] is not None
-        and not out_dict["formula_absorption"] in ["AM", "FG"]
-    ):
-        raise ValueError(
-            "'formula_absorption' has to be None, 'FG' or 'AM' for EK echosounders."
-        )
+    if out_dict["formula_absorption"] is not None and not out_dict["formula_absorption"] in [
+        "AM",
+        "FG",
+    ]:
+        raise ValueError("'formula_absorption' has to be None, 'FG' or 'AM' for EK echosounders.")
     if (
         out_dict["formula_sound_speed"] is not None
         and out_dict["formula_sound_speed"] != "Mackenzie"
     ):
-        raise ValueError(
-            "'formula_absorption' has to be None or 'Mackenzie' for EK echosounders."
-        )
+        raise ValueError("'formula_absorption' has to be None or 'Mackenzie' for EK echosounders.")
 
     # Calculation sound speed and absorption requires at least T, S, P
     # tsp_all_exist controls wherher to calculate sound speed and absorption
-    tsp_all_exist = np.all([out_dict[p] is not None for p in ["temperature", "salinity", "pressure"]])
+    tsp_all_exist = np.all(
+        [out_dict[p] is not None for p in ["temperature", "salinity", "pressure"]]
+    )
 
     # If EK80, get env parameters from data if not going values from user dict
     if not tsp_all_exist and sonar_type == "EK80":
@@ -300,7 +298,6 @@ def get_env_params_EK(
             ["temperature", "salinity", "depth", "acidity"],  # name in EK80 data
         ):
             out_dict[p_user] = user_dict.get(p_user, env[p_data])
-
 
     # Sound speed
     if out_dict["sound_speed"] is None:
@@ -352,9 +349,7 @@ def get_env_params_EK(
     # Harmonize time coordinate between Beam_groupX (ping_time) and env_params (time1)
     # Note for EK60 data is always in Sonar/Beam_group1
     for p in out_dict.keys():
-        out_dict[p] = harmonize_env_param_time(
-            out_dict[p], ping_time=beam["ping_time"]
-        )
+        out_dict[p] = harmonize_env_param_time(out_dict[p], ping_time=beam["ping_time"])
 
     return out_dict
 
