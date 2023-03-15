@@ -17,6 +17,7 @@ logger = _init_logger(__name__)
 # Small positive number, to use in place of zero
 EPS = 1e-5
 
+
 class CalibrateEK(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params, cal_params):
         super().__init__(echodata, env_params, cal_params)
