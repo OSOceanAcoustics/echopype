@@ -236,17 +236,27 @@ class SetGroupsEK80(SetGroupsBase):
                     "standard_name": "sound_frequency",
                 },
             ),
-            "serial_number": (["channel"], var["serial_number"]),
-            "transducer_name": (["channel"], var["transducer_name"]),
-            "sonar_serial_number": (["channel"], var["channel_id_short"]),
-            "sonar_software_name": (
+            "sonar_serial_number": (
                 ["channel"],
-                var["application_name"],
-            ),  # identical for all channels
-            "sonar_software_version": (
+                var["channel_id_short"],
+                {
+                    "long_name": "Sonar serial number",
+                },
+            ),
+            "transducer_serial_number": (
                 ["channel"],
-                var["application_version"],
-            ),  # identical for all channels
+                var["serial_number"],
+                {
+                    "long_name": "Transducer serial number",
+                },
+            ),
+            "transducer_name": (
+                ["channel"],
+                var["transducer_name"],
+                {
+                    "long_name": "Transducer name",
+                },
+            ),
         }
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
@@ -264,6 +274,8 @@ class SetGroupsEK80(SetGroupsBase):
         sonar_attr_dict = {
             "sonar_manufacturer": "Simrad",
             "sonar_model": self.sonar_model,
+            "sonar_software_name": var["application_name"][0],
+            "sonar_software_version": var["application_version"][0],
             "sonar_type": "echosounder",
         }
         ds = ds.assign_attrs(sonar_attr_dict)
