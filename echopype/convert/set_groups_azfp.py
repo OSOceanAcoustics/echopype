@@ -124,7 +124,7 @@ class SetGroupsAZFP(SetGroupsBase):
             "sonar_manufacturer": "ASL Environmental Sciences",
             "sonar_model": self.sonar_model,
             "sonar_serial_number": int(self.parser_obj.unpacked_data["serial_number"]),
-            "sonar_software_name": "Based on AZFP Matlab Toolbox",
+            "sonar_software_name": "AZFP",
             "sonar_software_version": "1.4",
             "sonar_type": "echosounder",
         }
