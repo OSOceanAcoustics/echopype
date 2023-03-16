@@ -14,7 +14,7 @@ This is a minor release that includes a small bug fix and an enhancement, which 
 - Fix a bug that prevented passing in `env_params` for EK60 calibration (#987)
 
 ## Enhancement
-- Handling non-positive values causing log10 warnings on EK calibration (#986)
+- Handling non-positive values that causes log10 warnings on EK calibration (#986)
 
 
 
