@@ -8,10 +8,10 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This is a minor release that includes a small bug fix and an improvement that remove excessive warnings.
+This is a minor release that includes a small bug fix and an enhancement, which removes excessive warnings due to changes in v0.6.4.
 
 ## Bug fix
-- fix bug to pass in `env_params` from parent class method for EK60 calibration (#987)
+- Fix a bug that prevented passing in `env_params` for EK60 calibration (#987)
 
 ## Enhancement
 - Handling non-positive values causing log10 warnings on EK calibration (#986)
