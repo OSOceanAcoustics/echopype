@@ -27,13 +27,14 @@ MODULES_TO_TEST = {
     "root": {},  # This is to test the root folder.
     "convert": {},
     "calibrate": {},
+    "consolidate": {},
     "echodata": {},
+    "filter": {},
+    "mask": {},
+    "metrics": {},
     "preprocess": {},
     "utils": {},
     "visualize": {},
-    "metrics": {},
-    "mask": {},
-    "consolidate": {},
 }
 
 if __name__ == "__main__":
