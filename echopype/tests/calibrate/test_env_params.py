@@ -261,18 +261,6 @@ def test_get_env_params_EK60_from_data(ek60_path):
     assert env_dict["sound_absorption"].identical(ref_absorption)
 
 
-
-
-
-# EK80 tests:
-# - T, S, P, pH should all exist to calculate sound speed and absorption
-# - if caculate, check default formula sources
-# - if caculate and formula sources passed in, check use the correct formulae
-# - if one of the above params does not exist, use all param values from data file
-#    - with formula as inputs, check use the correct formula
-#    - no formula as inputs, check using the default formula
-
-
 @pytest.mark.parametrize(
     ("env_ext", "ref_formula_sound_speed", "ref_formula_absorption"),
     [
@@ -336,12 +324,14 @@ def test_get_env_params_EK80_calculate(ek80_cal_path, env_ext, ref_formula_sound
 @pytest.mark.parametrize(
     ("env_ext", "ref_formula_sound_speed", "ref_formula_absorption"),
     [
-        # T, S, P, pH all exist, check default formula sources
+        # Only T exists, so use S, P, pH from data;
+        # check default formula sources
         (
             {"temperature": 10},
             "Mackenzie", "FG",
         ),
-        # T, S, P, pH all exist; has absorption formula passed in, check using the correct formula
+        # Only T exists, so use S, P, pH from data;
+        # has absorption formula passed in, check using the correct formula
         (
             {"temperature": 10, "formula_absorption": "AM"},
             "Mackenzie", "AM",
@@ -360,7 +350,8 @@ def test_get_env_params_EK80_from_data(ek80_cal_path, env_ext, ref_formula_sound
         beam=ed["Sonar/Beam_group1"],
         env=ed["Environment"],
         user_dict=env_ext,
-        freq=ed["Sonar/Beam_group1"]["frequency_nominal"]  # technically should use center freq, use this for convenience
+        # technically should use center freq, use frequency nominal here for convenience
+        freq=ed["Sonar/Beam_group1"]["frequency_nominal"],
     )
 
     # Check formula sources
@@ -368,18 +359,12 @@ def test_get_env_params_EK80_from_data(ek80_cal_path, env_ext, ref_formula_sound
     assert env_dict["formula_absorption"] == ref_formula_absorption
 
     # Check computation results
-    sound_speed_ref = ep.utils.uwa.calc_sound_speed(
-        temperature=ed["Environment"]["temperature"],
-        salinity=ed["Environment"]["salinity"],
-        pressure=ed["Environment"]["depth"],
-        formula_source=ref_formula_sound_speed,
-    )
-    sound_speed_ref = ep.calibrate.env_params.harmonize_env_param_time(
-        sound_speed_ref, ping_time=ed["Sonar/Beam_group1"]["ping_time"]
-    )
+    # Use sound speed from data when T, S, P, pH are not all provided
+    sound_speed_ref = ed["Environment"]["sound_speed_indicative"]
+    # Always compute absorption for EK80
     absorption_ref = ep.utils.uwa.calc_absorption(
         frequency=ed["Sonar/Beam_group1"]["frequency_nominal"],
-        temperature=ed["Environment"]["temperature"],
+        temperature=env_ext["temperature"],  # use user-provided value if exists
         salinity=ed["Environment"]["salinity"],
         pressure=ed["Environment"]["depth"],
         pH=ed["Environment"]["acidity"],

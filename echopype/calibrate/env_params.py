@@ -292,8 +292,8 @@ def get_env_params_EK(
         [out_dict[p] is not None for p in ["temperature", "salinity", "pressure", "pH"]]
     )
 
-    # If EK80, get env parameters from data if not going values from user dict
-    # This is because we always have to compute sound absorption for EK80 data
+    # If EK80, get env parameters from data if not provided in user dict
+    # All T, S, P, pH are needed because we always have to compute sound absorption for EK80 data
     if not tspa_all_exist and sonar_type == "EK80":
         for p_user, p_data in zip(
             ["temperature", "salinity", "pressure", "pH"],  # name in defined env params
@@ -344,7 +344,7 @@ def get_env_params_EK(
     else:
         out_dict.pop("formula_absorption")  # remove this since no calculation
 
-    # Remove params if calculation for either sound speed or absorption didn't happen
+    # Remove params if calculation for both sound speed and absorption didn't happen
     if not ("formula_sound_speed" in out_dict or "formula_absorption" in out_dict):
         [out_dict.pop(p) for p in ["temperature", "salinity", "pressure", "pH"]]
 
