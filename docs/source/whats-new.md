@@ -4,6 +4,22 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.6.4.1 (2023 March 15)
+
+## Overview
+
+This is a minor release that includes a small bug fix and an enhancement, which removes excessive warnings due to changes in v0.6.4.
+
+## Bug fix
+- Fix a bug that prevented passing in `env_params` for EK60 calibration (#987)
+
+## Enhancement
+- Handling non-positive values that causes log10 warnings on EK calibration (#986)
+
+
+
+
+
 # v0.6.4 (2023 March 13)
 
 ## Overview
