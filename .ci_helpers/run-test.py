@@ -33,6 +33,7 @@ MODULES_TO_TEST = {
     "mask": {},
     "metrics": {},
     "commongrid": {},
+    "preprocess": {},
     "utils": {},
     "visualize": {},
 }
