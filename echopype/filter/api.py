@@ -66,7 +66,7 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     ds_Sv = noise_obj.ds_Sv
 
     prov_dict = echopype_prov_attrs(process_type="processing")
-    prov_dict["processing_function"] = "preprocess.remove_noise"
+    prov_dict["processing_function"] = "filter.remove_noise"
     ds_Sv = ds_Sv.assign_attrs(prov_dict)
 
     return ds_Sv

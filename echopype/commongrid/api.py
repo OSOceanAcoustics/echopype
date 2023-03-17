@@ -134,7 +134,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     )
 
     prov_dict = echopype_prov_attrs(process_type="processing")
-    prov_dict["processing_function"] = "preprocess.compute_MVBS"
+    prov_dict["processing_function"] = "commongrid.compute_MVBS"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
     ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
@@ -206,7 +206,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     )
 
     prov_dict = echopype_prov_attrs(process_type="processing")
-    prov_dict["processing_function"] = "preprocess.compute_MVBS_index_binning"
+    prov_dict["processing_function"] = "commongrid.compute_MVBS_index_binning"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
     ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
