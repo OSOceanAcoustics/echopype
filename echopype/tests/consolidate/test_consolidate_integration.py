@@ -229,6 +229,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
     ("sonar_model", "test_path_key", "raw_file_name", "paths_to_echoview_mat",
      "waveform_mode", "encode_mode", "pulse_compression", "write_Sv_to_file"),
     [
+        # ek60_CW_power
         (
             "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
             [
@@ -240,6 +241,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "CW", "power", False, False
         ),
+        # ek60_CW_power_Sv_path
         (
             "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
             [
@@ -251,6 +253,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "CW", "power", False, True
         ),
+        # ek80_CW_complex
         (
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
@@ -261,6 +264,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "CW", "complex", False, False
         ),
+        # ek80_BB_complex_no_pc
         (
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
@@ -269,21 +273,22 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "BB", "complex", False, False,
         ),
-        # (
-        #     "EK80", "EK80", "Summer2018--D20180905-T033113.raw",
-        #     [
-        #         'splitbeam/Summer2018--D20180905-T033113_angles_T1_nopc.mat',  # change this
-        #         'splitbeam/Summer2018--D20180905-T033113_angles_T2_nopc.mat',  # change this
-        #     ],
-        #     "CW", "power", False, False,
-        # ),
+        # ek80_CW_power
+        (
+            "EK80", "EK80", "Summer2018--D20180905-T033113.raw",
+            [
+                'splitbeam/Summer2018--D20180905-T033113_angles_T2.mat',
+                'splitbeam/Summer2018--D20180905-T033113_angles_T1.mat',
+            ],
+            "CW", "power", False, False,
+        ),
     ],
     ids=[
         "ek60_CW_power",
         "ek60_CW_power_Sv_path",
         "ek80_CW_complex",
         "ek80_BB_complex_no_pc",
-        # "ek80_CW_power",
+        "ek80_CW_power",
     ],
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
@@ -335,6 +340,10 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
             start = 0
         else:
             start = 1
+
+        # note for the checks below:
+        #   - angles from CW power data are similar down to 1e-7
+        #   - angles computed from complex samples deviates a lot more
 
         # check the computed angle_alongship values against the echoview output
         assert np.allclose(reduced_angle_alongship.values[start:],
