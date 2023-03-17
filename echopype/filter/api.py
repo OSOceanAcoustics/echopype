@@ -1,5 +1,5 @@
 """
-Functions for enhancing the spatial and temporal coherence of data.
+Functions for reducing variabilities in backscatter data.
 """
 
 from ..utils.prov import echopype_prov_attrs
