@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union, Literal
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import xarray as xr
 
@@ -83,7 +83,7 @@ EV_EP_MAP = {
     #     PulseDuration = 1.000 # (milliseconds) [0.001..200.000]
     #     SoundSpeed = 1450.50 # (meters per second) [1400.00..1700.00]
     #     TwoWayBeamAngle = -16.550186 # (decibels re 1 steradian) [-99.000000..11.000000]
-    #     TvgRangeCorrection = # [None, BySamples, SimradEx500, SimradEx60, BioSonics, Kaijo, PulseLength, Ex500Forced, SimradEK80, Standard]
+    #     TvgRangeCorrection = # [None, BySamples, SimradEx500, SimradEx60, BioSonics, Kaijo, PulseLength, Ex500Forced, SimradEK80, Standard]  # noqa
     #     TvgRangeCorrectionOffset = # (samples) [-10000.00..10000.00]
     # },
 }
@@ -280,7 +280,8 @@ def _get_cal_params(param_map):
 def ecs_ev2ep(
     ev_dict: Dict[str, Union[int, float, str]],
     sonar_type: Literal["EK60", "EK80", "AZFP"],
-    channel: List[str] = None) -> Tuple[xr.Dataset, xr.Dataset]:
+    channel: List[str] = None,
+) -> Tuple[xr.Dataset, xr.Dataset]:
     """
     Convert dictionary from consolidated ECS form to xr.DataArray expected by echopype.
 
@@ -345,7 +346,7 @@ def ecs_ev2ep(
 def ecs_ds2dict(ds):
     dict_tmp = {}
     for data_var_name in ds.data_vars:
-        dict_tmp[data_var_name] = ds[data_var_name]            
+        dict_tmp[data_var_name] = ds[data_var_name]
     return dict_tmp
 
 

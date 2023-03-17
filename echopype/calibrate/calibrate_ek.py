@@ -7,8 +7,8 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK
-from .ecs import ecs_ev2ep, ecs_ds2dict
 from .calibrate_base import CalibrateBase
+from .ecs import conform_channel_order, ecs_ds2dict, ecs_ev2ep
 from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK
 from .range import compute_range_EK, range_mod_TVG_EK
@@ -153,8 +153,12 @@ class CalibrateEK60(CalibrateEK):
         # to let user know cal_params and env_params are ignored if ecs_file is provided
         if self.ecs_file is not None:  # also means self.ecs_dict != {}
             ds_cal_tmp, ds_env_tmp = ecs_ev2ep(self.ecs_dict, "EK60")
-            self.cal_params = ecs_ds2dict(ds_cal_tmp)
-            self.env_params = ecs_ds2dict(ds_env_tmp)
+            self.cal_params = ecs_ds2dict(
+                conform_channel_order(ds_cal_tmp, beam["frequency_nominal"])
+            )
+            self.env_params = ecs_ds2dict(
+                conform_channel_order(ds_env_tmp, beam["frequency_nominal"])
+            )
 
         # Regardless of the source cal and env params,
         # go through the same sanitization and organization process

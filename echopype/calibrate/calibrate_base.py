@@ -1,8 +1,8 @@
 import abc
 
 from ..echodata import EchoData
-from .ecs import ECSParser
 from ..utils.log import _init_logger
+from .ecs import ECSParser
 
 logger = _init_logger(__name__)
 
