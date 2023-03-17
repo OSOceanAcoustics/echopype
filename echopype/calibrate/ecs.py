@@ -27,20 +27,65 @@ PARAM_MATCHER = re.compile(
 CAL = re.compile(r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
 
 
-# For converting dict from ECS to echopype format
+# Convert dict from ECS to echopype format
 EV_EP_MAP = {
-    "AbsorptionCoefficient": "sound_absorption",
-    "EK60SaCorrection": "sa_correction",
-    "Ek60TransducerGain": "gain_correction",
-    "Frequency": "frequency_nominal",  # will use for checking channel and freq match
-    "MajorAxis3dbBeamAngle": "beamwidth_athwartship",
-    "MajorAxisAngleOffset": "angle_offset_athwartship",
-    "MajorAxisAngleSensitivity": "angle_sensitivity_athwartship",
-    "MinorAxis3dbBeamAngle": "beamwidth_alongship",
-    "MinorAxisAngleOffset": "angle_offset_alongship",
-    "MinorAxisAngleSensitivity": "angle_sensitivity_alongship",
-    "SoundSpeed": "sound_speed",
-    "TwoWayBeamAngle": "equivalent_beam_angle",
+    # from Echoview-generated ECS template (unless noted otherwise) : EchoData variable name
+    # Ex60 / Ex70 / EK15
+    "EK60": {
+        "AbsorptionCoefficient": "sound_absorption",
+        "Frequency": "frequency_nominal",  # will use for checking channel and freq match
+        "MajorAxis3dbBeamAngle": "beamwidth_athwartship",
+        "MajorAxisAngleOffset": "angle_offset_athwartship",
+        "MajorAxisAngleSensitivity": "angle_sensitivity_athwartship",
+        "MinorAxis3dbBeamAngle": "beamwidth_alongship",
+        "MinorAxisAngleOffset": "angle_offset_alongship",
+        "MinorAxisAngleSensitivity": "angle_sensitivity_alongship",
+        "PulseDuration": "transmit_duration_nominal",
+        "SaCorrectionFactor": "sa_correction",
+        "SoundSpeed": "sound_speed",
+        "EK60SaCorrection": "sa_correction",  # from NWFSC template
+        "TransducerGain": "gain_correction",
+        "Ek60TransducerGain": "gain_correction",  # from NWFSC template
+        "TransmittedPower": "transmit_power",
+        "TvgRangeCorrection": "tvg_range_correction",  # not in EchoData
+        "TvgRangeCorrectionOffset": "tvg_range_correction_offset",  # not in EchoData
+        "TwoWayBeamAngle": "equivalent_beam_angle",
+    },
+    # Additional on EK80, ES80, WBAT, EA640
+    # Note these should be concat after the EK60 dict
+    "EK80": {
+        "AbsorptionDepth": "sound_absorption",
+        "Acidity": "acidity",
+        "EffectivePulseDuration": "transmit_duration_nominal",
+        "Salinity": "salinity",
+        "SamplingFrequency": "sampling_frequency",  # does not exist in echopype.EchoData
+        "Temperature": "temperature",
+        "TransceiverImpedance": "impedance_transceiver",
+        "TransceiverSamplingFrequency": "receiver_sampling_frequency",
+        "TransducerModeActive": "transducer_mode",  # TODO: CHECK IN ECHODATA
+        "FrequencyTableWideband": "cal_frequency",  # frequency axis for broadband cal params
+        "GainTableWideband": "gain",  # frequency-dependent gain
+        "MajorAxisAngleOffsetTableWideband": "angle_offset_athwartship",  # TODO: Vendor-specific
+        "MajorAxisBeamWidthTableWideband": "beamwidth_athwartship",  # TODO: Vendor-specific
+        "MinorAxisAngleOffsetTableWideband": "angle_offset_alongship",  # TODO: Vendor-specific
+        "MinorAxisBeamWidthTableWideband": "beamwidth_alongship",  # TODO: Vendor-specific
+        "NumberOfTransducerSegments": "n_sector",  # TODO: CHECK IN ECHODATA
+        "PulseCompressedEffectivePulseDuration": "tau_effective",  # TODO: not in EchoData
+    },
+    # AZFP-specific
+    # Note: not sure why it doesn't contain salinity and pressure required for computing absorption
+    # "AZFP": {
+    #     AzfpDetectionSlope = 0.023400 # [0.000000..1.000000]
+    #     AzfpEchoLevelMax = 142.8 # (decibels) [0.0..9999.0]
+    #     AzfpTransmitVoltage = 53.0 # [0.0..999.0]
+    #     AzfpTransmitVoltageResponse = 170.9 # (decibels) [0.0..999.0]
+    #     Frequency = 38.00 # (kilohertz) [0.01..10000.00]
+    #     PulseDuration = 1.000 # (milliseconds) [0.001..200.000]
+    #     SoundSpeed = 1450.50 # (meters per second) [1400.00..1700.00]
+    #     TwoWayBeamAngle = -16.550186 # (decibels re 1 steradian) [-99.000000..11.000000]
+    #     TvgRangeCorrection = # [None, BySamples, SimradEx500, SimradEx60, BioSonics, Kaijo, PulseLength, Ex500Forced, SimradEK80, Standard]
+    #     TvgRangeCorrectionOffset = # (samples) [-10000.00..10000.00]
+    # },
 }
 ENV_PARAMS = ["AbsorptionCoefficient", "SoundSpeed"]
 CAL_PARAMS = set(EV_EP_MAP.keys()).difference(set(ENV_PARAMS))

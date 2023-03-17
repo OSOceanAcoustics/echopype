@@ -6,7 +6,6 @@ from ..utils.log import _init_logger
 logger = _init_logger(__name__)
 
 
-
 class CalibrateBase(abc.ABC):
     """Class to handle calibration for all sonar models."""
 
@@ -27,7 +26,6 @@ class CalibrateBase(abc.ABC):
             # TODO: Set self.env_params and self.cal_params from ECS dataset
 
         else:
-
             if env_params is None:
                 self.env_params = {}
             elif isinstance(env_params, dict):
