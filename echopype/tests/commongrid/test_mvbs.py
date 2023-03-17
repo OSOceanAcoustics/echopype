@@ -1,13 +1,13 @@
-import numpy as np
-import pandas as pd
-import xarray as xr
-import echopype as ep
-import pytest
 import dask.array
+import numpy as np
 from numpy.random import default_rng
-
-from echopype.preprocess.mvbs import bin_and_mean_2d
+import pandas as pd
+import pytest
 from typing import Tuple, Iterable, Union
+import xarray as xr
+
+import echopype as ep
+from echopype.commongrid.mvbs import bin_and_mean_2d
 
 
 @pytest.fixture(
@@ -186,7 +186,7 @@ def test_compute_MVBS_index_binning():
     )
 
     # Binned MVBS test
-    ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
+    ds_MVBS = ep.commongrid.compute_MVBS_index_binning(
         ds_Sv, range_sample_num=range_sample_num, ping_num=ping_num
     )
     data_test = 10 ** (ds_MVBS.Sv / 10)  # Convert to linear domain
@@ -211,7 +211,7 @@ def _coll_test_comp_MVBS(ds_Sv, nchan, ping_num,
                          total_range, range_meter_bin):
     """A collection of tests for test_compute_MVBS"""
 
-    ds_MVBS = ep.preprocess.compute_MVBS(
+    ds_MVBS = ep.commongrid.compute_MVBS(
         ds_Sv,
         range_meter_bin=range_meter_bin,
         ping_time_bin=f'{ping_time_bin}S',
@@ -394,7 +394,7 @@ def test_compute_MVBS():
                          total_range, range_meter_bin)
 
 
-def test_preprocess_mvbs(test_data_samples):
+def test_commongrid_mvbs(test_data_samples):
     """
     Test running through from open_raw to compute_MVBS.
     """
@@ -418,7 +418,7 @@ def test_preprocess_mvbs(test_data_samples):
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
-    assert ep.preprocess.compute_MVBS(Sv) is not None
+    assert ep.commongrid.compute_MVBS(Sv) is not None
 
 
 def create_bins(csum_array: np.ndarray) -> Iterable:

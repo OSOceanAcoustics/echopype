@@ -115,7 +115,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
         assert isinstance(e, ValueError) is True
         assert str(e) == dup_freq_valueerror
 
-    MVBS = ep.preprocess.compute_MVBS(Sv)
+    MVBS = ep.commongrid.compute_MVBS(Sv)
     try:
         MVBS_swapped = ep.consolidate.swap_dims_channel_frequency(MVBS)
         _check_swap(Sv, MVBS_swapped)
