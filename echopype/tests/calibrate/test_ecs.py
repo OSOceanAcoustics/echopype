@@ -1,4 +1,4 @@
-from pathlib import Path
+import pytest
 from datetime import datetime
 
 import numpy as np
@@ -7,7 +7,10 @@ import xarray as xr
 from echopype.calibrate.ecs import ECSParser, ev2ep, conform_channel_order
 
 
-data_dir = Path("./echopype/test_data/ecs")
+@pytest.fixture
+def ecs_path(test_path):
+    return test_path['ECS']
+
 
 
 CORRECT_PARSED_PARAMS = {
@@ -87,9 +90,9 @@ cal_params_dict = {
 CORRECT_CAL_DATASET = xr.Dataset({k: (["channel"], v) for k, v in cal_params_dict.items()})
 
 
-def test_convert_ecs():
+def test_convert_ecs(ecs_path):
     # Test converting an EV calibration file (ECS)
-    ecs_path = data_dir / "Summer2017_JuneCal_3freq_mod.ecs"
+    ecs_path = ecs_path / "Summer2017_JuneCal_3freq_mod.ecs"
 
     ecs = ECSParser(ecs_path)
     ecs.parse()
@@ -137,10 +140,10 @@ def test_check_source_channel_order():
     assert not "frequency_nominal" in ds_out  # frequency_nominal has been dropped
 
 
-def test_convert_ecs_template_ek60():
+def test_convert_ecs_template_ek60(ecs_path):
 
     # Test converting an EV calibration file (ECS)
-    ecs_path = data_dir / "Ex60_Ex70_EK15_nohash.ecs"
+    ecs_path = ecs_path / "Ex60_Ex70_EK15_nohash.ecs"
 
     ecs = ECSParser(ecs_path)
     ecs.parse()
