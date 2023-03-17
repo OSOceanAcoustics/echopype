@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.ecs import ECSParser, ev2ep, conform_channel_order
+from echopype.calibrate.ecs import ECSParser, ecs_ev2ep, conform_channel_order
 
 
 @pytest.fixture
@@ -115,7 +115,7 @@ def test_convert_ecs(ecs_path):
     assert dict_ev_params["T2"]["TwoWayBeamAngle"] == -17.37
 
     # Test assembled datasets
-    ds_cal, ds_env = ev2ep(dict_ev_params, "EK60")
+    ds_cal, ds_env = ecs_ev2ep(dict_ev_params, "EK60")
     assert ds_cal.identical(CORRECT_CAL_DATASET)
     assert ds_env.identical(CORRECT_ENV_DATASET)
 
@@ -159,7 +159,7 @@ def test_convert_ecs_template_ek60(ecs_path):
     dict_ev_params = ecs.get_cal_params()
 
     # Convert dict to xr.DataArray
-    ds_cal, ds_env = ev2ep(dict_ev_params, "EK60")
+    ds_cal, ds_env = ecs_ev2ep(dict_ev_params, "EK60")
 
     # Conform to specific channel/frequency order
     freq_ref = xr.DataArray(

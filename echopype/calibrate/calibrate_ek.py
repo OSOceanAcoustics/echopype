@@ -7,10 +7,10 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK
-from .ecs import ev2ep
+from .ecs import ecs_ev2ep, ecs_ds2dict
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
-from .env_params import get_env_params_EK60, get_env_params_EK80
+from .env_params import get_env_params_EK
 from .range import compute_range_EK, range_mod_TVG_EK
 
 logger = _init_logger(__name__)
@@ -131,7 +131,7 @@ class CalibrateEK60(CalibrateEK):
     def __init__(self, echodata: EchoData, env_params, cal_params, ecs_file, **kwargs):
         super().__init__(echodata, env_params, cal_params, ecs_file)
 
-        # Set sonar_type
+        # Set sonar_type and waveform/encode mode
         self.sonar_type = "EK60"
 
         # Set cal type
@@ -149,20 +149,29 @@ class CalibrateEK60(CalibrateEK):
         beam = self.echodata[self.ed_group]
 
         # Convert env_params and cal_params if self.ecs_file exists
+        # Note a warning if thrown out in CalibrateBase.__init__
+        # to let user know cal_params and env_params are ignored if ecs_file is provided
         if self.ecs_file is not None:  # also means self.ecs_dict != {}
-            self.cal_params, self.env_params = ev2ep(self.ecs_dict, "EK60")
+            ds_cal_tmp, ds_env_tmp = ecs_ev2ep(self.ecs_dict, "EK60")
+            self.cal_params = ecs_ds2dict(ds_cal_tmp)
+            self.env_params = ecs_ds2dict(ds_env_tmp)
 
-        # If self.ecs_file does not exist, obtain from self.cal_params and self.env_params
-        else:
-            self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=self.env_params)
-            self.cal_params = get_cal_params_EK(
-                waveform_mode=self.waveform_mode,
-                freq_center=beam["frequency_nominal"],
-                beam=beam,
-                vend=self.echodata["Vendor_specific"],
-                user_dict=self.cal_params,
-                sonar_type=self.sonar_type,
-            )
+        # Regardless of the source cal and env params,
+        # go through the same sanitization and organization process
+        self.env_params = get_env_params_EK(
+            sonar_type=self.sonar_type,
+            beam=self.echodata[self.ed_group],
+            env=self.echodata["Environment"],
+            user_dict=self.env_params,
+        )
+        self.cal_params = get_cal_params_EK(
+            waveform_mode=self.waveform_mode,
+            freq_center=beam["frequency_nominal"],
+            beam=beam,
+            vend=self.echodata["Vendor_specific"],
+            user_dict=self.cal_params,
+            sonar_type=self.sonar_type,
+        )
 
         # Compute range
         self.compute_echo_range()
@@ -241,11 +250,12 @@ class CalibrateEK80(CalibrateEK):
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
 
         # Get env_params: depends on waveform mode
-        self.env_params = get_env_params_EK80(
-            echodata=echodata,
+        self.env_params = get_env_params_EK(
+            sonar_type=self.sonar_type,
+            beam=beam,
+            env=self.echodata["Environment"],
+            user_dict=self.env_params,
             freq=self.freq_center,
-            user_env_dict=env_params,
-            ed_group=self.ed_group,
         )
 
         # Get cal_params: depends on waveform and encode mode

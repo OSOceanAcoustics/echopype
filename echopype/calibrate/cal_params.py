@@ -84,7 +84,7 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
 
 def sanitize_user_cal_dict(
     sonar_type: Literal["EK60", "EK80", "AZFP"],
-    user_dict: Dict[str, Union[int, float, xr.DataArray]],
+    user_dict: Dict[str, Union[int, float, list, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
@@ -122,7 +122,7 @@ def sanitize_user_cal_dict(
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     #  -- transform params in scalar or list to xr.DataArray
-    #  -- directly pass through those that are xr.DataArray
+    #  -- directly pass through those that are xr.DataArray and pass the check for coordinates
     out_dict = dict.fromkeys(CAL_PARAMS[sonar_type])
     for p_name, p_val in user_dict.items():
         if p_name in out_dict:

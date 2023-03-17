@@ -277,7 +277,7 @@ def _get_cal_params(param_map):
     return set(param_map.keys()).difference(set(ENV_PARAMS))
 
 
-def ev2ep(
+def ecs_ev2ep(
     ev_dict: Dict[str, Union[int, float, str]],
     sonar_type: Literal["EK60", "EK80", "AZFP"],
     channel: List[str] = None) -> Tuple[xr.Dataset, xr.Dataset]:
@@ -340,6 +340,13 @@ def ev2ep(
     ds_cal["frequency_nominal"] = ds_cal["frequency_nominal"] * 1000  # convert from kHz to Hz
 
     return ds_cal, ds_env
+
+
+def ecs_ds2dict(ds):
+    dict_tmp = {}
+    for data_var_name in ds.data_vars:
+        dict_tmp[data_var_name] = ds[data_var_name]            
+    return dict_tmp
 
 
 def conform_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.Dataset:
