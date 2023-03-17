@@ -7,6 +7,7 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK
+from .ecs import ev2ep
 from .calibrate_base import CalibrateBase
 from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK60, get_env_params_EK80
@@ -133,13 +134,9 @@ class CalibrateEK60(CalibrateEK):
         # Set sonar_type
         self.sonar_type = "EK60"
 
-        # Get env_params
-        self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=self.env_params)
+        # Set cal type
         self.waveform_mode = "CW"
         self.encode_mode = "power"
-
-        # Compute range
-        self.compute_echo_range()
 
         # Get the right ed_group for CW power samples
         self.ed_group = retrieve_correct_beam_group(
@@ -151,15 +148,24 @@ class CalibrateEK60(CalibrateEK):
         self.chan_sel = self.echodata[self.ed_group]["channel"]
         beam = self.echodata[self.ed_group]
 
-        # Get cal_params
-        self.cal_params = get_cal_params_EK(
-            waveform_mode=self.waveform_mode,
-            freq_center=beam["frequency_nominal"],
-            beam=beam,
-            vend=self.echodata["Vendor_specific"],
-            user_dict=self.cal_params,
-            sonar_type=self.sonar_type,
-        )
+        # Convert env_params and cal_params if self.ecs_file exists
+        if self.ecs_file is not None:  # also means self.ecs_dict != {}
+            self.cal_params, self.env_params = ev2ep(self.ecs_dict, "EK60")
+
+        # If self.ecs_file does not exist, obtain from self.cal_params and self.env_params
+        else:
+            self.env_params = get_env_params_EK60(echodata=echodata, user_env_dict=self.env_params)
+            self.cal_params = get_cal_params_EK(
+                waveform_mode=self.waveform_mode,
+                freq_center=beam["frequency_nominal"],
+                beam=beam,
+                vend=self.echodata["Vendor_specific"],
+                user_dict=self.cal_params,
+                sonar_type=self.sonar_type,
+            )
+
+        # Compute range
+        self.compute_echo_range()
 
     def compute_Sv(self, **kwargs):
         return self._cal_power_samples(cal_type="Sv", power_ed_group=self.ed_group)

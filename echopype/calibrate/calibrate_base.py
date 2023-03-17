@@ -1,6 +1,7 @@
 import abc
 
 from ..echodata import EchoData
+from .ecs import ECSParser
 from ..utils.log import _init_logger
 
 logger = _init_logger(__name__)
@@ -12,6 +13,8 @@ class CalibrateBase(abc.ABC):
     def __init__(self, echodata: EchoData, env_params=None, cal_params=None, ecs_file=None):
         self.echodata = echodata
         self.sonar_type = None
+        self.ecs_file = ecs_file
+        self.ecs_dict = {}
 
         # Set ECS to overwrite user-provided dict
         if self.ecs_file is not None:
@@ -21,9 +24,10 @@ class CalibrateBase(abc.ABC):
                     "Parameter values provided in 'env_params' and 'cal_params' will not be used!"
                 )
 
-            # TODO: Parse ECS file and organize into dataset
-
-            # TODO: Set self.env_params and self.cal_params from ECS dataset
+            # Parse ECS file to a dict
+            ecs = ECSParser(self.ecs_file)
+            ecs.parse()
+            self.ecs_dict = ecs.get_cal_params()  # apply ECS hierarchy
 
         else:
             if env_params is None:
