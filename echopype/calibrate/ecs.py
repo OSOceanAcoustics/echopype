@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Literal
 
 import xarray as xr
 
@@ -64,11 +64,11 @@ EV_EP_MAP = {
         "TransceiverSamplingFrequency": "receiver_sampling_frequency",
         "TransducerModeActive": "transducer_mode",  # TODO: CHECK IN ECHODATA
         "FrequencyTableWideband": "cal_frequency",  # frequency axis for broadband cal params
-        "GainTableWideband": "gain",  # frequency-dependent gain
-        "MajorAxisAngleOffsetTableWideband": "angle_offset_athwartship",  # TODO: Vendor-specific
-        "MajorAxisBeamWidthTableWideband": "beamwidth_athwartship",  # TODO: Vendor-specific
-        "MinorAxisAngleOffsetTableWideband": "angle_offset_alongship",  # TODO: Vendor-specific
-        "MinorAxisBeamWidthTableWideband": "beamwidth_alongship",  # TODO: Vendor-specific
+        "GainTableWideband": "gain_BB",  # frequency-dependent gain
+        "MajorAxisAngleOffsetTableWideband": "angle_offset_athwartship_BB",
+        "MajorAxisBeamWidthTableWideband": "beamwidth_athwartship_BB",
+        "MinorAxisAngleOffsetTableWideband": "angle_offset_alongship_BB",
+        "MinorAxisBeamWidthTableWideband": "beamwidth_alongship_BB",
         "NumberOfTransducerSegments": "n_sector",  # TODO: CHECK IN ECHODATA
         "PulseCompressedEffectivePulseDuration": "tau_effective",  # TODO: not in EchoData
     },
@@ -88,7 +88,6 @@ EV_EP_MAP = {
     # },
 }
 ENV_PARAMS = ["AbsorptionCoefficient", "SoundSpeed"]
-CAL_PARAMS = set(EV_EP_MAP.keys()).difference(set(ENV_PARAMS))
 
 
 class ECSParser:
@@ -274,9 +273,14 @@ class ECSParser:
         return ev_cal_params
 
 
+def _get_cal_params(param_map):
+    return set(param_map.keys()).difference(set(ENV_PARAMS))
+
+
 def ev2ep(
-    ev_dict: Dict[str, Union[int, float, str]], channel: List[str] = None
-) -> Tuple[xr.Dataset, xr.Dataset]:
+    ev_dict: Dict[str, Union[int, float, str]],
+    sonar_type: Literal["EK60", "EK80", "AZFP"],
+    channel: List[str] = None) -> Tuple[xr.Dataset, xr.Dataset]:
     """
     Convert dictionary from consolidated ECS form to xr.DataArray expected by echopype.
 
@@ -284,6 +288,8 @@ def ev2ep(
     ----------
     ev_dict : dict
         A dictionary of the format parsed by the ECS parser
+    sonar_type : str
+        Type of sonar, must be one of {}"EK60", "EK80", "AZFP"}
     channel : Option, list
         A list containing channel id for all transducers
         in the order of sources listed in the ECS file (T1, T2, etc.).
@@ -297,17 +303,25 @@ def ev2ep(
     xr.Dataset
         An xr.Dataset containing environmental parameters
     """
+    # Set up allowable cal or env variables
+    if sonar_type[:2] == "EK":
+        PARAM_MAP = EV_EP_MAP["EK60"]
+        if sonar_type == "EK80":
+            PARAM_MAP = dict(PARAM_MAP, **EV_EP_MAP["EK80"])
+    CAL_PARAMS = _get_cal_params(PARAM_MAP)
+
     # Gather cal and env params
     env_dict = defaultdict(list)
     cal_dict = defaultdict(list)
+
     # loop through all transducers (sources)
     for source, source_dict in ev_dict.items():
         # loop through all params and append to list
         for p_name, p_val in source_dict.items():
             if p_name in ENV_PARAMS:
-                env_dict[EV_EP_MAP[p_name]].append((p_val))
+                env_dict[PARAM_MAP[p_name]].append((p_val))
             elif p_name in CAL_PARAMS:
-                cal_dict[EV_EP_MAP[p_name]].append((p_val))
+                cal_dict[PARAM_MAP[p_name]].append((p_val))
             else:
                 logger.warning(
                     f"{source}: {p_name} is not an allowable calibration "
@@ -328,7 +342,7 @@ def ev2ep(
     return ds_cal, ds_env
 
 
-def check_source_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.Dataset:
+def conform_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.Dataset:
     """
     Check the sequence of channels against a set of reference channels and reorder if necessary.
 

@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.ecs import ECSParser, ev2ep, check_source_channel_order
+from echopype.calibrate.ecs import ECSParser, ev2ep, conform_channel_order
 
 
 data_dir = Path("./echopype/test_data/ecs")
@@ -71,6 +71,8 @@ env_params_dict = {
 CORRECT_ENV_DATASET = xr.Dataset({k: (["channel"], v) for k, v in env_params_dict.items()})
 
 cal_params_dict = {
+    "tvg_range_correction": ["BySamples", "BySamples", "BySamples"],
+    "tvg_range_correction_offset": [2.0, 2.0, 2.0],
     "sa_correction": [-0.7, -0.52, -0.3],
     "gain_correction": [22.95, 26.07, 26.55],
     "frequency_nominal": [1.8e+04, 3.8e+04, 1.2e+05],
@@ -110,7 +112,7 @@ def test_convert_ecs():
     assert dict_ev_params["T2"]["TwoWayBeamAngle"] == -17.37
 
     # Test assembled datasets
-    ds_cal, ds_env = ev2ep(dict_ev_params)
+    ds_cal, ds_env = ev2ep(dict_ev_params, "EK60")
     assert ds_cal.identical(CORRECT_CAL_DATASET)
     assert ds_env.identical(CORRECT_ENV_DATASET)
 
@@ -129,7 +131,44 @@ def test_check_source_channel_order():
         dims=["channel"],
     )
 
-    ds_out = check_source_channel_order(ds_in, freq_ref)
+    ds_out = conform_channel_order(ds_in, freq_ref)
 
     assert np.all(ds_out["channel"].values == ["chB", "chA", "chC"])  # channel follow those of freq_ref
     assert not "frequency_nominal" in ds_out  # frequency_nominal has been dropped
+
+
+def test_convert_ecs_template_ek60():
+
+    # Test converting an EV calibration file (ECS)
+    ecs_path = data_dir / "Ex60_Ex70_EK15_nohash.ecs"
+
+    ecs = ECSParser(ecs_path)
+    ecs.parse()
+
+    # Spot test parsed outcome
+    assert ecs.data_type == "Ex60_Ex70_EK15"
+    assert ecs.version == "1.00"
+    assert ecs.file_creation_time == datetime(
+        year=2023, month=3, day=16, hour=21, minute=38, second=58
+    )
+
+    # Apply ECS hierarchy
+    dict_ev_params = ecs.get_cal_params()
+
+    # Convert dict to xr.DataArray
+    ds_cal, ds_env = ev2ep(dict_ev_params, "EK60")
+
+    # Conform to specific channel/frequency order
+    freq_ref = xr.DataArray(
+        [38000, 18000, 120000, 70000, 200000],
+        coords={"channel": ["chB", "chA", "chD", "chC", "chE"]},
+        dims=["channel"],
+    )
+    ds_cal_reorder = conform_channel_order(ds_cal, freq_ref)
+    ds_env_reorder = conform_channel_order(ds_env, freq_ref)
+    
+    # Check reordered values
+    for p_name in ds_cal_reorder.data_vars:
+        assert np.all(ds_cal[p_name].values[[1, 0, 3, 2, 4]] == ds_cal_reorder[p_name].values)
+    for p_name in ds_env_reorder.data_vars:
+        assert np.all(ds_env[p_name].values[[1, 0, 3, 2, 4]] == ds_env_reorder[p_name].values)
