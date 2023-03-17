@@ -1,7 +1,7 @@
 import warnings
 
-from ..filter import api as filter_api
 from ..commongrid import api as commongrid_api
+from ..filter import api as filter_api
 
 
 def _warning_msg(new_subpkg_name, fn_name):
