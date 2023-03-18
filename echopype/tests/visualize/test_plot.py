@@ -111,9 +111,7 @@ def test_plot_multi_get_range(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed["Environment"]['temperature'].mean('time1').values
-        )
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
@@ -149,9 +147,7 @@ def test_plot_Sv(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed["Environment"]['temperature'].mean('time1').values
-        )
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
@@ -177,9 +173,7 @@ def test_plot_mvbs(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed["Environment"]['temperature'].mean('time1').values
-        )
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
