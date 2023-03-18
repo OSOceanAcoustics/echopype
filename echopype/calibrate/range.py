@@ -164,7 +164,11 @@ def compute_range_EK(
 
     # Get the right Sonar/Beam_groupX group according to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
-    beam = echodata[ed_beam_group] if chan_sel is None else echodata[ed_beam_group].sel(channel=chan_sel)
+    beam = (
+        echodata[ed_beam_group]
+        if chan_sel is None
+        else echodata[ed_beam_group].sel(channel=chan_sel)
+    )
 
     # Harmonize sound_speed time1 and Beam_groupX ping_time
     sound_speed = harmonize_env_param_time(

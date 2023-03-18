@@ -384,7 +384,9 @@ class CalibrateEK80(CalibrateEK):
         transmit_power = beam["transmit_power"]
 
         # TVG compensation with modified range
-        tvg_mod_range = range_mod_TVG_EK(self.echodata, self.ed_beam_group, range_meter, sound_speed)
+        tvg_mod_range = range_mod_TVG_EK(
+            self.echodata, self.ed_beam_group, range_meter, sound_speed
+        )
         tvg_mod_range = tvg_mod_range.where(tvg_mod_range > 0, np.nan)
 
         spreading_loss = 20 * np.log10(tvg_mod_range)
@@ -484,10 +486,14 @@ class CalibrateEK80(CalibrateEK):
 
         if flag_complex:
             # Complex samples can be BB or CW
-            ds_cal = self._cal_complex_samples(cal_type=cal_type, complex_ed_beam_group=self.ed_beam_group)
+            ds_cal = self._cal_complex_samples(
+                cal_type=cal_type, complex_ed_beam_group=self.ed_beam_group
+            )
         else:
             # Power samples only make sense for CW mode data
-            ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_beam_group=self.ed_beam_group)
+            ds_cal = self._cal_power_samples(
+                cal_type=cal_type, power_ed_beam_group=self.ed_beam_group
+            )
 
         return ds_cal
 
