@@ -69,7 +69,7 @@ def harmonize_env_param_time(
 
 
 def sanitize_user_env_dict(
-    user_dict: Dict[str, Union[int, float, list, xr.DataArray]],
+    user_dict: Dict[str, Union[int, float, List, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
