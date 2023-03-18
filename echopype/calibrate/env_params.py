@@ -303,7 +303,7 @@ def get_env_params_EK(
             out_dict.pop("formula_sound_speed")
         else:
             # default to Mackenzie sound speed formula if not in user dict
-            if out_dict["formula_sound_speed"] is not None:
+            if out_dict["formula_sound_speed"] is None:
                 out_dict["formula_sound_speed"] = "Mackenzie"
 
             out_dict["sound_speed"] = uwa.calc_sound_speed(
