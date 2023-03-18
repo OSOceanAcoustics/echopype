@@ -163,8 +163,12 @@ def compute_range_EK(
         sound_speed = env_params["sound_speed"]
 
     # Get the right Sonar/Beam_groupX group according to encode_mode
-    ed_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
-    beam = echodata[ed_group] if chan_sel is None else echodata[ed_group].sel(channel=chan_sel)
+    ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
+    beam = (
+        echodata[ed_beam_group]
+        if chan_sel is None
+        else echodata[ed_beam_group].sel(channel=chan_sel)
+    )
 
     # Harmonize sound_speed time1 and Beam_groupX ping_time
     sound_speed = harmonize_env_param_time(
@@ -196,7 +200,7 @@ def compute_range_EK(
 
 
 def range_mod_TVG_EK(
-    echodata: EchoData, ed_group: str, range_meter: xr.DataArray, sound_speed: xr.DataArray
+    echodata: EchoData, ed_beam_group: str, range_meter: xr.DataArray, sound_speed: xr.DataArray
 ) -> xr.DataArray:
     """
     Modify range for TVG calculation.
@@ -217,7 +221,7 @@ def range_mod_TVG_EK(
             mod = mod.squeeze().drop("time1")
         return mod
 
-    beam = echodata[ed_group]
+    beam = echodata[ed_beam_group]
     vend = echodata["Vendor_specific"]
 
     # If EK60

@@ -84,7 +84,7 @@ def sanitize_user_env_dict(
     user_dict : dict
         A dictionary containing user input calibration parameters
         as {parameter name: parameter value}.
-        Parameter value has to be a scalar (int or float) or an ``xr.DataArray``.
+        Parameter value has to be a scalar (int or float), a list or an ``xr.DataArray``.
         If parameter value is an ``xr.DataArray``, it has to have a'channel' as a coordinate.
 
     channel : list or xr.DataArray
@@ -119,9 +119,9 @@ def sanitize_user_env_dict(
     for p_name, p_val in user_dict.items():
         if p_name in out_dict:
             # Param "sound_absorption" has to be an xr.DataArray or a list because it is freq-dep
-            if p_name == "sound_absorption" and not (p_val, (xr.DataArray, list)):
+            if p_name == "sound_absorption" and not isinstance(p_val, (xr.DataArray, list)):
                 raise ValueError(
-                    "The 'sound_absorption' parameter has to be an xr.DataArray, "
+                    "The 'sound_absorption' parameter has to be a list or an xr.DataArray, "
                     "with 'channel' as an coordinate."
                 )
 
@@ -275,15 +275,9 @@ def get_env_params_EK(
     out_dict = sanitize_user_env_dict(user_dict=user_dict, channel=beam["channel"])
 
     # Check absorption and sound speed formula
-    if out_dict["formula_absorption"] is not None and not out_dict["formula_absorption"] in [
-        "AM",
-        "FG",
-    ]:
+    if out_dict["formula_absorption"] not in [None, "AM", "FG"]:
         raise ValueError("'formula_absorption' has to be None, 'FG' or 'AM' for EK echosounders.")
-    if (
-        out_dict["formula_sound_speed"] is not None
-        and out_dict["formula_sound_speed"] != "Mackenzie"
-    ):
+    if out_dict["formula_sound_speed"] not in (None, "Mackenzie"):
         raise ValueError("'formula_absorption' has to be None or 'Mackenzie' for EK echosounders.")
 
     # Calculation sound speed and absorption requires at least T, S, P
