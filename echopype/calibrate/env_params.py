@@ -277,7 +277,7 @@ def get_env_params_EK(
     # Check absorption and sound speed formula
     if out_dict["formula_absorption"] not in [None, "AM", "FG"]:
         raise ValueError("'formula_absorption' has to be None, 'FG' or 'AM' for EK echosounders.")
-    if out_dict["formula_sound_speed"] not in (None,  "Mackenzie"):
+    if out_dict["formula_sound_speed"] not in (None, "Mackenzie"):
         raise ValueError("'formula_absorption' has to be None or 'Mackenzie' for EK echosounders.")
 
     # Calculation sound speed and absorption requires at least T, S, P
