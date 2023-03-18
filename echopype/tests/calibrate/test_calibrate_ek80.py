@@ -163,7 +163,7 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
     )
 
     # Params needed
-    beam = cal_obj.echodata[cal_obj.ed_group].sel(channel=cal_obj.chan_sel)
+    beam = cal_obj.echodata[cal_obj.ed_beam_group].sel(channel=cal_obj.chan_sel)
     z_er = cal_obj.cal_params["impedance_receive"]
     z_et = cal_obj.cal_params["impedance_transmit"]
     fs = cal_obj.cal_params["receiver_sampling_frequency"]

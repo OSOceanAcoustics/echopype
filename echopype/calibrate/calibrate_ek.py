@@ -19,6 +19,8 @@ class CalibrateEK(CalibrateBase):
     def __init__(self, echodata: EchoData, env_params, cal_params):
         super().__init__(echodata, env_params, cal_params)
 
+        self.ed_beam_group = None  # will be assigned in child class
+
     def compute_echo_range(self, chan_sel: xr.DataArray = None):
         """
         Compute echo range for EK echosounders.
@@ -36,7 +38,7 @@ class CalibrateEK(CalibrateBase):
             chan_sel=chan_sel,
         )
 
-    def _cal_power_samples(self, cal_type: str, power_ed_group: str = None) -> xr.Dataset:
+    def _cal_power_samples(self, cal_type: str, power_ed_beam_group: str = None) -> xr.Dataset:
         """Calibrate power data from EK60 and EK80.
 
         Parameters
@@ -44,7 +46,7 @@ class CalibrateEK(CalibrateBase):
         cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
-        power_ed_group:
+        power_ed_beam_group:
             The ``EchoData`` beam group path containing the power data
 
         Returns
@@ -53,7 +55,7 @@ class CalibrateEK(CalibrateBase):
             The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
-        beam = self.echodata[power_ed_group]
+        beam = self.echodata[power_ed_beam_group]
 
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
@@ -63,7 +65,7 @@ class CalibrateEK(CalibrateBase):
         sound_speed = self.env_params["sound_speed"]
         absorption = self.env_params["sound_absorption"]
         tvg_mod_range = range_mod_TVG_EK(
-            self.echodata, self.ed_group, self.range_meter, sound_speed
+            self.echodata, self.ed_beam_group, self.range_meter, sound_speed
         )
         tvg_mod_range = tvg_mod_range.where(tvg_mod_range > 0, np.nan)
 
@@ -135,15 +137,15 @@ class CalibrateEK60(CalibrateEK):
         self.waveform_mode = "CW"
         self.encode_mode = "power"
 
-        # Get the right ed_group for CW power samples
-        self.ed_group = retrieve_correct_beam_group(
+        # Get the right ed_beam_group for CW power samples
+        self.ed_beam_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
         # Get env_params
         self.env_params = get_env_params_EK(
             sonar_type=self.sonar_type,
-            beam=self.echodata[self.ed_group],
+            beam=self.echodata[self.ed_beam_group],
             env=self.echodata["Environment"],
             user_dict=self.env_params,
         )
@@ -153,8 +155,8 @@ class CalibrateEK60(CalibrateEK):
 
         # Set the channels to calibrate
         # For EK60 this is all channels
-        self.chan_sel = self.echodata[self.ed_group]["channel"]
-        beam = self.echodata[self.ed_group]
+        self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
+        beam = self.echodata[self.ed_beam_group]
 
         # Get cal_params
         self.cal_params = get_cal_params_EK(
@@ -167,10 +169,10 @@ class CalibrateEK60(CalibrateEK):
         )
 
     def compute_Sv(self, **kwargs):
-        return self._cal_power_samples(cal_type="Sv", power_ed_group=self.ed_group)
+        return self._cal_power_samples(cal_type="Sv", power_ed_beam_group=self.ed_beam_group)
 
     def compute_TS(self, **kwargs):
-        return self._cal_power_samples(cal_type="TS", power_ed_group=self.ed_group)
+        return self._cal_power_samples(cal_type="TS", power_ed_beam_group=self.ed_beam_group)
 
 
 class CalibrateEK80(CalibrateEK):
@@ -202,8 +204,8 @@ class CalibrateEK80(CalibrateEK):
         self.encode_mode = encode_mode
         self.echodata = echodata
 
-        # Get the right ed_group given waveform and encode mode
-        self.ed_group = retrieve_correct_beam_group(
+        # Get the right ed_beam_group given waveform and encode mode
+        self.ed_beam_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
@@ -211,14 +213,14 @@ class CalibrateEK80(CalibrateEK):
         if self.encode_mode == "power":
             # Power sample only possible under CW mode,
             # and all power samples will live in the same group
-            self.chan_sel = self.echodata[self.ed_group]["channel"]
+            self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
         else:
             # Complex samples can be CW or BB, so select based on waveform mode
-            chan_dict = self._get_chan_dict(self.echodata[self.ed_group])
+            chan_dict = self._get_chan_dict(self.echodata[self.ed_beam_group])
             self.chan_sel = chan_dict[self.waveform_mode]
 
         # Subset of the right Sonar/Beam_groupX group given the selected channels
-        beam = self.echodata[self.ed_group].sel(channel=self.chan_sel)
+        beam = self.echodata[self.ed_beam_group].sel(channel=self.chan_sel)
 
         # Use center frequency if in BB mode, else use nominal channel frequency
         if self.waveform_mode == "BB":
@@ -339,7 +341,7 @@ class CalibrateEK80(CalibrateEK):
 
         return B_theta_phi_m
 
-    def _cal_complex_samples(self, cal_type: str, complex_ed_group: str) -> xr.Dataset:
+    def _cal_complex_samples(self, cal_type: str, complex_ed_beam_group: str) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
         Parameters
@@ -347,7 +349,7 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
-        complex_ed_group : str
+        complex_ed_beam_group : str
             The ``EchoData`` beam group path containing complex data
 
         Returns
@@ -356,7 +358,7 @@ class CalibrateEK80(CalibrateEK):
             The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
-        beam = self.echodata[complex_ed_group].sel(channel=self.chan_sel)
+        beam = self.echodata[complex_ed_beam_group].sel(channel=self.chan_sel)
         vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
 
         # Get transmit signal
@@ -382,7 +384,7 @@ class CalibrateEK80(CalibrateEK):
         transmit_power = beam["transmit_power"]
 
         # TVG compensation with modified range
-        tvg_mod_range = range_mod_TVG_EK(self.echodata, self.ed_group, range_meter, sound_speed)
+        tvg_mod_range = range_mod_TVG_EK(self.echodata, self.ed_beam_group, range_meter, sound_speed)
         tvg_mod_range = tvg_mod_range.where(tvg_mod_range > 0, np.nan)
 
         spreading_loss = 20 * np.log10(tvg_mod_range)
@@ -482,10 +484,10 @@ class CalibrateEK80(CalibrateEK):
 
         if flag_complex:
             # Complex samples can be BB or CW
-            ds_cal = self._cal_complex_samples(cal_type=cal_type, complex_ed_group=self.ed_group)
+            ds_cal = self._cal_complex_samples(cal_type=cal_type, complex_ed_beam_group=self.ed_beam_group)
         else:
             # Power samples only make sense for CW mode data
-            ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_group=self.ed_group)
+            ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_beam_group=self.ed_beam_group)
 
         return ds_cal
 
