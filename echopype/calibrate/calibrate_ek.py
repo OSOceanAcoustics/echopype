@@ -38,7 +38,7 @@ class CalibrateEK(CalibrateBase):
             chan_sel=chan_sel,
         )
 
-    def _cal_power_samples(self, cal_type: str, power_ed_beam_group: str = None) -> xr.Dataset:
+    def _cal_power_samples(self, cal_type: str) -> xr.Dataset:
         """Calibrate power data from EK60 and EK80.
 
         Parameters
@@ -46,8 +46,6 @@ class CalibrateEK(CalibrateBase):
         cal_type: str
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
-        power_ed_beam_group:
-            The ``EchoData`` beam group path containing the power data
 
         Returns
         -------
@@ -55,7 +53,7 @@ class CalibrateEK(CalibrateBase):
             The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
-        beam = self.echodata[power_ed_beam_group]
+        beam = self.echodata[self.ed_beam_group]
 
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
@@ -169,10 +167,10 @@ class CalibrateEK60(CalibrateEK):
         )
 
     def compute_Sv(self, **kwargs):
-        return self._cal_power_samples(cal_type="Sv", power_ed_beam_group=self.ed_beam_group)
+        return self._cal_power_samples(cal_type="Sv")
 
     def compute_TS(self, **kwargs):
-        return self._cal_power_samples(cal_type="TS", power_ed_beam_group=self.ed_beam_group)
+        return self._cal_power_samples(cal_type="TS")
 
 
 class CalibrateEK80(CalibrateEK):
@@ -341,7 +339,7 @@ class CalibrateEK80(CalibrateEK):
 
         return B_theta_phi_m
 
-    def _cal_complex_samples(self, cal_type: str, complex_ed_beam_group: str) -> xr.Dataset:
+    def _cal_complex_samples(self, cal_type: str) -> xr.Dataset:
         """Calibrate complex data from EK80.
 
         Parameters
@@ -349,8 +347,6 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
-        complex_ed_beam_group : str
-            The ``EchoData`` beam group path containing complex data
 
         Returns
         -------
@@ -358,7 +354,7 @@ class CalibrateEK80(CalibrateEK):
             The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
-        beam = self.echodata[complex_ed_beam_group].sel(channel=self.chan_sel)
+        beam = self.echodata[self.ed_beam_group].sel(channel=self.chan_sel)
         vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
 
         # Get transmit signal
@@ -484,10 +480,10 @@ class CalibrateEK80(CalibrateEK):
 
         if flag_complex:
             # Complex samples can be BB or CW
-            ds_cal = self._cal_complex_samples(cal_type=cal_type, complex_ed_beam_group=self.ed_beam_group)
+            ds_cal = self._cal_complex_samples(cal_type=cal_type)
         else:
             # Power samples only make sense for CW mode data
-            ds_cal = self._cal_power_samples(cal_type=cal_type, power_ed_beam_group=self.ed_beam_group)
+            ds_cal = self._cal_power_samples(cal_type=cal_type)
 
         return ds_cal
 
