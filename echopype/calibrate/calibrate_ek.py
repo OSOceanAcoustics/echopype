@@ -22,6 +22,8 @@ class CalibrateEK(CalibrateBase):
 
         self.ed_beam_group = None  # will be assigned in child class
 
+        self.ed_beam_group = None  # will be assigned in child class
+
     def compute_echo_range(self, chan_sel: xr.DataArray = None):
         """
         Compute echo range for EK echosounders.
@@ -143,10 +145,21 @@ class CalibrateEK60(CalibrateEK):
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
+        # Get env_params
+        self.env_params = get_env_params_EK(
+            sonar_type=self.sonar_type,
+            beam=self.echodata[self.ed_beam_group],
+            env=self.echodata["Environment"],
+            user_dict=self.env_params,
+        )
+
+        # Compute range
+        self.compute_echo_range()
+
         # Set the channels to calibrate
         # For EK60 this is all channels
-        self.chan_sel = self.echodata[self.ed_group]["channel"]
-        beam = self.echodata[self.ed_group]
+        self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
+        beam = self.echodata[self.ed_beam_group]
 
         # Convert env_params and cal_params if self.ecs_file exists
         # Note a warning if thrown out in CalibrateBase.__init__
