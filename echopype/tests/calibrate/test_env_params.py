@@ -91,12 +91,33 @@ def test_harmonize_env_param_time():
             )
         ),
         # dict has xr.DataArray, channel a list with non-matching values with those in dict: XFAIL
+        pytest.param(
+            {"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})},
+            ["chA", "chC"], None,
+            marks=pytest.mark.xfail(strict=True, reason="channel coordinate in param xr.DataArray mismatches that in the channel list"),
+        ),
         # dict has xr.DataArray, channel a xr.DataArray
+        (
+            {"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})},
+            xr.DataArray(["chA", "chB"], coords={"channel": ["chA", "chB"]}),
+            dict(
+                dict.fromkeys(ENV_PARAMS),
+                **{"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})}
+            )
+        ),
         # dict has sound_absorption as a scalar: XFAIL
+        pytest.param(
+            {"temperature": 10, "sound_absorption": 0.02},
+            ["chA", "chB"], None,
+            marks=pytest.mark.xfail(strict=True, reason="sound_absorption should be a list or an xr.DataArray"),
+        ),
     ],
     ids=[
         "in_scalar_channel_list_out_scalar",
         "in_da_channel_list_out_da",
+        "in_da_channel_list_mismatch",
+        "in_da_channel_da",
+        "in_absorption_scalae"
     ]
 )
 def test_sanitize_user_env_dict(user_dict, channel, out_dict):
