@@ -28,6 +28,8 @@ class CalibrateBase(abc.ABC):
             ecs = ECSParser(self.ecs_file)
             ecs.parse()
             self.ecs_dict = ecs.get_cal_params()  # apply ECS hierarchy
+            self.env_params = {}
+            self.cal_params = {}
 
         else:
             if env_params is None:

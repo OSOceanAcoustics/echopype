@@ -145,17 +145,6 @@ class CalibrateEK60(CalibrateEK):
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
-        # Get env_params
-        self.env_params = get_env_params_EK(
-            sonar_type=self.sonar_type,
-            beam=self.echodata[self.ed_beam_group],
-            env=self.echodata["Environment"],
-            user_dict=self.env_params,
-        )
-
-        # Compute range
-        self.compute_echo_range()
-
         # Set the channels to calibrate
         # For EK60 this is all channels
         self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
