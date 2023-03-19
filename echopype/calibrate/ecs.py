@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
+import numpy as np
 import xarray as xr
 
 from ..utils.log import _init_logger
@@ -12,18 +13,21 @@ logger = _init_logger(__name__)
 
 # String matcher for parser
 SEPARATOR = re.compile(r"#=+#\n")
-STATUS_CRUDE = re.compile(r"#\s+(?P<status>(.+))\s+#\n")  # noqa
+STATUS_CRUDE = re.compile(r"#\s*(?P<status>(.+))\s*#\n")  # noqa
 STATUS_FINE = re.compile(r"#\s+(?P<status>\w+) SETTINGS\s*#\n")  # noqa
 ECS_HEADER = re.compile(
-    r"#\s+ECHOVIEW CALIBRATION SUPPLEMENT \(.ECS\) FILE \((?P<data_type>\w+)\)\s+#\n"  # noqa
+    r"#\s*ECHOVIEW CALIBRATION SUPPLEMENT \(.ECS\) FILE \((?P<data_type>.+)\)\s*#\n"  # noqa
 )
 ECS_TIME = re.compile(
     r"#\s+(?P<date>\d{1,2}\/\d{1,2}\/\d{4}) (?P<time>\d{1,2}\:\d{1,2}\:\d{1,2})(.\d+)?\s+#\n"  # noqa
 )
 ECS_VERSION = re.compile(r"Version (?P<version>\d+\.\d+)\s*\n")  # noqa
 PARAM_MATCHER = re.compile(
-    r"\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>((-?\d+(?:\.\d+))|\w+)?)?\s*#?(.*)\n"  # noqa
+    # r"\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>((-?\d+(?:\.\d+))|\w+)?)?\s*#?(.*)\n"  # noqa
+    #                                        can be multiple values separated by space
+    r"\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>((-?\d+(?:\.\d+)\s*)+|\w+)?)?\s*#?(.*)\n"  # noqa
 )
+VAL_PATTERN = r"(-?\d+(?:\.\d+)\s*)\s+"
 CAL = re.compile(r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
 
 
@@ -104,6 +108,8 @@ class ECSParser:
         "Kaijo",
         "PulseLength",
         "Ex500Forced",
+        "SimradEK80",
+        "Standard",
     )
 
     def __init__(self, input_file=None):
@@ -181,16 +187,21 @@ class ECSParser:
                 if k == "TvgRangeCorrection":
                     if v not in self.TvgRangeCorrection_allowed_str:
                         raise ValueError("TvgRangeCorrection contains unexpected setting!")
+                elif k == "TransducerModeActive":
+                    input_dict[k] = bool(v)
                 else:
-                    input_dict[k] = float(v)
+                    val_rep = re.findall(VAL_PATTERN, v)  # only match numbers
+                    if len(val_rep) > 1: # many values (ie a vector)
+                        input_dict[k] = np.array(val_rep)
+                    else:
+                        input_dict[k] = float(v)
 
         for status, status_settings in self.parsed_params.items():
             if status == "fileset":  # fileset only has 1 layer of dict
                 convert_type(status_settings)
             else:  # sourcecal or localcal has another layer of dict
                 for src_k, src_v in status_settings.items():
-                    for k, v in src_v.items():
-                        convert_type(src_v)
+                    convert_type(src_v)
 
     def parse(self):
         """
