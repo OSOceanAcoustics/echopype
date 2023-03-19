@@ -128,7 +128,7 @@ def test_convert_ecs_ek80_template(ecs_path):
     ecs.parse()
     dict_ev_params = ecs.get_cal_params()  # applies ECS hierarchy
 
-    cal_params, env_params = ecs_ev2ep(dict_ev_params, "EK80")
+    cal_params, env_params, cal_params_BB = ecs_ev2ep(dict_ev_params, "EK80")
 
     assert dict_ev_params["T1"]["SoundSpeed"] == 1480.60
 

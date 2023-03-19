@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, Literal, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -68,13 +68,13 @@ EV_EP_MAP = {
         "Temperature": "temperature",
         "TransceiverImpedance": "impedance_transceiver",
         "TransceiverSamplingFrequency": "receiver_sampling_frequency",
-        # "TransducerModeActive": "transducer_mode",  # TODO: CHECK IN ECHODATA
+        # "TransducerModeActive": "transducer_mode",  # TODO: CHECK NAME IN ECHODATA
         "FrequencyTableWideband": "frequency_BB",  # frequency axis for broadband cal params
-        "GainTableWideband": "gain_BB",  # frequency-dependent gain
-        "MajorAxisAngleOffsetTableWideband": "angle_offset_athwartship_BB",
-        "MajorAxisBeamWidthTableWideband": "beamwidth_athwartship_BB",
-        "MinorAxisAngleOffsetTableWideband": "angle_offset_alongship_BB",
-        "MinorAxisBeamWidthTableWideband": "beamwidth_alongship_BB",
+        "GainTableWideband": "gain",  # freq-dep
+        "MajorAxisAngleOffsetTableWideband": "angle_offset_athwartship",  # freq-dep
+        "MajorAxisBeamWidthTableWideband": "beamwidth_athwartship",  # freq-dep
+        "MinorAxisAngleOffsetTableWideband": "angle_offset_alongship",  # freq-dep
+        "MinorAxisBeamWidthTableWideband": "beamwidth_alongship",  # freq-dep
         "NumberOfTransducerSegments": "n_sector",  # TODO: CHECK IN ECHODATA
         "PulseCompressedEffectivePulseDuration": "tau_effective_pc",  # TODO: not in EchoData
     },
@@ -391,7 +391,7 @@ def ecs_ev2ep(
                 },
             )
             ds_ch = ds_ch.drop_vars("frequency_BB")
-            ds_ch = ds_ch.expand_dims({"frequency_nominal_BB": [source_dict["Frequency"]]})
+            ds_ch = ds_ch.expand_dims({"frequency_nominal": [source_dict["Frequency"]]})
             ds_cal_BB.append(ds_ch)
 
     ds_cal_BB = xr.merge(ds_cal_BB) if len(ds_cal_BB) != 0 else None
