@@ -113,7 +113,7 @@ def test_convert_ecs_ek60_hake(ecs_path):
     assert dict_ev_params["T2"]["TwoWayBeamAngle"] == -17.37
 
     # Test assembled datasets
-    ds_cal, ds_env, _ = ecs_ev2ep(dict_ev_params, "EK60")
+    ds_env, ds_cal, _ = ecs_ev2ep(dict_ev_params, "EK60")
     assert ds_cal.identical(CORRECT_CAL_DATASET)
     assert ds_env.identical(CORRECT_ENV_DATASET)
 
@@ -128,7 +128,7 @@ def test_convert_ecs_ek80_template(ecs_path):
     ecs.parse()
     dict_ev_params = ecs.get_cal_params()  # applies ECS hierarchy
 
-    cal_params, env_params, cal_params_BB = ecs_ev2ep(dict_ev_params, "EK80")
+    env_params, cal_params, cal_params_BB = ecs_ev2ep(dict_ev_params, "EK80")
 
     assert dict_ev_params["T1"]["SoundSpeed"] == 1480.60
 
@@ -174,7 +174,7 @@ def test_convert_ecs_template_ek60(ecs_path):
     dict_ev_params = ecs.get_cal_params()
 
     # Convert dict to xr.DataArray
-    ds_cal, ds_env, _ = ecs_ev2ep(dict_ev_params, "EK60")
+    ds_env, ds_cal, _ = ecs_ev2ep(dict_ev_params, "EK60")
 
     # Conform to specific channel/frequency order
     freq_ref = xr.DataArray(

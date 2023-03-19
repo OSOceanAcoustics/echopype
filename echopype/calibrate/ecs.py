@@ -319,12 +319,12 @@ def ecs_ev2ep(
 
     Returns
     -------
-    xr.Dataset
-        An xr.Dataset containing calibration parameters
-    xr.Dataset
+    env_dict : xr.Dataset
         An xr.Dataset containing environmental parameters
-    xr.Dataset or None
-        An xr.Dataset containing frequency-dependent calibration parameters
+    cal_dict : xr.Dataset
+        An xr.Dataset containing calibration parameters
+    cal_dict_BB : xr.Dataset or None
+        An xr.Dataset containing frequency-dependent calibration parameters (EK80 only)
     """
     # Set up allowable cal or env variables
     if sonar_type[:2] == "EK":
@@ -396,10 +396,13 @@ def ecs_ev2ep(
 
     ds_cal_BB = xr.merge(ds_cal_BB) if len(ds_cal_BB) != 0 else None
 
-    return ds_cal, ds_env, ds_cal_BB
+    return ds_env, ds_cal, ds_cal_BB
 
 
 def ecs_ds2dict(ds):
+    """
+    Convert an xr.Dataset to a dictionary with each data variable being a key-value pair.
+    """
     dict_tmp = {}
     for data_var_name in ds.data_vars:
         dict_tmp[data_var_name] = ds[data_var_name]

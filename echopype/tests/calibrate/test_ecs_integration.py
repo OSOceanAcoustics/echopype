@@ -48,7 +48,7 @@ def test_ecs_intake_ek60(ek60_path, ecs_path):
     ecs = ECSParser(ecs_file)
     ecs.parse()
     ecs_dict = ecs.get_cal_params()  # apply ECS hierarchy
-    ds_cal_tmp, ds_env_tmp, _ = ecs_ev2ep(ecs_dict, "EK60")
+    ds_env_tmp, ds_cal_tmp, _ = ecs_ev2ep(ecs_dict, "EK60")
     ds_env = ecs_ds2dict(conform_channel_order(ds_env_tmp, ed["Sonar/Beam_group1"]["frequency_nominal"]))
     ds_cal = ecs_ds2dict(conform_channel_order(ds_cal_tmp, ed["Sonar/Beam_group1"]["frequency_nominal"]))
 
