@@ -28,7 +28,9 @@ PARAM_MATCHER = re.compile(
     r"\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>((-?\d+(?:\.\d+)\s*)+|\w+)?)?\s*#?(.*)\n"  # noqa
 )
 VAL_PATTERN = r"(-?\d+(?:\.\d+)\s*)\s+"
-CAL_HIERARCHY = re.compile(r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
+CAL_HIERARCHY = re.compile(
+    r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I
+)  # ignore case  # noqa
 
 
 # Convert dict from ECS to echopype format
@@ -208,7 +210,7 @@ class ECSParser:
                     input_dict[k] = bool(v)
                 else:
                     val_rep = re.findall(VAL_PATTERN, v)  # only match numbers
-                    if len(val_rep) > 1: # many values (ie a vector)
+                    if len(val_rep) > 1:  # many values (ie a vector)
                         input_dict[k] = np.array(val_rep)
                     else:
                         input_dict[k] = float(v)
@@ -391,7 +393,7 @@ def ecs_ev2ep(
             ds_ch = ds_ch.drop_vars("frequency_BB")
             ds_ch = ds_ch.expand_dims({"frequency_nominal_BB": [source_dict["Frequency"]]})
             ds_cal_BB.append(ds_ch)
-    
+
     ds_cal_BB = xr.merge(ds_cal_BB) if len(ds_cal_BB) != 0 else None
 
     return ds_cal, ds_env, ds_cal_BB
