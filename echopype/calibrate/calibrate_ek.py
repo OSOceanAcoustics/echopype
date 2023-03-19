@@ -154,7 +154,7 @@ class CalibrateEK60(CalibrateEK):
         # Note a warning if thrown out in CalibrateBase.__init__
         # to let user know cal_params and env_params are ignored if ecs_file is provided
         if self.ecs_file is not None:  # also means self.ecs_dict != {}
-            ds_cal_tmp, ds_env_tmp = ecs_ev2ep(self.ecs_dict, "EK60")
+            ds_cal_tmp, ds_env_tmp, _ = ecs_ev2ep(self.ecs_dict, "EK60")
             self.cal_params = ecs_ds2dict(
                 conform_channel_order(ds_cal_tmp, beam["frequency_nominal"])
             )
