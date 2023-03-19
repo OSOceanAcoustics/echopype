@@ -71,7 +71,9 @@ env_params_dict = {
     "sound_absorption": [0.002822, 0.009855, 0.032594],
     "frequency_nominal": [1.8e+04, 3.8e+04, 1.2e+05],
 }
-CORRECT_ENV_DATASET = xr.Dataset({k: (["channel"], v) for k, v in env_params_dict.items()})
+CORRECT_ENV_DATASET = xr.Dataset(
+    {k: (["channel"], v) for k, v in env_params_dict.items()}, coords={"channel": np.arange(3)}
+)
 
 cal_params_dict = {
     "sa_correction": [-0.7, -0.52, -0.3],
@@ -85,7 +87,9 @@ cal_params_dict = {
     "angle_sensitivity_alongship": [13.89, 21.970001, 23.12],
     "equivalent_beam_angle": [-17.37, -17.37, -17.37],
 }
-CORRECT_CAL_DATASET = xr.Dataset({k: (["channel"], v) for k, v in cal_params_dict.items()})
+CORRECT_CAL_DATASET = xr.Dataset(
+    {k: (["channel"], v) for k, v in cal_params_dict.items()}, coords={"channel": np.arange(3)}
+)
 
 
 def test_convert_ecs_ek60_hake(ecs_path):
@@ -141,8 +145,10 @@ def test_check_source_channel_order():
         {
             "var1": (["channel"], [1, 2, 3]),
             "frequency_nominal": (["channel"], [18000, 38000, 120000]),
-        }
+        },
+        coords={"channel": np.arange(3)}
     )
+
     freq_ref = xr.DataArray(
         [38000, 18000, 120000],
         coords={"channel": ["chB", "chA", "chC"]},

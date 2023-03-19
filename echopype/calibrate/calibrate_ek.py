@@ -255,6 +255,23 @@ class CalibrateEK80(CalibrateEK):
             # use nominal channel frequency for CW pulse
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
 
+        # Convert env_params and cal_params if self.ecs_file exists
+        # Note a warning if thrown out in CalibrateBase.__init__
+        # to let user know cal_params and env_params are ignored if ecs_file is provided
+        if self.ecs_file is not None:  # also means self.ecs_dict != {}
+            ds_env_tmp, ds_cal_tmp, ds_cal_tmp_BB = ecs_ev2ep(self.ecs_dict, "EK80")
+            self.env_params = ecs_ds2dict(
+                conform_channel_order(ds_env_tmp, beam["frequency_nominal"].sel(channel=self.chan_sel))
+            )
+            self.cal_params = ecs_ds2dict(
+                conform_channel_order(ds_cal_tmp, beam["frequency_nominal"].sel(channel=self.chan_sel))
+            )
+            ds_cal_tmp_BB_conform_freq = conform_channel_order(
+                ds_cal_tmp_BB, beam["frequency_nominal"].sel(channel=self.chan_sel)
+            )
+            if ds_cal_tmp_BB_conform_freq is not None:
+                self.cal_params = dict(self.cal_params, **ecs_ds2dict(ds_cal_tmp_BB_conform_freq))
+
         # Get env_params: depends on waveform mode
         self.env_params = get_env_params_EK(
             sonar_type=self.sonar_type,
