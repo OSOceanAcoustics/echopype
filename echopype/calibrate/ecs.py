@@ -28,7 +28,7 @@ PARAM_MATCHER = re.compile(
     r"\s*(?P<skip>#?)\s*(?P<param>\w+)\s*=\s*(?P<val>((-?\d+(?:\.\d+)\s*)+|\w+)?)?\s*#?(.*)\n"  # noqa
 )
 VAL_PATTERN = r"(-?\d+(?:\.\d+)\s*)\s+"
-CAL = re.compile(r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
+CAL_HIERARCHY = re.compile(r"(SourceCal|LocalCal) (?P<source>\w+)\s*\n", re.I)  # ignore case  # noqa
 
 
 # Convert dict from ECS to echopype format
@@ -51,30 +51,30 @@ EV_EP_MAP = {
         "TransducerGain": "gain_correction",
         "Ek60TransducerGain": "gain_correction",  # from NWFSC template
         "TransmittedPower": "transmit_power",
-        "TvgRangeCorrection": "tvg_range_correction",  # not in EchoData
-        "TvgRangeCorrectionOffset": "tvg_range_correction_offset",  # not in EchoData
+        # "TvgRangeCorrection": "tvg_range_correction",  # not in EchoData
+        # "TvgRangeCorrectionOffset": "tvg_range_correction_offset",  # not in EchoData
         "TwoWayBeamAngle": "equivalent_beam_angle",
     },
     # Additional on EK80, ES80, WBAT, EA640
     # Note these should be concat after the EK60 dict
     "EK80": {
-        "AbsorptionDepth": "sound_absorption",
+        "AbsorptionDepth": "pressure",
         "Acidity": "acidity",
-        "EffectivePulseDuration": "transmit_duration_nominal",
+        "EffectivePulseDuration": "tau_effective",
         "Salinity": "salinity",
         "SamplingFrequency": "sampling_frequency",  # does not exist in echopype.EchoData
         "Temperature": "temperature",
         "TransceiverImpedance": "impedance_transceiver",
         "TransceiverSamplingFrequency": "receiver_sampling_frequency",
-        "TransducerModeActive": "transducer_mode",  # TODO: CHECK IN ECHODATA
-        "FrequencyTableWideband": "cal_frequency",  # frequency axis for broadband cal params
+        # "TransducerModeActive": "transducer_mode",  # TODO: CHECK IN ECHODATA
+        "FrequencyTableWideband": "frequency_BB",  # frequency axis for broadband cal params
         "GainTableWideband": "gain_BB",  # frequency-dependent gain
         "MajorAxisAngleOffsetTableWideband": "angle_offset_athwartship_BB",
         "MajorAxisBeamWidthTableWideband": "beamwidth_athwartship_BB",
         "MinorAxisAngleOffsetTableWideband": "angle_offset_alongship_BB",
         "MinorAxisBeamWidthTableWideband": "beamwidth_alongship_BB",
         "NumberOfTransducerSegments": "n_sector",  # TODO: CHECK IN ECHODATA
-        "PulseCompressedEffectivePulseDuration": "tau_effective",  # TODO: not in EchoData
+        "PulseCompressedEffectivePulseDuration": "tau_effective_pc",  # TODO: not in EchoData
     },
     # AZFP-specific
     # Note: not sure why it doesn't contain salinity and pressure required for computing absorption
@@ -91,7 +91,24 @@ EV_EP_MAP = {
     #     TvgRangeCorrectionOffset = # (samples) [-10000.00..10000.00]
     # },
 }
-ENV_PARAMS = ["AbsorptionCoefficient", "SoundSpeed"]
+ENV_PARAMS = [
+    "AbsorptionCoefficient",
+    "SoundSpeed",
+    "AbsorptionDepth",
+    "Acidity",
+    "Salinity",
+    "Temperature",
+]
+
+# Used in ecs_ev2ep to assemble xr.DataArray for freq-dep BB params
+CAL_PARAMS_BB = (
+    "FrequencyTableWideband",
+    "GainTableWideband",
+    "MajorAxisAngleOffsetTableWideband",
+    "MajorAxisBeamWidthTableWideband",
+    "MinorAxisAngleOffsetTableWideband",
+    "MinorAxisBeamWidthTableWideband",
+)
 
 
 class ECSParser:
@@ -168,7 +185,7 @@ class ECSParser:
                     source = "fileset"  # force this for easy organization
                     param_val[source] = dict()
                 elif status in line.lower():  # {"sourcecal", "localcal"}
-                    source = CAL.match(line)["source"]
+                    source = CAL_HIERARCHY.match(line)["source"]
                     param_val[source] = dict()
                 else:
                     if line != "\n" and source is not None:
@@ -284,15 +301,10 @@ class ECSParser:
         return ev_cal_params
 
 
-def _get_cal_params(param_map):
-    return set(param_map.keys()).difference(set(ENV_PARAMS))
-
-
 def ecs_ev2ep(
     ev_dict: Dict[str, Union[int, float, str]],
     sonar_type: Literal["EK60", "EK80", "AZFP"],
-    channel: List[str] = None,
-) -> Tuple[xr.Dataset, xr.Dataset]:
+) -> Tuple[xr.Dataset, xr.Dataset, Union[None, xr.Dataset]]:
     """
     Convert dictionary from consolidated ECS form to xr.DataArray expected by echopype.
 
@@ -302,11 +314,6 @@ def ecs_ev2ep(
         A dictionary of the format parsed by the ECS parser
     sonar_type : str
         Type of sonar, must be one of {}"EK60", "EK80", "AZFP"}
-    channel : Option, list
-        A list containing channel id for all transducers
-        in the order of sources listed in the ECS file (T1, T2, etc.).
-        If ``channel`` is not provided, the generated data array will have
-        an arbitrary coordinate, which will be replaced in ``sanitize_source_channel_order``.
 
     Returns
     -------
@@ -314,44 +321,80 @@ def ecs_ev2ep(
         An xr.Dataset containing calibration parameters
     xr.Dataset
         An xr.Dataset containing environmental parameters
+    xr.Dataset or None
+        An xr.Dataset containing frequency-dependent calibration parameters
     """
     # Set up allowable cal or env variables
     if sonar_type[:2] == "EK":
         PARAM_MAP = EV_EP_MAP["EK60"]
         if sonar_type == "EK80":
             PARAM_MAP = dict(PARAM_MAP, **EV_EP_MAP["EK80"])
-    CAL_PARAMS = _get_cal_params(PARAM_MAP)
+    # all params - env params = cal params
+    CAL_PARAMS = set(PARAM_MAP.keys()).difference(set(ENV_PARAMS))
+    # remove freq-dep ones
+    CAL_PARAMS = set(CAL_PARAMS).difference(CAL_PARAMS_BB)
 
-    # Gather cal and env params
-    env_dict = defaultdict(list)
-    cal_dict = defaultdict(list)
+    def get_param_dict(param_type):
+        dict_out = defaultdict(list)
+        for p_name in param_type:
+            param_tmp = []
+            for source, source_dict in ev_dict.items():  # all transducers
+                if p_name in source_dict:
+                    param_tmp.append(source_dict[p_name])
+                else:
+                    param_tmp.append(np.nan)
+            print(p_name)
+            print(param_tmp)
+            if not np.isnan(param_tmp).all():  # only keep param if not all NaN
+                dict_out[PARAM_MAP[p_name]] = param_tmp
+        return dict_out
 
-    # loop through all transducers (sources)
-    for source, source_dict in ev_dict.items():
-        # loop through all params and append to list
-        for p_name, p_val in source_dict.items():
-            if p_name in ENV_PARAMS:
-                env_dict[PARAM_MAP[p_name]].append((p_val))
-            elif p_name in CAL_PARAMS:
-                cal_dict[PARAM_MAP[p_name]].append((p_val))
-            else:
-                logger.warning(
-                    f"{source}: {p_name} is not an allowable calibration "
-                    "or environmental parameter."
-                )
+    def add_dim_dict2ds(dict_in) -> xr.Dataset:
+        dict_in = {k: (["channel"], v) for k, v in dict_in.items()}
+        return xr.Dataset(data_vars=dict_in)
 
-    # Add dimension to dict
-    env_dict = {k: (["channel"], v) for k, v in env_dict.items()}
-    cal_dict = {k: (["channel"], v) for k, v in cal_dict.items()}
+    # Scalar params: add dimension to dict and assemble DataArray
+    env_dict = get_param_dict(ENV_PARAMS)
+    cal_dict = get_param_dict(CAL_PARAMS)
     env_dict["frequency_nominal"] = cal_dict["frequency_nominal"]  # used for checking later
+    ds_env = add_dim_dict2ds(env_dict)
+    ds_cal = add_dim_dict2ds(cal_dict)
 
-    # Assemble xr.DataArray
-    ds_env = xr.Dataset(data_vars=env_dict)
-    ds_cal = xr.Dataset(data_vars=cal_dict)
-    ds_env["frequency_nominal"] = ds_env["frequency_nominal"] * 1000  # convert from kHz to Hz
-    ds_cal["frequency_nominal"] = ds_cal["frequency_nominal"] * 1000  # convert from kHz to Hz
+    # Convert frequency variables from kHz to Hz
+    for p_name in ["frequency_nominal", "sampling_frequency", "receiver_sampling_frequency"]:
+        if p_name in ds_env:
+            ds_env[p_name] = ds_env[p_name] * 1000
+        if p_name in ds_cal:
+            ds_cal[p_name] = ds_cal[p_name] * 1000
 
-    return ds_cal, ds_env
+    # Vector params (frequency-dep params)
+    ds_cal_BB = []
+    for source, source_dict in ev_dict.items():
+        if "FrequencyTableWideband" in source_dict:
+            param_dict = {}
+            for p_name in CAL_PARAMS_BB:
+                if p_name in source_dict:  # only for param that exists in dict
+                    param_dict[PARAM_MAP[p_name]] = (["cal_frequency"], source_dict[p_name])
+            ds_ch = xr.Dataset(
+                data_vars=param_dict,
+                coords={
+                    "cal_frequency": (
+                        ["cal_frequency"],
+                        source_dict["FrequencyTableWideband"],
+                        {
+                            "long_name": "Frequency of calibration parameter",
+                            "units": "Hz",
+                        },
+                    )
+                },
+            )
+            ds_ch = ds_ch.drop_vars("frequency_BB")
+            ds_ch = ds_ch.expand_dims({"frequency_nominal_BB": [source_dict["Frequency"]]})
+            ds_cal_BB.append(ds_ch)
+    
+    ds_cal_BB = xr.merge(ds_cal_BB) if len(ds_cal_BB) != 0 else None
+
+    return ds_cal, ds_env, ds_cal_BB
 
 
 def ecs_ds2dict(ds):
