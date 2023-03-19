@@ -8,6 +8,7 @@ from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from .cal_params import get_cal_params_EK
 from .calibrate_base import CalibrateBase
+from .cal_params import _get_interp_da
 from .ecs import conform_channel_order, ecs_ds2dict, ecs_ev2ep
 from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK
@@ -259,18 +260,24 @@ class CalibrateEK80(CalibrateEK):
         # Note a warning if thrown out in CalibrateBase.__init__
         # to let user know cal_params and env_params are ignored if ecs_file is provided
         if self.ecs_file is not None:  # also means self.ecs_dict != {}
-            ds_env_tmp, ds_cal_tmp, ds_cal_tmp_BB = ecs_ev2ep(self.ecs_dict, "EK80")
+            ds_env, ds_cal, ds_cal_BB = ecs_ev2ep(self.ecs_dict, "EK80")
             self.env_params = ecs_ds2dict(
-                conform_channel_order(ds_env_tmp, beam["frequency_nominal"].sel(channel=self.chan_sel))
+                conform_channel_order(ds_env, beam["frequency_nominal"].sel(channel=self.chan_sel))
             )
-            self.cal_params = ecs_ds2dict(
-                conform_channel_order(ds_cal_tmp, beam["frequency_nominal"].sel(channel=self.chan_sel))
+            cal_params_dict = ecs_ds2dict(
+                conform_channel_order(ds_cal, beam["frequency_nominal"].sel(channel=self.chan_sel))
             )
-            ds_cal_tmp_BB_conform_freq = conform_channel_order(
-                ds_cal_tmp_BB, beam["frequency_nominal"].sel(channel=self.chan_sel)
+            ds_cal_BB = conform_channel_order(
+                ds_cal_BB, beam["frequency_nominal"].sel(channel=self.chan_sel)
             )
-            if ds_cal_tmp_BB_conform_freq is not None:
-                self.cal_params = dict(self.cal_params, **ecs_ds2dict(ds_cal_tmp_BB_conform_freq))
+            
+            if ds_cal_BB is not None:
+                # get_cal_params_EK fill in empty params at param level, not channel level,
+                # so need to do freq-dep interpolation here
+                # This also circumvants the problem of identical variable names in ds_cal and ds_cal_BB
+                self.cal_params = self._assimilate_ecs_cal_params(cal_params_dict, ds_cal_BB)
+            else:
+                self.cal_params = cal_params_dict
 
         # Get env_params: depends on waveform mode
         self.env_params = get_env_params_EK(
@@ -288,6 +295,7 @@ class CalibrateEK80(CalibrateEK):
             beam=beam,  # already subset above
             vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
             user_dict=self.cal_params,
+            sonar_type="EK80",
         )
 
         # Compute echo range in meters
@@ -316,6 +324,46 @@ class CalibrateEK80(CalibrateEK):
         else:
             # All channels are CW
             return {"BB": None, "CW": beam.channel}
+
+    def _assimilate_ecs_cal_params(self, cal_params_dict, ds_cal_BB):
+        if ds_cal_BB is not None:
+
+            ds_cal_BB = ds_cal_BB.rename({"channel": "cal_channel_id"})
+            beam = self.echodata[self.ed_beam_group].sel(channel=self.chan_sel)
+
+            for p in ds_cal_BB.data_vars:
+                # Only scale these params if alternative is used
+                if p in [
+                    "angle_sensitivity_alongship",
+                    "angle_sensitivity_athwartship",
+                    "beamwidth_alongship",
+                    "beamwidth_athwartship",
+                ]:
+                    BB_factor = self.freq_center / beam["frequency_nominal"]
+                else:
+                    BB_factor = 1
+
+                # Only allow ECS with narrowband param of those channels with freq-dep values all populated
+                if not np.all([ch in cal_params_dict[p]["channel"].values for ch in ds_cal_BB["cal_channel_id"].values]):
+                    raise ValueError(
+                        f"All channels with frequency-dependent {p} values "
+                        "must also contain standard narrowband values in the ECS"
+                    )
+
+                # Assemble parameter data array with all channels
+                # Either interpolate or pull from narrowband input
+                ds_cal_BB[p] = _get_interp_da(
+                    da_param=ds_cal_BB[p],  # freq-dep xr.DataArray
+                    freq_center=self.freq_center,
+                    alternative=cal_params_dict[p].expand_dims(dim={"ping_time": self.freq_center["ping_time"].size}, axis=1),
+                    BB_factor=BB_factor
+                )
+
+            # Keep only channel and ping_time
+            ds_cal_BB = ds_cal_BB.drop_dims(["cal_frequency", "cal_channel_id"])
+
+            # Substitute params in narrowband dict
+            return dict(cal_params_dict, **ecs_ds2dict(ds_cal_BB))
 
     def _get_power_from_complex(
         self,

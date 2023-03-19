@@ -70,7 +70,7 @@ EV_EP_MAP = {
         "TransceiverSamplingFrequency": "receiver_sampling_frequency",
         # "TransducerModeActive": "transducer_mode",  # TODO: CHECK NAME IN ECHODATA
         "FrequencyTableWideband": "frequency_BB",  # frequency axis for broadband cal params
-        "GainTableWideband": "gain",  # freq-dep
+        "GainTableWideband": "gain_correction",  # freq-dep
         "MajorAxisAngleOffsetTableWideband": "angle_offset_athwartship",  # freq-dep
         "MajorAxisBeamWidthTableWideband": "beamwidth_athwartship",  # freq-dep
         "MinorAxisAngleOffsetTableWideband": "angle_offset_alongship",  # freq-dep
@@ -211,7 +211,7 @@ class ECSParser:
                 else:
                     val_rep = re.findall(VAL_PATTERN, v)  # only match numbers
                     if len(val_rep) > 1:  # many values (ie a vector)
-                        input_dict[k] = np.array(val_rep)
+                        input_dict[k] = np.array(val_rep).astype(float)
                     else:
                         input_dict[k] = float(v)
 
@@ -354,13 +354,6 @@ def ecs_ev2ep(
     ds_cal = get_param_ds(CAL_PARAMS)
     ds_env["frequency_nominal"] = ds_cal["frequency_nominal"]  # used for checking later
 
-    # Convert frequency variables from kHz to Hz
-    for p_name in ["frequency_nominal", "sampling_frequency", "receiver_sampling_frequency"]:
-        if p_name in ds_env:
-            ds_env[p_name] = ds_env[p_name] * 1000
-        if p_name in ds_cal:
-            ds_cal[p_name] = ds_cal[p_name] * 1000
-
     # Vector params (frequency-dep params)
     ds_cal_BB = []
     for source, source_dict in ev_dict.items():
@@ -385,8 +378,13 @@ def ecs_ev2ep(
             ds_ch = ds_ch.drop_vars("frequency_BB")
             ds_ch = ds_ch.expand_dims({"frequency_nominal": [source_dict["Frequency"]]})
             ds_cal_BB.append(ds_ch)
-
     ds_cal_BB = xr.merge(ds_cal_BB) if len(ds_cal_BB) != 0 else None
+
+    # Convert frequency variables from kHz to Hz
+    for p_name in ["frequency_nominal", "sampling_frequency", "receiver_sampling_frequency"]:
+        for ds in [ds_env, ds_cal, ds_cal_BB]:
+            if p_name in ds:
+                ds[p_name] = ds[p_name] * 1000
 
     return ds_env, ds_cal, ds_cal_BB
 
@@ -453,7 +451,7 @@ def conform_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.Datas
         return None
     else:
         # need to sort freq_overlap according to freq_ref order
-        freq_overlap = [f if f in freq_overlap else None for f in freq_ref.values]
+        freq_overlap = [f for f in freq_ref.values if f in freq_overlap]
     
         # Set both freq_ref and ds_in to align with frequency
         freq_ref.name = "frequency_nominal"
