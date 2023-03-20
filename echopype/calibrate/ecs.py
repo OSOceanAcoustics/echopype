@@ -452,7 +452,7 @@ def conform_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.Datas
     else:
         # need to sort freq_overlap according to freq_ref order
         freq_overlap = [f for f in freq_ref.values if f in freq_overlap]
-    
+
         # Set both freq_ref and ds_in to align with frequency
         freq_ref.name = "frequency_nominal"
         freq_ref = (
@@ -463,9 +463,8 @@ def conform_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.Datas
         )
         # channel is coordinate, swap to align with frequency_nominal
         if "frequency_nominal" not in ds_in.coords:
-            ds_in = (
-                ds_in.set_coords("frequency_nominal")
-                .swap_dims({"channel": "frequency_nominal"})
+            ds_in = ds_in.set_coords("frequency_nominal").swap_dims(
+                {"channel": "frequency_nominal"}
             )
         ds_in = ds_in.sel(frequency_nominal=freq_overlap)  # subset
 

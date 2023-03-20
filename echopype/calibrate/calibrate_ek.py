@@ -6,9 +6,8 @@ import xarray as xr
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
-from .cal_params import get_cal_params_EK
+from .cal_params import _get_interp_da, get_cal_params_EK
 from .calibrate_base import CalibrateBase
-from .cal_params import _get_interp_da
 from .ecs import conform_channel_order, ecs_ds2dict, ecs_ev2ep
 from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
 from .env_params import get_env_params_EK
@@ -215,7 +214,7 @@ class CalibrateEK80(CalibrateEK):
         waveform_mode,
         encode_mode,
         ecs_file=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(echodata, env_params, cal_params, ecs_file)
 
@@ -271,10 +270,10 @@ class CalibrateEK80(CalibrateEK):
                 conform_channel_order(
                     ds_cal_NB, beam["frequency_nominal"].sel(channel=self.chan_sel)
                 ),
-                beam
+                beam,
             )
             cal_params_dict = ecs_ds2dict(ds_cal_NB)
-            
+
             if ds_cal_BB is not None:
                 # get_cal_params_EK fill in empty params at param level, not channel level,
                 # so need to do freq-dep interpolation here
@@ -340,8 +339,8 @@ class CalibrateEK80(CalibrateEK):
             elif p in ["beamwidth_alongship", "beamwidth_athwartship"]:
                 ds_cal_NB[p] = ds_cal_NB[p] * beam["frequency_nominal"] / self.freq_center
             elif p == "equivalent_beam_angle":
-                ds_cal_NB[p] = (
-                    ds_cal_NB[p] + 20 * np.log10(beam["frequency_nominal"] / self.freq_center)
+                ds_cal_NB[p] = ds_cal_NB[p] + 20 * np.log10(
+                    beam["frequency_nominal"] / self.freq_center
                 )
         return ds_cal_NB
 
@@ -350,13 +349,17 @@ class CalibrateEK80(CalibrateEK):
         Combine narrowband and broadband parameters derived from ECS.
         """
         if ds_cal_BB is not None:
-
             ds_cal_BB = ds_cal_BB.rename({"channel": "cal_channel_id"})
 
             for p in ds_cal_BB.data_vars:
                 # For parameters where there is frequency-dependent values,
                 # the corresponding narrowband (CW mode) values should exist for all channels
-                if not np.all([ch in cal_params_dict[p]["channel"].values for ch in ds_cal_BB["cal_channel_id"].values]):
+                if not np.all(
+                    [
+                        ch in cal_params_dict[p]["channel"].values
+                        for ch in ds_cal_BB["cal_channel_id"].values
+                    ]
+                ):
                     raise ValueError(f"Narrowband (CW mode) {p} should exist for all channels")
 
                 # Assemble parameter data array with all channels
@@ -371,7 +374,9 @@ class CalibrateEK80(CalibrateEK):
                     ds_cal_BB[p] = _get_interp_da(
                         da_param=ds_cal_BB[p],  # freq-dep xr.DataArray
                         freq_center=self.freq_center,
-                        alternative=cal_params_dict[p].expand_dims(dim={"ping_time": self.freq_center["ping_time"].size}, axis=1),
+                        alternative=cal_params_dict[p].expand_dims(
+                            dim={"ping_time": self.freq_center["ping_time"].size}, axis=1
+                        ),
                     )
 
             # Keep only 'channel' and 'ping_time' coorindates
@@ -379,7 +384,7 @@ class CalibrateEK80(CalibrateEK):
 
             # Substitute params in narrowband dict
             return dict(cal_params_dict, **ecs_ds2dict(ds_cal_BB))
-        
+
         else:
             # Do nothing if ds_cal_BB is None
             return cal_params_dict
