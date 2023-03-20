@@ -277,7 +277,6 @@ class CalibrateEK80(CalibrateEK):
             if ds_cal_BB is not None:
                 # get_cal_params_EK fill in empty params at param level, not channel level,
                 # so need to do freq-dep interpolation here
-                # This also circumvants the problem of identical variable names in ds_cal and ds_cal_BB
                 self.cal_params = self._assimilate_ecs_cal_params(cal_params_dict, ds_cal_BB)
             else:
                 self.cal_params = cal_params_dict
