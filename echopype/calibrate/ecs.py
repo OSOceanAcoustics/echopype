@@ -383,7 +383,7 @@ def ecs_ev2ep(
     # Convert frequency variables from kHz to Hz
     for p_name in ["frequency_nominal", "sampling_frequency", "receiver_sampling_frequency"]:
         for ds in [ds_env, ds_cal, ds_cal_BB]:
-            if p_name in ds:
+            if ds is not None and p_name in ds:
                 ds[p_name] = ds[p_name] * 1000
 
     return ds_env, ds_cal, ds_cal_BB
