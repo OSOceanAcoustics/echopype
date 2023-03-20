@@ -40,7 +40,7 @@ def test_remove_noise():
     )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.filter.remove_noise(
+    ds_Sv = ep.clean.remove_noise(
         ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
     )
 
@@ -77,7 +77,7 @@ def test_remove_noise():
     )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.filter.remove_noise(
+    ds_Sv = ep.clean.remove_noise(
         ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
     )
     null = ds_Sv.Sv_corrected.isnull()

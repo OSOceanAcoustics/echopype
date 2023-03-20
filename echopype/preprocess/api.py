@@ -1,6 +1,6 @@
 import warnings
 
-from ..filter import api as filter_api
+from ..clean import api as clean_api
 from ..commongrid import api as commongrid_api
 
 
@@ -13,13 +13,13 @@ def _warning_msg(new_subpkg_name, fn_name):
 
 
 def estimate_noise(*args, **kwargs):
-    warnings.warn(_warning_msg("filter", "estimate_noise"), DeprecationWarning, 2)
-    return filter_api.estimate_noise(*args, **kwargs)
+    warnings.warn(_warning_msg("clean", "estimate_noise"), DeprecationWarning, 2)
+    return clean_api.estimate_noise(*args, **kwargs)
 
 
 def remove_noise(*args, **kwargs):
-    warnings.warn(_warning_msg("filter", "remove_noise"), DeprecationWarning, 2)
-    return filter_api.remove_noise(*args, **kwargs)
+    warnings.warn(_warning_msg("clean", "remove_noise"), DeprecationWarning, 2)
+    return clean_api.remove_noise(*args, **kwargs)
 
 
 def compute_MVBS(*args, **kwargs):

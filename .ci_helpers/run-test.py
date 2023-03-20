@@ -29,7 +29,7 @@ MODULES_TO_TEST = {
     "calibrate": {},
     "consolidate": {},
     "echodata": {},
-    "filter": {},
+    "clean": {},
     "mask": {},
     "metrics": {},
     "commongrid": {},
