@@ -25,14 +25,14 @@ EXIT_CODES = {
 
 MODULES_TO_TEST = {
     "root": {},  # This is to test the root folder.
-    "convert": {},
     "calibrate": {},
-    "consolidate": {},
-    "echodata": {},
     "clean": {},
+    "commongrid": {},
+    "consolidate": {},
+    "convert": {},
+    "echodata": {},
     "mask": {},
     "metrics": {},
-    "commongrid": {},
     "preprocess": {},
     "utils": {},
     "visualize": {},
