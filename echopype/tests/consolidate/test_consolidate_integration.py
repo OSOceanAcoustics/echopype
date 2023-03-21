@@ -1,4 +1,7 @@
+import math
+import os
 import pathlib
+import tempfile
 
 import pytest
 
@@ -8,8 +11,6 @@ import xarray as xr
 import scipy.io as io
 import echopype as ep
 from typing import List
-import tempfile
-import os
 
 """
 For future reference:
@@ -226,7 +227,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             "AZFP",
             "AZFP",
             ("17082117.01A", "17041823.XML"),
-            {'lon': -60.0, 'lat': 45.0, 'salinity': 27.9, 'pressure': 59},
+            {'longitude': -60.0, 'latitude': 45.0, 'salinity': 27.9, 'pressure': 59},
         ),
     ],
 )
@@ -250,8 +251,8 @@ def test_add_location(
     if location_type == "fixed-location":
         point_ds = xr.Dataset(
             {
-                "latitude": (["time"], np.array([float(extras['lat'])])),
-                "longitude": (["time"], np.array([float(extras['lon'])])),
+                "latitude": (["time"], np.array([float(extras['latitude'])])),
+                "longitude": (["time"], np.array([float(extras['longitude'])])),
             },
             coords={
                 "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]))
@@ -276,27 +277,45 @@ def test_add_location(
         assert exc.type is ValueError
         assert "Coordinate variables not present or all nan" in str(exc.value)
     else:
-        def _check_var(ds_test):
+        def _tests(ds_test, location_type, nmea_sentence=None):
+            # coordinate existence
             assert "latitude" in ds_test
             assert "longitude" in ds_test
             assert "time1" not in ds_test
 
+            # no coordinate value is nan
             assert not ds_test["longitude"].isnull().any()
             assert not ds_test["latitude"].isnull().any()
 
-            assert len(ds_test["longitude"].dims) == 1 and ds_test["longitude"].dims[0] == "ping_time"  # noqa
-            assert len(ds_test["latitude"].dims) == 1 and ds_test["latitude"].dims[0] == "ping_time"  # noqa
+            # coordinate has single dimension, ping_time
+            assert len(ds_test["longitude"].dims) == 1 and ds_test["longitude"].dims[0] == "ping_time" # noqa
+            assert len(ds_test["latitude"].dims) == 1 and ds_test["latitude"].dims[0] == "ping_time" # noqa
+
+            # Check interpolated or broadcast values
+            if location_type == "with-track-location":
+                for coord in ["longitude", "latitude"]:
+                    coord_var = ed["Platform"][coord]
+                    if nmea_sentence:
+                        coord_var = coord_var[ed["Platform"]["sentence_type"] == nmea_sentence]
+                    coord_interp = coord_var.interp(
+                        time1=ds_test["ping_time"],
+                        kwargs={"fill_value": "extrapolate"}
+                    )
+                    # interpolated values are identical
+                    assert np.isclose(ds_test[coord].values, coord_interp.values).all()
+            elif location_type == "fixed-location":
+                for coord in ["longitude", "latitude"]:
+                    coord_uniq = set(ds_test[coord].values)
+                    # contains a single repeated value equal to the value passed to update_platform
+                    assert len(coord_uniq) == 1 and math.isclose(list(coord_uniq)[0], extras[coord]) # noqa
 
         ds_all = ep.consolidate.add_location(ds=ds, echodata=ed)
-        _check_var(ds_all)
+        _tests(ds_all, location_type)
 
         # the test for nmea_sentence="GGA" is limited to the with-track-location case
         if location_type == "with-track-location":
             ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
-            _check_var(ds_sel)
-
-    # TODO: Checking the added (interpolated) lat/lon values between the add_latlon function
-    #  and directly computed from scipy.interpolate
+            _tests(ds_sel, location_type, nmea_sentence="GGA")
 
 
 @pytest.mark.parametrize(
