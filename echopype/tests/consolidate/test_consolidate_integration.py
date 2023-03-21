@@ -287,7 +287,7 @@ def test_add_location(
             assert not ds_test["longitude"].isnull().any()
             assert not ds_test["latitude"].isnull().any()
 
-            # coordinate has single dimension, ping_time
+            # coordinate has a single dimension: 'ping_time'
             assert len(ds_test["longitude"].dims) == 1 and ds_test["longitude"].dims[0] == "ping_time" # noqa
             assert len(ds_test["latitude"].dims) == 1 and ds_test["latitude"].dims[0] == "ping_time" # noqa
 
