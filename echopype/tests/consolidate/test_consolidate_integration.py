@@ -255,7 +255,7 @@ def test_add_location(
                 "longitude": (["time"], np.array([float(extras['longitude'])])),
             },
             coords={
-                "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]))
+                "time": (["time"], np.array([ed["Sonar/Beam_group1"]["ping_time"].values.min()]))
             },
         )
         ed.update_platform(point_ds)
