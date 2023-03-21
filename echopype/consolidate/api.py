@@ -168,10 +168,8 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
             )
         else:
             # Interpolation. time1 is always associated with location data
-            interp_coord_var = coord_var.interp(time1=ds["ping_time"])
-            # The first value ends up being always nan. Set it equal to the second value
-            interp_coord_var[0] = interp_coord_var[1]
-            return interp_coord_var
+            # The first value ends up being always nan. Use "extrapolate"
+            return coord_var.interp(time1=ds["ping_time"], kwargs={"fill_value": "extrapolate"})
 
     if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
