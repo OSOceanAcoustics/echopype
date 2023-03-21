@@ -79,6 +79,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         },
     )
 
+    # TODO: look into why 'filenames' exist here as a variable
     # Added this check to support the test in test_process.py::test_compute_MVBS
     if "filenames" in ds_MVBS.variables:
         ds_MVBS = ds_MVBS.drop_vars("filenames")
