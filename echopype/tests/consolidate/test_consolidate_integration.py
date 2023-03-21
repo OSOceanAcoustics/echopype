@@ -247,7 +247,6 @@ def test_add_location(
         xml_path = None
 
     ed = ep.open_raw(raw_path, xml_path=xml_path, sonar_model=sonar_model)
-    env_params = None
     if location_type == "fixed-location":
         point_ds = xr.Dataset(
             {
@@ -260,13 +259,14 @@ def test_add_location(
         )
         ed.update_platform(point_ds)
 
-        # AZFP require external salinity and pressure
-        if sonar_model == "AZFP":
-            env_params = {
-                "temperature": ed["Environment"]["temperature"].values.mean(),
-                "salinity": extras["salinity"],
-                "pressure": extras["pressure"],
-            }
+    env_params = None
+    # AZFP data require external salinity and pressure
+    if sonar_model == "AZFP":
+        env_params = {
+            "temperature": ed["Environment"]["temperature"].values.mean(),
+            "salinity": extras["salinity"],
+            "pressure": extras["pressure"],
+        }
 
     ds = ep.calibrate.compute_Sv(echodata=ed, env_params=env_params)
 
@@ -278,36 +278,32 @@ def test_add_location(
         assert "Coordinate variables not present or all nan" in str(exc.value)
     else:
         def _tests(ds_test, location_type, nmea_sentence=None):
-            # coordinate existence
+            # lat,lon & time1 existence
             assert "latitude" in ds_test
             assert "longitude" in ds_test
             assert "time1" not in ds_test
 
-            # no coordinate value is nan
-            assert not ds_test["longitude"].isnull().any()
-            assert not ds_test["latitude"].isnull().any()
-
-            # coordinate has a single dimension: 'ping_time'
+            # lat & lon have a single dimension: 'ping_time'
             assert len(ds_test["longitude"].dims) == 1 and ds_test["longitude"].dims[0] == "ping_time" # noqa
             assert len(ds_test["latitude"].dims) == 1 and ds_test["latitude"].dims[0] == "ping_time" # noqa
 
             # Check interpolated or broadcast values
             if location_type == "with-track-location":
-                for coord in ["longitude", "latitude"]:
-                    coord_var = ed["Platform"][coord]
+                for position in ["longitude", "latitude"]:
+                    position_var = ed["Platform"][position]
                     if nmea_sentence:
-                        coord_var = coord_var[ed["Platform"]["sentence_type"] == nmea_sentence]
-                    coord_interp = coord_var.interp(
-                        time1=ds_test["ping_time"],
-                        kwargs={"fill_value": "extrapolate"}
-                    )
+                        position_var = position_var[ed["Platform"]["sentence_type"] == nmea_sentence]
+                    position_interp = position_var.interp(time1=ds_test["ping_time"])
                     # interpolated values are identical
-                    assert np.isclose(ds_test[coord].values, coord_interp.values).all()
+                    assert np.allclose(ds_test[position].values, position_interp.values, equal_nan=True) # noqa
             elif location_type == "fixed-location":
-                for coord in ["longitude", "latitude"]:
-                    coord_uniq = set(ds_test[coord].values)
+                for position in ["longitude", "latitude"]:
+                    position_uniq = set(ds_test[position].values)
                     # contains a single repeated value equal to the value passed to update_platform
-                    assert len(coord_uniq) == 1 and math.isclose(list(coord_uniq)[0], extras[coord]) # noqa
+                    assert (
+                            len(position_uniq) == 1 and
+                            math.isclose(list(position_uniq)[0], extras[position])
+                    )
 
         ds_all = ep.consolidate.add_location(ds=ds, echodata=ed)
         _tests(ds_all, location_type)
