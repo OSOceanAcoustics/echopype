@@ -466,10 +466,13 @@ def get_cal_params_EK(
                         if p in [
                             "angle_sensitivity_alongship",
                             "angle_sensitivity_athwartship",
+                        ]:
+                            BB_factor = freq_center / beam["frequency_nominal"]
+                        elif p in [
                             "beamwidth_alongship",
                             "beamwidth_athwartship",
                         ]:
-                            BB_factor = freq_center / beam["frequency_nominal"]
+                            BB_factor = beam["frequency_nominal"] / freq_center
                         else:
                             BB_factor = 1
 

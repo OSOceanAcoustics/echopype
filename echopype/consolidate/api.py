@@ -147,28 +147,29 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
 
     Returns
     -------
-    The input dataset with the the location data added
+    The input dataset with the location data added
     """
 
     def sel_interp(var):
         # NMEA sentence selection
         if nmea_sentence:
-            coord_var = echodata["Platform"][var][
+            position_var = echodata["Platform"][var][
                 echodata["Platform"]["sentence_type"] == nmea_sentence
             ]
         else:
-            coord_var = echodata["Platform"][var]
+            position_var = echodata["Platform"][var]
 
-        if len(coord_var) == 1:
+        if len(position_var) == 1:
             # Propagate single, fixed-location coordinate
             return xr.DataArray(
-                data=coord_var.values[0] * np.ones(len(ds["ping_time"]), dtype=np.float64),
+                data=position_var.values[0] * np.ones(len(ds["ping_time"]), dtype=np.float64),
                 dims=["ping_time"],
-                attrs=coord_var.attrs,
+                attrs=position_var.attrs,
             )
         else:
             # Interpolation. time1 is always associated with location data
-            return coord_var.interp(time1=ds["ping_time"])
+            # Values may be nan if there are ping_time values outside the time1 range
+            return position_var.interp(time1=ds["ping_time"])
 
     if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
@@ -296,7 +297,7 @@ def add_splitbeam_angle(
         source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
 
     # raise not implemented error if source_Sv corresponds to MVBS
-    if source_Sv.attrs["processing_function"] == "preprocess.compute_MVBS":
+    if source_Sv.attrs["processing_function"] == "commongrid.compute_MVBS":
         raise NotImplementedError("Adding split-beam data to MVBS has not been implemented!")
 
     # check that the appropriate waveform and encode mode have been given
