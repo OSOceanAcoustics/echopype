@@ -263,9 +263,9 @@ def test_add_location(
         # AZFP require external salinity and pressure
         if sonar_model == "AZFP":
             env_params = {
-                'temperature': ed["Environment"]['temperature'].values.mean(),
-                'salinity': extras['salinity'],
-                'pressure': extras['pressure'],
+                "temperature": ed["Environment"]["temperature"].values.mean(),
+                "salinity": extras["salinity"],
+                "pressure": extras["pressure"],
             }
 
     ds = ep.calibrate.compute_Sv(echodata=ed, env_params=env_params)
