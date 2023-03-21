@@ -8,8 +8,7 @@ from .noise_est import NoiseEst
 
 def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
     """
-    Remove noise by using estimates of background noise
-    from mean calibrated power of a collection of pings.
+    Estimate background noise by computing mean calibrated power of a collection of pings.
 
     See ``remove_noise`` for reference.
 
