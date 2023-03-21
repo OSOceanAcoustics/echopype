@@ -183,7 +183,7 @@ def test_plot_mvbs(
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
     Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
-    mvbs = echopype.preprocess.compute_MVBS(Sv, ping_time_bin='10S')
+    mvbs = echopype.commongrid.compute_MVBS(Sv, ping_time_bin='10S')
 
     plots = []
     try:
