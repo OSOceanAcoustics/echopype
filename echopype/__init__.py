@@ -15,15 +15,15 @@ verbose(override=True)
 init_ep_dir()
 
 __all__ = [
-    "open_raw",
-    "open_converted",
-    "combine_echodata",
-    "verbose",
     "calibrate",
     "clean",
+    "combine_echodata",
     "commongrid",
     "consolidate",
     "mask",
+    "open_converted",
+    "open_raw",
     "preprocess",
     "utils",
+    "verbose",
 ]
