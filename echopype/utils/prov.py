@@ -215,7 +215,7 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
 
         # Found the class method vs module function solution in
         # https://stackoverflow.com/a/49100736
-        if len(func.__qualname__.split('.')) > 1:
+        if len(func.__qualname__.split(".")) > 1:
             # Handle class methods
             @functools.wraps(func)
             def inner(self, *args, **kwargs):
@@ -223,11 +223,14 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
 
                 # This hard-wiring may not be necessary, ultimately.
                 # But right I'm ensuring that it's only applicable to echodata.update_platform
-                if func.__qualname__.split('.')[-1] == "update_platform":
+                if func.__qualname__.split(".")[-1] == "update_platform":
                     processing_level = PROCESSING_LEVELS[processing_level_code]
-                    self["Top-level"] = self["Top-level"].assign_attrs(_attrs_dict(processing_level))
+                    self["Top-level"] = self["Top-level"].assign_attrs(
+                        _attrs_dict(processing_level)
+                    )
 
                 return self
+
             return inner
         else:
             # Handle stand-alone module functions
@@ -236,10 +239,15 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
                 dataobj = func(*args, **kwargs)
                 if is_echodata:
                     ed = dataobj
-                    if "longitude" in ed["Platform"] and not ed["Platform"]["longitude"].isnull().all(): # noqa
+                    if (
+                        "longitude" in ed["Platform"]
+                        and not ed["Platform"]["longitude"].isnull().all()
+                    ):  # noqa
                         # The decorator is passed the exact, final level code, with sublevel
                         processing_level = PROCESSING_LEVELS[processing_level_code]
-                        ed["Top-level"] = ed["Top-level"].assign_attrs(_attrs_dict(processing_level))
+                        ed["Top-level"] = ed["Top-level"].assign_attrs(
+                            _attrs_dict(processing_level)
+                        )
 
                     return ed
                 elif isinstance(dataobj, xr.Dataset):
@@ -264,7 +272,9 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
                     return ds
                 else:
                     return dataobj
+
             return inner
+
     return wrapper
 
 
