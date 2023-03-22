@@ -1,14 +1,13 @@
-from datetime import datetime as dt
 import functools
+from datetime import datetime as dt
 from pathlib import Path
-
 from typing import Dict, List, Tuple, Union
-from typing_extensions import Literal
 
 import numpy as np
-from numpy.typing import NDArray
 import xarray as xr
 from _echopype_version import version as ECHOPYPE_VERSION
+from numpy.typing import NDArray
+from typing_extensions import Literal
 
 from .log import _init_logger
 
@@ -226,7 +225,7 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
                 if "longitude" in ed["Platform"] and not ed["Platform"]["longitude"].isnull().all():
                     # The decorator is passed the exact, final level code, with sublevel
                     processing_level = PROCESSING_LEVELS[processing_level_code]
-                    ed['Top-level'] = ed['Top-level'].assign_attrs(_attrs_dict(processing_level))
+                    ed["Top-level"] = ed["Top-level"].assign_attrs(_attrs_dict(processing_level))
 
                 return ed
             elif isinstance(dataobj, xr.Dataset):
@@ -251,7 +250,9 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
                 return ds
             else:
                 return dataobj
+
         return wrapper
+
     return inner
 
 
