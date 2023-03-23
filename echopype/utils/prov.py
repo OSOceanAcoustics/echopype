@@ -1,6 +1,7 @@
 import functools
 from datetime import datetime as dt
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -187,6 +188,17 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                 "processing_level_url": "https://echopype.readthedocs.io/processing_levels",
             }
 
+        if (
+            not (
+                processing_level_code in PROCESSING_LEVELS or
+                re.fullmatch(r"L\*[A|B]|L[1-4]\*", processing_level_code)
+            )
+        ):
+            raise ValueError(
+                f"Decorator processing_level_code {processing_level_code} "
+                f"used in {func.__qualname__} is invalid."
+            )
+
         # Found the class method vs module function solution in
         # https://stackoverflow.com/a/49100736
         if len(func.__qualname__.split(".")) > 1:
@@ -207,50 +219,69 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                 if is_echodata:
                     ed = dataobj
                     if (
-                        "longitude" in ed["Platform"]
-                        and not ed["Platform"]["longitude"].isnull().all()
+                        "longitude" in ed["Platform"] and
+                        not ed["Platform"]["longitude"].isnull().all()
                     ):
                         # The decorator is passed the exact, final level code, with sublevel
                         processing_level = PROCESSING_LEVELS[processing_level_code]
                         ed["Top-level"] = ed["Top-level"].assign_attrs(
                             _attrs_dict(processing_level)
                         )
+                    else:
+                        logger.info(
+                            "EchoData object (converted raw file) does not contain "
+                            "valid Platform location data. Processing level attributes "
+                            "will not be added."
+                        )
 
                     return ed
                 elif isinstance(dataobj, xr.Dataset):
                     ds = dataobj
-                    insert_attrs = False
-                    if processing_level_code in PROCESSING_LEVELS:
-                        # The decorator is passed the exact, final level code, with sublevel
-                        processing_level = PROCESSING_LEVELS[processing_level_code]
-                        insert_attrs = True
-                    elif "*" in processing_level_code and len(processing_level_code) in (2, 3):
-                        if "input_processing_level" in ds.attrs.keys():
+                    if "longitude" in ds and not ds["longitude"].isnull().all():
+                        if processing_level_code in PROCESSING_LEVELS:
+                            # The decorator is passed the exact, final level code, with sublevel
+                            processing_level = PROCESSING_LEVELS[processing_level_code]
+                        elif (
+                                "*" in processing_level_code and
+                                "input_processing_level" in ds.attrs.keys()
+                        ):
                             if processing_level_code[-1] == "*":
                                 # The decorator is passed a level code without sublevel (eg, L3*).
                                 # The decorated function's "input" dataset's sublevel (A or B) will
                                 # be propagated to the function's output dataset. For L2 and L3
                                 sublevel = ds.attrs["input_processing_level"][-1]
                                 level = processing_level_code[1]
-                                processing_level = PROCESSING_LEVELS[f"L{level}{sublevel}"]
-                                del ds.attrs["input_processing_level"]
-                                insert_attrs = True
                             elif processing_level_code[1] == "*":
                                 # The decorator is passed a sublevel code without level (eg, L*A).
                                 # The decorated function's "input" dataset's level (2 or 3) will
                                 # be propagated to the function's output dataset. For L2 and L3
                                 sublevel = processing_level_code[-1]
                                 level = ds.attrs["input_processing_level"][-2]
-                                processing_level = PROCESSING_LEVELS[f"L{level}{sublevel}"]
-                                del ds.attrs["input_processing_level"]
-                                insert_attrs = True
 
-                    if insert_attrs:
+                            processing_level = PROCESSING_LEVELS[f"L{level}{sublevel}"]
+                            del ds.attrs["input_processing_level"]
+                        else:
+                            raise RuntimeError(
+                                "Processing level attributes (processing_level_code {processing_level_code}) " # noqa
+                                f"cannot be added. Please ensure that {func.__qualname__} "
+                                "uses the function insert_input_processing_level."
+                            )
+
                         ds = ds.assign_attrs(_attrs_dict(processing_level))
+                    else:
+                        logger.info(
+                            "xarray Dataset does not contain valid location data. "
+                            "Processing level attributes will not be added."
+                        )
+                        if "input_processing_level" in ds.attrs:
+                            del ds.attrs["input_processing_level"]
 
                     return ds
                 else:
-                    return dataobj
+                    raise RuntimeError(
+                        f"{func.__qualname__}: Processing level decorator function cannot be used "
+                        "with a function that does not return an xarray Dataset or EchoData object"
+                    )
 
             return inner
 
