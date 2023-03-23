@@ -360,7 +360,8 @@ class CalibrateEK80(CalibrateEK):
                     ]
                 ):
                     raise ValueError(
-                        f"Narrowband (CW mode) parameter {p} should exist for all channels with frequency-dependent parameter values."
+                        f"Narrowband (CW mode) parameter {p} should exist "
+                        "for all channels with frequency-dependent parameter values."
                     )
 
                 # Assemble parameter data array with all channels
