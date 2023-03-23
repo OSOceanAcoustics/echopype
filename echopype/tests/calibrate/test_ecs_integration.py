@@ -150,7 +150,7 @@ def test_ecs_intake_ek80_BB_complex(ek80_path, ecs_path):
     for p_name in ["sa_correction", "receiver_sampling_frequency"]:
         assert ds_Sv[p_name].identical(ecs_cal_NB[p_name])
 
-    # Check interpolated was fone correctly
+    # Check interpolation was done correctly
     beam = ed["Sonar/Beam_group1"]
     chan_w_BB_param = "WBT 549762-15 ES70-7C_ES"
     freq_center = (
