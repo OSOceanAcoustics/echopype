@@ -359,7 +359,9 @@ class CalibrateEK80(CalibrateEK):
                         for ch in ds_cal_BB["cal_channel_id"].values
                     ]
                 ):
-                    raise ValueError(f"Narrowband (CW mode) parameter {p} should exist for all channels with frequency-dependent parameter values.")
+                    raise ValueError(
+                        f"Narrowband (CW mode) parameter {p} should exist for all channels with frequency-dependent parameter values."
+                    )
 
                 # Assemble parameter data array with all channels
                 # Either interpolate or pull from narrowband input
