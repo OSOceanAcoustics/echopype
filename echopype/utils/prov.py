@@ -1,7 +1,7 @@
 import functools
 from datetime import datetime as dt
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -147,30 +147,6 @@ def source_files_vars(
     return files_vars
 
 
-# TODO:
-#   - New decorator function that inserts processing-level global attributes, if appropriate.
-#     Product level attributes will be added only if lat-lon coordinates (and depth for >= L2?) are present.
-#     Attributes: processing_level, processing_level_url
-#   - DONE. Dict mapping a processing level code (eg, "L1A") to the longer text that will be inserted in the attr
-#   - DONE. Function that each function will use to read its "input" xr.dataset processing_level (if it exists)
-#     and pass it on to the output xr.dataset as input_processing_level for use by the decorator
-#   - DONE. For L2 & L3, the "input" dataset will typically already have a processing_level attribute;
-#     read and propagate the sub-level code (A & B).
-#   - (EXTERNAL) Associate (ie, document) processing level code with each relevant function listed in
-#     https://github.com/OSOceanAcoustics/echopype/pull/817#issuecomment-1474564449
-#   - DONE. echodata.update_platform should result in the addition of a processing level attr.
-#     But as a class method, doing this may be trickier. The challenge is how to pass "self" to the decorator
-#     function/wrapper. Consider wrapping add_processing_level in another function, and using that
-#     as the class-method decorator?
-
-# DEVELOPMENT PLAN:
-# 1. DONE. Create initial version of the dictionary
-# 2. DONE. First create decorator that doesn't check for lat-lon coords. Start by applying it to
-#    consolidate.add_laton? (but my version is the old one, until WJ approves; or merge my add_latlon branch?)
-# 3. Add testing for valid lat-lon
-# 4. DONE. Add compute_MVBS handler: If the input Sv ds has a processing_level, read it;
-#    if processing_level is present, extract its sublevel (A or B) and propagate it
-
 # L0 is not actually used by echopype but is included for completeness
 PROCESSING_LEVELS = dict(
     L0="Level 0",
@@ -184,20 +160,18 @@ PROCESSING_LEVELS = dict(
 )
 
 
-def add_processing_level(processing_level_code, is_echodata=False, inherit_sublevel=False):
+def add_processing_level(processing_level_code: str, is_echodata: bool = False) -> Any:
     """
     Wraps functions or methods that return either an xr.Dataset or an echodata object
 
     Parameters
     ----------
     processing_level_code : str
-        Data processing level code, either with or without sublevel code.
-        eg, L1A, L2B, L3
+        Data processing level code. Can be either the exact code (eg, L1A, L2B, L4)
+        or using * as a wildcard for either level or sublevel (eg, L*A, L2*) where
+        the wildcard value of the input is propagated to the output.
     is_echodata : bool
         Flag specifying if the decorated function returns an EchoData object (optional)
-    inherit_sublevel : bool
-        Flag specifying if the processing sublevel will be inherited from
-        the "input" dataset (optional)
 
     Returns
     -------
@@ -206,7 +180,7 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
     """
 
     def wrapper(func):
-        # TODO: ADD conventions attr, with "ACDD-1.3" entry?? Or maybe skip for now?
+        # TODO: Add conventions attr, with "ACDD-1.3" entry, if not already present?
         def _attrs_dict(processing_level):
             return {
                 "processing_level": processing_level,
@@ -220,15 +194,8 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
             @functools.wraps(func)
             def inner(self, *args, **kwargs):
                 func(self, *args, **kwargs)
-
-                # This hard-wiring may not be necessary, ultimately.
-                # But right I'm ensuring that it's only applicable to echodata.update_platform
-                if func.__qualname__.split(".")[-1] == "update_platform":
-                    processing_level = PROCESSING_LEVELS[processing_level_code]
-                    self["Top-level"] = self["Top-level"].assign_attrs(
-                        _attrs_dict(processing_level)
-                    )
-
+                processing_level = PROCESSING_LEVELS[processing_level_code]
+                self["Top-level"] = self["Top-level"].assign_attrs(_attrs_dict(processing_level))
                 return self
 
             return inner
@@ -242,7 +209,7 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
                     if (
                         "longitude" in ed["Platform"]
                         and not ed["Platform"]["longitude"].isnull().all()
-                    ):  # noqa
+                    ):
                         # The decorator is passed the exact, final level code, with sublevel
                         processing_level = PROCESSING_LEVELS[processing_level_code]
                         ed["Top-level"] = ed["Top-level"].assign_attrs(
@@ -252,23 +219,35 @@ def add_processing_level(processing_level_code, is_echodata=False, inherit_suble
                     return ed
                 elif isinstance(dataobj, xr.Dataset):
                     ds = dataobj
+                    insert_attrs = False
                     if processing_level_code in PROCESSING_LEVELS:
                         # The decorator is passed the exact, final level code, with sublevel
                         processing_level = PROCESSING_LEVELS[processing_level_code]
-                    elif inherit_sublevel and "input_processing_level" in ds.attrs.keys():
-                        # The decorator is passed a level code without sublevel (eg, L3).
-                        # The decorated function's "input" dataset's sublevel (A or B) will
-                        # be propagated to the function's output dataset. For L2 and L3
-                        sublevel = ds.attrs["input_processing_level"][-1]
-                        processing_level = PROCESSING_LEVELS[processing_level_code + sublevel]
-                        del ds.attrs["input_processing_level"]
-                    else:
-                        # Processing level attributes will not be inserted
-                        # TODO: Raise a warning that processing_level_code is not in PROCESSING_LEVELS
-                        #   and other criteria were not met?
-                        return ds
+                        insert_attrs = True
+                    elif "*" in processing_level_code and len(processing_level_code) in (2, 3):
+                        if "input_processing_level" in ds.attrs.keys():
+                            if processing_level_code[-1] == "*":
+                                # The decorator is passed a level code without sublevel (eg, L3*).
+                                # The decorated function's "input" dataset's sublevel (A or B) will
+                                # be propagated to the function's output dataset. For L2 and L3
+                                sublevel = ds.attrs["input_processing_level"][-1]
+                                level = processing_level_code[1]
+                                processing_level = PROCESSING_LEVELS[f"L{level}{sublevel}"]
+                                del ds.attrs["input_processing_level"]
+                                insert_attrs = True
+                            elif processing_level_code[1] == "*":
+                                # The decorator is passed a sublevel code without level (eg, L*A).
+                                # The decorated function's "input" dataset's level (2 or 3) will
+                                # be propagated to the function's output dataset. For L2 and L3
+                                sublevel = processing_level_code[-1]
+                                level = ds.attrs["input_processing_level"][-2]
+                                processing_level = PROCESSING_LEVELS[f"L{level}{sublevel}"]
+                                del ds.attrs["input_processing_level"]
+                                insert_attrs = True
 
-                    ds = ds.assign_attrs(_attrs_dict(processing_level))
+                    if insert_attrs:
+                        ds = ds.assign_attrs(_attrs_dict(processing_level))
+
                     return ds
                 else:
                     return dataobj
