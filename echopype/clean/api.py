@@ -2,7 +2,7 @@
 Functions for reducing variabilities in backscatter data.
 """
 
-from ..utils.prov import echopype_prov_attrs
+from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .noise_est import NoiseEst
 
 
@@ -32,6 +32,7 @@ def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
     return noise_obj.Sv_noise
 
 
+@add_processing_level("L*B")
 def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshold=3):
     """
     Remove noise by using estimates of background noise
@@ -67,5 +68,9 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "clean.remove_noise"
     ds_Sv = ds_Sv.assign_attrs(prov_dict)
+
+    # The output ds_Sv is built as a copy of the input ds_Sv, so the step below is
+    # not needed, strictly speaking. But doing makes the decorator function more generic
+    ds_Sv = insert_input_processing_level(ds_Sv, input_ds=ds_Sv)
 
     return ds_Sv

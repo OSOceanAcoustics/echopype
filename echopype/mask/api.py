@@ -7,7 +7,7 @@ import numpy as np
 import xarray as xr
 
 from ..utils.io import validate_source_ds_da
-from ..utils.prov import echopype_prov_attrs
+from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -196,6 +196,7 @@ def _variable_prov_attrs(
     return attrs
 
 
+@add_processing_level("L3*")
 def apply_mask(
     source_ds: Union[xr.Dataset, str, pathlib.Path],
     mask: Union[xr.DataArray, str, pathlib.Path, List[Union[xr.DataArray, str, pathlib.Path]]],
@@ -291,6 +292,8 @@ def apply_mask(
     prov_dict[f"{process_type}_function"] = "mask.apply_mask"
 
     output_ds = output_ds.assign_attrs(prov_dict)
+
+    output_ds = insert_input_processing_level(output_ds, input_ds=source_ds)
 
     return output_ds
 
