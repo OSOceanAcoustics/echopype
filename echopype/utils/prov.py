@@ -1,7 +1,7 @@
 import functools
+import re
 from datetime import datetime as dt
 from pathlib import Path
-import re
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -188,11 +188,9 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                 "processing_level_url": "https://echopype.readthedocs.io/processing_levels",
             }
 
-        if (
-            not (
-                processing_level_code in PROCESSING_LEVELS or
-                re.fullmatch(r"L\*[A|B]|L[1-4]\*", processing_level_code)
-            )
+        if not (
+            processing_level_code in PROCESSING_LEVELS
+            or re.fullmatch(r"L\*[A|B]|L[1-4]\*", processing_level_code)
         ):
             raise ValueError(
                 f"Decorator processing_level_code {processing_level_code} "
@@ -219,8 +217,8 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                 if is_echodata:
                     ed = dataobj
                     if (
-                        "longitude" in ed["Platform"] and
-                        not ed["Platform"]["longitude"].isnull().all()
+                        "longitude" in ed["Platform"]
+                        and not ed["Platform"]["longitude"].isnull().all()
                     ):
                         # The decorator is passed the exact, final level code, with sublevel
                         processing_level = PROCESSING_LEVELS[processing_level_code]
@@ -242,8 +240,8 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                             # The decorator is passed the exact, final level code, with sublevel
                             processing_level = PROCESSING_LEVELS[processing_level_code]
                         elif (
-                                "*" in processing_level_code and
-                                "input_processing_level" in ds.attrs.keys()
+                            "*" in processing_level_code
+                            and "input_processing_level" in ds.attrs.keys()
                         ):
                             if processing_level_code[-1] == "*":
                                 # The decorator is passed a level code without sublevel (eg, L3*).
@@ -262,7 +260,7 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                             del ds.attrs["input_processing_level"]
                         else:
                             raise RuntimeError(
-                                "Processing level attributes (processing_level_code {processing_level_code}) " # noqa
+                                "Processing level attributes (processing_level_code {processing_level_code}) "  # noqa
                                 f"cannot be added. Please ensure that {func.__qualname__} "
                                 "uses the function insert_input_processing_level."
                             )
