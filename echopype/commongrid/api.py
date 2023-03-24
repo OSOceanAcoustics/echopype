@@ -360,9 +360,20 @@ def compute_NASC(
     _set_var_attrs(ds_NASC["distance"], "Cumulative distance", "m", 3)
     _set_var_attrs(ds_NASC["depth"], "Cell depth", "m", 3, standard_name="depth")
 
-    # TODO:
-    #  - Calculate and create time, lat and lon ACDD global attributes
-    #  - Add Conventions = "CF-1.7,ACDD-1.3"
+    # Calculate and add ACDD bounding box global attributes
+    ds_NASC.attrs["Conventions"] = "CF-1.7,ACDD-1.3"
+    ds_NASC.attrs["time_coverage_start"] = np.datetime_as_string(
+        ds_Sv["ping_time"].min().values,
+        timezone='UTC'
+    )
+    ds_NASC.attrs["time_coverage_end"] = np.datetime_as_string(
+        ds_Sv["ping_time"].max().values,
+        timezone='UTC'
+    )
+    ds_NASC.attrs["geospatial_lat_min"] = round(float(ds_Sv["latitude"].min().values), 5)
+    ds_NASC.attrs["geospatial_lat_max"] = round(float(ds_Sv["latitude"].max().values), 5)
+    ds_NASC.attrs["geospatial_lon_min"] = round(float(ds_Sv["longitude"].min().values), 5)
+    ds_NASC.attrs["geospatial_lon_max"] = round(float(ds_Sv["longitude"].max().values), 5)
 
     return ds_NASC
 
