@@ -66,7 +66,7 @@ def _set_MVBS_attrs(ds):
         ds["Sv"],
         long_name="Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
         units="dB",
-        actual_range_round=2
+        actual_range_round=2,
     )
 
 
@@ -345,7 +345,7 @@ def compute_NASC(
             "distance": np.arange(bin_num_dist) * cell_dist,
             "depth": np.arange(bin_num_depth) * cell_depth,
         },
-        name="NASC"
+        name="NASC",
     ).to_dataset()
 
     ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
@@ -355,7 +355,7 @@ def compute_NASC(
         ds_NASC["NASC"],
         long_name="Nautical Areal Scattering Coefficient (NASC, m2 nmi-2)",
         units="m2 nmi-2",
-        actual_range_round=3
+        actual_range_round=3,
     )
     _set_var_attrs(ds_NASC["distance"], "Cumulative distance", "m", 3)
     _set_var_attrs(ds_NASC["depth"], "Cell depth", "m", 3, standard_name="depth")
@@ -363,12 +363,10 @@ def compute_NASC(
     # Calculate and add ACDD bounding box global attributes
     ds_NASC.attrs["Conventions"] = "CF-1.7,ACDD-1.3"
     ds_NASC.attrs["time_coverage_start"] = np.datetime_as_string(
-        ds_Sv["ping_time"].min().values,
-        timezone='UTC'
+        ds_Sv["ping_time"].min().values, timezone="UTC"
     )
     ds_NASC.attrs["time_coverage_end"] = np.datetime_as_string(
-        ds_Sv["ping_time"].max().values,
-        timezone='UTC'
+        ds_Sv["ping_time"].max().values, timezone="UTC"
     )
     ds_NASC.attrs["geospatial_lat_min"] = round(float(ds_Sv["latitude"].min().values), 5)
     ds_NASC.attrs["geospatial_lat_max"] = round(float(ds_Sv["latitude"].max().values), 5)
