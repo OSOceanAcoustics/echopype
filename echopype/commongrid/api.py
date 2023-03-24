@@ -323,8 +323,6 @@ def compute_NASC(
 
     # TODO: Attach attributes
 
-    
-
     return ds_NASC
 
 
