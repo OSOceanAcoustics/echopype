@@ -82,12 +82,12 @@ def test_raw_to_mvbs(
     ds = ep.calibrate.compute_Sv(echodata=ed, env_params=env_params)
     _absence_test(ds)
 
-    sv_ds = ep.consolidate.add_location(ds=ds, echodata=ed)
-    assert "longitude" in sv_ds.data_vars and "latitude" in sv_ds.data_vars
-    _presence_test(sv_ds, "Level 2A")
+    Sv_ds = ep.consolidate.add_location(ds=ds, echodata=ed)
+    assert "longitude" in Sv_ds.data_vars and "latitude" in Sv_ds.data_vars
+    _presence_test(Sv_ds, "Level 2A")
 
     # ---- Noise removal
-    denoised_ds = ep.clean.remove_noise(sv_ds, ping_num=10, range_sample_num=20)
+    denoised_ds = ep.clean.remove_noise(Sv_ds, ping_num=10, range_sample_num=20)
     _presence_test(denoised_ds, "Level 2B")
 
     # ---- apply_mask based on frequency differencing
@@ -107,7 +107,7 @@ def test_raw_to_mvbs(
         return ep.mask.apply_mask(source_ds=out_ds, var_name="Sv_ch0", mask=freqdiff_da)
 
     # On Sv w/o noise removal
-    ds = _freqdiff_applymask(sv_ds)
+    ds = _freqdiff_applymask(Sv_ds)
     _presence_test(ds, "Level 3A")
 
     # On denoised Sv
