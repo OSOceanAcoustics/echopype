@@ -476,7 +476,7 @@ def get_cal_params_EK(
                         else:
                             BB_factor = 1
 
-                        p_beam = PARAM_BEAM_NAME_MAP[p]
+                        p_beam = PARAM_BEAM_NAME_MAP[p]  # Beam_groupX data variable name
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,

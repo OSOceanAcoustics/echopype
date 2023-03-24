@@ -456,13 +456,13 @@ def test_nan_range_entries(range_check_files):
     if sonar_model == "EK80":
         ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
         cal_obj = CalibrateEK80(
-            echodata, env_params=None, cal_params=None, waveform_mode="BB", encode_mode="complex",
+            echodata, env_params=None, cal_params=None, ecs_file=None, waveform_mode="BB", encode_mode="complex",
         )
         range_output = cal_obj.range_meter
         nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
     else:
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
-        cal_obj = CalibrateEK60(echodata, env_params={}, cal_params=None)
+        cal_obj = CalibrateEK60(echodata, env_params={}, cal_params=None, ecs_file=None)
         range_output = cal_obj.range_meter
         nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
 

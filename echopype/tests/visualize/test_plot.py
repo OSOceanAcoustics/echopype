@@ -225,6 +225,7 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
         echodata=echodata,
         env_params=range_kwargs.get("env_params", {}),
         cal_params=None,
+        ecs_file=None,
     )
     range_in_meter = cal_obj.range_meter
 
