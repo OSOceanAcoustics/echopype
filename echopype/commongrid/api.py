@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ..utils.prov import echopype_prov_attrs
+from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .mvbs import get_MVBS_along_channels
 from .nasc import (
     check_identical_depth,
@@ -70,6 +70,7 @@ def _set_MVBS_attrs(ds):
     )
 
 
+@add_processing_level("L3*")
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     """
     Compute Mean Volume Backscattering Strength (MVBS)
@@ -174,9 +175,12 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
     ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
+    ds_MVBS = insert_input_processing_level(ds_MVBS, input_ds=ds_Sv)
+
     return ds_MVBS
 
 
+@add_processing_level("L3*")
 def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     """
     Compute Mean Volume Backscattering Strength (MVBS)
@@ -245,6 +249,8 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     prov_dict["processing_function"] = "commongrid.compute_MVBS_index_binning"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
     ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
+
+    ds_MVBS = insert_input_processing_level(ds_MVBS, input_ds=ds_Sv)
 
     return ds_MVBS
 

@@ -9,6 +9,7 @@ from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import validate_source_ds_da
+from ..utils.prov import add_processing_level
 from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
 
@@ -128,6 +129,7 @@ def add_depth(
     return ds
 
 
+@add_processing_level("L2A")
 def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optional[str] = None):
     """
     Add geographical location (latitude/longitude) to the Sv dataset.
