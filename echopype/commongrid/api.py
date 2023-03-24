@@ -17,6 +17,36 @@ from .nasc import (
 )
 
 
+def _set_var_attrs(da, long_name, units, actual_range_round, standard_name=None):
+    """
+    Attach common attributes to DataArray variable.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        DataArray that will receive attributes
+    long_name : str
+        Variable long_name attribute
+    units : str
+        Variable units attribute
+    actual_range_round : int
+        Number of digits after decimal point for rounding off actual_range
+    standard_name : str
+        CF standard_name, if available (optional)
+    """
+
+    da.attrs = {
+        "long_name": long_name,
+        "units": units,
+        "actual_range": [
+            round(float(da.min().values), actual_range_round),
+            round(float(da.max().values), actual_range_round),
+        ],
+    }
+    if standard_name:
+        da.attrs["standard_name"] = standard_name
+
+
 def _set_MVBS_attrs(ds):
     """
     Attach common attributes.
@@ -32,14 +62,12 @@ def _set_MVBS_attrs(ds):
         "axis": "T",
     }
 
-    ds["Sv"].attrs = {
-        "long_name": "Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
-        "units": "dB",
-        "actual_range": [
-            round(float(ds["Sv"].min().values), 2),
-            round(float(ds["Sv"].max().values), 2),
-        ],
-    }
+    _set_var_attrs(
+        ds["Sv"],
+        long_name="Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
+        units="dB",
+        actual_range_round=2
+    )
 
 
 def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
@@ -317,11 +345,35 @@ def compute_NASC(
             "distance": np.arange(bin_num_dist) * cell_dist,
             "depth": np.arange(bin_num_depth) * cell_depth,
         },
+        name="NASC"
     ).to_dataset()
 
     ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
-    # TODO: Attach attributes
+    # Attach attributes
+    _set_var_attrs(
+        ds_NASC["NASC"],
+        long_name="Nautical Areal Scattering Coefficient (NASC, m2 nmi-2)",
+        units="m2 nmi-2",
+        actual_range_round=3
+    )
+    _set_var_attrs(ds_NASC["distance"], "Cumulative distance", "m", 3)
+    _set_var_attrs(ds_NASC["depth"], "Cell depth", "m", 3, standard_name="depth")
+
+    # Calculate and add ACDD bounding box global attributes
+    ds_NASC.attrs["Conventions"] = "CF-1.7,ACDD-1.3"
+    ds_NASC.attrs["time_coverage_start"] = np.datetime_as_string(
+        ds_Sv["ping_time"].min().values,
+        timezone='UTC'
+    )
+    ds_NASC.attrs["time_coverage_end"] = np.datetime_as_string(
+        ds_Sv["ping_time"].max().values,
+        timezone='UTC'
+    )
+    ds_NASC.attrs["geospatial_lat_min"] = round(float(ds_Sv["latitude"].min().values), 5)
+    ds_NASC.attrs["geospatial_lat_max"] = round(float(ds_Sv["latitude"].max().values), 5)
+    ds_NASC.attrs["geospatial_lon_min"] = round(float(ds_Sv["longitude"].min().values), 5)
+    ds_NASC.attrs["geospatial_lon_max"] = round(float(ds_Sv["longitude"].max().values), 5)
 
     return ds_NASC
 
