@@ -1,10 +1,12 @@
 """
 Functions for enhancing the spatial and temporal coherence of data.
 """
+from typing import Union
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+from geopy import distance
 
 from ..utils.prov import echopype_prov_attrs
 from .mvbs import get_MVBS_along_channels
@@ -212,6 +214,80 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
     return ds_MVBS
+
+
+def compute_NASC(
+    ds_Sv: xr.Dataset,
+    cell_dist: Union[int, float],  # TODO: allow xr.DataArray
+    cell_depth: Union[int, float],  # TODO: allow xr.DataArray
+) -> xr.Dataset:
+    """
+    Compute Nautical Areal Scattering Coefficient (NASC) from an Sv dataset.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        A dataset containing Sv data.
+        The Sv dataset must contain 'latitude' and 'longitude' as data variables.
+    cell_dist: int, float
+        The horizontal size of each NASC cell, in nautical miles [nmi]
+    cell_depth: int, float
+        The vertical size of each NASC cell, in meters [m]
+
+    Returns
+    -------
+    xr.Dataset
+        A dataset containing NASC
+
+    Notes
+    -----
+    The NASC computation implemented here corresponds to the Echoview algorithm PRC_NASC
+    https://support.echoview.com/WebHelp/Reference/Algorithms/Analysis_Variables/PRC_ABC_and_PRC_NASC.htm#PRC_NASC  # noqa
+    The difference is that since in echopype masking of the Sv dataset is done explicitly using
+    functions in the ``mask`` subpackage so the computation only involves computing the
+    mean Sv and the mean height within each cell.
+
+    In addition, here the binning of pings into individual cells is based on the actual horizontal
+    distance computed from the latitude and longitude coordinates of each ping in the Sv dataset.
+    Therefore, both regular and irregular horizontal distance in the Sv dataset are allowed.
+    This is different from Echoview's assumption of constant ping rate, vessel speed, and sample
+    thickness when computing mean Sv.
+    """
+    # Check Sv contains lat/lon
+    if "latitude" not in ds_Sv or "longitude" not in ds_Sv:
+        raise ValueError("Both 'latitude' and 'longitude' must exist in the input Sv dataset.")
+
+    # Get distance from lat/lon in nautical miles
+    ds_Sv = ds_Sv.dropna
+    df_pos = ds_Sv["latitude"].to_dataframe().join(ds_Sv["longitude"].to_dataframe())
+    df_pos["latitude_prev"] = df_pos["latitude"].shift(-1)
+    df_pos["longitude_prev"] = df_pos["longitude"].shift(-1)
+    df_latlon_nonan = df_pos.dropna()
+    df_latlon_nonan["dist"] = df_latlon_nonan.apply(
+        lambda x: distance.distance(
+            (x["latitude"], x["longitude"]),
+            (x["latitude_prev"], x["longitude_prev"]),
+        ).nm,
+        axis=1,
+    )
+    df_pos = df_pos.join(df_latlon_nonan["dist"], how="left")
+    df_pos["dist"] = df_pos["dist"].cumsum()
+    nan_ping_index = df_pos["dist"].isnull().values  # pings with NaN distance
+    df_pos.dropna(subset=["dist"], inplace=True)
+
+    # Find binning indices along distance
+    cell_dist = 0.1
+    bin_num_dist = np.ceil(df_pos["dist"].max() / cell_dist)
+    digitized_dist = np.digitize(df_pos["dist"], np.arange(bin_num_dist) * cell_dist, right=False)
+    
+    # Find binning indices along depth
+    cell_depth = 20
+
+    # Compute mean Sv and mean height
+
+    # TODO: Attach attributes
+
+    # return ds_NASC
 
 
 def regrid():
