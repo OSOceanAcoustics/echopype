@@ -233,7 +233,7 @@ def compute_NASC(
     ----------
     ds_Sv : xr.Dataset
         A dataset containing Sv data.
-        The Sv dataset must contain 'latitude' and 'longitude' as data variables.
+        The Sv dataset must contain ``latitude``, ``longitude``, and ``depth`` as data variables.
     cell_dist: int, float
         The horizontal size of each NASC cell, in nautical miles [nmi]
     cell_depth: int, float
@@ -317,9 +317,13 @@ def compute_NASC(
             "distance": np.arange(bin_num_dist) * cell_dist,
             "depth": np.arange(bin_num_depth) * cell_depth,
         },
-    )
+    ).to_dataset()
+
+    ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
     # TODO: Attach attributes
+
+    
 
     return ds_NASC
 
