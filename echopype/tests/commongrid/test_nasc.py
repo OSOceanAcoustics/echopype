@@ -31,7 +31,8 @@ def test_compute_NASC(ek60_path):
     dist_nmi = get_distance_from_latlon(ds_Sv)
 
     # Check dimensions
-    assert ds_NASC.dims == ("channel", "distance", "depth")
+    da_NASC = ds_NASC["NASC"]
+    assert da_NASC.dims == ("channel", "distance", "depth")
     assert np.all(ds_NASC["channel"].values == ds_Sv["channel"].values)
-    assert ds_NASC["depth"].size == np.ceil(ds_Sv["depth"].max() / cell_depth)
-    assert ds_NASC["distance"].size == np.ceil(dist_nmi.max() / cell_dist)
+    assert da_NASC["depth"].size == np.ceil(ds_Sv["depth"].max() / cell_depth)
+    assert da_NASC["distance"].size == np.ceil(dist_nmi.max() / cell_dist)
