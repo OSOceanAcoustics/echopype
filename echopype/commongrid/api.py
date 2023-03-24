@@ -6,10 +6,15 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import xarray as xr
-from geopy import distance
 
 from ..utils.prov import echopype_prov_attrs
 from .mvbs import get_MVBS_along_channels
+from .nasc import (
+    check_identical_depth,
+    get_depth_bin_info,
+    get_dist_bin_info,
+    get_distance_from_latlon
+)
 
 
 def _set_MVBS_attrs(ds):
@@ -257,37 +262,65 @@ def compute_NASC(
     if "latitude" not in ds_Sv or "longitude" not in ds_Sv:
         raise ValueError("Both 'latitude' and 'longitude' must exist in the input Sv dataset.")
 
+    # Check if depth vectors are identical within each channel
+    if not ds_Sv["depth"].groupby("channel").map(check_identical_depth).all():
+        raise ValueError(
+            "Only Sv data with identical depth vectors across all pings "
+            "are allowed in the current compute_NASC implementation."
+        )
+
     # Get distance from lat/lon in nautical miles
-    ds_Sv = ds_Sv.dropna
-    df_pos = ds_Sv["latitude"].to_dataframe().join(ds_Sv["longitude"].to_dataframe())
-    df_pos["latitude_prev"] = df_pos["latitude"].shift(-1)
-    df_pos["longitude_prev"] = df_pos["longitude"].shift(-1)
-    df_latlon_nonan = df_pos.dropna()
-    df_latlon_nonan["dist"] = df_latlon_nonan.apply(
-        lambda x: distance.distance(
-            (x["latitude"], x["longitude"]),
-            (x["latitude_prev"], x["longitude_prev"]),
-        ).nm,
-        axis=1,
-    )
-    df_pos = df_pos.join(df_latlon_nonan["dist"], how="left")
-    df_pos["dist"] = df_pos["dist"].cumsum()
-    nan_ping_index = df_pos["dist"].isnull().values  # pings with NaN distance
-    df_pos.dropna(subset=["dist"], inplace=True)
+    dist_nmi = get_distance_from_latlon(ds_Sv)
 
     # Find binning indices along distance
-    cell_dist = 0.1
-    bin_num_dist = np.ceil(df_pos["dist"].max() / cell_dist)
-    digitized_dist = np.digitize(df_pos["dist"], np.arange(bin_num_dist) * cell_dist, right=False)
-    
-    # Find binning indices along depth
-    cell_depth = 20
+    bin_num_dist, dist_bin_idx = get_dist_bin_info(dist_nmi, cell_dist)  # dist_bin_idx is 1-based
 
-    # Compute mean Sv and mean height
+    # Find binning indices along depth: channel-dependent
+    bin_num_depth, depth_bin_idx = get_depth_bin_info(ds_Sv, cell_depth)  # depth_bin_idx is 1-based
+
+    # Compute mean sv (volume backscattering coefficient, linear scale)
+    # This is essentially to compute MVBS over a the cell defined here,
+    # which are typically larger than those used for MVBS.
+    # The implementation below is brute force looping, but can be optimized
+    # by experimenting with different delayed schemes.
+    # The optimized routines can then be used here and
+    # in commongrid.compute_MVBS and clean.estimate_noise
+    sv_mean = []
+    for ch_seq in np.arange(ds_Sv["channel"].size):
+        
+        # TODO: .compute each channel sequentially?
+        #       dask.delay within each channel?
+        ds_Sv_ch = ds_Sv["Sv"].isel(channel=ch_seq).data  # preserve the underlying type
+
+        sv_mean_dist_depth = []
+        for dist_idx in np.arange(bin_num_dist) + 1:  # along ping_time
+            sv_mean_depth = []
+            for depth_idx in np.arange(bin_num_depth) + 1:  # along depth
+                # Sv dim: ping_time x depth
+                Sv_cut = ds_Sv_ch[dist_idx == dist_bin_idx, :][:, depth_idx == depth_bin_idx[ch_seq]]
+                sv_mean_depth.append(np.nanmean(10 ** (Sv_cut / 10)))
+            sv_mean_dist_depth.append(sv_mean_depth)
+
+        sv_mean.append(sv_mean_dist_depth)
+    
+    # Compute mean height
+    # For data with uniform depth step size, mean height = vertical size of cell
+    height_mean = cell_depth
+    # TODO: generalize to variable depth step size
+
+    ds_NASC = xr.DataArray(
+        np.array(sv_mean) * height_mean,
+        dims=["channel", "distance", "depth"],
+        coords={
+            "channel": ds_Sv["channel"].values,
+            "distance": np.arange(bin_num_dist) * cell_dist,
+            "depth": np.arange(bin_num_depth) * cell_depth,
+        },
+    )
 
     # TODO: Attach attributes
 
-    # return ds_NASC
+    return ds_NASC
 
 
 def regrid():
