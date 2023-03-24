@@ -1,3 +1,5 @@
+import pytest
+
 import numpy as np
 
 from echopype import open_raw
@@ -12,9 +14,13 @@ from echopype.commongrid.nasc import (
 from echopype.consolidate import add_location, add_depth
 
 
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path['EK60']
 
-def test_compute_NASC():
-    raw_path = "/Users/wujung/Downloads/Summer2017-D20170620-T011027.raw"
+
+def test_compute_NASC(ek60_path):
+    raw_path = ek60_path / "ncei-wcsd/Summer2017-D20170620-T011027.raw"
 
     ed = open_raw(raw_path, sonar_model="EK60")
     ds_Sv = add_depth(add_location(compute_Sv(ed), ed, nmea_sentence="GGA"))
