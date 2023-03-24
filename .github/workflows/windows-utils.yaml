@@ -66,4 +66,4 @@ jobs:
             python -m pip install -e .
         - name: Running all Tests
           run: |
-            pytest -k 'not test_raw_to_mvbs' -vvv -rx --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings echopype/tests/utils |& tee ci_${{ matrix.python-version }}_test_log.log
+            pytest -k "not test_raw_to_mvbs" -vvv -rx --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings echopype/tests/utils |& tee ci_${{ matrix.python-version }}_test_log.log
