@@ -27,7 +27,7 @@ def check_identical_depth(ds_ch):
         return xr.DataArray(False, coords={"channel": ds_ch["channel"]})
     else:
         # max range of each ping should be identical
-        max_range_ping = ds_ch.values[np.arange(ds_ch.shape[0]), ds_ch.shape[1]-num_nan-1]
+        max_range_ping = ds_ch.values[np.arange(ds_ch.shape[0]), ds_ch.shape[1] - num_nan - 1]
         if np.unique(max_range_ping).size == 1:
             return xr.DataArray(True, coords={"channel": ds_ch["channel"]})
         else:
@@ -42,7 +42,7 @@ def get_depth_bin_info(ds_Sv, cell_depth):
     num_nan = np.isnan(depth_ping1.values).sum(axis=1)
     # ping 1 max range of each channel
     max_range_ch = depth_ping1.values[
-        np.arange(depth_ping1.shape[0]), depth_ping1.shape[1]-num_nan-1
+        np.arange(depth_ping1.shape[0]), depth_ping1.shape[1] - num_nan - 1
     ]
     bin_num_depth = np.ceil(max_range_ch.max() / cell_depth)  # use max range of all channel
     depth_bin_idx = [

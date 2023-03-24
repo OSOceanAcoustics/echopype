@@ -13,7 +13,7 @@ from .nasc import (
     check_identical_depth,
     get_depth_bin_info,
     get_dist_bin_info,
-    get_distance_from_latlon
+    get_distance_from_latlon,
 )
 
 
@@ -287,7 +287,6 @@ def compute_NASC(
     # in commongrid.compute_MVBS and clean.estimate_noise
     sv_mean = []
     for ch_seq in np.arange(ds_Sv["channel"].size):
-        
         # TODO: .compute each channel sequentially?
         #       dask.delay within each channel?
         ds_Sv_ch = ds_Sv["Sv"].isel(channel=ch_seq).data  # preserve the underlying type
@@ -297,12 +296,14 @@ def compute_NASC(
             sv_mean_depth = []
             for depth_idx in np.arange(bin_num_depth) + 1:  # along depth
                 # Sv dim: ping_time x depth
-                Sv_cut = ds_Sv_ch[dist_idx == dist_bin_idx, :][:, depth_idx == depth_bin_idx[ch_seq]]
+                Sv_cut = ds_Sv_ch[dist_idx == dist_bin_idx, :][
+                    :, depth_idx == depth_bin_idx[ch_seq]
+                ]
                 sv_mean_depth.append(np.nanmean(10 ** (Sv_cut / 10)))
             sv_mean_dist_depth.append(sv_mean_depth)
 
         sv_mean.append(sv_mean_dist_depth)
-    
+
     # Compute mean height
     # For data with uniform depth step size, mean height = vertical size of cell
     height_mean = cell_depth
