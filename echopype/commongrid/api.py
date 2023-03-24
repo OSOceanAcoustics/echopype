@@ -17,7 +17,7 @@ from .nasc import (
 )
 
 
-def _set_var_attrs(da, long_name, units, actual_range_round, standard_name=None):
+def _set_var_attrs(da, long_name, units, round_digits, standard_name=None):
     """
     Attach common attributes to DataArray variable.
 
@@ -29,7 +29,7 @@ def _set_var_attrs(da, long_name, units, actual_range_round, standard_name=None)
         Variable long_name attribute
     units : str
         Variable units attribute
-    actual_range_round : int
+    round_digits : int
         Number of digits after decimal point for rounding off actual_range
     standard_name : str
         CF standard_name, if available (optional)
@@ -39,8 +39,8 @@ def _set_var_attrs(da, long_name, units, actual_range_round, standard_name=None)
         "long_name": long_name,
         "units": units,
         "actual_range": [
-            round(float(da.min().values), actual_range_round),
-            round(float(da.max().values), actual_range_round),
+            round(float(da.min().values), round_digits),
+            round(float(da.max().values), round_digits),
         ],
     }
     if standard_name:
@@ -66,7 +66,7 @@ def _set_MVBS_attrs(ds):
         ds["Sv"],
         long_name="Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
         units="dB",
-        actual_range_round=2,
+        round_digits=2,
     )
 
 
@@ -355,7 +355,7 @@ def compute_NASC(
         ds_NASC["NASC"],
         long_name="Nautical Areal Scattering Coefficient (NASC, m2 nmi-2)",
         units="m2 nmi-2",
-        actual_range_round=3,
+        round_digits=3,
     )
     _set_var_attrs(ds_NASC["distance"], "Cumulative distance", "m", 3)
     _set_var_attrs(ds_NASC["depth"], "Cell depth", "m", 3, standard_name="depth")
