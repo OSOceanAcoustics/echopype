@@ -102,7 +102,7 @@ def _validate_and_collect_mask_input(
 
             # check source_ds coordinates
             if mask[mask_ind].dims == ("ping_time", "range_sample"):
-                raise ValueError("All masks must have dimensions ()'ping_time', 'range_sample')!")
+                raise ValueError("All masks must have dimensions ('ping_time', 'range_sample')!")
 
     else:
         if not isinstance(storage_options_mask, dict):
@@ -265,8 +265,8 @@ def apply_mask(
         mask that will be applied to ``var_name``.
     var_name: str, default="Sv"
         The Sv variable name in ``source_ds`` that the mask should be applied to.
-        This variables need to have coorindates ``ping_time`` and ``range_sample``,
-        and can optionally also ave coordinate ``channel``.
+        This variable needs to have coordinates ``ping_time`` and ``range_sample``,
+        and can optionally also have coordinate ``channel``.
         In the case of a multi-channel Sv data variable, the ``mask`` will be broadcast
         to all channels.
     fill_value: int, float, np.ndarray, or xr.DataArray, default=np.nan
