@@ -46,7 +46,7 @@ The `echopype` team is developing a clearly defined progression of data processi
 - Nautical Area Backscattering Coefficients (`NASC`), potentially partitioned into inferred sources of scattering
 - Summary statistics of echogram features (center_of_mass, dispersion, etc)
 - Taxon or species-level data labels (classification). May originate from a variety of methods, including frequency difference thresholds.
-- Biomass estimation
+- Estimated biomass, combined or partitioned into different taxonomic sources.
 
 
 ## References
