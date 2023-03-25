@@ -4,11 +4,11 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
-# v0.7.0 (2023 March 24)
+# v0.7.0 (2023 March 25)
 
 ## Overview
 
-This release includes new features to interface with Echoview ECS files for computing Sv, reorganization of computing functions into new subpackages, addition of data processing level attributes to data products from a subset of computing functions, a number of additions and changes associated with metadata, and bug fixes for environmental and calibration parameters intake for computing Sv.
+This release includes new features to interface with Echoview ECS files for computing Sv, reorganization of computing functions into new subpackages, addition of data processing level attributes to data products, and other improvements and bug fixes.
 
 ## New features and major changes
 - Allow using ECS for calibrating Simrad echosounders (#996, #1004)
@@ -25,6 +25,7 @@ This release includes new features to interface with Echoview ECS files for comp
 - Add global attributes for data processing levels (#1001).
   - This functionality is in a **beta** testing stage
   - See [data processing level specifications](https://echopype.readthedocs.io/en/stable/processing-levels.html) for functions and conditions under which such attributes are added
+- Expand `mask.apply_mask` to handle multi-channel Sv datasets (#1010)
 - Standardize sonar metadata for EK80 data (#992)
     - `sonar_serial_number` is now an empty global attribute, no longer a variable, as in the EK60 case
     - `transducer_name`, `transducer_serial_number`, `transceiver_serial_number` based on parser parameter `transducer_name`, `transducer_serial_number`, and `serial_number`, respectively
