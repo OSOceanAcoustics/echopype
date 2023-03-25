@@ -107,10 +107,8 @@ def test_raw_to_mvbs(
         freqAB = list(out_ds.frequency_nominal.values[:2])
         freqdiff_da = ep.mask.frequency_differencing(source_Sv=out_ds, freqAB=freqAB, operator=">", diff=5)
 
-        # Create a new, single-channel Sv variable in ds to pass to apply_mask.
-        # The resulting masked Sv will be single-channel.
-        out_ds["Sv_ch0"] = out_ds["Sv"].isel(channel=0).squeeze()
-        return ep.mask.apply_mask(source_ds=out_ds, var_name="Sv_ch0", mask=freqdiff_da)
+        # Apply mask to multi-channel Sv
+        return ep.mask.apply_mask(source_ds=out_ds, var_name="Sv", mask=freqdiff_da)
 
     # On Sv w/o noise removal
     ds = _freqdiff_applymask(Sv_ds)
@@ -123,6 +121,6 @@ def test_raw_to_mvbs(
     # ---- Compute MVBS
     # compute_MVBS expects a variable named "Sv"
     # No product level is assigned because at present compute_MVBS drops the lat/lon data associated with the input Sv dataset
-    ds = ds.rename_vars(name_dict={"Sv": "Sv_unmasked", "Sv_ch0": "Sv"})
+    # ds = ds.rename_vars(name_dict={"Sv": "Sv_unmasked", "Sv_ch0": "Sv"})
     mvbs_ds = ep.commongrid.compute_MVBS(ds, range_meter_bin=30, ping_time_bin='1min')
     _absence_test(mvbs_ds)
