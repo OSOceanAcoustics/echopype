@@ -102,9 +102,10 @@ def _validate_and_collect_mask_input(
 
             # check source_ds coordinates
             # sequence matters, so fix the tuple form
-            if (
-                mask[mask_ind].dims != ("ping_time", "range_sample")
-                and mask[mask_ind].dims != ("channel", "ping_time", "range_sample")
+            if mask[mask_ind].dims != ("ping_time", "range_sample") and mask[mask_ind].dims != (
+                "channel",
+                "ping_time",
+                "range_sample",
             ):
                 raise ValueError("All masks must have dimensions ('ping_time', 'range_sample')!")
 
