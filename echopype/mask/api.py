@@ -100,13 +100,13 @@ def _validate_and_collect_mask_input(
                     mask_val, engine=file_type, chunks={}, **storage_options_mask[mask_ind]
                 )
 
-            # check source_ds coordinates
-            # sequence matters, so fix the tuple form
-            if mask[mask_ind].dims != ("ping_time", "range_sample") and mask[mask_ind].dims != (
-                "channel",
-                "ping_time",
-                "range_sample",
-            ):
+            # check mask coordinates
+            # the coordinate sequence matters, so fix the tuple form
+            allowed_dims = [
+                ("ping_time", "range_sample"),
+                ("channel", "ping_time", "range_sample"),
+            ]
+            if mask[mask_ind].dims not in allowed_dims:
                 raise ValueError("All masks must have dimensions ('ping_time', 'range_sample')!")
 
     else:
