@@ -23,8 +23,8 @@ This release includes new features to interface with Echoview ECS files for comp
 - Add `commongrid.compute_NASC` (#1005)
   - The current implementation uses brute force looping for mean Sv computation, this will be refactored and optimized together with other functions requiring the same pattern in an upcoming release
 - Add global attributes for data processing levels (#1001).
-  - This functionality is in a **beta** testing stage.
-  - See **DOC** for functions and conditions under which such attributes are added
+  - This functionality is in a **beta** testing stage
+  - See [data processing level specifications](https://echopype.readthedocs.io/en/stable/processing-levels.html) for functions and conditions under which such attributes are added
 - Standardize sonar metadata for EK80 data (#992)
     - `sonar_serial_number` is now an empty global attribute, no longer a variable, as in the EK60 case
     - `transducer_name`, `transducer_serial_number`, `transceiver_serial_number` based on parser parameter `transducer_name`, `transducer_serial_number`, and `serial_number`, respectively
