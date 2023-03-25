@@ -19,6 +19,24 @@ str2ops = {
 }
 
 
+def _validate_source_ds(source_ds, storage_options_ds):
+    """
+    Validate the input ``source_ds`` and the associated ``storage_options_mask``.
+    """
+    # Validate the source_ds type or path (if it is provided)
+    source_ds, file_type = validate_source_ds_da(source_ds, storage_options_ds)
+
+    if isinstance(source_ds, str):
+        # open up Dataset using source_ds path
+        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
+
+    # Check source_ds coordinates
+    if "ping_time" not in source_ds or "echo_range" not in source_ds:
+        raise ValueError("'source_ds' must have coordinates 'ping_time' and 'range_sample'!")
+    
+    return source_ds
+
+
 def _validate_and_collect_mask_input(
     mask: Union[
         Union[xr.DataArray, str, pathlib.Path], List[Union[xr.DataArray, str, pathlib.Path]]
@@ -81,6 +99,10 @@ def _validate_and_collect_mask_input(
                 mask[mask_ind] = xr.open_dataarray(
                     mask_val, engine=file_type, chunks={}, **storage_options_mask[mask_ind]
                 )
+            
+            # check source_ds coordinates
+            if mask[mask_ind].dims == ("ping_time", "range_sample"):
+                raise ValueError("All masks must have dimensions ()'ping_time', 'range_sample')!")
 
     else:
         if not isinstance(storage_options_mask, dict):
@@ -214,13 +236,24 @@ def apply_mask(
     source_ds: xr.Dataset, str, or pathlib.Path
         Points to a Dataset that contains the variable the mask should be applied to
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
-        The mask(s) to be applied. Can be a single input or list that corresponds to
-        a DataArray or a path. If a path is provided this should point to a zarr or
-        netcdf file with only one data variable in it.
+        The mask(s) to be applied.
+        Can be a single input or list that corresponds to a DataArray or a path.
+        Each entry in the list must have dimensions ``('ping_time', 'range_sample')``.
+        Multi-channel masks are not currently supported.
+        If a path is provided this should point to a zarr or netcdf file with only
+        one data variable in it.
+        If the input ``mask`` is a list, a logical AND will be used to produce the final
+        mask that will be applied to ``var_name``.
     var_name: str, default="Sv"
-        The Sv variable name in ``source_ds`` that the mask should be applied to
+        The Sv variable name in ``source_ds`` that the mask should be applied to.
+        This variables need to have coorindates ``ping_time`` and ``range_sample``,
+        and can optionally also ave coordinate ``channel``.
+        In the case of a multi-channel Sv data variable, the ``mask`` will be broadcast
+        to all channels.
     fill_value: int, float, np.ndarray, or xr.DataArray, default=np.nan
-        Value(s) at masked indices
+        Value(s) at masked indices.
+        If ``fill_value`` is of type ``np.ndarray`` or ``xr.DataArray``,
+        it must have the same shape as each entry of ``mask``.
     storage_options_ds: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_ds``
@@ -234,32 +267,23 @@ def apply_mask(
     -------
     xr.Dataset
         A Dataset with the same format of ``source_ds`` with the mask(s) applied to ``var_name``
-
-    Notes
-    -----
-    If the input ``mask`` is a list, then a logical AND will be used to produce the final
-    mask that will be applied to ``var_name``.
     """
+    
+    # Validate the source_ds
+    source_ds = _validate_source_ds(source_ds, storage_options_ds)
 
-    # validate the source_ds type or path (if it is provided)
-    source_ds, file_type = validate_source_ds_da(source_ds, storage_options_ds)
-
-    if isinstance(source_ds, str):
-        # open up Dataset using source_ds path
-        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
-
-    # validate and form the mask input to be used downstream
+    # Validate and form the mask input to be used downstream
     mask = _validate_and_collect_mask_input(mask, storage_options_mask)
 
-    # ensure that var_name and fill_value were correctly provided
+    # Ensure that var_name and fill_value were correctly provided
     _check_var_name_fill_value(source_ds, var_name, fill_value)
 
-    # select data only, if fill_value is a DataArray (necessary since
+    # Select data only if fill_value is a DataArray (necessary since
     # xr.where(keep_attrs=True) is not functioning correctly)
     if isinstance(fill_value, xr.DataArray):
         fill_value = fill_value.data
 
-    # obtain final mask to be applied to var_name
+    # Obtain final mask to be applied to var_name
     if isinstance(mask, list):
         # perform a logical AND element-wise operation across the masks
         final_mask = np.logical_and.reduce(mask)
@@ -269,18 +293,34 @@ def apply_mask(
     else:
         final_mask = mask
 
-    # sanity check to make sure final_mask is the same shape as source_ds[var_name]
-    if final_mask.shape != source_ds[var_name].shape:
-        raise ValueError("Final constructed mask is not the same shape as source_ds[var_name]!")
+    # Sanity check: final_mask should be of the same shape as source_ds[var_name]
+    #               along the ping_time and range_sample dimensions
+    if "channel" in source_ds[var_name].coords:
+        source_ds_shape = source_ds[var_name].isel(channel=0).shape
+    else:
+        source_ds_shape = source_ds[var_name].shape
+    if final_mask.shape != source_ds_shape:
+        raise ValueError(
+            f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
+            "along the ping_time and range_sample dimensions!"
+        )
 
-    # apply the mask to var_name
-    var_name_masked = xr.where(final_mask, x=source_ds[var_name], y=fill_value, keep_attrs=True)
+    # Make sure fill_value and final_mask are expanded in dimensions
+    if "channel" in source_ds.coords:
+        if isinstance(fill_value, np.ndarray):
+            fill_value = np.array([fill_value] * source_ds["channel"].size)
+        final_mask = np.array([final_mask] * source_ds["channel"].size)
 
-    # obtain a shallow copy of source_ds
+    # Apply the mask to var_name
+    # Somehow keep_attrs=True errors out here, so will attach later
+    var_name_masked = xr.where(final_mask, x=source_ds[var_name], y=fill_value)
+
+    # Obtain a shallow copy of source_ds
     output_ds = source_ds.copy(deep=False)
 
-    # replace var_name with var_name_masked
+    # Replace var_name with var_name_masked
     output_ds[var_name] = var_name_masked
+    output_ds[var_name] = output_ds[var_name].assign_attrs(source_ds[var_name].attrs)
 
     # Add or modify variable and global (dataset) provenance attributes
     output_ds[var_name] = output_ds[var_name].assign_attrs(
