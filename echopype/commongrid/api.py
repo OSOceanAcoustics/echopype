@@ -1,6 +1,7 @@
 """
 Functions for enhancing the spatial and temporal coherence of data.
 """
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,42 @@ import xarray as xr
 
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .mvbs import get_MVBS_along_channels
+from .nasc import (
+    check_identical_depth,
+    get_depth_bin_info,
+    get_dist_bin_info,
+    get_distance_from_latlon,
+)
+
+
+def _set_var_attrs(da, long_name, units, round_digits, standard_name=None):
+    """
+    Attach common attributes to DataArray variable.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        DataArray that will receive attributes
+    long_name : str
+        Variable long_name attribute
+    units : str
+        Variable units attribute
+    round_digits : int
+        Number of digits after decimal point for rounding off actual_range
+    standard_name : str
+        CF standard_name, if available (optional)
+    """
+
+    da.attrs = {
+        "long_name": long_name,
+        "units": units,
+        "actual_range": [
+            round(float(da.min().values), round_digits),
+            round(float(da.max().values), round_digits),
+        ],
+    }
+    if standard_name:
+        da.attrs["standard_name"] = standard_name
 
 
 def _set_MVBS_attrs(ds):
@@ -25,14 +62,12 @@ def _set_MVBS_attrs(ds):
         "axis": "T",
     }
 
-    ds["Sv"].attrs = {
-        "long_name": "Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
-        "units": "dB",
-        "actual_range": [
-            round(float(ds["Sv"].min().values), 2),
-            round(float(ds["Sv"].max().values), 2),
-        ],
-    }
+    _set_var_attrs(
+        ds["Sv"],
+        long_name="Mean volume backscattering strength (MVBS, mean Sv re 1 m-1)",
+        units="dB",
+        round_digits=2,
+    )
 
 
 @add_processing_level("L3*")
@@ -218,6 +253,133 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     ds_MVBS = insert_input_processing_level(ds_MVBS, input_ds=ds_Sv)
 
     return ds_MVBS
+
+
+def compute_NASC(
+    ds_Sv: xr.Dataset,
+    cell_dist: Union[int, float],  # TODO: allow xr.DataArray
+    cell_depth: Union[int, float],  # TODO: allow xr.DataArray
+) -> xr.Dataset:
+    """
+    Compute Nautical Areal Scattering Coefficient (NASC) from an Sv dataset.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        A dataset containing Sv data.
+        The Sv dataset must contain ``latitude``, ``longitude``, and ``depth`` as data variables.
+    cell_dist: int, float
+        The horizontal size of each NASC cell, in nautical miles [nmi]
+    cell_depth: int, float
+        The vertical size of each NASC cell, in meters [m]
+
+    Returns
+    -------
+    xr.Dataset
+        A dataset containing NASC
+
+    Notes
+    -----
+    The NASC computation implemented here corresponds to the Echoview algorithm PRC_NASC
+    https://support.echoview.com/WebHelp/Reference/Algorithms/Analysis_Variables/PRC_ABC_and_PRC_NASC.htm#PRC_NASC  # noqa
+    The difference is that since in echopype masking of the Sv dataset is done explicitly using
+    functions in the ``mask`` subpackage so the computation only involves computing the
+    mean Sv and the mean height within each cell.
+
+    In addition, here the binning of pings into individual cells is based on the actual horizontal
+    distance computed from the latitude and longitude coordinates of each ping in the Sv dataset.
+    Therefore, both regular and irregular horizontal distance in the Sv dataset are allowed.
+    This is different from Echoview's assumption of constant ping rate, vessel speed, and sample
+    thickness when computing mean Sv.
+    """
+    # Check Sv contains lat/lon
+    if "latitude" not in ds_Sv or "longitude" not in ds_Sv:
+        raise ValueError("Both 'latitude' and 'longitude' must exist in the input Sv dataset.")
+
+    # Check if depth vectors are identical within each channel
+    if not ds_Sv["depth"].groupby("channel").map(check_identical_depth).all():
+        raise ValueError(
+            "Only Sv data with identical depth vectors across all pings "
+            "are allowed in the current compute_NASC implementation."
+        )
+
+    # Get distance from lat/lon in nautical miles
+    dist_nmi = get_distance_from_latlon(ds_Sv)
+
+    # Find binning indices along distance
+    bin_num_dist, dist_bin_idx = get_dist_bin_info(dist_nmi, cell_dist)  # dist_bin_idx is 1-based
+
+    # Find binning indices along depth: channel-dependent
+    bin_num_depth, depth_bin_idx = get_depth_bin_info(ds_Sv, cell_depth)  # depth_bin_idx is 1-based
+
+    # Compute mean sv (volume backscattering coefficient, linear scale)
+    # This is essentially to compute MVBS over a the cell defined here,
+    # which are typically larger than those used for MVBS.
+    # The implementation below is brute force looping, but can be optimized
+    # by experimenting with different delayed schemes.
+    # The optimized routines can then be used here and
+    # in commongrid.compute_MVBS and clean.estimate_noise
+    sv_mean = []
+    for ch_seq in np.arange(ds_Sv["channel"].size):
+        # TODO: .compute each channel sequentially?
+        #       dask.delay within each channel?
+        ds_Sv_ch = ds_Sv["Sv"].isel(channel=ch_seq).data  # preserve the underlying type
+
+        sv_mean_dist_depth = []
+        for dist_idx in np.arange(bin_num_dist) + 1:  # along ping_time
+            sv_mean_depth = []
+            for depth_idx in np.arange(bin_num_depth) + 1:  # along depth
+                # Sv dim: ping_time x depth
+                Sv_cut = ds_Sv_ch[dist_idx == dist_bin_idx, :][
+                    :, depth_idx == depth_bin_idx[ch_seq]
+                ]
+                sv_mean_depth.append(np.nanmean(10 ** (Sv_cut / 10)))
+            sv_mean_dist_depth.append(sv_mean_depth)
+
+        sv_mean.append(sv_mean_dist_depth)
+
+    # Compute mean height
+    # For data with uniform depth step size, mean height = vertical size of cell
+    height_mean = cell_depth
+    # TODO: generalize to variable depth step size
+
+    ds_NASC = xr.DataArray(
+        np.array(sv_mean) * height_mean,
+        dims=["channel", "distance", "depth"],
+        coords={
+            "channel": ds_Sv["channel"].values,
+            "distance": np.arange(bin_num_dist) * cell_dist,
+            "depth": np.arange(bin_num_depth) * cell_depth,
+        },
+        name="NASC",
+    ).to_dataset()
+
+    ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
+
+    # Attach attributes
+    _set_var_attrs(
+        ds_NASC["NASC"],
+        long_name="Nautical Areal Scattering Coefficient (NASC, m2 nmi-2)",
+        units="m2 nmi-2",
+        round_digits=3,
+    )
+    _set_var_attrs(ds_NASC["distance"], "Cumulative distance", "m", 3)
+    _set_var_attrs(ds_NASC["depth"], "Cell depth", "m", 3, standard_name="depth")
+
+    # Calculate and add ACDD bounding box global attributes
+    ds_NASC.attrs["Conventions"] = "CF-1.7,ACDD-1.3"
+    ds_NASC.attrs["time_coverage_start"] = np.datetime_as_string(
+        ds_Sv["ping_time"].min().values, timezone="UTC"
+    )
+    ds_NASC.attrs["time_coverage_end"] = np.datetime_as_string(
+        ds_Sv["ping_time"].max().values, timezone="UTC"
+    )
+    ds_NASC.attrs["geospatial_lat_min"] = round(float(ds_Sv["latitude"].min().values), 5)
+    ds_NASC.attrs["geospatial_lat_max"] = round(float(ds_Sv["latitude"].max().values), 5)
+    ds_NASC.attrs["geospatial_lon_min"] = round(float(ds_Sv["longitude"].min().values), 5)
+    ds_NASC.attrs["geospatial_lon_max"] = round(float(ds_Sv["longitude"].max().values), 5)
+
+    return ds_NASC
 
 
 def regrid():
