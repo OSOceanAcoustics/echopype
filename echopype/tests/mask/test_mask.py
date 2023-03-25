@@ -504,7 +504,7 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
     [
         (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]])),
         (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]])),
-        (2, 1, "var1", np.identity(2), None, np.array([[np.nan, np.nan], [np.nan, np.nan]]),
+        (2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
          False, np.array([[1, np.nan], [np.nan, 1]])),
         (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
                                                           coords={"channel": ["chan1"],

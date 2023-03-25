@@ -168,7 +168,7 @@ def _check_var_name_fill_value(
     if isinstance(fill_value, xr.DataArray):
         fill_value_shape = get_ch_shape(fill_value)
     elif isinstance(fill_value, np.ndarray):
-        fill_value_shape = fill_value_shape.squeeze().shape
+        fill_value_shape = fill_value.squeeze().shape
 
     source_ds_shape = get_ch_shape(source_ds[var_name])
 
@@ -292,6 +292,8 @@ def apply_mask(
     # xr.where(keep_attrs=True) is not functioning correctly)
     if isinstance(fill_value, xr.DataArray):
         fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
+    elif isinstance(fill_value, np.ndarray):
+        fill_value = fill_value.squeeze()  # squeeze out length=1 channel dimension
 
     # Obtain final mask to be applied to var_name
     if isinstance(mask, list):
