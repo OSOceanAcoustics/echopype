@@ -4,6 +4,44 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.7.0 (2023 March 25)
+
+## Overview
+
+This release includes new features to interface with Echoview ECS files for computing Sv, reorganization of computing functions into new subpackages, addition of data processing level attributes to data products, and other improvements and bug fixes.
+
+## New features and major changes
+- Allow using ECS for calibrating Simrad echosounders (#996, #1004)
+  - This functionality is in a **beta** testing stage
+  - Details of implementation may change and bugs are possible
+  - Expand ECS parser to accept frequency-dependent values in EK80 ECS files
+- Overhaul `env_params` to ensure correct intake for calibration (#985)
+  - Now allows using `env_params` entries that are xr.DataArrays
+- Move functions previously in `preprocess` subpackage to new subpackages (#993). Calling these functions from `preprocess` is deprecated and will be removed in v0.7.1.
+  - `clean`: `remove_noise`, `estimate_noise`
+  - `commongrid`: `compute_MVBS`, `compute_MVBS_index_binning`
+- Add `commongrid.compute_NASC` (#1005)
+  - The current implementation uses brute force looping for mean Sv computation, this will be refactored and optimized together with other functions requiring the same pattern in an upcoming release
+- Add global attributes for data processing levels (#1001).
+  - This functionality is in a **beta** testing stage
+  - See [data processing level specifications](https://echopype.readthedocs.io/en/stable/processing-levels.html) for functions and conditions under which such attributes are added
+- Expand `mask.apply_mask` to handle multi-channel Sv datasets (#1010)
+- Standardize sonar metadata for EK80 data (#992)
+    - `sonar_serial_number` is now an empty global attribute, no longer a variable, as in the EK60 case
+    - `transducer_name`, `transducer_serial_number`, `transceiver_serial_number` based on parser parameter `transducer_name`, `transducer_serial_number`, and `serial_number`, respectively
+
+## Bug fixes
+- Fix scaling bug for `beamwidth_alongship` and `beamwidth_athwartship` from CW-based parameters to values corresponding to center frequency of broadband transmit signals (#998)
+
+## Tests
+- Add more comprehensive tests for `add_location` (#1000)
+- Add test for splitbeam angle `ek80_CW_power` case (#994)
+- Add unit and integration tests for `env_params` intake for calibration (#985)
+
+
+
+
+
 # v0.6.4.1 (2023 March 15)
 
 ## Overview
