@@ -35,7 +35,7 @@ The `echopype` team is developing a clearly defined progression of data processi
 
 - `Sv` resampled to a common, high-resolution grid across channels
 - Mean Volume Backscattering Strength (`MVBS`)
-- `Sv` frequency difference across two channels resampled to a common grid
+- Masks applied to `Sv` based on different potential criteria, sources or calculations, such as frequency difference across two channels.
 - **L3A**: The above variables computed on L2A data
 - **L3B**: The above variables computed on L2B (filtered) data
 
