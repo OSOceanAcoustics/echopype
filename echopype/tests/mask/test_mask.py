@@ -420,7 +420,7 @@ def test_validate_and_collect_mask_input(
 
     # create coordinates that will be used by all DataArrays created
     coords = {"channel": ("channel", chan_vals, {"long_name": "channel name"}),
-              "x": np.arange(n), "y": np.arange(n)}
+              "ping_time": np.arange(n), "range_sample": np.arange(n)}
 
     # create input mask and obtain temporary directory, if it was created
     mask, _ = create_input_mask(mask_np, mask_file, coords, n_chan)
