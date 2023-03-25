@@ -500,37 +500,40 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
 
 
 @pytest.mark.parametrize(
-    ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth"),
+    ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth", "no_channel"),
     [
         # single_mask_default_fill
-        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]])),
+        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]]), False),
+        # single_mask_default_fill_no_channel
+        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]]), True),
         # single_mask_float_fill
-        (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]]), False),
         # single_mask_np_array_fill
         (2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
-         False, np.array([[1, np.nan], [np.nan, 1]])),
+         False, np.array([[1, np.nan], [np.nan, 1]]), False),
         # single_mask_DataArray_fill
         (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
                                                           coords={"channel": ["chan1"],
                                                                   "ping_time": [0, 1],
                                                                   "range_sample": [0, 1]}),
-         False, np.array([[1, np.nan], [np.nan, 1]])),
+         False, np.array([[1, np.nan], [np.nan, 1]]), False),
         # list_mask_all_np
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], [None, None], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]])),
+         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
         # single_mask_ds_delayed
-        (2, 1, "var1", np.identity(2), None, 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", np.identity(2), None, 2.0, True, np.array([[1, 2.0], [2.0, 1]]), False),
         # single_mask_as_path
-        (2, 1, "var1", np.identity(2), "test.zarr", 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
+        (2, 1, "var1", np.identity(2), "test.zarr", 2.0, True, np.array([[1, 2.0], [2.0, 1]]), False),
         # list_mask_all_path
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", "test1.zarr"], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]])),
+         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
         # list_mask_some_path
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", None], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]])),
+         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
     ],
     ids=[
         "single_mask_default_fill",
+        "single_mask_default_fill_no_channel",
         "single_mask_float_fill",
         "single_mask_np_array_fill",
         "single_mask_DataArray_fill",
@@ -545,7 +548,9 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
                     mask: Union[np.ndarray, List[np.ndarray]],
                     mask_file: Optional[Union[str, List[str]]],
                     fill_value: Union[int, float, np.ndarray, xr.DataArray],
-                    is_delayed: bool, var_masked_truth: np.ndarray):
+                    is_delayed: bool,
+                    var_masked_truth: np.ndarray,
+                    no_channel: bool):
     """
     Ensures that ``apply_mask`` functions correctly.
 
@@ -582,6 +587,11 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     var_masked_truth = xr.DataArray(data=np.stack([var_masked_truth for i in range(n_chan)]),
                                     coords=mock_ds[var_name].coords, attrs=mock_ds[var_name].attrs)
     var_masked_truth.name = mock_ds[var_name].name
+
+    if no_channel:
+        mock_ds = mock_ds.isel(channel=0)
+        mask = mask.isel(channel=0)
+        var_masked_truth = var_masked_truth.isel(channel=0)
 
     # apply the mask to var_name
     masked_ds = echopype.mask.apply_mask(source_ds=mock_ds, var_name=var_name, mask=mask,

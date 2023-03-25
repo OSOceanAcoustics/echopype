@@ -101,7 +101,11 @@ def _validate_and_collect_mask_input(
                 )
 
             # check source_ds coordinates
-            if mask[mask_ind].dims == ("ping_time", "range_sample"):
+            # sequence matters, so fix the tuple form
+            if (
+                mask[mask_ind].dims != ("ping_time", "range_sample")
+                and mask[mask_ind].dims != ("channel", "ping_time", "range_sample")
+            ):
                 raise ValueError("All masks must have dimensions ('ping_time', 'range_sample')!")
 
     else:
@@ -310,7 +314,7 @@ def apply_mask(
     # Sanity check: final_mask should be of the same shape as source_ds[var_name]
     #               along the ping_time and range_sample dimensions
     def get_ch_shape(da):
-        return da.isel(channel=0).shape if "channel" in da.coords else da.shape
+        return da.isel(channel=0).shape if "channel" in da.dims else da.shape
 
     source_ds_shape = get_ch_shape(source_ds[var_name])
     final_mask_shape = get_ch_shape(final_mask)
@@ -322,12 +326,12 @@ def apply_mask(
         )
 
     # Make sure fill_value and final_mask are expanded in dimensions
-    if "channel" in source_ds.coords:
+    if "channel" in source_ds.dims:
         if isinstance(fill_value, np.ndarray):
             fill_value = np.array([fill_value] * source_ds["channel"].size)
 
-        # final_mask is always an xr.DataArray
-        if "channel" in final_mask.coords:
+        # final_mask is always an xr.DataArray with at most length=1 channel dimension
+        if "channel" in final_mask.dims:
             final_mask = final_mask.isel(channel=0)
         final_mask = np.array([final_mask.data] * source_ds["channel"].size)
 
