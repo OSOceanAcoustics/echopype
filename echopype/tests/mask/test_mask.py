@@ -132,13 +132,13 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     # create mock var1 and var2 DataArrays
     mock_var1_da = xr.DataArray(data=np.stack(mock_var_data),
                                 coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
-                                        "x": np.arange(n), "y": np.arange(n)},
-                                attrs={"long_name": "variable 1"})
+                                        "ping_time": np.arange(n), "range_sample": np.arange(n)},
+                                attrs={"long_name": "coord 1"})
     mock_var2_da = xr.DataArray(data=np.stack(mock_var_data),
                                 coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
-                                        "x": np.arange(n),
-                                        "y": np.arange(n)},
-                                attrs={"long_name": "variable 2"})
+                                        "ping_time": np.arange(n),
+                                        "range_sample": np.arange(n)},
+                                attrs={"long_name": "coord 2"})
 
     # create mock Dataset
     mock_ds = xr.Dataset(data_vars={"var1": mock_var1_da, "var2": mock_var2_da})
@@ -504,7 +504,7 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
     [
         (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]])),
         (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]])),
-        (2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
+        (2, 1, "var1", np.identity(2), None, np.array([[np.nan, np.nan], [np.nan, np.nan]]),
          False, np.array([[1, np.nan], [np.nan, 1]])),
         (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
                                                           coords={"channel": ["chan1"],

@@ -31,7 +31,7 @@ def _validate_source_ds(source_ds, storage_options_ds):
         source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
 
     # Check source_ds coordinates
-    if "ping_time" not in source_ds or "echo_range" not in source_ds:
+    if "ping_time" not in source_ds or "range_sample" not in source_ds:
         raise ValueError("'source_ds' must have coordinates 'ping_time' and 'range_sample'!")
     
     return source_ds
@@ -162,10 +162,20 @@ def _check_var_name_fill_value(
         )
 
     # make sure that fill_values is the same shape as var_name, if it is an array
+    def get_ch_shape(da):
+        return da.isel(channel=0).shape if "channel" in da.coords else da.shape
+
+    if isinstance(fill_value, xr.DataArray):
+        fill_value_shape = get_ch_shape(fill_value)
+    elif isinstance(fill_value, np.ndarray):
+        fill_value_shape = fill_value_shape.squeeze().shape
+
+    source_ds_shape = get_ch_shape(source_ds[var_name])
+
     if isinstance(fill_value, (np.ndarray, xr.DataArray)) and (
-        fill_value.shape != source_ds[var_name].shape
+        fill_value_shape != source_ds_shape
     ):
-        raise ValueError("If fill_value is an array is must be of the same shape as var_name!")
+        raise ValueError(f"If fill_value is an array is must be of the same shape as {var_name}!")
 
 
 def _variable_prov_attrs(
@@ -281,7 +291,7 @@ def apply_mask(
     # Select data only if fill_value is a DataArray (necessary since
     # xr.where(keep_attrs=True) is not functioning correctly)
     if isinstance(fill_value, xr.DataArray):
-        fill_value = fill_value.data
+        fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
 
     # Obtain final mask to be applied to var_name
     if isinstance(mask, list):
@@ -295,11 +305,12 @@ def apply_mask(
 
     # Sanity check: final_mask should be of the same shape as source_ds[var_name]
     #               along the ping_time and range_sample dimensions
-    if "channel" in source_ds[var_name].coords:
-        source_ds_shape = source_ds[var_name].isel(channel=0).shape
-    else:
-        source_ds_shape = source_ds[var_name].shape
-    if final_mask.shape != source_ds_shape:
+    def get_ch_shape(da):
+        return da.isel(channel=0).shape if "channel" in da.coords else da.shape
+    source_ds_shape = get_ch_shape(source_ds[var_name])
+    final_mask_shape = get_ch_shape(final_mask)
+
+    if final_mask_shape != source_ds_shape:
         raise ValueError(
             f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
             "along the ping_time and range_sample dimensions!"
@@ -309,7 +320,11 @@ def apply_mask(
     if "channel" in source_ds.coords:
         if isinstance(fill_value, np.ndarray):
             fill_value = np.array([fill_value] * source_ds["channel"].size)
-        final_mask = np.array([final_mask] * source_ds["channel"].size)
+
+        # final_mask is always an xr.DataArray
+        if "channel" in final_mask.coords:
+            final_mask = final_mask.isel(channel=0)
+        final_mask = np.array([final_mask.data] * source_ds["channel"].size)
 
     # Apply the mask to var_name
     # Somehow keep_attrs=True errors out here, so will attach later
