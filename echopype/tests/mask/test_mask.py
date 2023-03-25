@@ -502,27 +502,44 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
 @pytest.mark.parametrize(
     ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth"),
     [
+        # single_mask_default_fill
         (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]])),
+        # single_mask_float_fill
         (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]])),
+        # single_mask_np_array_fill
         (2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
          False, np.array([[1, np.nan], [np.nan, 1]])),
+        # single_mask_DataArray_fill
         (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
                                                           coords={"channel": ["chan1"],
                                                                   "ping_time": [0, 1],
                                                                   "range_sample": [0, 1]}),
          False, np.array([[1, np.nan], [np.nan, 1]])),
+        # list_mask_all_np
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], [None, None], 2.0,
          False, np.array([[2.0, 2.0], [2.0, 1]])),
+        # single_mask_ds_delayed
         (2, 1, "var1", np.identity(2), None, 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
+        # single_mask_as_path
         (2, 1, "var1", np.identity(2), "test.zarr", 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
+        # list_mask_all_path
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", "test1.zarr"], 2.0,
          False, np.array([[2.0, 2.0], [2.0, 1]])),
+        # list_mask_some_path
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", None], 2.0,
          False, np.array([[2.0, 2.0], [2.0, 1]])),
     ],
-    ids=["single_mask_default_fill", "single_mask_float_fill", "single_mask_np_array_fill",
-         "single_mask_DataArray_fill", "list_mask_all_np", "single_mask_ds_delayed",
-         "single_mask_as_path", "list_mask_all_path", "list_mask_some_path"]
+    ids=[
+        "single_mask_default_fill",
+        "single_mask_float_fill",
+        "single_mask_np_array_fill",
+        "single_mask_DataArray_fill",
+        "list_mask_all_np",
+        "single_mask_ds_delayed",
+        "single_mask_as_path",
+        "list_mask_all_path",
+        "list_mask_some_path"
+    ]
 )
 def test_apply_mask(n: int, n_chan: int, var_name: str,
                     mask: Union[np.ndarray, List[np.ndarray]],
