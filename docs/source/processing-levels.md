@@ -43,7 +43,7 @@ The `echopype` team is developing a clearly defined progression of data processi
 
 **Description:** Acoustically derived biological features, involving further processing of L3 data that may include data reduction or incorporation of external sources of data.
 
-- Nautical Area Backscattering Coefficients (`NASC`)
+- Nautical Area Backscattering Coefficients (`NASC`), potentially partitioned into inferred sources of scattering
 - Summary statistics of echogram features (center_of_mass, dispersion, etc)
 - Taxon or species-level data labels (classification). May originate from a variety of methods, including frequency difference thresholds.
 - Biomass estimation
