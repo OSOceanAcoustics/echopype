@@ -104,10 +104,9 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     Parameters
     ----------
     n: int
-        The number of rows (``x``) and columns (``y``) of
-        each channel matrix
+        The ``ping_time`` and ``range_sample`` dimensions of each channel matrix
     n_chan: int
-        Determines the size of the ``channel`` coordinate
+        Size of the ``channel`` coordinate
     is_delayed: bool
         If True, the returned Dataset variables ``var1`` and ``var2`` will be
         a Dask arrays, else they will be in-memory arrays
@@ -115,9 +114,9 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     Returns
     -------
     xr.Dataset
-        A Dataset with coordinates ``channel, x, y`` and
-        variables ``var1, var2`` (with the created coordinates). The
-        variables will contain square matrices of ones for each ``channel``.
+        A Dataset containing data variables ``var1, var2`` with coordinates
+        ``('channel', 'ping_time', 'range_sample')``.
+        The variables are square matrices of ones for each ``channel``.
     """
 
     # construct channel values
@@ -133,12 +132,12 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     mock_var1_da = xr.DataArray(data=np.stack(mock_var_data),
                                 coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
                                         "ping_time": np.arange(n), "range_sample": np.arange(n)},
-                                attrs={"long_name": "coord 1"})
+                                attrs={"long_name": "variable 1"})
     mock_var2_da = xr.DataArray(data=np.stack(mock_var_data),
                                 coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
                                         "ping_time": np.arange(n),
                                         "range_sample": np.arange(n)},
-                                attrs={"long_name": "coord 2"})
+                                attrs={"long_name": "variable 2"})
 
     # create mock Dataset
     mock_ds = xr.Dataset(data_vars={"var1": mock_var1_da, "var2": mock_var2_da})
@@ -608,3 +607,60 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     if temp_dir:
         # remove the temporary directory, if it was created
         temp_dir.cleanup()
+
+
+@pytest.mark.parametrize(
+    ("source_has_ch", "mask_has_ch"),
+    [
+        (True, True),
+        (False, True),
+        (True, False),
+        (False, False),
+    ],
+    ids=[
+        "source_with_ch_mask_with_ch",
+        "source_no_ch_mask_with_ch",
+        "source_with_ch_mask_no_ch",
+        "source_no_ch_mask_no_ch",
+    ]
+)
+def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
+
+    source_ds = get_mock_source_ds_apply_mask(2, 3, False)
+    var_name = "var1"
+
+    if mask_has_ch:
+        mask = xr.DataArray(
+            np.array([np.identity(2)]),
+            coords={"channel": ["chA"], "ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        )
+    else:
+        mask = xr.DataArray(
+            np.identity(2),
+            coords={"ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs={"long_name": "mask_no_channel"},
+        )
+
+    if source_has_ch:
+        masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
+    else:
+        source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
+        var_name = f"{var_name}_ch0"
+        masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
+
+    # Output dimension will be the same as source
+    if source_has_ch:
+        truth_da = xr.DataArray(
+            np.array([[[1, np.nan], [np.nan, 1]]] * 3),
+            coords={"channel": ["chan1", "chan2", "chan3"], "ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs=source_ds[var_name].attrs
+        )
+    else:
+        truth_da = xr.DataArray(
+            [[1, np.nan], [np.nan, 1]],
+            coords={"ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs=source_ds[var_name].attrs
+        )        
+
+    assert masked_ds[var_name].equals(truth_da)
