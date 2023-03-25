@@ -149,7 +149,6 @@ def create_input_mask(
     mask: Union[np.ndarray, List[np.ndarray]],
     mask_file: Optional[Union[str, List[str]]],
     mask_coords: Union[xr.core.coordinates.DataArrayCoordinates, dict],
-    n_chan: int
 ):
     """
     A helper function that correctly constructs the mask input, so it can be
@@ -164,8 +163,6 @@ def create_input_mask(
         with file name ``mask_file``. This will then be used in ``apply_mask``.
     mask_coords: xr.core.coordinates.DataArrayCoordinates or dict
         The DataArray coordinates that should be used for each mask DataArray created
-    n_chan: int
-        Determines the size of the ``channel`` coordinate
     """
 
     # initialize temp_dir
@@ -185,8 +182,7 @@ def create_input_mask(
         for mask_ind in range(len(mask)):
 
             # form DataArray from given mask data
-            mask_da = xr.DataArray(data=[mask[mask_ind] for i in range(n_chan)],
-                                   coords=mask_coords, name='mask_' + str(mask_ind))
+            mask_da = xr.DataArray(data=[mask[mask_ind]], coords=mask_coords, name='mask_' + str(mask_ind))
 
             if mask_file[mask_ind] is None:
 
@@ -208,8 +204,7 @@ def create_input_mask(
     elif isinstance(mask, np.ndarray):
 
         # form DataArray from given mask data
-        mask_da = xr.DataArray(data=[mask for i in range(n_chan)],
-                               coords=mask_coords, name='mask_0')
+        mask_da = xr.DataArray(data=[mask], coords=mask_coords, name='mask_0')
 
         if mask_file is None:
 
@@ -422,7 +417,7 @@ def test_validate_and_collect_mask_input(
               "ping_time": np.arange(n), "range_sample": np.arange(n)}
 
     # create input mask and obtain temporary directory, if it was created
-    mask, _ = create_input_mask(mask_np, mask_file, coords, n_chan)
+    mask, _ = create_input_mask(mask_np, mask_file, coords)
 
     mask_out = _validate_and_collect_mask_input(mask=mask, storage_options_mask=storage_options_mask)
 
@@ -580,7 +575,7 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     mock_ds = get_mock_source_ds_apply_mask(n, n_chan, is_delayed)
 
     # create input mask and obtain temporary directory, if it was created
-    mask, temp_dir = create_input_mask(mask, mask_file, mock_ds.coords, n_chan)
+    mask, temp_dir = create_input_mask(mask, mask_file, mock_ds.coords)
 
     # create DataArray form of the known truth value
     var_masked_truth = xr.DataArray(data=np.stack([var_masked_truth for i in range(n_chan)]),
