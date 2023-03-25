@@ -15,7 +15,7 @@ The `echopype` team is developing a clearly defined progression of data processi
 
 ### Level 1 (L1)
 
-**Description:** Raw data packaged with ancillary information and converted and standardized to an open convention and standard data formats. May be distributed in the following two forms: 
+**Description:** Raw data packaged with ancillary information and converted and standardized to an open convention and standard data formats. May be distributed in the following two forms:
   - as sets of individual converted files as originally segmented into arbitrary time ranges during sensor file creation, or
   - compiled into larger granules corresponding to logical deployment intervals.
 
