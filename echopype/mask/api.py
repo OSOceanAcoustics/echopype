@@ -317,35 +317,38 @@ def apply_mask(
     def get_ch_shape(da):
         return da.isel(channel=0).shape if "channel" in da.dims else da.shape
 
-    source_ds_shape = get_ch_shape(source_ds[var_name])
+    # Below operate on the actual data array to be masked
+    source_da = source_ds[var_name]
+
+    source_da_shape = get_ch_shape(source_da)
     final_mask_shape = get_ch_shape(final_mask)
 
-    if final_mask_shape != source_ds_shape:
+    if final_mask_shape != source_da_shape:
         raise ValueError(
             f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
             "along the ping_time and range_sample dimensions!"
         )
 
-    # Make sure fill_value and final_mask are expanded in dimensions
-    if "channel" in source_ds.dims:
-        if isinstance(fill_value, np.ndarray):
-            fill_value = np.array([fill_value] * source_ds["channel"].size)
+    # final_mask is always an xr.DataArray with at most length=1 channel dimension
+    if "channel" in final_mask.dims:
+        final_mask = final_mask.isel(channel=0)
 
-        # final_mask is always an xr.DataArray with at most length=1 channel dimension
-        if "channel" in final_mask.dims:
-            final_mask = final_mask.isel(channel=0)
-        final_mask = np.array([final_mask.data] * source_ds["channel"].size)
+    # Make sure fill_value and final_mask are expanded in dimensions
+    if "channel" in source_da.dims:
+        if isinstance(fill_value, np.ndarray):
+            fill_value = np.array([fill_value] * source_da["channel"].size)
+        final_mask = np.array([final_mask.data] * source_da["channel"].size)
 
     # Apply the mask to var_name
     # Somehow keep_attrs=True errors out here, so will attach later
-    var_name_masked = xr.where(final_mask, x=source_ds[var_name], y=fill_value)
+    var_name_masked = xr.where(final_mask, x=source_da, y=fill_value)
 
     # Obtain a shallow copy of source_ds
     output_ds = source_ds.copy(deep=False)
 
     # Replace var_name with var_name_masked
     output_ds[var_name] = var_name_masked
-    output_ds[var_name] = output_ds[var_name].assign_attrs(source_ds[var_name].attrs)
+    output_ds[var_name] = output_ds[var_name].assign_attrs(source_da.attrs)
 
     # Add or modify variable and global (dataset) provenance attributes
     output_ds[var_name] = output_ds[var_name].assign_attrs(
