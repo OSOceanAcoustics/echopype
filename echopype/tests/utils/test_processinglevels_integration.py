@@ -1,3 +1,4 @@
+import sys
 import pytest
 
 import numpy as np
@@ -5,20 +6,25 @@ import xarray as xr
 import echopype as ep
 
 
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="Test data not available on windows tests")
+
+
 @pytest.mark.parametrize(
     ["sonar_model", "path_model", "raw_and_xml_paths", "extras"],
     [
-        (
+        pytest.param(
             "EK60",
             "EK60",
             ("Winter2017-D20170115-T150122.raw", None),
             {},
+            # marks=pytest.mark.skipif(sys.platform == "win32", reason="Test data not available on windows tests"),
         ),
-        (
+        pytest.param(
             "AZFP",
             "AZFP",
             ("17082117.01A", "17041823.XML"),
             {"longitude": -60.0, "latitude": 45.0, "salinity": 27.9, "pressure": 59},
+            # marks=pytest.mark.skipif(sys.platform == "win32", reason="Test data not available on windows tests"),
         ),
     ],
 )
