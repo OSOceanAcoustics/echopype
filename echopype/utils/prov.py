@@ -185,7 +185,7 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
         def _attrs_dict(processing_level):
             return {
                 "processing_level": processing_level,
-                "processing_level_url": "https://echopype.readthedocs.io/processing_levels",
+                "processing_level_url": "https://echopype.readthedocs.io/en/stable/processing-levels.html", # noqa
             }
 
         if not (
