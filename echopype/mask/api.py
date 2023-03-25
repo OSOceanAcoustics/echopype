@@ -123,7 +123,7 @@ def _validate_and_collect_mask_input(
 
 def _check_var_name_fill_value(
     source_ds: xr.Dataset, var_name: str, fill_value: Union[int, float, np.ndarray, xr.DataArray]
-) -> None:
+) -> Union[int, float, np.ndarray, xr.DataArray]:
     """
     Ensures that the inputs ``var_name`` and ``fill_value`` for the function
     ``apply_mask`` were appropriately provided.
@@ -136,6 +136,11 @@ def _check_var_name_fill_value(
         The variable name in ``source_ds`` that the mask should be applied to
     fill_value: int or float or np.ndarray or xr.DataArray
         Specifies the value(s) at false indices
+
+    Returns
+    -------
+    fill_value: int or float or np.ndarray or xr.DataArray
+        fill_value with sanitized dimensions
 
     Raises
     ------
@@ -161,21 +166,22 @@ def _check_var_name_fill_value(
             "The input fill_value must be of type int or " "float or np.ndarray or xr.DataArray!"
         )
 
-    # make sure that fill_values is the same shape as var_name, if it is an array
-    def get_ch_shape(da):
-        return da.isel(channel=0).shape if "channel" in da.coords else da.shape
+    # make sure that fill_values is the same shape as var_name
+    if isinstance(fill_value, (np.ndarray, xr.DataArray)):
+        if isinstance(fill_value, xr.DataArray):
+            fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
+        elif isinstance(fill_value, np.ndarray):
+            fill_value = fill_value.squeeze()  # squeeze out length=1 channel dimension
 
-    if isinstance(fill_value, xr.DataArray):
-        fill_value_shape = get_ch_shape(fill_value)
-    elif isinstance(fill_value, np.ndarray):
-        fill_value_shape = fill_value.squeeze().shape
+        source_ds_shape = (
+            source_ds[var_name].isel(channel=0).shape
+            if "channel" in source_ds[var_name].coords else source_ds[var_name].shape
+        )
 
-    source_ds_shape = get_ch_shape(source_ds[var_name])
+        if fill_value.shape != source_ds_shape:
+            raise ValueError(f"If fill_value is an array it must be of the same shape as {var_name}!")
 
-    if isinstance(fill_value, (np.ndarray, xr.DataArray)) and (
-        fill_value_shape != source_ds_shape
-    ):
-        raise ValueError(f"If fill_value is an array is must be of the same shape as {var_name}!")
+    return fill_value
 
 
 def _variable_prov_attrs(
@@ -285,15 +291,8 @@ def apply_mask(
     # Validate and form the mask input to be used downstream
     mask = _validate_and_collect_mask_input(mask, storage_options_mask)
 
-    # Ensure that var_name and fill_value were correctly provided
-    _check_var_name_fill_value(source_ds, var_name, fill_value)
-
-    # Select data only if fill_value is a DataArray (necessary since
-    # xr.where(keep_attrs=True) is not functioning correctly)
-    if isinstance(fill_value, xr.DataArray):
-        fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
-    elif isinstance(fill_value, np.ndarray):
-        fill_value = fill_value.squeeze()  # squeeze out length=1 channel dimension
+    # Check var_name and sanitize fill_value dimensions if an array
+    fill_value = _check_var_name_fill_value(source_ds, var_name, fill_value)
 
     # Obtain final mask to be applied to var_name
     if isinstance(mask, list):
