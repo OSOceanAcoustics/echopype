@@ -33,10 +33,11 @@ This release includes new features to interface with Echoview ECS files for comp
 ## Bug fixes
 - Fix scaling bug for `beamwidth_alongship` and `beamwidth_athwartship` from CW-based parameters to values corresponding to center frequency of broadband transmit signals (#998)
 
-## Tests
+## Tests and infrastructure
 - Add more comprehensive tests for `add_location` (#1000)
 - Add test for splitbeam angle `ek80_CW_power` case (#994)
 - Add unit and integration tests for `env_params` intake for calibration (#985)
+- Exclude `test_data` folder in `codespell` pre-commit hook (#1016)
 
 
 
