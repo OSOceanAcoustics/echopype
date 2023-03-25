@@ -76,7 +76,7 @@ def test_cal_params_intake_EK60(ek60_path):
     ed["Vendor_specific"]["gain_correction"].data[0, 1] = gain_ext.data[0]  # GPT  18 kHz 009072058c8d 1-1 ES18-11
     ed["Vendor_specific"]["gain_correction"].data[1, 2] = gain_ext.data[1]  # GPT  38 kHz 009072058146 2-1 ES38B
     ed["Vendor_specific"]["gain_correction"].data[2, 4] = gain_ext.data[2]  # GPT 120 kHz 00907205a6d0 4-1 ES120-7C
-    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK60(echodata=ed, env_params=None, cal_params=None)
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK60(echodata=ed, env_params=None, cal_params=None, ecs_file=None)
 
     # Check cal params ingested from both ways
     assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop("ping_time").identical(cal_params_manual["gain_correction"])

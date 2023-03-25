@@ -111,9 +111,7 @@ def test_plot_multi_get_range(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed["Environment"]['temperature'].mean('time1').values
-        )
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
@@ -149,9 +147,7 @@ def test_plot_Sv(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed["Environment"]['temperature'].mean('time1').values
-        )
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
@@ -177,9 +173,7 @@ def test_plot_mvbs(
     # TODO: Need to figure out how to compare the actual rendered plots
     ed = echopype.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed["Environment"]['temperature'].mean('time1').values
-        )
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
@@ -189,7 +183,7 @@ def test_plot_mvbs(
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
     Sv = echopype.calibrate.compute_Sv(ed, **range_kwargs)
-    mvbs = echopype.preprocess.compute_MVBS(Sv, ping_time_bin='10S')
+    mvbs = echopype.commongrid.compute_MVBS(Sv, ping_time_bin='10S')
 
     plots = []
     try:
@@ -231,6 +225,7 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
         echodata=echodata,
         env_params=range_kwargs.get("env_params", {}),
         cal_params=None,
+        ecs_file=None,
     )
     range_in_meter = cal_obj.range_meter
 

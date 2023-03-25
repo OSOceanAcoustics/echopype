@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 from ..utils.coding import set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
+from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
 from .sensor_ep_version_mapping import ep_version_mapper
 from .widgets.utils import tree_repr
@@ -260,6 +261,7 @@ class EchoData:
                         self._tree[group_path].ds = __value
         super().__setattr__(__name, attr_value)
 
+    @add_processing_level("L1A")
     def update_platform(
         self,
         extra_platform_data: xr.Dataset,
