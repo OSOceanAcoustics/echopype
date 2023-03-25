@@ -34,9 +34,9 @@ repos:
       - id: flake8
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.2
+    rev: v2.2.4
     hooks:
       - id: codespell
         # Checks spelling in `docs/source` and `echopype` dirs ONLY
         # Ignores `.ipynb` files and `_build` folders
-        args: ["--skip=*.ipynb,docs/source/_build", "-w", "docs/source", "echopype"]
+        args: ["--skip=*.ipynb,docs/source/_build,echopype/test_data", "-w", "docs/source", "echopype"]

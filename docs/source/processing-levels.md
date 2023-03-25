@@ -1,4 +1,4 @@
-# Proposed Echosounder Data Proccesing Levels (DRAFT)
+# Proposed Echosounder Data Processing Levels (DRAFT)
 
 The decades-long experience from the satellite remote sensing community has shown that a set of robust and well-articulated definitions of "data processing levels" [1]–[5] can lead directly to broad and highly productive use of data. Processing level designations also provide important context for data interpretation [6]. However, no such community agreement exists for active acoustic data. The ambiguity associated with the interoperability and inter-comparability of processed sonar data products has hindered efficient collaboration and integrative use of the rapidly growing data archive across research institutions and agencies.
 
