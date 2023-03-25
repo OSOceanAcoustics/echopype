@@ -33,7 +33,7 @@ def _validate_source_ds(source_ds, storage_options_ds):
     # Check source_ds coordinates
     if "ping_time" not in source_ds or "range_sample" not in source_ds:
         raise ValueError("'source_ds' must have coordinates 'ping_time' and 'range_sample'!")
-    
+
     return source_ds
 
 
@@ -99,7 +99,7 @@ def _validate_and_collect_mask_input(
                 mask[mask_ind] = xr.open_dataarray(
                     mask_val, engine=file_type, chunks={}, **storage_options_mask[mask_ind]
                 )
-            
+
             # check source_ds coordinates
             if mask[mask_ind].dims == ("ping_time", "range_sample"):
                 raise ValueError("All masks must have dimensions ()'ping_time', 'range_sample')!")
@@ -175,11 +175,14 @@ def _check_var_name_fill_value(
 
         source_ds_shape = (
             source_ds[var_name].isel(channel=0).shape
-            if "channel" in source_ds[var_name].coords else source_ds[var_name].shape
+            if "channel" in source_ds[var_name].coords
+            else source_ds[var_name].shape
         )
 
         if fill_value.shape != source_ds_shape:
-            raise ValueError(f"If fill_value is an array it must be of the same shape as {var_name}!")
+            raise ValueError(
+                f"If fill_value is an array it must be of the same shape as {var_name}!"
+            )
 
     return fill_value
 
@@ -284,7 +287,7 @@ def apply_mask(
     xr.Dataset
         A Dataset with the same format of ``source_ds`` with the mask(s) applied to ``var_name``
     """
-    
+
     # Validate the source_ds
     source_ds = _validate_source_ds(source_ds, storage_options_ds)
 
@@ -308,6 +311,7 @@ def apply_mask(
     #               along the ping_time and range_sample dimensions
     def get_ch_shape(da):
         return da.isel(channel=0).shape if "channel" in da.coords else da.shape
+
     source_ds_shape = get_ch_shape(source_ds[var_name])
     final_mask_shape = get_ch_shape(final_mask)
 
