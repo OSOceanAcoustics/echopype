@@ -8,7 +8,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This release includes new features to interface with Echoview ECS files for computing Sv, reorganization of computing functions into new subpackages, addition of data processing levels to data products from a subset of computing functions, a number of additions and changes associated with metadata, and bug fixes for environmental and calibration parameters intake for computing Sv.
+This release includes new features to interface with Echoview ECS files for computing Sv, reorganization of computing functions into new subpackages, addition of data processing level attributes to data products from a subset of computing functions, a number of additions and changes associated with metadata, and bug fixes for environmental and calibration parameters intake for computing Sv.
 
 ## New features and major changes
 - Allow using ECS for calibrating Simrad echosounders (#996, #1004)
@@ -17,12 +17,13 @@ This release includes new features to interface with Echoview ECS files for comp
   - Expand ECS parser to accept frequency-dependent values in EK80 ECS files
 - Overhaul `env_params` to ensure correct intake for calibration (#985)
   - Now allows using `env_params` entries that are xr.DataArrays
-- Move functions previously in  `preprocess` subpackage to new subpackages (#993)
+- Move functions previously in `preprocess` subpackage to new subpackages (#993). Calling these functions from `preprocess` is deprecated and will be removed in v0.7.1.
   - `clean`: `remove_noise`, `estimate_noise`
   - `commongrid`: `compute_MVBS`, `compute_MVBS_index_binning`
 - Add `commongrid.compute_NASC` (#1005)
   - The current implementation uses brute force looping for mean Sv computation, this will be refactored and optimized together with other functions requiring the same pattern in an upcoming release
-- Add global attributes for data processing levels (#1001)
+- Add global attributes for data processing levels (#1001).
+  - This functionality is in a **beta** testing stage.
   - See **DOC** for functions and conditions under which such attributes are added
 - Standardize sonar metadata for EK80 data (#992)
     - `sonar_serial_number` is now an empty global attribute, no longer a variable, as in the EK60 case
