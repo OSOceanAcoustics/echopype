@@ -51,7 +51,7 @@ jobs:
             python-version: ${{ matrix.python-version }}
             architecture: x64
         - name: Cache conda
-          uses: actions/cache@v3.2.5
+          uses: actions/cache@v3.3.1
           env:
             # Increase this value to reset cache if '.ci_helpers/py{0}.yaml' has not changed
             CACHE_NUMBER: 0

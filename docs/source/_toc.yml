@@ -20,6 +20,8 @@ parts:
     - file: data-format-processed
     - file: data-format-5to6
   - file: viz
+  - file: processing-levels
+    title: Processing levels
 - caption: Help & reference
   chapters:
   - file: api

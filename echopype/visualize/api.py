@@ -157,12 +157,14 @@ def create_echogram(
                         echodata=data,
                         env_params=range_kwargs.get("env_params", {}),
                         cal_params=None,
+                        ecs_file=None,
                     )
                 else:
                     cal_obj = CalibrateEK80(
                         echodata=data,
                         env_params=range_kwargs.get("env_params", {}),
                         cal_params=None,
+                        ecs_file=None,
                         waveform_mode=range_kwargs.get("waveform_mode", "CW"),
                         encode_mode=range_kwargs.get("encode_mode", "power"),
                     )
