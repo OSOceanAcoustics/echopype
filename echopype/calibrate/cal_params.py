@@ -49,10 +49,6 @@ EK80_DEFAULT_PARAMS = {
 }
 
 
-# TODO: need a function (something like "_check_param_freq_dep")
-# to check user input cal_params and env_params
-
-
 def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray]) -> xr.DataArray:
     """
     Organize individual parameter in scalar or list to xr.DataArray with channel coordinate.
@@ -88,7 +84,7 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
 
 def sanitize_user_cal_dict(
     sonar_type: Literal["EK60", "EK80", "AZFP"],
-    user_dict: Dict[str, Union[int, float, xr.DataArray]],
+    user_dict: Dict[str, Union[int, float, list, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
@@ -126,7 +122,7 @@ def sanitize_user_cal_dict(
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     #  -- transform params in scalar or list to xr.DataArray
-    #  -- directly pass through those that are xr.DataArray
+    #  -- directly pass through those that are xr.DataArray and pass the check for coordinates
     out_dict = dict.fromkeys(CAL_PARAMS[sonar_type])
     for p_name, p_val in user_dict.items():
         if p_name in out_dict:
@@ -470,14 +466,17 @@ def get_cal_params_EK(
                         if p in [
                             "angle_sensitivity_alongship",
                             "angle_sensitivity_athwartship",
+                        ]:
+                            BB_factor = freq_center / beam["frequency_nominal"]
+                        elif p in [
                             "beamwidth_alongship",
                             "beamwidth_athwartship",
                         ]:
-                            BB_factor = freq_center / beam["frequency_nominal"]
+                            BB_factor = beam["frequency_nominal"] / freq_center
                         else:
                             BB_factor = 1
 
-                        p_beam = PARAM_BEAM_NAME_MAP[p]
+                        p_beam = PARAM_BEAM_NAME_MAP[p]  # Beam_groupX data variable name
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,

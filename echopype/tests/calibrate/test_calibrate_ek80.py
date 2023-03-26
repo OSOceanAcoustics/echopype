@@ -83,7 +83,7 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
 
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
         echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
-        env_params={"formula_source": "FG"}, cal_params=None
+        env_params={"formula_absorption": "FG"}, cal_params=None
     )
 
     z_er = cal_obj.cal_params["impedance_receive"]
@@ -134,7 +134,7 @@ def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     encode_mode = "complex"
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
         echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
-        env_params={"formula_source": "FG"}, cal_params=None
+        env_params={"formula_absorption": "FG"}, cal_params=None
     )
 
     ch_sel = "WBT 714590-15 ES70-7C"
@@ -159,11 +159,11 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
     encode_mode = "complex"
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
         echodata=ed, waveform_mode=waveform_mode, encode_mode=encode_mode,
-        env_params={"formula_source": "FG"}, cal_params=None
+        env_params={"formula_absorption": "FG"}, cal_params=None
     )
 
     # Params needed
-    beam = cal_obj.echodata[cal_obj.ed_group].sel(channel=cal_obj.chan_sel)
+    beam = cal_obj.echodata[cal_obj.ed_beam_group].sel(channel=cal_obj.chan_sel)
     z_er = cal_obj.cal_params["impedance_receive"]
     z_et = cal_obj.cal_params["impedance_transmit"]
     fs = cal_obj.cal_params["receiver_sampling_frequency"]

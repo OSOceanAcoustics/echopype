@@ -1,13 +1,13 @@
-import numpy as np
-import pandas as pd
-import xarray as xr
-import echopype as ep
-import pytest
 import dask.array
+import numpy as np
 from numpy.random import default_rng
-
-from echopype.preprocess.mvbs import bin_and_mean_2d
+import pandas as pd
+import pytest
 from typing import Tuple, Iterable, Union
+import xarray as xr
+
+import echopype as ep
+from echopype.commongrid.mvbs import bin_and_mean_2d
 
 
 @pytest.fixture(
@@ -78,99 +78,6 @@ def test_data_samples(request, test_path):
         azfp_xml_path,
         range_kwargs,
     )
-
-
-def test_remove_noise():
-    """Test remove_noise on toy data"""
-
-    # Parameters for fake data
-    nchan, npings, nrange_samples = 1, 10, 100
-    chan = np.arange(nchan).astype(str)
-    ping_index = np.arange(npings)
-    range_sample = np.arange(nrange_samples)
-    data = np.ones(nrange_samples)
-
-    # Insert noise points
-    np.put(data, 30, -30)
-    np.put(data, 60, -30)
-    # Add more pings
-    data = np.array([data] * npings)
-    # Make DataArray
-    Sv = xr.DataArray(
-        [data],
-        coords=[
-            ('channel', chan),
-            ('ping_time', ping_index),
-            ('range_sample', range_sample),
-        ],
-    )
-    Sv.name = "Sv"
-    ds_Sv = Sv.to_dataset()
-
-    ds_Sv = ds_Sv.assign(
-        echo_range=xr.DataArray(
-            np.array([[np.linspace(0, 10, nrange_samples)] * npings]),
-            coords=Sv.coords,
-        )
-    )
-    ds_Sv = ds_Sv.assign(sound_absorption=0.001)
-    # Run noise removal
-    ds_Sv = ep.preprocess.remove_noise(
-        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
-    )
-
-    # Test if noise points are are nan
-    assert np.isnan(
-        ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=30)
-    )
-    assert np.isnan(
-        ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=60)
-    )
-
-    # Test remove noise on a normal distribution
-    np.random.seed(1)
-    data = np.random.normal(
-        loc=-100, scale=2, size=(nchan, npings, nrange_samples)
-    )
-    # Make Dataset to pass into remove_noise
-    Sv = xr.DataArray(
-        data,
-        coords=[
-            ('channel', chan),
-            ('ping_time', ping_index),
-            ('range_sample', range_sample),
-        ],
-    )
-    Sv.name = "Sv"
-    ds_Sv = Sv.to_dataset()
-    # Attach required echo_range and sound_absorption values
-    ds_Sv = ds_Sv.assign(
-        echo_range=xr.DataArray(
-            np.array([[np.linspace(0, 3, nrange_samples)] * npings]),
-            coords=Sv.coords,
-        )
-    )
-    ds_Sv = ds_Sv.assign(sound_absorption=0.001)
-    # Run noise removal
-    ds_Sv = ep.preprocess.remove_noise(
-        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
-    )
-    null = ds_Sv.Sv_corrected.isnull()
-    # Test to see if the right number of points are removed before the range gets too large
-    assert (
-        np.count_nonzero(null.isel(channel=0, range_sample=slice(None, 50)))
-        == 6
-    )
-
-
-def test_remove_noise_no_sound_absorption():
-    """
-    Tests remove_noise on toy data that does
-    not have sound absorption as a variable.
-    """
-
-    pytest.xfail(f"Tests for remove_noise have not been implemented" +
-                 " when no sound absorption is provided!")
 
 
 def _construct_MVBS_toy_data(
@@ -279,7 +186,7 @@ def test_compute_MVBS_index_binning():
     )
 
     # Binned MVBS test
-    ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
+    ds_MVBS = ep.commongrid.compute_MVBS_index_binning(
         ds_Sv, range_sample_num=range_sample_num, ping_num=ping_num
     )
     data_test = 10 ** (ds_MVBS.Sv / 10)  # Convert to linear domain
@@ -304,7 +211,7 @@ def _coll_test_comp_MVBS(ds_Sv, nchan, ping_num,
                          total_range, range_meter_bin):
     """A collection of tests for test_compute_MVBS"""
 
-    ds_MVBS = ep.preprocess.compute_MVBS(
+    ds_MVBS = ep.commongrid.compute_MVBS(
         ds_Sv,
         range_meter_bin=range_meter_bin,
         ping_time_bin=f'{ping_time_bin}S',
@@ -487,7 +394,7 @@ def test_compute_MVBS():
                          total_range, range_meter_bin)
 
 
-def test_preprocess_mvbs(test_data_samples):
+def test_commongrid_mvbs(test_data_samples):
     """
     Test running through from open_raw to compute_MVBS.
     """
@@ -499,9 +406,7 @@ def test_preprocess_mvbs(test_data_samples):
     ) = test_data_samples
     ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed["Environment"]['temperature'].mean('time1').values
-        )
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
@@ -511,7 +416,7 @@ def test_preprocess_mvbs(test_data_samples):
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
-    assert ep.preprocess.compute_MVBS(Sv) is not None
+    assert ep.commongrid.compute_MVBS(Sv) is not None
 
 
 def create_bins(csum_array: np.ndarray) -> Iterable:

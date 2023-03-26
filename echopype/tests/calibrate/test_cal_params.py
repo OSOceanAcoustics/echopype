@@ -399,9 +399,10 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
 #   - where all params are input by user
 #   - input xr.DataArray has coords/dims (cal_channel_id, cal_frequency)
 @pytest.mark.parametrize(
-    ("user_dict", "out_dict"),
+    ("user_dict", "out_dict", "freq_center_scaling"),
     [
         # input xr.DataArray has coords/dims (cal_channel_id, cal_frequency)
+        # no freq-related scaling: freq_center = beam_EK["frequency_nominal"]
         (
             {
                 "gain_correction": xr.DataArray(
@@ -413,7 +414,7 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                 # add sa_correction here to bypass things going into get_vend_cal_params_power
                 "sa_correction": xr.DataArray(
                     np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]},
-                )
+                ),
             },
             dict(
                 {
@@ -448,7 +449,58 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                     ),
                 },
             ),
+            1,  # no scaling of freq_center
         ),
+        # input xr.DataArray has coords/dims (cal_channel_id, cal_frequency)
+        # with freq-related scaling: freq_center != beam_EK["frequency_nominal"]
+        (
+            {
+                "gain_correction": xr.DataArray(
+                    np.array([[1, 2, 3, np.nan, np.nan, np.nan], [np.nan, np.nan, np.nan, 4, 5, 6]]),
+                    dims=["cal_channel_id", "cal_frequency"],
+                    coords={"cal_channel_id": ["chA", "chB"],
+                            "cal_frequency": [10, 20, 30, 40, 50, 60]},
+                ),
+                # add sa_correction here to bypass things going into get_vend_cal_params_power
+                "sa_correction": xr.DataArray(
+                    np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]},
+                ),
+            },
+            dict(
+                {
+                    p_name: xr.DataArray(
+                        [[123], [456]],
+                        dims=["channel", "ping_time"],
+                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                    )
+                    for p_name in CAL_PARAMS["EK80"]
+                },
+                **{
+                    "gain_correction": xr.DataArray(
+                        np.array([[2.5], [5.5]]) * 0.79,  # scaled by the factor as freq_center in function body
+                        dims=["channel", "ping_time"],
+                        coords={"ping_time": [1], "channel": ["chA", "chB"]},
+                    ),
+                    "sa_correction": xr.DataArray(
+                        np.array([111, 222]), dims=["channel"],
+                        coords={"channel": ["chA", "chB"]}
+                    ),
+                    "impedance_transmit": xr.DataArray(
+                        np.array([[75], [75]]), dims=["channel", "ping_time"],
+                        coords={"channel": ["chA", "chB"], "ping_time": [1]}
+                    ),
+                    "impedance_receive": xr.DataArray(
+                        np.array([1000, 2000]), dims=["channel"],
+                        coords={"channel": ["chA", "chB"]}
+                    ),
+                    "receiver_sampling_frequency": xr.DataArray(
+                        np.array([1500000, 1500000]), dims=["channel"],
+                        coords={"channel": ["chA", "chB"]}
+                    ),
+                },
+            ),
+            0.79,  # with scaling of freq_center
+        ),        
         pytest.param(
             {
                 "gain_correction": xr.DataArray(
@@ -459,19 +511,37 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                 ),
             },
             None,
+            1,
             marks=pytest.mark.xfail(strict=True, reason="Fail since cal_channel_id in input param does not match channel of data"),
         ),
+
     ],
     ids=[
-        "in_da_freq_dep",
+        "in_da_freq_dep_no_scaling",
+        "in_da_freq_dep_with_scaling",
         "in_da_freq_dep_channel_mismatch",
     ]
 )
-def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_dict):
+def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_dict, freq_center_scaling):
+
+    # If freq_center != beam_EK["frequency_nominal"], the following params will be scaled:
+    #   - angle_sensitivity_alongship/athwartship (by fc/fn)
+    #   - beamwidth_alongship/athwartship (by fn/fc)
+    #   - equivalent_beam_angle (by (fn/fc)^2)
+    freq_center = freq_center * freq_center_scaling  # scale by an arbitrary number
+    for p in ["angle_sensitivity_alongship", "angle_sensitivity_athwartship"]:
+        out_dict[p] = out_dict[p] * freq_center / beam_EK["frequency_nominal"]
+    for p in ["beamwidth_alongship", "beamwidth_athwartship"]:
+        out_dict[p] = out_dict[p] * beam_EK["frequency_nominal"] / freq_center
+    out_dict["equivalent_beam_angle"] = (
+        out_dict["equivalent_beam_angle"] + 20 * np.log10(beam_EK["frequency_nominal"] / freq_center)
+    )
+        
     cal_dict = get_cal_params_EK(
         waveform_mode="BB", freq_center=freq_center, beam=beam_EK, vend=vend_EK, user_dict=user_dict
     )
     for p_name, p_val in cal_dict.items():
+        print(p_name)
         # remove name for all da
         p_val.name = None
         out_val = out_dict[p_name]

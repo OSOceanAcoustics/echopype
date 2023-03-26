@@ -8,14 +8,20 @@ from .range import compute_range_AZFP
 
 
 class CalibrateAZFP(CalibrateBase):
-    def __init__(self, echodata: EchoData, env_params=None, cal_params=None, **kwargs):
-        super().__init__(echodata, env_params, cal_params)
+    def __init__(
+        self, echodata: EchoData, env_params=None, cal_params=None, ecs_file=None, **kwargs
+    ):
+        super().__init__(echodata, env_params, cal_params, ecs_file)
 
         # Set sonar_type
         self.sonar_type = "AZFP"
 
+        # Screen for ECS file: currently not support
+        if self.ecs_file is not None:
+            raise ValueError("Using ECS file for calibration is not currently supported for AZFP!")
+
         # load env and cal parameters
-        self.env_params = get_env_params_AZFP(echodata=self.echodata, user_env_dict=self.env_params)
+        self.env_params = get_env_params_AZFP(echodata=self.echodata, user_dict=self.env_params)
         self.cal_params = get_cal_params_AZFP(
             beam=self.echodata["Sonar/Beam_group1"],
             vend=self.echodata["Vendor_specific"],
