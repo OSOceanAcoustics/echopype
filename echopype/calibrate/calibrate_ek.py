@@ -481,7 +481,7 @@ class CalibrateEK80(CalibrateEK):
         tx_coeff = get_filter_coeff(vend)
         fs = self.cal_params["receiver_sampling_frequency"]
 
-        # Switch to use Anderson implementation for transmit chirp starting v0.6.4
+        # Switch to use Andersen implementation for transmit chirp starting v0.6.4
         tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
 
         # Params to clarity in use below

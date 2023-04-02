@@ -1276,7 +1276,7 @@ class SetGroupsEK80(SetGroupsBase):
             #                 f"{config[ch]['channel_id_short']}")
             cal_params = [
                 "gain",
-                "impedance",  # transducer impedance (z_et), different from transceiver impedance (z_er)
+                "impedance",  # transducer impedance (z_et), different from transceiver impedance (z_er)  # noqa
                 "phase",
                 "beamwidth_alongship",
                 "beamwidth_athwartship",
