@@ -192,8 +192,8 @@ class CalibrateEK60(CalibrateEK):
 class CalibrateEK80(CalibrateEK):
     # Default EK80 params: these parameters are only recorded in later versions of EK80 software
     EK80_params = {}
-    EK80_params["z_et"] = 75  # transmit impedance
-    EK80_params["z_er"] = 1000  # receive impedance
+    EK80_params["z_et"] = 75  # transducer impedance
+    EK80_params["z_er"] = 1000  # transceiver impedance
     EK80_params["fs"] = {  # default full sampling frequency [Hz]
         "default": 1500000,
         "GPT": 500000,
@@ -407,6 +407,10 @@ class CalibrateEK80(CalibrateEK):
             EchoData["Sonar/Beam_group1"] with selected channel subset
         chirp : dict
             a dictionary containing transmit chirp for BB channels
+        z_et : float
+            impedance of transducer [ohm]
+        z_er : float
+            impedance of transceiver [ohm]
 
         Returns
         -------
@@ -481,8 +485,8 @@ class CalibrateEK80(CalibrateEK):
         tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
 
         # Params to clarity in use below
-        z_er = self.cal_params["impedance_receive"]
-        z_et = self.cal_params["impedance_transmit"]
+        z_er = self.cal_params["impedance_transceiver"]
+        z_et = self.cal_params["impedance_transducer"]
         gain = self.cal_params["gain_correction"]
 
         # Transceiver gain compensation for BB mode

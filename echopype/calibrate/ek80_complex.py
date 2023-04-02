@@ -11,7 +11,7 @@ def tapered_chirp(
     transmit_duration_nominal,
     slope,
     transmit_power,
-    implementation="Anderson",
+    implementation="Andersen",
     z_et=None,
     frequency_nominal=None,
     frequency_start=None,
@@ -22,10 +22,10 @@ def tapered_chirp(
         frequency_start = frequency_nominal
         frequency_end = frequency_nominal
 
-    if implementation == "Macaulay":
-        # z_et is required for Macaulay implementation
+    if implementation == "Matlab":
+        # z_et is required for Matlab implementation
         if z_et is None:
-            raise ValueError("z_et is needed for Macaulay implementation of transmit chirp!")
+            raise ValueError("z_et is needed for Matlab implementation of transmit chirp!")
 
         t = np.arange(0, transmit_duration_nominal, 1 / fs)
         nwtx = int(2 * np.floor(slope * t.size))  # length of tapering window
@@ -44,8 +44,8 @@ def tapered_chirp(
         )  # taper and scale linear chirp
         return y_tmp / np.max(np.abs(y_tmp)), t  # amplitude needs to be normalized
 
-    elif implementation == "Anderson":
-        # Substitute to keep original form in Anderson implementation
+    elif implementation == "Andersen":
+        # Substitute to keep original form in Andersen implementation
         # source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/main/Core/Calculation.py  # noqa
         tau = transmit_duration_nominal
         f0 = frequency_start

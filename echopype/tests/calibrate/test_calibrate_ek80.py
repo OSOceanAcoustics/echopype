@@ -22,7 +22,7 @@ def ek80_ext_path(test_path):
 
 def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     """
-    Test transmit chirp reconstruction against Anderson et al. 2021/pyEcholab implementation
+    Test transmit chirp reconstruction against Andersen et al. 2021/pyEcholab implementation
     """
     ek80_raw_path = ek80_cal_path / "2018115-D20181213-T094600.raw"  # rx impedance / rx fs / tcvr type
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
@@ -86,8 +86,8 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
         env_params={"formula_absorption": "FG"}, cal_params=None
     )
 
-    z_er = cal_obj.cal_params["impedance_receive"]
-    z_et = cal_obj.cal_params["impedance_transmit"]
+    z_er = cal_obj.cal_params["impedance_transceiver"]
+    z_et = cal_obj.cal_params["impedance_transducer"]
     # B_theta_phi_m = cal_obj._get_B_theta_phi_m()
     params_BB_map = {
         # param name mapping: echopype (ep) : pyecholab (pyel)
@@ -164,8 +164,8 @@ def test_ek80_BB_power_Sv(ek80_cal_path, ek80_ext_path):
 
     # Params needed
     beam = cal_obj.echodata[cal_obj.ed_beam_group].sel(channel=cal_obj.chan_sel)
-    z_er = cal_obj.cal_params["impedance_receive"]
-    z_et = cal_obj.cal_params["impedance_transmit"]
+    z_er = cal_obj.cal_params["impedance_transceiver"]
+    z_et = cal_obj.cal_params["impedance_transducer"]
     fs = cal_obj.cal_params["receiver_sampling_frequency"]
     filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(ed["Vendor_specific"].sel(channel=cal_obj.chan_sel))
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs)
