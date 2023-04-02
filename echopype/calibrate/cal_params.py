@@ -25,16 +25,16 @@ CAL_PARAMS = {
         "angle_sensitivity_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
-        "impedance_transmit",  # z_et
-        "impedance_receive",  # z_er
+        "impedance_transducer",  # z_et
+        "impedance_transceiver",  # z_er
         "receiver_sampling_frequency",
     ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
 EK80_DEFAULT_PARAMS = {
-    "impedance_transmit": 75,
-    "impedance_receive": 1000,
+    "impedance_transducer": 75,
+    "impedance_transceiver": 1000,
     "receiver_sampling_frequency": {  # default full sampling frequency [Hz]
         "default": 1500000,
         "GPT": 500000,
@@ -203,7 +203,7 @@ def _get_interp_da(
 
     ``alternative`` can be one of the following:
 
-    - scalar (int or float): this is the case for impedance_transmit
+    - scalar (int or float): this is the case for impedance_transducer
     - xr.DataArray with coordinates channel, ping_time, and beam:
         this is the case for parameters angle_offset_alongship, angle_offset_athwartship,
                                         beamwidth_alongship, beamwidth_athwartship
@@ -431,12 +431,12 @@ def get_cal_params_EK(
             # Those without CW or BB complications
             if p == "sa_correction":  # pull from data file
                 out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-            elif p == "impedance_receive":  # from data file or default dict
-                out_dict[p] = default_params[p] if p not in vend else vend["impedance_receive"]
+            elif p == "impedance_transceiver":  # from data file or default dict
+                out_dict[p] = default_params[p] if p not in vend else vend["impedance_transceiver"]
             elif p == "receiver_sampling_frequency":  # from data file or default_params
                 out_dict[p] = _get_fs()
             else:
-                # CW: params do not require interpolation, except for impedance_transmit
+                # CW: params do not require interpolation, except for impedance_transducer
                 if waveform_mode == "CW":
                     if p in PARAM_BEAM_NAME_MAP.keys():
                         p_beam = PARAM_BEAM_NAME_MAP[p]
@@ -448,7 +448,7 @@ def get_cal_params_EK(
                     elif p == "gain_correction":
                         # pull from data file narrowband table
                         out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-                    elif p == "impedance_transmit":
+                    elif p == "impedance_transducer":
                         # assemble each channel from data file or default dict
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
@@ -497,7 +497,7 @@ def get_cal_params_EK(
                             freq_center=freq_center,
                             alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
                         )
-                    elif p == "impedance_transmit":
+                    elif p == "impedance_transducer":
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
