@@ -161,3 +161,17 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
 
     # check convention-required variables in the Platform group
     check_platform_required_vars(echodata)
+
+
+def test_convert_azfp_01a_notemperature(azfp_path):
+    """Test converting file with no temperature data."""
+    azfp_01a_path = str(azfp_path.joinpath('rutgers_glider_notemperature', '22052500.01A'))
+    azfp_xml_path = str(azfp_path.joinpath('rutgers_glider_notemperature', '22052501.XML'))
+
+    echodata = open_raw(
+        raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
+    )
+
+    # Temperature variable is present in the Environment group and its values are all nan
+    assert "temperature" in echodata["Environment"]
+    assert echodata["Environment"].temperature.isnull().all()
