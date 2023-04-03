@@ -112,9 +112,14 @@ class ParseAZFP(ParseBase):
             and the counts from ancillary
             """
             v_in = 2.5 * (counts / 65535)
+            # Occurs when temperature sensor is not active (eg, glider deployments)
+            if self.parameters["kc"] - v_in <= 0:
+                return np.nan
+
             R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
                 self.parameters["kc"] - v_in
             )
+
             # fmt: off
             T = 1 / (
                 self.parameters["A"]
