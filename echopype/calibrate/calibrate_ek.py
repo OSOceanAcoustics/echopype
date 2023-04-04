@@ -445,7 +445,10 @@ class CalibrateEK80(CalibrateEK):
         """
         Get transceiver gain compensation for BB mode.
 
-        ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274  # noqa
+        Source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/abd01f9c271bb2dbe558c80893dbd7eb0d06fe38/Core/EK80DataContainer.py#L261-L273  # noqa
+        From conversation with Lars Andersen, this correction is based on a longstanding
+        empirical formula used for fitting beampattern during calibration, based on
+        physically meaningful parameters such as the angle offset and beamwidth.
         """
         fac_along = (
             np.abs(-self.cal_params["angle_offset_alongship"])
