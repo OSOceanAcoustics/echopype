@@ -395,8 +395,8 @@ class CalibrateEK80(CalibrateEK):
         self,
         beam: xr.Dataset,
         chirp: Dict,
-        z_et,
-        z_er,
+        z_et: float,
+        z_er: float,
     ) -> xr.DataArray:
         """
         Get power from complex samples.
