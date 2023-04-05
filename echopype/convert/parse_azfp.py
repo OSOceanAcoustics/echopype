@@ -96,14 +96,21 @@ class ParseAZFP(ParseBase):
                 for ch in range(self.parameters["num_freq"])
             ]
 
-    def _compute_temp(self, counts, is_valid):
+    def _compute_temp(self, ping_num, is_valid):
         """
-        Returns the temperature in celsius given from xml data
-        and the counts from ancillary
+        Computes temperature in celsius.
+
+        Parameters
+        ----------
+        ping_num
+            ping number
+        is_valid
+            whether the associated parameters have valid values
         """
         if not is_valid:
             return np.nan
-
+        
+        counts = self.unpacked_data["ancillary"][ping_num][4]
         v_in = 2.5 * (counts / 65535)
         R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
             self.parameters["kc"] - v_in
@@ -118,10 +125,27 @@ class ParseAZFP(ParseBase):
         # fmt: on
         return T
 
-    def _compute_tilt(N, a, b, c, d, is_valid):
+    def _compute_tilt(self, ping_num, xy, is_valid):
+        """
+        Computes the instrument tilt.
+
+        Parameters
+        ----------
+        ping_num
+            ping number
+        xy
+            either "X" or "Y"
+        is_valid
+            whether the associated parameters have valid values
+        """
         if not is_valid:
             return np.nan
         else:
+            N = self.unpacked_data["ancillary"][ping_num][0]
+            a = self.parameters[f"{xy}_a"]
+            b = self.parameters[f"{xy}_b"]
+            c = self.parameters[f"{xy}_c"]
+            d = self.parameters[f"{xy}_d"]
             return a + b * N + c * N**2 + d * N**3
 
     def _compute_battery(N):
@@ -169,31 +193,15 @@ class ParseAZFP(ParseBase):
                             self._print_status()
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
                         self.unpacked_data["temperature"].append(
-                            self._compute_temp(
-                                self.unpacked_data["ancillary"][ping_num][4], temperature_is_valid
-                            )
+                            self._compute_temp(ping_num, temperature_is_valid)
                         )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         self.unpacked_data["tilt_x"].append(
-                            self._compute_tilt(
-                                self.unpacked_data["ancillary"][ping_num][0],
-                                self.parameters["X_a"],
-                                self.parameters["X_b"],
-                                self.parameters["X_c"],
-                                self.parameters["X_d"],
-                                tilt_x_is_valid,
-                            )
+                            self._compute_tilt(ping_num, "Y", tilt_x_is_valid)
                         )
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
                         self.unpacked_data["tilt_y"].append(
-                            self._compute_tilt(
-                                self.unpacked_data["ancillary"][ping_num][1],
-                                self.parameters["Y_a"],
-                                self.parameters["Y_b"],
-                                self.parameters["Y_c"],
-                                self.parameters["Y_d"],
-                                tilt_y_is_valid,
-                            )
+                            self._compute_tilt(ping_num, "Y", tilt_y_is_valid)
                         )
                         # Compute cos tilt magnitude from tilt x and y values
                         self.unpacked_data["cos_tilt_mag"].append(
