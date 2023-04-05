@@ -65,7 +65,7 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
         np.array(
             [ds_matlab_output['Output'][0]['N'][fidx] for fidx in range(4)]
         ),
-        echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop('beam').values,
+        echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop_vars('beam').values,
     )
 
     # Test vendor group
@@ -133,7 +133,7 @@ def test_convert_azfp_01a_raw_echoview(azfp_path):
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
-    assert np.array_equal(test_power, echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop('beam'))
+    assert np.array_equal(test_power, echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop_vars('beam')) # noqa
 
     # check convention-required variables in the Platform group
     check_platform_required_vars(echodata)
@@ -159,8 +159,8 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     check_platform_required_vars(echodata)
 
 
-def test_convert_azfp_01a_notemperature(azfp_path):
-    """Test converting file with no temperature data."""
+def test_convert_azfp_01a_notemperature_notilt(azfp_path):
+    """Test converting file with no valid temperature or tilt data."""
     azfp_01a_path = azfp_path / 'rutgers_glider_notemperature/22052500.01A'
     azfp_xml_path = azfp_path / 'rutgers_glider_notemperature/22052501.XML'
 
@@ -170,4 +170,10 @@ def test_convert_azfp_01a_notemperature(azfp_path):
 
     # Temperature variable is present in the Environment group and its values are all nan
     assert "temperature" in echodata["Environment"]
-    assert echodata["Environment"].temperature.isnull().all()
+    assert echodata["Environment"]["temperature"].isnull().all()
+
+    # Tilt variables are present in the Platform group and their values are all nan
+    assert "tilt_x" in echodata["Platform"]
+    assert "tilt_y" in echodata["Platform"]
+    assert echodata["Platform"]["tilt_x"].isnull().all()
+    assert echodata["Platform"]["tilt_y"].isnull().all()
