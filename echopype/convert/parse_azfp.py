@@ -175,8 +175,7 @@ class ParseAZFP(ParseBase):
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
                         self.unpacked_data["temperature"].append(
                             compute_temp(
-                                self.unpacked_data["ancillary"][ping_num][4],
-                                temperature_is_valid
+                                self.unpacked_data["ancillary"][ping_num][4], temperature_is_valid
                             )
                         )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
@@ -187,7 +186,7 @@ class ParseAZFP(ParseBase):
                                 self.parameters["X_b"],
                                 self.parameters["X_c"],
                                 self.parameters["X_d"],
-                                tilt_x_is_valid
+                                tilt_x_is_valid,
                             )
                         )
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
@@ -198,7 +197,7 @@ class ParseAZFP(ParseBase):
                                 self.parameters["Y_b"],
                                 self.parameters["Y_c"],
                                 self.parameters["Y_d"],
-                                tilt_y_is_valid
+                                tilt_y_is_valid,
                             )
                         )
                         # Compute cos tilt magnitude from tilt x and y values
