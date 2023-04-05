@@ -1,4 +1,3 @@
-import math
 import os
 import xml.dom.minidom
 from collections import defaultdict
@@ -171,8 +170,8 @@ class ParseAZFP(ParseBase):
         # fmt: off
         T = 1 / (
             self.parameters["A"]
-            + self.parameters["B"] * (math.log(R))
-            + self.parameters["C"] * (math.log(R) ** 3)
+            + self.parameters["B"] * (np.log(R))
+            + self.parameters["C"] * (np.log(R) ** 3)
         ) - 273
         # fmt: on
         return T
@@ -231,7 +230,7 @@ class ParseAZFP(ParseBase):
 
         # Set flags for presence of valid parameters for temperature and tilt
         def _test_valid_params(params):
-            if all([math.isclose(self.parameters[p], 0) for p in params]):
+            if all([np.isclose(self.parameters[p], 0) for p in params]):
                 return False
             else:
                 return True
@@ -269,14 +268,14 @@ class ParseAZFP(ParseBase):
                         )
                         # Compute cos tilt magnitude from tilt x and y values
                         self.unpacked_data["cos_tilt_mag"].append(
-                            math.cos(
+                            np.cos(
                                 (
-                                    math.sqrt(
+                                    np.sqrt(
                                         self.unpacked_data["tilt_x"][ping_num] ** 2
                                         + self.unpacked_data["tilt_y"][ping_num] ** 2
                                     )
                                 )
-                                * math.pi
+                                * np.pi
                                 / 180
                             )
                         )
