@@ -19,6 +19,9 @@ logger = _init_logger(__name__)
 class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder."""
 
+    HEADER_SIZE = 124
+    HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
+
     def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}):
         super().__init__(file, storage_options)
         # Parent class attributes
@@ -54,12 +57,14 @@ class ParseAZFP(ParseBase):
             "SensorsFlag": "sensors_flag",
         }
         float_params = [
+            # Temperature coeffs
             "ka",
             "kb",
             "kc",
             "A",
             "B",
-            "C",  # Temperature coeffs
+            "C",
+            # Tilt coeffs
             "X_a",
             "X_b",
             "X_c",
@@ -68,7 +73,7 @@ class ParseAZFP(ParseBase):
             "Y_b",
             "Y_c",
             "Y_d",
-        ]  # Tilt coeffs]
+        ]
         freq_params = {
             "RangeSamples": "range_samples",
             "RangeAveragingSamples": "range_averaging_samples",
@@ -96,7 +101,7 @@ class ParseAZFP(ParseBase):
                 for ch in range(self.parameters["num_freq"])
             ]
 
-    def _compute_temp(self, ping_num, is_valid):
+    def _compute_temperature(self, ping_num, is_valid):
         """
         Computes temperature in celsius.
 
@@ -157,10 +162,6 @@ class ParseAZFP(ParseBase):
         Parse raw data file from AZFP echosounder.
         """
 
-        # Instrument specific constants
-        HEADER_SIZE = 124
-        HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
-
         # Read xml file into dict
         self.load_AZFP_xml()
         fmap = fsspec.get_mapper(self.source_file, **self.storage_options)
@@ -180,9 +181,9 @@ class ParseAZFP(ParseBase):
             ping_num = 0
             eof = False
             while not eof:
-                header_chunk = file.read(HEADER_SIZE)
+                header_chunk = file.read(self.HEADER_SIZE)
                 if header_chunk:
-                    header_unpacked = unpack(HEADER_FORMAT, header_chunk)
+                    header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
 
                     # Reading will stop if the file contains an unexpected flag
                     if self._split_header(file, header_unpacked):
@@ -193,7 +194,7 @@ class ParseAZFP(ParseBase):
                             self._print_status()
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
                         self.unpacked_data["temperature"].append(
-                            self._compute_temp(ping_num, temperature_is_valid)
+                            self._compute_temperature(ping_num, temperature_is_valid)
                         )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         self.unpacked_data["tilt_x"].append(
