@@ -150,7 +150,7 @@ class ParseAZFP(ParseBase):
 
     def _compute_temperature(self, ping_num, is_valid):
         """
-        Computes temperature in celsius.
+        Compute temperature in celsius.
 
         Parameters
         ----------
@@ -179,7 +179,7 @@ class ParseAZFP(ParseBase):
 
     def _compute_tilt(self, ping_num, xy, is_valid):
         """
-        Computes the instrument tilt.
+        Compute instrument tilt.
 
         Parameters
         ----------
@@ -200,8 +200,24 @@ class ParseAZFP(ParseBase):
             d = self.parameters[f"{xy}_d"]
             return a + b * N + c * N**2 + d * N**3
 
-    def _compute_battery(N):
+    def _compute_battery(self, ping_num, battery_type):
+        """
+        Compute battery voltage.
+
+        Parameters
+        ----------
+        ping_num
+            ping number
+        type
+            either "main" or "tx"
+        """
         USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
+
+        if battery_type == "main":
+            N = self.unpacked_data["ancillary"][ping_num][2]
+        elif battery_type == "tx":
+            N = self.unpacked_data["ad"][ping_num][0]
+
         return N * USL5_BAT_CONSTANT
 
     def parse_raw(self):
@@ -266,11 +282,11 @@ class ParseAZFP(ParseBase):
                         )
                         # Calculate voltage of main battery pack
                         self.unpacked_data["battery_main"].append(
-                            self._compute_battery(self.unpacked_data["ancillary"][ping_num][2])
+                            self._compute_battery(ping_num, battery_type="main")
                         )
                         # If there is a Tx battery pack
                         self.unpacked_data["battery_tx"].append(
-                            self._compute_battery(self.unpacked_data["ad"][ping_num][0])
+                            self._compute_battery(ping_num, battery_type="tx")
                         )
                     else:
                         break
