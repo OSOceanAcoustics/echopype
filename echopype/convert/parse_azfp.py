@@ -160,12 +160,10 @@ class ParseAZFP(ParseBase):
         """
         if not is_valid:
             return np.nan
-        
+
         counts = self.unpacked_data["ancillary"][ping_num][4]
         v_in = 2.5 * (counts / 65535)
-        R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
-            self.parameters["kc"] - v_in
-        )
+        R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (self.parameters["kc"] - v_in)
 
         # fmt: off
         T = 1 / (
