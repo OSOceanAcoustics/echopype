@@ -96,47 +96,42 @@ class ParseAZFP(ParseBase):
                 for ch in range(self.parameters["num_freq"])
             ]
 
-    def parse_raw(self):
-        """Parse raw data file from AZFP echosounder.
-
-        Parameters
-        ----------
-        raw : list
-            raw filename
+    def _compute_temp(self, counts, is_valid):
         """
+        Returns the temperature in celsius given from xml data
+        and the counts from ancillary
+        """
+        if not is_valid:
+            return np.nan
 
-        # Start of computation subfunctions
-        def compute_temp(counts, is_valid):
-            """
-            Returns the temperature in celsius given from xml data
-            and the counts from ancillary
-            """
-            if not is_valid:
-                return np.nan
+        v_in = 2.5 * (counts / 65535)
+        R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
+            self.parameters["kc"] - v_in
+        )
 
-            v_in = 2.5 * (counts / 65535)
-            R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
-                self.parameters["kc"] - v_in
-            )
+        # fmt: off
+        T = 1 / (
+            self.parameters["A"]
+            + self.parameters["B"] * (math.log(R))
+            + self.parameters["C"] * (math.log(R) ** 3)
+        ) - 273
+        # fmt: on
+        return T
 
-            # fmt: off
-            T = 1 / (
-                self.parameters["A"]
-                + self.parameters["B"] * (math.log(R))
-                + self.parameters["C"] * (math.log(R) ** 3)
-            ) - 273
-            # fmt: on
-            return T
+    def _compute_tilt(N, a, b, c, d, is_valid):
+        if not is_valid:
+            return np.nan
+        else:
+            return a + b * N + c * N**2 + d * N**3
 
-        def compute_tilt(N, a, b, c, d, is_valid):
-            if not is_valid:
-                return np.nan
-            else:
-                return a + b * N + c * N**2 + d * N**3
+    def _compute_battery(N):
+        USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
+        return N * USL5_BAT_CONSTANT
 
-        def compute_battery(N):
-            USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
-            return N * USL5_BAT_CONSTANT
+    def parse_raw(self):
+        """
+        Parse raw data file from AZFP echosounder.
+        """
 
         # Instrument specific constants
         HEADER_SIZE = 124
@@ -174,13 +169,13 @@ class ParseAZFP(ParseBase):
                             self._print_status()
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
                         self.unpacked_data["temperature"].append(
-                            compute_temp(
+                            self._compute_temp(
                                 self.unpacked_data["ancillary"][ping_num][4], temperature_is_valid
                             )
                         )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         self.unpacked_data["tilt_x"].append(
-                            compute_tilt(
+                            self._compute_tilt(
                                 self.unpacked_data["ancillary"][ping_num][0],
                                 self.parameters["X_a"],
                                 self.parameters["X_b"],
@@ -191,7 +186,7 @@ class ParseAZFP(ParseBase):
                         )
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
                         self.unpacked_data["tilt_y"].append(
-                            compute_tilt(
+                            self._compute_tilt(
                                 self.unpacked_data["ancillary"][ping_num][1],
                                 self.parameters["Y_a"],
                                 self.parameters["Y_b"],
@@ -215,11 +210,11 @@ class ParseAZFP(ParseBase):
                         )
                         # Calculate voltage of main battery pack
                         self.unpacked_data["battery_main"].append(
-                            compute_battery(self.unpacked_data["ancillary"][ping_num][2])
+                            self._compute_battery(self.unpacked_data["ancillary"][ping_num][2])
                         )
                         # If there is a Tx battery pack
                         self.unpacked_data["battery_tx"].append(
-                            compute_battery(self.unpacked_data["ad"][ping_num][0])
+                            self._compute_battery(self.unpacked_data["ad"][ping_num][0])
                         )
                     else:
                         break
