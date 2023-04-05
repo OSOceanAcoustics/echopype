@@ -283,8 +283,8 @@ class SetGroupsAZFP(SetGroupsBase):
                     {
                         "long_name": "Interval between recorded raw data samples",
                         "units": "s",
-                        "valid_min": 0.0
-                    }
+                        "valid_min": 0.0,
+                    },
                 ),
                 "transmit_duration_nominal": (
                     ["channel"],
