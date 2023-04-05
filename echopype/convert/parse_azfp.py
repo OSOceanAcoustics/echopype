@@ -12,6 +12,93 @@ from ..utils.log import _init_logger
 from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+.01A"
+XML_INT_PARAMS = {
+    "NumFreq": "num_freq",
+    "SerialNumber": "serial_number",
+    "BurstInterval": "burst_interval",
+    "PingsPerBurst": "pings_per_burst",
+    "AverageBurstPings": "average_burst_pings",
+    "SensorsFlag": "sensors_flag",
+}
+XML_FLOAT_PARAMS = [
+    # Temperature coeffs
+    "ka",
+    "kb",
+    "kc",
+    "A",
+    "B",
+    "C",
+    # Tilt coeffs
+    "X_a",
+    "X_b",
+    "X_c",
+    "X_d",
+    "Y_a",
+    "Y_b",
+    "Y_c",
+    "Y_d",
+]
+XML_FREQ_PARAMS = {
+    "RangeSamples": "range_samples",
+    "RangeAveragingSamples": "range_averaging_samples",
+    "DigRate": "dig_rate",
+    "LockOutIndex": "lockout_index",
+    "Gain": "gain",
+    "PulseLen": "pulse_length",
+    "DS": "DS",
+    "EL": "EL",
+    "TVR": "TVR",
+    "VTX0": "VTX",
+    "BP": "BP",
+}
+HEADER_FIELDS = (
+    ("profile_flag", "u2"),
+    ("profile_number", "u2"),
+    ("serial_number", "u2"),
+    ("ping_status", "u2"),
+    ("burst_int", "u4"),
+    ("year", "u2"),  # Year
+    ("month", "u2"),  # Month
+    ("day", "u2"),  # Day
+    ("hour", "u2"),  # Hour
+    ("minute", "u2"),  # Minute
+    ("second", "u2"),  # Second
+    ("hundredths", "u2"),  # Hundredths of a second
+    ("dig_rate", "u2", 4),  # Digitalization rate for each channel
+    ("lockout_index", "u2", 4),  # Lockout index for each channel
+    ("num_bins", "u2", 4),  # Number of bins for each channel
+    (
+        "range_samples_per_bin",
+        "u2",
+        4,
+    ),  # Range samples per bin for each channel
+    ("ping_per_profile", "u2"),  # Number of pings per profile
+    ("avg_pings", "u2"),  # Flag indicating whether the pings average in time
+    ("num_acq_pings", "u2"),  # Pings acquired in the burst
+    ("ping_period", "u2"),  # Ping period in seconds
+    ("first_ping", "u2"),
+    ("last_ping", "u2"),
+    (
+        "data_type",
+        "u1",
+        4,
+    ),  # Datatype for each channel 1=Avg unpacked_data (5bytes), 0=raw (2bytes)
+    ("data_error", "u2"),  # Error number is an error occurred
+    ("phase", "u1"),  # Phase number used to acquire this profile
+    ("overrun", "u1"),  # 1 if an overrun occurred
+    ("num_chan", "u1"),  # 1, 2, 3, or 4
+    ("gain", "u1", 4),  # gain channel 1-4
+    ("spare_chan", "u1"),  # spare channel
+    ("pulse_length", "u2", 4),  # Pulse length chan 1-4 uS
+    ("board_num", "u2", 4),  # The board the data came from channel 1-4
+    ("frequency", "u2", 4),  # frequency for channel 1-4 in kHz
+    (
+        "sensor_flag",
+        "u2",
+    ),  # Flag indicating if pressure sensor or temperature sensor is available
+    ("ancillary", "u2", 5),  # Tilt-X, Y, Battery, Pressure, Temperature
+    ("ad", "u2", 2),  # AD channel 6 and 7
+)
 
 logger = _init_logger(__name__)
 
@@ -19,8 +106,10 @@ logger = _init_logger(__name__)
 class ParseAZFP(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder."""
 
+    # Instrument specific constants
     HEADER_SIZE = 124
     HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
+    FILE_TYPE = 64770
 
     def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}):
         super().__init__(file, storage_options)
@@ -43,59 +132,17 @@ class ParseAZFP(ParseBase):
             """Returns the value in an XML tag given the tag name and the number of occurrences."""
             return px.getElementsByTagName(tag_name)[element].childNodes[0].data
 
-        # TODO: consider writing a ParamAZFPxml class for storing parameters
-
         xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
         px = xml.dom.minidom.parse(xmlmap.fs.open(xmlmap.root))
 
-        int_params = {
-            "NumFreq": "num_freq",
-            "SerialNumber": "serial_number",
-            "BurstInterval": "burst_interval",
-            "PingsPerBurst": "pings_per_burst",
-            "AverageBurstPings": "average_burst_pings",
-            "SensorsFlag": "sensors_flag",
-        }
-        float_params = [
-            # Temperature coeffs
-            "ka",
-            "kb",
-            "kc",
-            "A",
-            "B",
-            "C",
-            # Tilt coeffs
-            "X_a",
-            "X_b",
-            "X_c",
-            "X_d",
-            "Y_a",
-            "Y_b",
-            "Y_c",
-            "Y_d",
-        ]
-        freq_params = {
-            "RangeSamples": "range_samples",
-            "RangeAveragingSamples": "range_averaging_samples",
-            "DigRate": "dig_rate",
-            "LockOutIndex": "lockout_index",
-            "Gain": "gain",
-            "PulseLen": "pulse_length",
-            "DS": "DS",
-            "EL": "EL",
-            "TVR": "TVR",
-            "VTX0": "VTX",
-            "BP": "BP",
-        }
-
         # Retrieve integer parameters from the xml file
-        for old_name, new_name in int_params.items():
+        for old_name, new_name in XML_INT_PARAMS.items():
             self.parameters[new_name] = int(get_value_by_tag_name(old_name))
         # Retrieve floating point parameters from the xml file
-        for param in float_params:
+        for param in XML_FLOAT_PARAMS:
             self.parameters[param] = float(get_value_by_tag_name(param))
         # Retrieve frequency dependent parameters from the xml file
-        for old_name, new_name in freq_params.items():
+        for old_name, new_name in XML_FREQ_PARAMS.items():
             self.parameters[new_name] = [
                 float(get_value_by_tag_name(old_name, ch))
                 for ch in range(self.parameters["num_freq"])
@@ -233,6 +280,7 @@ class ParseAZFP(ParseBase):
                 ping_num += 1
         self._check_uniqueness()
         self._get_ping_time()
+
         # Explicitly cast frequency to a float in accordance with the SONAR-netCDF4 convention
         self.unpacked_data["frequency"] = self.unpacked_data["frequency"].astype(np.float64)
 
@@ -246,59 +294,6 @@ class ParseAZFP(ParseBase):
         for key, val in self.parameters.items():
             if isinstance(val, list):
                 self.parameters[key] = np.asarray(val)
-
-    @staticmethod
-    def _get_fields():
-        """Returns the fields contained in each header of the raw file."""
-        _fields = (
-            ("profile_flag", "u2"),
-            ("profile_number", "u2"),
-            ("serial_number", "u2"),
-            ("ping_status", "u2"),
-            ("burst_int", "u4"),
-            ("year", "u2"),  # Year
-            ("month", "u2"),  # Month
-            ("day", "u2"),  # Day
-            ("hour", "u2"),  # Hour
-            ("minute", "u2"),  # Minute
-            ("second", "u2"),  # Second
-            ("hundredths", "u2"),  # Hundredths of a second
-            ("dig_rate", "u2", 4),  # Digitalization rate for each channel
-            ("lockout_index", "u2", 4),  # Lockout index for each channel
-            ("num_bins", "u2", 4),  # Number of bins for each channel
-            (
-                "range_samples_per_bin",
-                "u2",
-                4,
-            ),  # Range samples per bin for each channel
-            ("ping_per_profile", "u2"),  # Number of pings per profile
-            ("avg_pings", "u2"),  # Flag indicating whether the pings average in time
-            ("num_acq_pings", "u2"),  # Pings acquired in the burst
-            ("ping_period", "u2"),  # Ping period in seconds
-            ("first_ping", "u2"),
-            ("last_ping", "u2"),
-            (
-                "data_type",
-                "u1",
-                4,
-            ),  # Datatype for each channel 1=Avg unpacked_data (5bytes), 0=raw (2bytes)
-            ("data_error", "u2"),  # Error number is an error occurred
-            ("phase", "u1"),  # Phase number used to acquire this profile
-            ("overrun", "u1"),  # 1 if an overrun occurred
-            ("num_chan", "u1"),  # 1, 2, 3, or 4
-            ("gain", "u1", 4),  # gain channel 1-4
-            ("spare_chan", "u1"),  # spare channel
-            ("pulse_length", "u2", 4),  # Pulse length chan 1-4 uS
-            ("board_num", "u2", 4),  # The board the data came from channel 1-4
-            ("frequency", "u2", 4),  # frequency for channel 1-4 in kHz
-            (
-                "sensor_flag",
-                "u2",
-            ),  # Flag indicating if pressure sensor or temperature sensor is available
-            ("ancillary", "u2", 5),  # Tilt-X, Y, Battery, Pressure, Temperature
-            ("ad", "u2", 2),  # AD channel 6 and 7
-        )
-        return _fields
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
@@ -330,10 +325,8 @@ class ParseAZFP(ParseBase):
         -------
             True or False depending on whether the unpacking was successful
         """
-        FILE_TYPE = 64770  # Instrument specific constant
-        fields = self._get_fields()
         if (
-            header_unpacked[0] != FILE_TYPE
+            header_unpacked[0] != self.FILE_TYPE
         ):  # first field should match hard-coded FILE_TYPE from manufacturer
             check_eof = raw.read(1)
             if check_eof:
@@ -356,7 +349,7 @@ class ParseAZFP(ParseBase):
             "board_num",
             "frequency",
         )
-        for field in fields:
+        for field in HEADER_FIELDS:
             if field[0] in field_w_freq:  # fields with num_freq data
                 self.unpacked_data[field[0]].append(
                     header_unpacked[header_byte_cnt : header_byte_cnt + self.parameters["num_freq"]]
