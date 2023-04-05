@@ -40,14 +40,10 @@ def check_platform_required_vars(echodata):
 
 def test_convert_azfp_01a_matlab_raw(azfp_path):
     """Compare parsed raw data with Matlab outputs."""
-    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
-    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
-    azfp_matlab_data_path = str(
-        azfp_path.joinpath('from_matlab', '17082117_matlab_Data.mat')
-    )
-    azfp_matlab_output_path = str(
-        azfp_path.joinpath('from_matlab', '17082117_matlab_Output_Sv.mat')
-    )
+    azfp_01a_path = azfp_path / '17082117.01A'
+    azfp_xml_path = azfp_path / '17041823.XML'
+    azfp_matlab_data_path = azfp_path / 'from_matlab/17082117_matlab_Data.mat'
+    azfp_matlab_output_path = azfp_path / 'from_matlab/17082117_matlab_Output_Sv.mat'
 
     # Convert file
     echodata = open_raw(
@@ -118,12 +114,12 @@ def test_convert_azfp_01a_matlab_derived():
 
 def test_convert_azfp_01a_raw_echoview(azfp_path):
     """Compare parsed power data (count) with csv exported by EchoView."""
-    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
-    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
+    azfp_01a_path = azfp_path / '17082117.01A'
+    azfp_xml_path = azfp_path / '17041823.XML'
 
     # Read csv files exported by EchoView
     azfp_csv_path = [
-        azfp_path.joinpath('from_echoview', '17082117-raw%d.csv' % freq)
+        azfp_path / f"from_echoview/17082117-raw{freq}.csv"
         for freq in [38, 125, 200, 455]
     ]
     channels = []
@@ -145,8 +141,8 @@ def test_convert_azfp_01a_raw_echoview(azfp_path):
 
 def test_convert_azfp_01a_different_ranges(azfp_path):
     """Test converting files with different range settings across frequency."""
-    azfp_01a_path = str(azfp_path.joinpath('17031001.01A'))
-    azfp_xml_path = str(azfp_path.joinpath('17030815.XML'))
+    azfp_01a_path = azfp_path / '17031001.01A'
+    azfp_xml_path = azfp_path / '17030815.XML'
 
     # Convert file
     echodata = open_raw(
@@ -165,8 +161,8 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
 
 def test_convert_azfp_01a_notemperature(azfp_path):
     """Test converting file with no temperature data."""
-    azfp_01a_path = str(azfp_path.joinpath('rutgers_glider_notemperature', '22052500.01A'))
-    azfp_xml_path = str(azfp_path.joinpath('rutgers_glider_notemperature', '22052501.XML'))
+    azfp_01a_path = azfp_path / 'rutgers_glider_notemperature/22052500.01A'
+    azfp_xml_path = azfp_path / 'rutgers_glider_notemperature/22052501.XML'
 
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
