@@ -91,6 +91,11 @@ class SetGroupsAZFP(SetGroupsBase):
                 "temperature": (
                     ["time1"],
                     self.parser_obj.unpacked_data["temperature"],
+                    {
+                        "long_name": "Water temperature",
+                        "standard_name": "sea_water_temperature",
+                        "units": "deg_C",
+                    },
                 )
             },
             coords={
@@ -105,7 +110,6 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 )
             },
-            attrs={"long_name": "Water temperature", "units": "C"},
         )
 
         return set_time_encodings(ds)
@@ -125,6 +129,7 @@ class SetGroupsAZFP(SetGroupsBase):
             "sonar_model": self.sonar_model,
             "sonar_serial_number": int(self.parser_obj.unpacked_data["serial_number"]),
             "sonar_software_name": "AZFP",
+            # TODO: software version is hardwired. Read it from the XML file's AZFP_Version node
             "sonar_software_version": "1.4",
             "sonar_type": "echosounder",
         }
@@ -144,8 +149,22 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
-                "tilt_x": (["time2"], unpacked_data["tilt_x"]),
-                "tilt_y": (["time2"], unpacked_data["tilt_y"]),
+                "tilt_x": (
+                    ["time2"],
+                    unpacked_data["tilt_x"],
+                    {
+                        "long_name": "Tilt X",
+                        "units": "degree",
+                    },
+                ),
+                "tilt_y": (
+                    ["time2"],
+                    unpacked_data["tilt_y"],
+                    {
+                        "long_name": "Tilt Y",
+                        "units": "degree",
+                    },
+                ),
                 **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
                     for var in [
@@ -239,10 +258,34 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
-                "backscatter_r": (["channel", "ping_time", "range_sample"], N),
-                "equivalent_beam_angle": (["channel"], parameters["BP"][self.freq_ind_sorted]),
-                "gain_correction": (["channel"], unpacked_data["gain"][self.freq_ind_sorted]),
-                "sample_interval": (["channel"], sample_int, {"units": "s"}),
+                "backscatter_r": (
+                    ["channel", "ping_time", "range_sample"],
+                    N,
+                    {"long_name": "Backscatter power", "units": "dB"},
+                ),
+                "equivalent_beam_angle": (
+                    ["channel"],
+                    parameters["BP"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Equivalent beam angle",
+                        "units": "sr",
+                        "valid_range": (0.0, 4 * np.pi),
+                    },
+                ),
+                "gain_correction": (
+                    ["channel"],
+                    unpacked_data["gain"][self.freq_ind_sorted],
+                    {"long_name": "Gain correction", "units": "dB"},
+                ),
+                "sample_interval": (
+                    ["channel"],
+                    sample_int,
+                    {
+                        "long_name": "Interval between recorded raw data samples",
+                        "units": "s",
+                        "valid_min": 0.0
+                    }
+                ),
                 "transmit_duration_nominal": (
                     ["channel"],
                     tdn,
