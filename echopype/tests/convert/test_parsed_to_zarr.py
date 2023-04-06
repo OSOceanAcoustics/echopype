@@ -6,11 +6,6 @@ from pathlib import Path
 import os.path
 
 
-@pytest.fixture
-def ek60_path(test_path):
-    return test_path['EK60']
-
-
 def compare_zarr_vars(ed_zarr: xr.Dataset, ed_no_zarr: xr.Dataset,
                       var_to_comp: List[str], ed_path) -> Tuple[xr.Dataset, xr.Dataset]:
     """
@@ -71,14 +66,14 @@ def compare_zarr_vars(ed_zarr: xr.Dataset, ed_no_zarr: xr.Dataset,
     ],
     ids=["noaa_offloaded", "noaa_not_offloaded"],
 )
-def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
+def test_raw2zarr(raw_file, sonar_model, use_swap, test_path):
     """Tests for memory expansion relief"""
     import os
     from tempfile import TemporaryDirectory
     from echopype.echodata.echodata import EchoData
     name = os.path.basename(raw_file).replace('.raw', '')
     fname = f"{name}__{use_swap}.zarr"
-    file_path = ek60_path / raw_file
+    file_path = test_path['EK60'] / raw_file
     echodata = open_raw(
         raw_file=file_path,
         sonar_model=sonar_model,
