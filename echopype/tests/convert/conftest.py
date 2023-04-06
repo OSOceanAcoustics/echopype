@@ -1,6 +1,10 @@
 import pytest
 
-from echopype.testing import TEST_DATA_FOLDER, _create_path_str
+from echopype.testing import TEST_DATA_FOLDER
+
+
+def _create_path_str(test_folder, paths):
+    return test_folder.joinpath(*paths).absolute()
 
 
 # AZFP ----------------------
