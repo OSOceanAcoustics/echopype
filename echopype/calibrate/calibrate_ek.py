@@ -192,8 +192,8 @@ class CalibrateEK60(CalibrateEK):
 class CalibrateEK80(CalibrateEK):
     # Default EK80 params: these parameters are only recorded in later versions of EK80 software
     EK80_params = {}
-    EK80_params["z_et"] = 75  # transmit impedance
-    EK80_params["z_er"] = 1000  # receive impedance
+    EK80_params["z_et"] = 75  # transducer impedance
+    EK80_params["z_er"] = 1000  # transceiver impedance
     EK80_params["fs"] = {  # default full sampling frequency [Hz]
         "default": 1500000,
         "GPT": 500000,
@@ -395,8 +395,8 @@ class CalibrateEK80(CalibrateEK):
         self,
         beam: xr.Dataset,
         chirp: Dict,
-        z_et,
-        z_er,
+        z_et: float,
+        z_er: float,
     ) -> xr.DataArray:
         """
         Get power from complex samples.
@@ -407,6 +407,10 @@ class CalibrateEK80(CalibrateEK):
             EchoData["Sonar/Beam_group1"] with selected channel subset
         chirp : dict
             a dictionary containing transmit chirp for BB channels
+        z_et : float
+            impedance of transducer [ohm]
+        z_er : float
+            impedance of transceiver [ohm]
 
         Returns
         -------
@@ -441,7 +445,10 @@ class CalibrateEK80(CalibrateEK):
         """
         Get transceiver gain compensation for BB mode.
 
-        ref: https://github.com/CI-CMG/pyEcholab/blob/RHT-EK80-Svf/echolab2/instruments/EK80.py#L4263-L4274  # noqa
+        Source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/abd01f9c271bb2dbe558c80893dbd7eb0d06fe38/Core/EK80DataContainer.py#L261-L273  # noqa
+        From conversation with Lars Andersen, this correction is based on a longstanding
+        empirical formula used for fitting beampattern during calibration, based on
+        physically meaningful parameters such as the angle offset and beamwidth.
         """
         fac_along = (
             np.abs(-self.cal_params["angle_offset_alongship"])
@@ -477,12 +484,12 @@ class CalibrateEK80(CalibrateEK):
         tx_coeff = get_filter_coeff(vend)
         fs = self.cal_params["receiver_sampling_frequency"]
 
-        # Switch to use Anderson implementation for transmit chirp starting v0.6.4
+        # Switch to use Andersen implementation for transmit chirp starting v0.6.4
         tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
 
         # Params to clarity in use below
-        z_er = self.cal_params["impedance_receive"]
-        z_et = self.cal_params["impedance_transmit"]
+        z_er = self.cal_params["impedance_transceiver"]
+        z_et = self.cal_params["impedance_transducer"]
         gain = self.cal_params["gain_correction"]
 
         # Transceiver gain compensation for BB mode
