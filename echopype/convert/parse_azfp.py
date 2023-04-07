@@ -258,7 +258,7 @@ class ParseAZFP(ParseBase):
                         )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         self.unpacked_data["tilt_x"].append(
-                            self._compute_tilt(ping_num, "Y", tilt_x_is_valid)
+                            self._compute_tilt(ping_num, "X", tilt_x_is_valid)
                         )
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
                         self.unpacked_data["tilt_y"].append(
