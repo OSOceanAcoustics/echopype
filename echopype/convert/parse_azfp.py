@@ -190,7 +190,8 @@ class ParseAZFP(ParseBase):
         if not is_valid:
             return np.nan
         else:
-            N = self.unpacked_data["ancillary"][ping_num][0]
+            idx = 0 if xy == "X" else 1
+            N = self.unpacked_data["ancillary"][ping_num][idx]
             a = self.parameters[f"{xy}_a"]
             b = self.parameters[f"{xy}_b"]
             c = self.parameters[f"{xy}_c"]
