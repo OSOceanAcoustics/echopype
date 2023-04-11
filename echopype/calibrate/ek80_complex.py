@@ -10,68 +10,41 @@ def tapered_chirp(
     fs,
     transmit_duration_nominal,
     slope,
-    transmit_power,
-    implementation="Anderson",
-    z_et=None,
     frequency_nominal=None,
     frequency_start=None,
     frequency_end=None,
 ):
-    """Create a baseline chirp template."""
+    """
+    Create the chirp replica following implementation from Lars Anderson.
+
+    Ref source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/main/Core/Calculation.py  # noqa
+    """
     if frequency_start is None and frequency_end is None:  # CW waveform
         frequency_start = frequency_nominal
         frequency_end = frequency_nominal
 
-    if implementation == "Macaulay":
-        # z_et is required for Macaulay implementation
-        if z_et is None:
-            raise ValueError("z_et is needed for Macaulay implementation of transmit chirp!")
+    tau = transmit_duration_nominal
+    f0 = frequency_start
+    f1 = frequency_end
 
-        t = np.arange(0, transmit_duration_nominal, 1 / fs)
-        nwtx = int(2 * np.floor(slope * t.size))  # length of tapering window
-        wtx_tmp = np.hanning(nwtx)  # hanning window
-        nwtxh = int(np.round(nwtx / 2))  # half length of the hanning window
-        wtx = np.concatenate(
-            [wtx_tmp[0:nwtxh], np.ones((t.size - nwtx)), wtx_tmp[nwtxh:]]
-        )  # assemble full tapering window
-        chirp_fac = (
-            (frequency_end - frequency_start) / transmit_duration_nominal
-        ) * t / 2 + frequency_start
-        y_tmp = (
-            np.sqrt((transmit_power / 4) * (2 * z_et))  # amplitude
-            * np.cos(2 * np.pi * chirp_fac * t)  # chirp
-            * wtx  # tapering
-        )  # taper and scale linear chirp
-        return y_tmp / np.max(np.abs(y_tmp)), t  # amplitude needs to be normalized
+    nsamples = int(np.floor(tau * fs))
+    t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
+    a = np.pi * (f1 - f0) / tau
+    b = 2 * np.pi * f0
+    y = np.cos(a * t * t + b * t)
+    L = int(np.round(tau * fs * slope * 2.0))  # Length of hanning window
+    w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
+    N = len(y)
+    w1 = w[0 : int(len(w) / 2)]
+    w2 = w[int(len(w) / 2) : -1]
+    i0 = 0
+    i1 = len(w1)
+    i2 = N - len(w2)
+    i3 = N
+    y[i0:i1] = y[i0:i1] * w1
+    y[i2:i3] = y[i2:i3] * w2
 
-    elif implementation == "Anderson":
-        # Substitute to keep original form in Anderson implementation
-        # source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/main/Core/Calculation.py  # noqa
-        tau = transmit_duration_nominal
-        f0 = frequency_start
-        f1 = frequency_end
-
-        nsamples = int(np.floor(tau * fs))
-        t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
-        a = np.pi * (f1 - f0) / tau
-        b = 2 * np.pi * f0
-        y = np.cos(a * t * t + b * t)
-        L = int(np.round(tau * fs * slope * 2.0))  # Length of hanning window
-        w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
-        N = len(y)
-        w1 = w[0 : int(len(w) / 2)]
-        w2 = w[int(len(w) / 2) : -1]
-        i0 = 0
-        i1 = len(w1)
-        i2 = N - len(w2)
-        i3 = N
-        y[i0:i1] = y[i0:i1] * w1
-        y[i2:i3] = y[i2:i3] * w2
-
-        return y / np.max(y), t  # amplitude needs to be normalized
-
-    else:
-        raise ValueError("Input implementation type not recognized!")
+    return y / np.max(y), t  # amplitude needs to be normalized
 
 
 def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
@@ -253,7 +226,6 @@ def get_transmit_signal(
             tx_param_names = [
                 "transmit_duration_nominal",
                 "slope",
-                "transmit_power",
                 "frequency_start",
                 "frequency_end",
             ]
@@ -261,7 +233,6 @@ def get_transmit_signal(
             tx_param_names = [
                 "transmit_duration_nominal",
                 "slope",
-                "transmit_power",
                 "frequency_nominal",
             ]
         tx_params = {}
