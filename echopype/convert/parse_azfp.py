@@ -106,15 +106,19 @@ class ParseAZFP(ParseBase):
         """
 
         # Start of computation subfunctions
-        def compute_temp(counts):
+        def compute_temp(counts, is_valid):
             """
             Returns the temperature in celsius given from xml data
             and the counts from ancillary
             """
+            if not is_valid:
+                return np.nan
+
             v_in = 2.5 * (counts / 65535)
             R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (
                 self.parameters["kc"] - v_in
             )
+
             # fmt: off
             T = 1 / (
                 self.parameters["A"]
@@ -124,8 +128,11 @@ class ParseAZFP(ParseBase):
             # fmt: on
             return T
 
-        def compute_tilt(N, a, b, c, d):
-            return a + b * N + c * N**2 + d * N**3
+        def compute_tilt(N, a, b, c, d, is_valid):
+            if not is_valid:
+                return np.nan
+            else:
+                return a + b * N + c * N**2 + d * N**3
 
         def compute_battery(N):
             USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
@@ -138,6 +145,17 @@ class ParseAZFP(ParseBase):
         # Read xml file into dict
         self.load_AZFP_xml()
         fmap = fsspec.get_mapper(self.source_file, **self.storage_options)
+
+        # Set flags for presence of valid parameters for temperature and tilt
+        def _test_valid_params(params):
+            if all([math.isclose(self.parameters[p], 0) for p in params]):
+                return False
+            else:
+                return True
+
+        temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
+        tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
+        tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
 
         with fmap.fs.open(fmap.root, "rb") as file:
             ping_num = 0
@@ -156,7 +174,9 @@ class ParseAZFP(ParseBase):
                             self._print_status()
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
                         self.unpacked_data["temperature"].append(
-                            compute_temp(self.unpacked_data["ancillary"][ping_num][4])
+                            compute_temp(
+                                self.unpacked_data["ancillary"][ping_num][4], temperature_is_valid
+                            )
                         )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         self.unpacked_data["tilt_x"].append(
@@ -166,6 +186,7 @@ class ParseAZFP(ParseBase):
                                 self.parameters["X_b"],
                                 self.parameters["X_c"],
                                 self.parameters["X_d"],
+                                tilt_x_is_valid,
                             )
                         )
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
@@ -176,6 +197,7 @@ class ParseAZFP(ParseBase):
                                 self.parameters["Y_b"],
                                 self.parameters["Y_c"],
                                 self.parameters["Y_d"],
+                                tilt_y_is_valid,
                             )
                         )
                         # Compute cos tilt magnitude from tilt x and y values
