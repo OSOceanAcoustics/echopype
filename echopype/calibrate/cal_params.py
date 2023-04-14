@@ -312,7 +312,19 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
 
     # Select corresponding index and clean up the original nan elements
     da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
-    return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
+
+    # Set the nan elements back to nan.
+    # Doing the `.where` will result in float64,
+    # which is fine since we're dealing with nan
+    da_param = da_param.where(~transmit_isnull, np.nan) 
+
+    # Clean up for leftover plb variable
+    # if exists
+    plb_var = "pulse_length_bin"
+    if plb_var in da_param.coords:
+        da_param = da_param.drop(plb_var)
+    
+    return da_param
 
 
 def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict) -> dict:
