@@ -7,6 +7,8 @@ pynmea2
 pytz
 scipy
 xarray
+# https://github.com/pydata/xarray/pull/7650
+pandas<2
 zarr
 fsspec
 s3fs
