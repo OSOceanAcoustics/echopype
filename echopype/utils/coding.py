@@ -35,6 +35,23 @@ DEFAULT_ENCODINGS = {
 }
 
 
+EXPECTED_VAR_DTYPE = {"channel": np.str_, "beam": np.str_}  # channel name  # beam name
+
+
+def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Validates and fixes data type for expected variables
+    """
+
+    if isinstance(ds, xr.Dataset):
+        for name, var in ds.variables.items():
+            if name in EXPECTED_VAR_DTYPE:
+                expected_dtype = EXPECTED_VAR_DTYPE[name]
+                if not np.issubdtype(var.dtype, expected_dtype):
+                    ds[name] = var.astype(expected_dtype)
+    return ds
+
+
 def _encode_dataarray(da, dtype):
     """Encodes and decode datetime64 array similar to writing to file"""
     if da.size == 0:
