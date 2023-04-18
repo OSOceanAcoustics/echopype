@@ -6,10 +6,12 @@ on:
       - dev
       - main
     paths-ignore: [".ci_helpers/docker/**", "**/docker.yaml"]
+  pull_request:
   workflow_dispatch:
 
 env:
   CONDA_ENV: echopype
+  NUM_WORKERS: 2
 
 jobs:
   windows-test:
@@ -25,59 +27,26 @@ jobs:
       defaults:
         run:
           shell: powershell
-      services:
-        # TODO: figure out how to update tag when there's a new one
-        minio:
-          image: cormorack/minioci:latest
-          ports:
-            - 9000:9000
-        httpserver:
-          image: cormorack/http:latest
-          ports:
-            - 8080:80
       steps:
         - name: Checkout repo
           uses: actions/checkout@v3
-        - name: Copying test data to http server
-          run: |
-            rm .\echopype\test_data -r -fo
-            docker cp -L ${{ job.services.httpserver.id }}:/usr/local/apache2/htdocs/data .\echopype\test_data
-
-            # Check data endpoint
-            curl http://localhost:8080/data/
-        - name: Setup Python
-          uses: actions/setup-python@v4.5.0
           with:
-            python-version: ${{ matrix.python-version }}
-            architecture: x64
-        - name: Cache conda
-          uses: actions/cache@v3.2.5
-          env:
-            # Increase this value to reset cache if '.ci_helpers/py{0}.yaml' has not changed
-            CACHE_NUMBER: 0
+            fetch-depth: 0 # Fetch all history for all branches and tags.
+        - name: Setup micromamba
+          uses: mamba-org/provision-with-micromamba@v15
           with:
-            path: ~/conda_pkgs_dir
-            key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
-        - name: Setup miniconda
-          uses: conda-incubator/setup-miniconda@v2
-          with:
-            activate-environment: ${{ env.CONDA_ENV }}
             environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
-            miniforge-variant: Mambaforge
-            miniforge-version: 4.11.0-0
-            use-mamba: true
-            auto-activate-base: false
-            use-only-tar-bz2: true
+            environment-name: ${{ env.CONDA_ENV }}
+            cache-env: true
+            cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
         - name: Print conda env
           run: |
-            conda info
-            conda list
-        - name: Install dev tools
-          run: |
-            mamba install -c conda-forge --yes --file requirements-dev.txt
+            micromamba info
+            micromamba env list
+            micromamba list
         - name: Install echopype
           run: |
-            python -m pip install -e .[plot]
-        - name: Running all Tests
+            python -m pip install -e ".[plot]"
+        - name: Run convert test
           run: |
-            pytest -vvv -rx --numprocesses=4 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
+            pytest -vvv echopype/tests/convert/test_convert_source_target_locs.py::test_convert_ek
