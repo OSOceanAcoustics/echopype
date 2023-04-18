@@ -11,6 +11,7 @@ on:
 
 env:
   CONDA_ENV: echopype
+  NUM_WORKERS: 2
 
 jobs:
   windows-test:
@@ -29,22 +30,24 @@ jobs:
       steps:
         - name: Checkout repo
           uses: actions/checkout@v3
-        - name: Setup Python
-          uses: actions/setup-python@v4.5.0
+        - name: Checkout repo
+          uses: actions/checkout@v3
           with:
-            python-version: ${{ matrix.python-version }}
-            architecture: x64
-        # GitHub Action reference: https://github.com/jupyterhub/action-k3s-helm
-        - name: Start a local k8s cluster
-          uses: jupyterhub/action-k3s-helm@v3
-          with:
-            k3s-channel: latest
-
-        - name: Verify function of k8s, kubectl, and helm
+            fetch-depth: 0 # Fetch all history for all branches and tags.
+        - name: Set environment variables
           run: |
-            echo "kubeconfig: $KUBECONFIG"
-            kubectl version
-            kubectl get pods --all-namespaces
-
-            helm version
-            helm list
+            echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+        - name: Setup micromamba
+          uses: mamba-org/provision-with-micromamba@v15
+          with:
+            environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
+            environment-name: ${{ env.CONDA_ENV }}
+            cache-env: true
+            cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
+        - name: Print conda env
+          run: |
+            conda info
+            conda list
+        - name: Install dev tools
+          run: |
+            micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
