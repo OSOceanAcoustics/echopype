@@ -43,6 +43,8 @@ jobs:
           run: |
             micromamba info
             micromamba list
+        - name: Which Pip
+          run: get-command pip
         - name: Install dev tools
           run: |
-            micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
+            pip install -r requirements-dev.txt
