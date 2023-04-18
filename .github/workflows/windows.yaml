@@ -63,7 +63,7 @@ jobs:
             rclone ls gdrive:
         - name: Copy test data to local
           run: |
-            $TEST_DATA_FOLDER = "${{ env.GITHUB_WORKSPACE }}\echopype\test_data"
+            $TEST_DATA_FOLDER = "${{ github.workspace }}\echopype\test_data"
             if (Test-Path -Path $TEST_DATA_FOLDER) {
               echo "Removing old test data"
               Remove-Item $TEST_DATA_FOLDER -Recurse
