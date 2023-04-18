@@ -74,14 +74,6 @@ jobs:
                echo "$TEST_DATA_FOLDER not found"
             }
 
-            echo "Updating permissions"
-            $Acl = Get-Acl $TEST_DATA_FOLDER
-
-            $Ar = New-Object System.Security.AccessControl.FileSystemAccessRule("user", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-
-            $Acl.SetAccessRule($Ar)
-            Set-Acl $TEST_DATA_FOLDER $Acl
-
             echo "List folder"
             Get-ChildItem -Path $TEST_DATA_FOLDER
         - name: Setup micromamba
