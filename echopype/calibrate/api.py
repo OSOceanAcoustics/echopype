@@ -24,6 +24,7 @@ def _compute_cal(
     echodata: EchoData,
     env_params=None,
     cal_params=None,
+    ecs_file=None,
     waveform_mode=None,
     encode_mode=None,
 ):
@@ -49,6 +50,7 @@ def _compute_cal(
         echodata,
         env_params=env_params,
         cal_params=cal_params,
+        ecs_file=ecs_file,
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
     )

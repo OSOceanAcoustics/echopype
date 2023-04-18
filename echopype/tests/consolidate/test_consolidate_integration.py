@@ -1,4 +1,7 @@
+import math
+import os
 import pathlib
+import tempfile
 
 import pytest
 
@@ -8,8 +11,6 @@ import xarray as xr
 import scipy.io as io
 import echopype as ep
 from typing import List
-import tempfile
-import os
 
 """
 For future reference:
@@ -90,9 +91,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
     ) = test_data_samples
     ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
     if ed.sonar_model.lower() == 'azfp':
-        avg_temperature = (
-            ed['Environment']['temperature'].mean('time1').values
-        )
+        avg_temperature = ed['Environment']['temperature'].values.mean()
         env_params = {
             'temperature': avg_temperature,
             'salinity': 27.9,
@@ -115,7 +114,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
         assert isinstance(e, ValueError) is True
         assert str(e) == dup_freq_valueerror
 
-    MVBS = ep.preprocess.compute_MVBS(Sv)
+    MVBS = ep.commongrid.compute_MVBS(Sv)
     try:
         MVBS_swapped = ep.consolidate.swap_dims_channel_frequency(MVBS)
         _check_swap(Sv, MVBS_swapped)
@@ -179,25 +178,6 @@ def test_add_depth():
     # assert ds_Sv_depth["depth"].attrs == {"long_name": "Depth", "standard_name": "depth"}
 
 
-def test_add_location(test_path):
-    ed = ep.open_raw(
-        test_path["EK60"] / "Winter2017-D20170115-T150122.raw",
-        sonar_model="EK60"
-    )
-    ds = ep.calibrate.compute_Sv(ed)
-
-    def _check_var(ds_test):
-        assert "latitude" in ds_test
-        assert "longitude" in ds_test
-        assert "time1" not in ds_test
-
-    ds_all = ep.consolidate.add_location(ds=ds, echodata=ed)
-    _check_var(ds_all)
-
-    ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
-    _check_var(ds_sel)
-
-
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
     """
     Opens each mat file in ``paths_to_echoview_mat``, selects the first ``ping_time``,
@@ -226,9 +206,119 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
 
 
 @pytest.mark.parametrize(
+    ["location_type", "sonar_model", "path_model", "raw_and_xml_paths", "extras"],
+    [
+        (
+            "empty-location",
+            "EK60",
+            "EK60",
+            ("ooi/CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw", None),
+            None,
+        ),
+        (
+            "with-track-location",
+            "EK60",
+            "EK60",
+            ("Winter2017-D20170115-T150122.raw", None),
+            None,
+        ),
+        (
+            "fixed-location",
+            "AZFP",
+            "AZFP",
+            ("17082117.01A", "17041823.XML"),
+            {'longitude': -60.0, 'latitude': 45.0, 'salinity': 27.9, 'pressure': 59},
+        ),
+    ],
+)
+def test_add_location(
+        location_type,
+        sonar_model,
+        path_model,
+        raw_and_xml_paths,
+        extras,
+        test_path
+):
+    # Prepare the Sv dataset
+    raw_path = test_path[path_model] / raw_and_xml_paths[0]
+    if raw_and_xml_paths[1]:
+        xml_path = test_path[path_model] / raw_and_xml_paths[1]
+    else:
+        xml_path = None
+
+    ed = ep.open_raw(raw_path, xml_path=xml_path, sonar_model=sonar_model)
+    if location_type == "fixed-location":
+        point_ds = xr.Dataset(
+            {
+                "latitude": (["time"], np.array([float(extras['latitude'])])),
+                "longitude": (["time"], np.array([float(extras['longitude'])])),
+            },
+            coords={
+                "time": (["time"], np.array([ed["Sonar/Beam_group1"]["ping_time"].values.min()]))
+            },
+        )
+        ed.update_platform(point_ds)
+
+    env_params = None
+    # AZFP data require external salinity and pressure
+    if sonar_model == "AZFP":
+        env_params = {
+            "temperature": ed["Environment"]["temperature"].values.mean(),
+            "salinity": extras["salinity"],
+            "pressure": extras["pressure"],
+        }
+
+    ds = ep.calibrate.compute_Sv(echodata=ed, env_params=env_params)
+
+    # add_location tests
+    if location_type == "empty-location":
+        with pytest.raises(Exception) as exc:
+            ep.consolidate.add_location(ds=ds, echodata=ed)
+        assert exc.type is ValueError
+        assert "Coordinate variables not present or all nan" in str(exc.value)
+    else:
+        def _tests(ds_test, location_type, nmea_sentence=None):
+            # lat,lon & time1 existence
+            assert "latitude" in ds_test
+            assert "longitude" in ds_test
+            assert "time1" not in ds_test
+
+            # lat & lon have a single dimension: 'ping_time'
+            assert len(ds_test["longitude"].dims) == 1 and ds_test["longitude"].dims[0] == "ping_time" # noqa
+            assert len(ds_test["latitude"].dims) == 1 and ds_test["latitude"].dims[0] == "ping_time" # noqa
+
+            # Check interpolated or broadcast values
+            if location_type == "with-track-location":
+                for position in ["longitude", "latitude"]:
+                    position_var = ed["Platform"][position]
+                    if nmea_sentence:
+                        position_var = position_var[ed["Platform"]["sentence_type"] == nmea_sentence]
+                    position_interp = position_var.interp(time1=ds_test["ping_time"])
+                    # interpolated values are identical
+                    assert np.allclose(ds_test[position].values, position_interp.values, equal_nan=True) # noqa
+            elif location_type == "fixed-location":
+                for position in ["longitude", "latitude"]:
+                    position_uniq = set(ds_test[position].values)
+                    # contains a single repeated value equal to the value passed to update_platform
+                    assert (
+                            len(position_uniq) == 1 and
+                            math.isclose(list(position_uniq)[0], extras[position])
+                    )
+
+        ds_all = ep.consolidate.add_location(ds=ds, echodata=ed)
+        _tests(ds_all, location_type)
+
+        # the test for nmea_sentence="GGA" is limited to the with-track-location case
+        if location_type == "with-track-location":
+            ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
+            _tests(ds_sel, location_type, nmea_sentence="GGA")
+
+
+@pytest.mark.parametrize(
     ("sonar_model", "test_path_key", "raw_file_name", "paths_to_echoview_mat",
      "waveform_mode", "encode_mode", "pulse_compression", "write_Sv_to_file"),
     [
+        # ek60_CW_power
         (
             "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
             [
@@ -240,6 +330,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "CW", "power", False, False
         ),
+        # ek60_CW_power_Sv_path
         (
             "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
             [
@@ -251,6 +342,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "CW", "power", False, True
         ),
+        # ek80_CW_complex
         (
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
@@ -261,6 +353,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "CW", "complex", False, False
         ),
+        # ek80_BB_complex_no_pc
         (
             "EK80", "EK80_CAL", "2018115-D20181213-T094600.raw",
             [
@@ -269,21 +362,22 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             ],
             "BB", "complex", False, False,
         ),
-        # (
-        #     "EK80", "EK80", "Summer2018--D20180905-T033113.raw",
-        #     [
-        #         'splitbeam/Summer2018--D20180905-T033113_angles_T1_nopc.mat',  # change this
-        #         'splitbeam/Summer2018--D20180905-T033113_angles_T2_nopc.mat',  # change this
-        #     ],
-        #     "CW", "power", False, False,
-        # ),
+        # ek80_CW_power
+        (
+            "EK80", "EK80", "Summer2018--D20180905-T033113.raw",
+            [
+                'splitbeam/Summer2018--D20180905-T033113_angles_T2.mat',
+                'splitbeam/Summer2018--D20180905-T033113_angles_T1.mat',
+            ],
+            "CW", "power", False, False,
+        ),
     ],
     ids=[
         "ek60_CW_power",
         "ek60_CW_power_Sv_path",
         "ek80_CW_complex",
         "ek80_BB_complex_no_pc",
-        # "ek80_CW_power",
+        "ek80_CW_power",
     ],
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
@@ -335,6 +429,10 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
             start = 0
         else:
             start = 1
+
+        # note for the checks below:
+        #   - angles from CW power data are similar down to 1e-7
+        #   - angles computed from complex samples deviates a lot more
 
         # check the computed angle_alongship values against the echoview output
         assert np.allclose(reduced_angle_alongship.values[start:],

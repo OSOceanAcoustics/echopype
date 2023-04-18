@@ -25,16 +25,16 @@ CAL_PARAMS = {
         "angle_sensitivity_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
-        "impedance_transmit",  # z_et
-        "impedance_receive",  # z_er
+        "impedance_transducer",  # z_et
+        "impedance_transceiver",  # z_er
         "receiver_sampling_frequency",
     ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
 EK80_DEFAULT_PARAMS = {
-    "impedance_transmit": 75,
-    "impedance_receive": 1000,
+    "impedance_transducer": 75,
+    "impedance_transceiver": 1000,
     "receiver_sampling_frequency": {  # default full sampling frequency [Hz]
         "default": 1500000,
         "GPT": 500000,
@@ -47,10 +47,6 @@ EK80_DEFAULT_PARAMS = {
         "WBT LF": 93750,
     },
 }
-
-
-# TODO: need a function (something like "_check_param_freq_dep")
-# to check user input cal_params and env_params
 
 
 def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray]) -> xr.DataArray:
@@ -88,7 +84,7 @@ def param2da(p_val: Union[int, float, list], channel: Union[list, xr.DataArray])
 
 def sanitize_user_cal_dict(
     sonar_type: Literal["EK60", "EK80", "AZFP"],
-    user_dict: Dict[str, Union[int, float, xr.DataArray]],
+    user_dict: Dict[str, Union[int, float, list, xr.DataArray]],
     channel: Union[List, xr.DataArray],
 ) -> Dict[str, Union[int, float, xr.DataArray]]:
     """
@@ -126,7 +122,7 @@ def sanitize_user_cal_dict(
 
     # Screen parameters: only retain those defined in CAL_PARAMS
     #  -- transform params in scalar or list to xr.DataArray
-    #  -- directly pass through those that are xr.DataArray
+    #  -- directly pass through those that are xr.DataArray and pass the check for coordinates
     out_dict = dict.fromkeys(CAL_PARAMS[sonar_type])
     for p_name, p_val in user_dict.items():
         if p_name in out_dict:
@@ -207,7 +203,7 @@ def _get_interp_da(
 
     ``alternative`` can be one of the following:
 
-    - scalar (int or float): this is the case for impedance_transmit
+    - scalar (int or float): this is the case for impedance_transducer
     - xr.DataArray with coordinates channel, ping_time, and beam:
         this is the case for parameters angle_offset_alongship, angle_offset_athwartship,
                                         beamwidth_alongship, beamwidth_athwartship
@@ -447,12 +443,12 @@ def get_cal_params_EK(
             # Those without CW or BB complications
             if p == "sa_correction":  # pull from data file
                 out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-            elif p == "impedance_receive":  # from data file or default dict
-                out_dict[p] = default_params[p] if p not in vend else vend["impedance_receive"]
+            elif p == "impedance_transceiver":  # from data file or default dict
+                out_dict[p] = default_params[p] if p not in vend else vend["impedance_transceiver"]
             elif p == "receiver_sampling_frequency":  # from data file or default_params
                 out_dict[p] = _get_fs()
             else:
-                # CW: params do not require interpolation, except for impedance_transmit
+                # CW: params do not require interpolation, except for impedance_transducer
                 if waveform_mode == "CW":
                     if p in PARAM_BEAM_NAME_MAP.keys():
                         p_beam = PARAM_BEAM_NAME_MAP[p]
@@ -464,7 +460,7 @@ def get_cal_params_EK(
                     elif p == "gain_correction":
                         # pull from data file narrowband table
                         out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-                    elif p == "impedance_transmit":
+                    elif p == "impedance_transducer":
                         # assemble each channel from data file or default dict
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
@@ -482,14 +478,17 @@ def get_cal_params_EK(
                         if p in [
                             "angle_sensitivity_alongship",
                             "angle_sensitivity_athwartship",
+                        ]:
+                            BB_factor = freq_center / beam["frequency_nominal"]
+                        elif p in [
                             "beamwidth_alongship",
                             "beamwidth_athwartship",
                         ]:
-                            BB_factor = freq_center / beam["frequency_nominal"]
+                            BB_factor = beam["frequency_nominal"] / freq_center
                         else:
                             BB_factor = 1
 
-                        p_beam = PARAM_BEAM_NAME_MAP[p]
+                        p_beam = PARAM_BEAM_NAME_MAP[p]  # Beam_groupX data variable name
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
@@ -510,7 +509,7 @@ def get_cal_params_EK(
                             freq_center=freq_center,
                             alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
                         )
-                    elif p == "impedance_transmit":
+                    elif p == "impedance_transducer":
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,

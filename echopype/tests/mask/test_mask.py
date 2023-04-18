@@ -104,10 +104,9 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     Parameters
     ----------
     n: int
-        The number of rows (``x``) and columns (``y``) of
-        each channel matrix
+        The ``ping_time`` and ``range_sample`` dimensions of each channel matrix
     n_chan: int
-        Determines the size of the ``channel`` coordinate
+        Size of the ``channel`` coordinate
     is_delayed: bool
         If True, the returned Dataset variables ``var1`` and ``var2`` will be
         a Dask arrays, else they will be in-memory arrays
@@ -115,9 +114,9 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     Returns
     -------
     xr.Dataset
-        A Dataset with coordinates ``channel, x, y`` and
-        variables ``var1, var2`` (with the created coordinates). The
-        variables will contain square matrices of ones for each ``channel``.
+        A Dataset containing data variables ``var1, var2`` with coordinates
+        ``('channel', 'ping_time', 'range_sample')``.
+        The variables are square matrices of ones for each ``channel``.
     """
 
     # construct channel values
@@ -132,12 +131,12 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     # create mock var1 and var2 DataArrays
     mock_var1_da = xr.DataArray(data=np.stack(mock_var_data),
                                 coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
-                                        "x": np.arange(n), "y": np.arange(n)},
+                                        "ping_time": np.arange(n), "range_sample": np.arange(n)},
                                 attrs={"long_name": "variable 1"})
     mock_var2_da = xr.DataArray(data=np.stack(mock_var_data),
                                 coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
-                                        "x": np.arange(n),
-                                        "y": np.arange(n)},
+                                        "ping_time": np.arange(n),
+                                        "range_sample": np.arange(n)},
                                 attrs={"long_name": "variable 2"})
 
     # create mock Dataset
@@ -150,7 +149,6 @@ def create_input_mask(
     mask: Union[np.ndarray, List[np.ndarray]],
     mask_file: Optional[Union[str, List[str]]],
     mask_coords: Union[xr.core.coordinates.DataArrayCoordinates, dict],
-    n_chan: int
 ):
     """
     A helper function that correctly constructs the mask input, so it can be
@@ -165,8 +163,6 @@ def create_input_mask(
         with file name ``mask_file``. This will then be used in ``apply_mask``.
     mask_coords: xr.core.coordinates.DataArrayCoordinates or dict
         The DataArray coordinates that should be used for each mask DataArray created
-    n_chan: int
-        Determines the size of the ``channel`` coordinate
     """
 
     # initialize temp_dir
@@ -186,8 +182,7 @@ def create_input_mask(
         for mask_ind in range(len(mask)):
 
             # form DataArray from given mask data
-            mask_da = xr.DataArray(data=[mask[mask_ind] for i in range(n_chan)],
-                                   coords=mask_coords, name='mask_' + str(mask_ind))
+            mask_da = xr.DataArray(data=[mask[mask_ind]], coords=mask_coords, name='mask_' + str(mask_ind))
 
             if mask_file[mask_ind] is None:
 
@@ -209,8 +204,7 @@ def create_input_mask(
     elif isinstance(mask, np.ndarray):
 
         # form DataArray from given mask data
-        mask_da = xr.DataArray(data=[mask for i in range(n_chan)],
-                               coords=mask_coords, name='mask_0')
+        mask_da = xr.DataArray(data=[mask], coords=mask_coords, name='mask_0')
 
         if mask_file is None:
 
@@ -420,10 +414,10 @@ def test_validate_and_collect_mask_input(
 
     # create coordinates that will be used by all DataArrays created
     coords = {"channel": ("channel", chan_vals, {"long_name": "channel name"}),
-              "x": np.arange(n), "y": np.arange(n)}
+              "ping_time": np.arange(n), "range_sample": np.arange(n)}
 
     # create input mask and obtain temporary directory, if it was created
-    mask, _ = create_input_mask(mask_np, mask_file, coords, n_chan)
+    mask, _ = create_input_mask(mask_np, mask_file, coords)
 
     mask_out = _validate_and_collect_mask_input(mask=mask, storage_options_mask=storage_options_mask)
 
@@ -500,35 +494,57 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
 
 
 @pytest.mark.parametrize(
-    ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth"),
+    ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth", "no_channel"),
     [
-        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]])),
-        (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]])),
+        # single_mask_default_fill
+        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]]), False),
+        # single_mask_default_fill_no_channel
+        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]]), True),
+        # single_mask_float_fill
+        (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]]), False),
+        # single_mask_np_array_fill
         (2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
-         False, np.array([[1, np.nan], [np.nan, 1]])),
+         False, np.array([[1, np.nan], [np.nan, 1]]), False),
+        # single_mask_DataArray_fill
         (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
                                                           coords={"channel": ["chan1"],
                                                                   "ping_time": [0, 1],
                                                                   "range_sample": [0, 1]}),
-         False, np.array([[1, np.nan], [np.nan, 1]])),
+         False, np.array([[1, np.nan], [np.nan, 1]]), False),
+        # list_mask_all_np
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], [None, None], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]])),
-        (2, 1, "var1", np.identity(2), None, 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
-        (2, 1, "var1", np.identity(2), "test.zarr", 2.0, True, np.array([[1, 2.0], [2.0, 1]])),
+         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
+        # single_mask_ds_delayed
+        (2, 1, "var1", np.identity(2), None, 2.0, True, np.array([[1, 2.0], [2.0, 1]]), False),
+        # single_mask_as_path
+        (2, 1, "var1", np.identity(2), "test.zarr", 2.0, True, np.array([[1, 2.0], [2.0, 1]]), False),
+        # list_mask_all_path
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", "test1.zarr"], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]])),
+         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
+        # list_mask_some_path
         (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", None], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]])),
+         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
     ],
-    ids=["single_mask_default_fill", "single_mask_float_fill", "single_mask_np_array_fill",
-         "single_mask_DataArray_fill", "list_mask_all_np", "single_mask_ds_delayed",
-         "single_mask_as_path", "list_mask_all_path", "list_mask_some_path"]
+    ids=[
+        "single_mask_default_fill",
+        "single_mask_default_fill_no_channel",
+        "single_mask_float_fill",
+        "single_mask_np_array_fill",
+        "single_mask_DataArray_fill",
+        "list_mask_all_np",
+        "single_mask_ds_delayed",
+        "single_mask_as_path",
+        "list_mask_all_path",
+        "list_mask_some_path"
+    ]
 )
 def test_apply_mask(n: int, n_chan: int, var_name: str,
                     mask: Union[np.ndarray, List[np.ndarray]],
                     mask_file: Optional[Union[str, List[str]]],
                     fill_value: Union[int, float, np.ndarray, xr.DataArray],
-                    is_delayed: bool, var_masked_truth: np.ndarray):
+                    is_delayed: bool,
+                    var_masked_truth: np.ndarray,
+                    no_channel: bool):
     """
     Ensures that ``apply_mask`` functions correctly.
 
@@ -559,12 +575,17 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     mock_ds = get_mock_source_ds_apply_mask(n, n_chan, is_delayed)
 
     # create input mask and obtain temporary directory, if it was created
-    mask, temp_dir = create_input_mask(mask, mask_file, mock_ds.coords, n_chan)
+    mask, temp_dir = create_input_mask(mask, mask_file, mock_ds.coords)
 
     # create DataArray form of the known truth value
     var_masked_truth = xr.DataArray(data=np.stack([var_masked_truth for i in range(n_chan)]),
                                     coords=mock_ds[var_name].coords, attrs=mock_ds[var_name].attrs)
     var_masked_truth.name = mock_ds[var_name].name
+
+    if no_channel:
+        mock_ds = mock_ds.isel(channel=0)
+        mask = mask.isel(channel=0)
+        var_masked_truth = var_masked_truth.isel(channel=0)
 
     # apply the mask to var_name
     masked_ds = echopype.mask.apply_mask(source_ds=mock_ds, var_name=var_name, mask=mask,
@@ -581,3 +602,60 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     if temp_dir:
         # remove the temporary directory, if it was created
         temp_dir.cleanup()
+
+
+@pytest.mark.parametrize(
+    ("source_has_ch", "mask_has_ch"),
+    [
+        (True, True),
+        (False, True),
+        (True, False),
+        (False, False),
+    ],
+    ids=[
+        "source_with_ch_mask_with_ch",
+        "source_no_ch_mask_with_ch",
+        "source_with_ch_mask_no_ch",
+        "source_no_ch_mask_no_ch",
+    ]
+)
+def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
+
+    source_ds = get_mock_source_ds_apply_mask(2, 3, False)
+    var_name = "var1"
+
+    if mask_has_ch:
+        mask = xr.DataArray(
+            np.array([np.identity(2)]),
+            coords={"channel": ["chA"], "ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        )
+    else:
+        mask = xr.DataArray(
+            np.identity(2),
+            coords={"ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs={"long_name": "mask_no_channel"},
+        )
+
+    if source_has_ch:
+        masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
+    else:
+        source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
+        var_name = f"{var_name}_ch0"
+        masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
+
+    # Output dimension will be the same as source
+    if source_has_ch:
+        truth_da = xr.DataArray(
+            np.array([[[1, np.nan], [np.nan, 1]]] * 3),
+            coords={"channel": ["chan1", "chan2", "chan3"], "ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs=source_ds[var_name].attrs
+        )
+    else:
+        truth_da = xr.DataArray(
+            [[1, np.nan], [np.nan, 1]],
+            coords={"ping_time": np.arange(2), "range_sample": np.arange(2)},
+            attrs=source_ds[var_name].attrs
+        )        
+
+    assert masked_ds[var_name].equals(truth_da)

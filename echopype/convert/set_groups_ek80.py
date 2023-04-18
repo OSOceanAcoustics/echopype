@@ -194,6 +194,7 @@ class SetGroupsEK80(SetGroupsBase):
             "transducer_frequency",
             "serial_number",
             "transducer_name",
+            "transducer_serial_number",
             "application_name",
             "application_version",
             "channel_id_short",
@@ -236,17 +237,27 @@ class SetGroupsEK80(SetGroupsBase):
                     "standard_name": "sound_frequency",
                 },
             ),
-            "serial_number": (["channel"], var["serial_number"]),
-            "transducer_name": (["channel"], var["transducer_name"]),
-            "sonar_serial_number": (["channel"], var["channel_id_short"]),
-            "sonar_software_name": (
+            "transceiver_serial_number": (
                 ["channel"],
-                var["application_name"],
-            ),  # identical for all channels
-            "sonar_software_version": (
+                var["serial_number"],
+                {
+                    "long_name": "Transceiver serial number",
+                },
+            ),
+            "transducer_name": (
                 ["channel"],
-                var["application_version"],
-            ),  # identical for all channels
+                var["transducer_name"],
+                {
+                    "long_name": "Transducer name",
+                },
+            ),
+            "transducer_serial_number": (
+                ["channel"],
+                var["transducer_serial_number"],
+                {
+                    "long_name": "Transducer serial number",
+                },
+            ),
         }
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
@@ -264,6 +275,12 @@ class SetGroupsEK80(SetGroupsBase):
         sonar_attr_dict = {
             "sonar_manufacturer": "Simrad",
             "sonar_model": self.sonar_model,
+            # transducer (sonar) serial number is not reliably stored in the EK80 raw
+            # data file and would be channel-dependent. For consistency with EK60,
+            # will not try to populate sonar_serial_number from the raw datagrams
+            "sonar_serial_number": "",
+            "sonar_software_name": var["application_name"][0],
+            "sonar_software_version": var["application_version"][0],
             "sonar_type": "echosounder",
         }
         ds = ds.assign_attrs(sonar_attr_dict)
@@ -1149,7 +1166,7 @@ class SetGroupsEK80(SetGroupsBase):
         #   - transceiver type
         table_params = [
             "transducer_frequency",
-            "impedance",  # receive impedance (z_er), different from transmit impedance (z_et)
+            "impedance",  # transceiver impedance (z_er), different from transducer impedance (z_et)
             "rx_sample_frequency",  # receiver sampling frequency
             "transceiver_type",
             "pulse_duration",
@@ -1217,13 +1234,13 @@ class SetGroupsEK80(SetGroupsBase):
 
         # Parameters that may or may not exist (due to EK80 software version)
         if "impedance" in param_dict:
-            ds_table["impedance_receive"] = xr.DataArray(
+            ds_table["impedance_transceiver"] = xr.DataArray(
                 param_dict["impedance"],
                 dims=["channel"],
                 coords={"channel": ds_table["channel"]},
                 attrs={
                     "units": "ohm",
-                    "long_name": "Receiver impedance",
+                    "long_name": "Transceiver impedance",
                 },
             )
         if "rx_sample_frequency" in param_dict:
@@ -1259,7 +1276,7 @@ class SetGroupsEK80(SetGroupsBase):
             #                 f"{config[ch]['channel_id_short']}")
             cal_params = [
                 "gain",
-                "impedance",  # transmit impedance (z_et), different from receive impedance (z_er)
+                "impedance",  # transducer impedance (z_et), different from transceiver impedance (z_er)  # noqa
                 "phase",
                 "beamwidth_alongship",
                 "beamwidth_athwartship",
@@ -1291,7 +1308,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds_cal = xr.merge(ds_cal)
 
         if "impedance" in ds_cal:
-            ds_cal = ds_cal.rename_vars({"impedance": "impedance_transmit"})
+            ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
         #  Save decimation factors and filter coefficients
         coeffs = dict()

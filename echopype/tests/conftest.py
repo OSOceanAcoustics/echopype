@@ -26,6 +26,7 @@ def test_path():
         'AD2CP': TEST_DATA_FOLDER / "ad2cp",
         'EK80_CAL': TEST_DATA_FOLDER / "ek80_bb_with_calibration",
         'EK80_EXT': TEST_DATA_FOLDER / "ek80_ext",
+        'ECS': TEST_DATA_FOLDER / "ecs",
     }
 
 

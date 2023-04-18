@@ -17,3 +17,4 @@ aiohttp
 xarray-datatree==0.0.6
 psutil==5.9.1
 more-itertools==8.13.0
+geopy
