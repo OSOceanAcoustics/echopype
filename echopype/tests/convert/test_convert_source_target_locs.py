@@ -94,8 +94,8 @@ def export_engine(request):
         ],
         [
             [
-                "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
-                "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190843.raw",
+                "http://localhost:8080/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
+                "http://localhost:8080/ek60/ncei-wcsd/Summer2017-D20170615-T190843.raw",
             ],
             "EK60",
         ],
@@ -103,7 +103,7 @@ def export_engine(request):
         ["s3://data/es70/D20151202-T020259.raw", "ES70"],
         [
             [
-                "http://localhost:8080/data/es70/D20151202-T020259.raw",
+                "http://localhost:8080/es70/D20151202-T020259.raw",
             ],
             "ES70",
         ],
@@ -112,7 +112,7 @@ def export_engine(request):
         ["s3://data/es80/WBT-D20210620-T012250.raw", "ES80"],
         [
             [
-                "http://localhost:8080/data/es80/WBT-D20210620-T012250.raw",
+                "http://localhost:8080/es80/WBT-D20210620-T012250.raw",
             ],
             "ES80",
         ],
@@ -120,13 +120,13 @@ def export_engine(request):
         ["s3://data/ea640/ea640_test.raw", "EA640"],
         [
             [
-                "http://localhost:8080/data/ea640/ea640_test.raw",
+                "http://localhost:8080/ea640/ea640_test.raw",
             ],
             "EA640",
         ],
         [("echopype-test-D20211005-T001135.raw",), "EK80"],
         [
-            "http://localhost:8080/data/ek80_new/echopype-test-D20211005-T001135.raw",
+            "http://localhost:8080/ek80_new/echopype-test-D20211005-T001135.raw",
             "EK80",
         ],
         ["s3://data/ek80_new/echopype-test-D20211005-T001135.raw", "EK80"],
@@ -165,7 +165,7 @@ def ek_input_params(request, test_path):
 @pytest.fixture(
     params=[
         ("ooi", "17032923.01A"),
-        "http://localhost:8080/data/azfp/ooi/17032923.01A",
+        "http://localhost:8080/azfp/ooi/17032923.01A",
     ],
     ids=["file_path_string", "http_file_string"],
 )
@@ -178,7 +178,7 @@ def azfp_input_paths(request, test_path):
 @pytest.fixture(
     params=[
         ("ooi", "17032922.XML"),
-        "http://localhost:8080/data/azfp/ooi/17032922.XML",
+        "http://localhost:8080/azfp/ooi/17032922.XML",
     ],
     ids=["xml_file_path_string", "xml_http_file_string"],
 )
@@ -277,6 +277,7 @@ def test_convert_ek(
     export_engine,
     output_save_path,
     minio_bucket,
+    http_server
 ):
     common_storage_options = minio_bucket
     output_storage_options = {}
@@ -353,6 +354,7 @@ def test_convert_azfp(
     export_engine,
     output_save_path,
     minio_bucket,
+    http_server,
     model="AZFP",
 ):
     common_storage_options = minio_bucket

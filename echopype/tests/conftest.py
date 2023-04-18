@@ -1,10 +1,40 @@
 """``pytest`` configuration."""
+from http.server import SimpleHTTPRequestHandler, HTTPServer
+import socketserver
+import threading
+import contextlib
 
 import pytest
 
 import fsspec
 
 from echopype.testing import TEST_DATA_FOLDER
+
+HTTP_SERVER_PORT = 8080
+
+class Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=TEST_DATA_FOLDER, **kwargs)
+
+@contextlib.contextmanager
+def serve():
+    server_address = ("", HTTP_SERVER_PORT)
+    httpd = HTTPServer(server_address, Handler)
+    th = threading.Thread(target=httpd.serve_forever)
+    th.daemon = True
+    th.start()
+    try:
+        yield "http://127.0.0.1:%i" % HTTP_SERVER_PORT
+    finally:
+        httpd.socket.close()
+        httpd.shutdown()
+        th.join()
+
+
+@pytest.fixture(scope="module")
+def http_server():
+    with serve() as s:
+        yield s
 
 
 @pytest.fixture(scope="session")
