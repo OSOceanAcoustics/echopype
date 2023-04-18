@@ -43,7 +43,7 @@ jobs:
         - name: Setup gdrive creds
           run: |
             echo ${{ env.RCLONE_DRIVE_SERVICE_ACCOUNT_FILE }}
-            echo ${{ env.GOOGLE_SERVICE_JSON }} | jq . > ${{ env.RCLONE_DRIVE_SERVICE_ACCOUNT_FILE }}
+            echo "${{ env.GOOGLE_SERVICE_JSON }}" | jq . > ${{ env.RCLONE_DRIVE_SERVICE_ACCOUNT_FILE }}
           env:
             GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
             ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
