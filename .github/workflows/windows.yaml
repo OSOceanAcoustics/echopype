@@ -55,7 +55,7 @@ jobs:
             acct_file = Path(os.environ.get("RCLONE_DRIVE_SERVICE_ACCOUNT_FILE"))
             service_json = json.loads(os.environ.get("GOOGLE_SERVICE_JSON"))
 
-            json.dump(service_json, acct_file)
+            acct_file.write_text(json.dumps(service_json))
           env:
             GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
         - name: Setup micromamba
