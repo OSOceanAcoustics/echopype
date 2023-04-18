@@ -627,7 +627,7 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
                 dims=["ping_time", "channel"],
                 coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
                 name="sa_correction",
-            ),
+            ).astype(np.float64),
         ),
         # with NaN entry in transmit_duration_nominal
         (
