@@ -33,8 +33,13 @@ jobs:
           uses: actions/checkout@v3
           with:
             fetch-depth: 0 # Fetch all history for all branches and tags.
+        - name: Install rclone
+          run: |
+            choco search rclone
+            choco install rclone
         - name: Retrieve test data
-          uses: ./.github/actions/gdrive-rclone
+          run: |
+            get-command rclone
           env:
             GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
             ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
