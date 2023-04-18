@@ -58,6 +58,9 @@ jobs:
             acct_file.write_text(json.dumps(service_json))
           env:
             GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
+        - name: List google drive
+          run: |
+            rclone ls gdrive:
         - name: Setup micromamba
           uses: mamba-org/provision-with-micromamba@v15
           with:
