@@ -40,13 +40,24 @@ jobs:
         - name: Set environment variables
           run: |
             "RCLONE_DRIVE_SERVICE_ACCOUNT_FILE=${{ runner.temp }}\google-echopype.json" >> $env:GITHUB_ENV
+            "RCLONE_DRIVE_ROOT_FOLDER_ID=${{ env.ROOT_FOLDER_ID }}" >> $env:GITHUB_ENV
+            "RCLONE_DRIVE_SCOPE=drive" >> $env:GITHUB_ENV
+            "RCLONE_CONFIG_GDRIVE_TYPE=drive" >> $env:GITHUB_ENV
+          env:
+            ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
         - name: Setup gdrive creds
+          shell: python
           run: |
-            echo ${{ env.RCLONE_DRIVE_SERVICE_ACCOUNT_FILE }}
-            echo "${{ env.GOOGLE_SERVICE_JSON }}" | jq . > ${{ env.RCLONE_DRIVE_SERVICE_ACCOUNT_FILE }}
+            import os
+            from pathlib import Path
+            import json
+
+            acct_file = Path(os.environ.get("RCLONE_DRIVE_SERVICE_ACCOUNT_FILE"))
+            service_json = json.loads(os.environ.get("GOOGLE_SERVICE_JSON"))
+
+            json.dump(service_json, acct_file)
           env:
             GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
-            ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
         - name: Setup micromamba
           uses: mamba-org/provision-with-micromamba@v15
           with:
