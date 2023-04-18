@@ -47,7 +47,7 @@ jobs:
           context: ./
           file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,windows/amd64
           tags: |
             ${{ env.IMAGE_SPEC }}:${{ env.DATE_TAG }}
             ${{ env.IMAGE_SPEC }}:latest
