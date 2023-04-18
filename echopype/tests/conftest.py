@@ -1,10 +1,16 @@
 """``pytest`` configuration."""
-
+from pathlib import Path
 import pytest
 
 import fsspec
 
 from echopype.testing import TEST_DATA_FOLDER
+
+
+@pytest.fixture(scope="session")
+def docker_compose_file(pytestconfig):
+    root_path = Path(pytestconfig.rootdir)
+    return root_path / ".ci_helpers" / "docker" / "docker-compose.yaml"
 
 
 @pytest.fixture(scope="session")

@@ -44,3 +44,11 @@ jobs:
             micromamba info
             micromamba env list
             micromamba list
+        - name: Install echopype
+          run: |
+            get-command python
+            python -m pip install -e ".[plot]"
+        - name: Run test
+          run: |
+            get-command pytest
+            pytest -vvv echopype/tests/docker.py
