@@ -6,3 +6,5 @@ dependencies:
   - pip
   - pip:
     - -r ../requirements.txt
+    # Also install dev reqs
+    - -r ../requirements-dev.txt

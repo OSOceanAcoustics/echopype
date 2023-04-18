@@ -42,9 +42,5 @@ jobs:
         - name: Print conda env
           run: |
             micromamba info
+            micromamba env list
             micromamba list
-        - name: Which Pip
-          run: get-command pip
-        - name: Install dev tools
-          run: |
-            pip install -r requirements-dev.txt
