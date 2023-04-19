@@ -276,10 +276,10 @@ def test_convert_ek(
     ek_input_params,
     export_engine,
     output_save_path,
-    minio_bucket,
-    http_server
+    common_storage_options,
+    http_server,
+    moto_server
 ):
-    common_storage_options = minio_bucket
     output_storage_options = {}
     input_paths, sonar_model = ek_input_params
     ipath = input_paths
@@ -353,11 +353,11 @@ def test_convert_azfp(
     azfp_xml_paths,
     export_engine,
     output_save_path,
-    minio_bucket,
+    common_storage_options,
     http_server,
+    moto_server,
     model="AZFP",
 ):
-    common_storage_options = minio_bucket
     output_storage_options = {}
 
     input_storage_options = (
