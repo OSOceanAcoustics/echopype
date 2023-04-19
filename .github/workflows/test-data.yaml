@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: '0 0 * * *' # Run Daily
   workflow_dispatch:
+  pull_request:
 
 env:
   GITHUB_SHA: ${{ github.sha }}
