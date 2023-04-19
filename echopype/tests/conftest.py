@@ -1,8 +1,6 @@
 """``pytest`` configuration."""
-from http.server import SimpleHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer
 from moto.server import ThreadedMotoServer
-from moto import mock_s3
-import socketserver
 import threading
 import contextlib
 
@@ -11,16 +9,12 @@ import pytest
 
 import fsspec
 
-from echopype.testing import TEST_DATA_FOLDER
+from echopype.testing import TEST_DATA_FOLDER, RangeRequestHandler
 
 HTTP_SERVER_PORT = 8080
 MOTO_SERVER_PORT = 9000
 AWS_ACCESS_KEY_ID = "motoadmin"
 AWS_SECRET_ACCESS_KEY = "motoadmin"
-
-class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=TEST_DATA_FOLDER, **kwargs)
 
 @contextlib.contextmanager
 def motoserve():
@@ -34,7 +28,7 @@ def motoserve():
 @contextlib.contextmanager
 def serve():
     server_address = ("", HTTP_SERVER_PORT)
-    httpd = HTTPServer(server_address, Handler)
+    httpd = HTTPServer(server_address, RangeRequestHandler)
     th = threading.Thread(target=httpd.serve_forever)
     th.daemon = True
     th.start()
