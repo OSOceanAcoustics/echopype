@@ -91,6 +91,9 @@ jobs:
         - name: Install echopype
           run: |
             python -m pip install -e ".[plot]"
+        - name: Install dev tools
+          run: |
+            python -m pip install -r requirements-dev.txt
         - name: Run convert test
           run: |
             pytest -vvv echopype/tests/convert/test_convert_source_target_locs.py::test_convert_ek
