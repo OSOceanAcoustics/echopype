@@ -1,0 +1,78 @@
+name: Package test data
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run Daily
+  workflow_dispatch:
+
+env:
+  GITHUB_SHA: ${{ github.sha }}
+  TEST_DATA_FOLDER: ${{ github.workspace }}/echopype/test_data/
+
+jobs:
+  test-data-build:
+    name: package-test-data
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4.5.0
+        with:
+          python-version: 3.9
+      - name: Set Environment
+        run: |
+          DATE_TAG="$( date -u '+%Y.%m.%d' )"
+          echo "DATE_TAG=${DATE_TAG}" >> $GITHUB_ENV
+      - name: Install rclone
+        run: brew install rclone
+      - name: Set environment variables
+        run: |
+          DATE_TAG="$( date -u '+%Y.%m.%d' )"
+          echo "ZIP_FILE=test_data-${DATE_TAG}.zip" >> $GITHUB_ENV
+          echo "RCLONE_DRIVE_SERVICE_ACCOUNT_FILE=${{ runner.temp }}/google-echopype.json" >> $GITHUB_ENV
+          echo "RCLONE_DRIVE_ROOT_FOLDER_ID=${{ env.ROOT_FOLDER_ID }}" >> $GITHUB_ENV
+          echo "RCLONE_DRIVE_SCOPE=drive" >> $GITHUB_ENV
+          echo "RCLONE_CONFIG_GDRIVE_TYPE=drive" >> $GITHUB_ENV
+        env:
+          ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_FOLDER_ID }}
+      - name: Setup gdrive creds
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import json
+
+          acct_file = Path(os.environ.get("RCLONE_DRIVE_SERVICE_ACCOUNT_FILE"))
+          service_json = json.loads(os.environ.get("GOOGLE_SERVICE_JSON"))
+
+          acct_file.write_text(json.dumps(service_json))
+        env:
+          GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
+      - name: List google drive
+        run: |
+          rclone ls gdrive:
+      - name: Copy test data to local
+        run: |
+          if [ -d ${{ env.TEST_DATA_FOLDER }} ]
+          then
+              echo "Removing old test data"
+              rm -rf ${{ env.TEST_DATA_FOLDER }}
+              echo "Copying new test data from google drive"
+              rclone copy gdrive: ${{ env.TEST_DATA_FOLDER }}
+              echo "Done"
+
+              chmod -R ugoa+w ${{ env.TEST_DATA_FOLDER }}
+              ls -lah ${{ env.TEST_DATA_FOLDER }}
+          else
+              echo "${{ env.TEST_DATA_FOLDER }} not found"
+          fi
+      - name: Zip the test data folder
+        run: python -m zipfile -c ${{ env.ZIP_FILE }} ${{ env.TEST_DATA_FOLDER }}
+      - name: Check the zip file
+        run: |
+          python -m zipfile -t ${{ env.ZIP_FILE }}
+          python -m zipfile -l ${{ env.ZIP_FILE }}
