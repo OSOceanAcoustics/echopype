@@ -24,6 +24,9 @@ jobs:
         uses: actions/setup-python@v4.5.0
         with:
           python-version: 3.9
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
       - name: Set Environment
         run: |
           DATE_TAG="$( date -u '+%Y.%m.%d' )"
