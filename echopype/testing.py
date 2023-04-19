@@ -8,6 +8,7 @@ TEST_DATA_FOLDER = HERE / "test_data"
 
 
 # HTTP Range Request Handler
+# Source: https://github.com/danvk/RangeHTTPServer
 def copy_byte_range(infile, outfile, start=None, stop=None, bufsize=16 * 1024):
     """Like shutil.copyfileobj, but only copy a range of the streams.
 

@@ -76,7 +76,7 @@ def test_sanitize_file_path(file_path, should_fail, file_type):
         ('s3://ooi-raw-data/new_test.nc', 'netcdf4'),
     ],
 )
-def test_validate_output_path(save_path, engine, minio_bucket):
+def test_validate_output_path(save_path, engine, common_storage_options, moto_server):
     output_root_path = os.path.join('.', 'echopype', 'test_data', 'dump')
     source_file = 'test.raw'
     if engine == 'netcdf4':
