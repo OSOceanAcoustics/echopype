@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-python@v4.5.0
         with:
           python-version: 3.9
+      - name: Install PyDrive2
+        run: pip install 'pydrive2[fsspec]'
       - name: Set up Homebrew
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@master
@@ -80,3 +82,26 @@ jobs:
         run: |
           python -m zipfile -t ${{ env.ZIP_FILE }}
           python -m zipfile -l ${{ env.ZIP_FILE }}
+      - name: Upload zipfile to google drive
+        shell: python
+        run: |
+          import os
+          from pydrive2.fs import GDriveFileSystem
+
+          download_url = "https://drive.google.com/uc?export=download&id={file_id}".format
+          zip_file_name = os.environ.get('ZIP_FILE')
+          zip_folder_id = os.environ.get('ZIP_ROOT_FOLDER_ID')
+
+          tdz_fs = GDriveFileSystem(
+              zip_folder_id,
+              use_service_account=True,
+              client_json=os.environ.get('GOOGLE_SERVICE_JSON'),
+          )
+
+          remote_file_path = '/'.join([zip_folder_id, zip_file_name])
+          tdz_fs.put_file(zip_file_name, remote_file_path)
+          remote_file_id = tdz_fs._get_item_id(remote_file_path)
+          print("Download url:", download_url(file_id=remote_file_id))
+        env:
+          ZIP_ROOT_FOLDER_ID: ${{ secrets.TEST_DATA_ZIP_FOLDER_ID }}
+          GOOGLE_SERVICE_JSON: ${{ secrets.GOOGLE_SERVICE_JSON }}
