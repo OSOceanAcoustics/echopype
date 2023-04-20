@@ -98,8 +98,7 @@ jobs:
           env:
             FORCE_COLOR: 3
           run: |
-            set -o pipefail
-            pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_windows_test_log.log
+            pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings | Tee-Object -FilePath ci_windows_test_log.log
         - name: Upload ci test log
           if: ${{ success() || failure() }}
           uses: actions/upload-artifact@v3
@@ -109,7 +108,7 @@ jobs:
         - name: Upload code coverage to Codecov
           uses: codecov/codecov-action@v3
           with:
-            file: ./coverage.xml
+            file: coverage.xml
             flags: unittests
             env_vars: RUNNER_OS,PYTHON_VERSION
             name: codecov-umbrella
