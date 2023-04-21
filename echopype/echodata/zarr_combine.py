@@ -209,13 +209,17 @@ class ZarrCombine:
         # format ed_name appropriately
         ed_name = ed_name.replace("-", "_").replace("/", "_").lower()
 
-        if len(ds_list) == 1:
-            # get numpy keys if we only have one Dataset
-            numpy_keys = self._compare_attrs(ds_list[0].attrs, ds_list[0].attrs)
+        if ed_name == "top_level":
+            # Skip attribute comparison for Top-level group
+            numpy_keys = []
         else:
-            # compare attributes and get numpy keys, if they exist
-            for ind in range(len(ds_list) - 1):
-                numpy_keys = self._compare_attrs(ds_list[ind].attrs, ds_list[ind + 1].attrs)
+            if len(ds_list) == 1:
+                # get numpy keys if we only have one Dataset
+                numpy_keys = self._compare_attrs(ds_list[0].attrs, ds_list[0].attrs)
+            else:
+                # compare attributes and get numpy keys, if they exist
+                for ind in range(len(ds_list) - 1):
+                    numpy_keys = self._compare_attrs(ds_list[ind].attrs, ds_list[ind + 1].attrs)
 
         # collect Dataset attributes
         for count, ds in enumerate(ds_list):
