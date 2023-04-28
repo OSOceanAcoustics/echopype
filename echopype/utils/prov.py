@@ -206,7 +206,6 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                 func(self, *args, **kwargs)
                 processing_level = PROCESSING_LEVELS[processing_level_code]
                 self["Top-level"] = self["Top-level"].assign_attrs(_attrs_dict(processing_level))
-                return self
 
             return inner
         else:
