@@ -14,7 +14,7 @@ This release includes important updates to the requirements, small bug fixes, an
 - Add error catch to handle AZFP files with no temperature or tilt, such as those from glider deployments (#1020)
 - Refactor AZFP parser code to improve code coherence (#1024)
 - Correct and add missing SONAR-netCDF4 variable attributes for AZFP (#1023)
-- Improve impedance parameter handling for EK80 files (#1019) 
+- Improve impedance parameter handling for EK80 files (#1019)
   - allow impedance data type to be float
   - unify naming of impedance parameters
 - Allow only one chirp generation option for EK80 broadband processing (#1019)
@@ -25,7 +25,7 @@ This release includes important updates to the requirements, small bug fixes, an
 ## Tests and infrastructure
 - Remove windows docker (#1031)
 - Update docker build to work on windows platform (#1030)
-- Unpin xarray version (#981) 
+- Unpin xarray version (#981)
 - allow v0.7.x in `map_ep_version` checks
 
 
