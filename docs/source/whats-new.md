@@ -4,6 +4,34 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.7.1 (2023 May 1)
+
+## Overview
+
+This release includes important updates to the requirements, small bug fixes, and refactoring of AZFP parser code to handle files from glider deployment and improve code coherence.
+
+## Enhancement and bug fixes
+- AZFP conversion enhancements
+  - Add error catch to handle AZFP files with no temperature or tilt, such as those from glider deployments (#1020)
+  - Refactor AZFP parser code to improve code coherence (#1024)
+  - Correct and add missing SONAR-netCDF4 variable attributes for AZFP (#1023)
+- Improve impedance parameter handling for EK80 files (#1019)
+  - allow impedance data type to be float
+  - unify naming of impedance parameters
+- Allow only one chirp generation option for EK80 broadband processing (#1019)
+  - previously there was an option to use the implementation from Matlab echolab
+  - starting from this version only the implementation identical to those from Lars Andersen ([repo](https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf))
+- Remove unneeded return self in processing level decorator wrapper-inner function for class method (#1037)
+
+## Tests and infrastructure
+- Unpin xarray version and pin pandas < 2 (#981)
+- allow v0.7.x in `map_ep_version` checks
+
+
+
+
+
+
 # v0.7.0 (2023 March 25)
 
 ## Overview

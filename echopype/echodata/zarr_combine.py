@@ -11,7 +11,7 @@ import xarray as xr
 import zarr
 from dask.distributed import Lock
 
-from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression
+from ..utils.coding import COMPRESSION_SETTINGS, get_zarr_compression, sanitize_dtypes
 from ..utils.io import env_indep_joinpath
 from ..utils.prov import echopype_prov_attrs
 from .api import open_converted
@@ -737,7 +737,7 @@ class ZarrCombine:
             else:
                 ds_list_ind = int(0)
 
-            ds_list[ds_list_ind][[var]].to_zarr(
+            sanitize_dtypes(ds_list[ds_list_ind][[var]]).to_zarr(
                 zarr_path,
                 group=zarr_group,
                 mode="a",

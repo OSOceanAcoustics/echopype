@@ -62,7 +62,7 @@ def vend_EK():
             np.array([[64, 128, 256, 512], [128, 256, 512, 1024]]),
             coords={"channel": vend["channel"], "pulse_length_bin": vend["pulse_length_bin"]}
     )
-    vend["impedance_receive"] = xr.DataArray(
+    vend["impedance_transceiver"] = xr.DataArray(
         [1000, 2000], coords={"channel": vend["channel"]}
     )
     vend["transceiver_type"] = xr.DataArray(
@@ -435,11 +435,11 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                         np.array([111, 222]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
-                    "impedance_transmit": xr.DataArray(
+                    "impedance_transducer": xr.DataArray(
                         np.array([[75], [75]]), dims=["channel", "ping_time"],
                         coords={"channel": ["chA", "chB"], "ping_time": [1]}
                     ),
-                    "impedance_receive": xr.DataArray(
+                    "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
@@ -485,11 +485,11 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                         np.array([111, 222]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
-                    "impedance_transmit": xr.DataArray(
+                    "impedance_transducer": xr.DataArray(
                         np.array([[75], [75]]), dims=["channel", "ping_time"],
                         coords={"channel": ["chA", "chB"], "ping_time": [1]}
                     ),
-                    "impedance_receive": xr.DataArray(
+                    "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
@@ -553,7 +553,7 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
     ("user_dict", "out_dict"),
     [
         # cal_params should not contain:
-        #   impedance_transmit, impedance_receive, receiver_sampling_frequency
+        #   impedance_transducer, impedance_transceiver, receiver_sampling_frequency
         (
             {
                 # add sa_correction here to bypass things going into get_vend_cal_params_power
@@ -596,7 +596,7 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
 )
 def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict):
     # Remove some variables from Vendor group to mimic EK60 data
-    vend_EK = vend_EK.drop("impedance_receive").drop("transceiver_type")
+    vend_EK = vend_EK.drop("impedance_transceiver").drop("transceiver_type")
     cal_dict = get_cal_params_EK(
         waveform_mode="CW", freq_center=freq_center,
         beam=beam_EK, vend=vend_EK,
@@ -627,7 +627,7 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
                 dims=["ping_time", "channel"],
                 coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
                 name="sa_correction",
-            ),
+            ).astype(np.float64),
         ),
         # with NaN entry in transmit_duration_nominal
         (
