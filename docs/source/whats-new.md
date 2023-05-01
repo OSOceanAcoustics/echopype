@@ -23,8 +23,6 @@ This release includes important updates to the requirements, small bug fixes, an
 - Remove unneeded return self in processing level decorator wrapper-inner function for class method (#1037)
 
 ## Tests and infrastructure
-- Remove windows docker (#1031)
-- Update docker build to work on windows platform (#1030)
 - Unpin xarray version (#981)
 - allow v0.7.x in `map_ep_version` checks
 
