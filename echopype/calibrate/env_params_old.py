@@ -105,8 +105,10 @@ class EnvParams:
         if self.data_kind == "mobile":
             if np.isnan(echodata["Platform"]["time1"]).all():
                 raise ValueError("cannot perform mobile interpolation without time1")
+            # only grab needed variables for the interpolation
+            platform_data = echodata["Platform"][["latitude", "longitude"]]
             # compute_range needs indexing by ping_time
-            interp_plat = echodata["Platform"].interp(
+            interp_plat = platform_data.interp(
                 {"time1": echodata["Sonar/Beam_group1"]["ping_time"]}
             )
 

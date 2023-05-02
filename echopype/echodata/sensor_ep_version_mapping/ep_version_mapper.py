@@ -19,12 +19,12 @@ def map_ep_version(echodata_obj):
 
     if (0, 5, 0) <= echodata_obj.version_info < (0, 6, 0):
         convert_v05x_to_v06x(echodata_obj)
-    elif (0, 6, 0) <= echodata_obj.version_info < (0, 7, 0):
+    elif (0, 6, 0) <= echodata_obj.version_info < (0, 8, 0):
         pass
     else:
         str_version = ".".join(map(str, echodata_obj.version_info))
         raise NotImplementedError(
-            f"Conversion from echopype v{str_version} to"
-            + f" v{__version__} is not available. Please convert"
-            + f" to version {__version__} using open_raw."
+            f"Conversion of data from echopype v{str_version} format to"
+            + f" v{__version__} format is not available. Please use open_raw"
+            + f" to convert data to version {__version__} format."
         )

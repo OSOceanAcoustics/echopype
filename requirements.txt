@@ -6,13 +6,15 @@ numpy
 pynmea2
 pytz
 scipy
-xarray==2022.3.0
+xarray
+# https://github.com/pydata/xarray/pull/7650
+pandas<2
 zarr
 fsspec
 s3fs
 requests
 aiohttp
 xarray-datatree==0.0.6
-psutil==5.9.1
+psutil>=5.9.1
 more-itertools==8.13.0
 geopy
