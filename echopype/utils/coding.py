@@ -141,6 +141,7 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
 
     # create zarr specific encoding
     encoding = dict()
+    PREFERRED_CHUNKS = "preferred_chunks"
     for name, val in ds.variables.items():
         val_encoding = val.encoding
         val_encoding.update(get_zarr_compression(val, compression_settings))
@@ -151,6 +152,10 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
         if not ds.chunks and len(val.shape) > 0:
             chunks = _get_auto_chunk(val)
             val_encoding.update({"chunks": chunks})
+
+        if PREFERRED_CHUNKS in val_encoding:
+            # Remove 'preferred_chunks', use chunks only instead
+            val_encoding.pop(PREFERRED_CHUNKS)
         encoding[name] = val_encoding
 
     return encoding

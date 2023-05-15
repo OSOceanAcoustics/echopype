@@ -94,7 +94,10 @@ class EchoData:
         fpath = "Internal Memory"
         if self.converted_raw_path:
             fpath = self.converted_raw_path
-        return f"<EchoData: standardized raw data from {fpath}>\n{tree_repr(self._tree)}"
+        repr_str = "No data found."
+        if self._tree is not None:
+            repr_str = tree_repr(self._tree)
+        return f"<EchoData: standardized raw data from {fpath}>\n{repr_str}"
 
     def __repr__(self) -> str:
         return str(self)

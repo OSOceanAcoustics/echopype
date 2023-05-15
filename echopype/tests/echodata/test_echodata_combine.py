@@ -7,10 +7,6 @@ import xarray as xr
 
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
-import os.path
-
-import tempfile
-from dask.distributed import Client
 
 from echopype.echodata.combine import _create_channel_selection_dict, _check_echodata_channels, \
     _check_channel_consistency
@@ -147,14 +143,7 @@ def test_combine_echodata(raw_datasets):
 
     append_dims = {"filenames", "time1", "time2", "time3", "ping_time"}
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     # get all possible dimensions that should be dropped
     # these correspond to the attribute arrays created
@@ -212,12 +201,8 @@ def test_combine_echodata(raw_datasets):
                 del combined_group.attrs["conversion_time"]
 
         if (combined_group is not None) and (test_ds is not None):
+            print(test_ds, combined_group.drop_dims(grp_drop_dims))
             assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
-
-    temp_zarr_dir.cleanup()
-
-    # close client
-    client.close()
 
 
 def test_combine_echodata_channel_selection():
@@ -237,14 +222,7 @@ def test_attr_storage(ek60_test_data):
     # check storage of attributes before combination in provenance group
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     for group, value in combined.group_map.items():
         if value['ep_group'] is None:
@@ -274,28 +252,16 @@ def test_attr_storage(ek60_test_data):
                 group_attrs.isel(echodata_filename=0),
             )
 
-    temp_zarr_dir.cleanup()
-
-    # close client
-    client.close()
-
 
 def test_combined_encodings(ek60_test_data):
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     encodings_to_drop = {'chunks', 'preferred_chunks', 'compressor', 'filters'}
 
     group_checks = []
-    for group, value in combined.group_map.items():
+    for _, value in combined.group_map.items():
         if value['ep_group'] is None:
             ds = combined['Top-level']
         else:
@@ -316,11 +282,6 @@ def test_combined_encodings(ek60_test_data):
                             f"  {value['name']}::{k}"
                         )
 
-    temp_zarr_dir.cleanup()
-
-    # close client
-    client.close()
-
     if len(group_checks) > 0:
         all_messages = ['Encoding mismatch found!'] + group_checks
         message_text = '\n'.join(all_messages)
@@ -330,18 +291,11 @@ def test_combined_encodings(ek60_test_data):
 def test_combined_echodata_repr(ek60_test_data):
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     expected_repr = dedent(
         f"""\
-        <EchoData: standardized raw data from {zarr_file_name}>
+        <EchoData: standardized raw data from Internal Memory>
         Top-level: contains metadata about the SONAR-netCDF4 file format.
         ├── Environment: contains information relevant to acoustic propagation through water.
         ├── Platform: contains information about the platform on which the sonar is installed.
@@ -356,11 +310,6 @@ def test_combined_echodata_repr(ek60_test_data):
 
     actual = "\n".join(x.rstrip() for x in repr(combined).split("\n"))
     assert actual == expected_repr
-
-    temp_zarr_dir.cleanup()
-
-    # close client
-    client.close()
 
 
 @pytest.mark.parametrize(
