@@ -201,7 +201,6 @@ def test_combine_echodata(raw_datasets):
                 del combined_group.attrs["conversion_time"]
 
         if (combined_group is not None) and (test_ds is not None):
-            print(test_ds, combined_group.drop_dims(grp_drop_dims))
             assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
 
 
