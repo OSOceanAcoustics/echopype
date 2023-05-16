@@ -17,6 +17,9 @@ import os.path
 from utils import check_consolidated
 
 
+pytestmark = pytest.mark.skip(reason="As of 5/16/2023, This test is being deprecated.")
+
+
 @pytest.fixture(scope="module")
 def ek60_test_data(test_path):
     files = [

@@ -1,5 +1,6 @@
 from textwrap import dedent
 from pathlib import Path
+import tempfile
 
 import numpy as np
 import pytest
@@ -7,6 +8,7 @@ import xarray as xr
 
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
+from echopype.echodata import EchoData
 
 from echopype.echodata.combine import _create_channel_selection_dict, _check_echodata_channels, \
     _check_channel_consistency
@@ -28,6 +30,16 @@ def ek60_test_data(test_path):
         ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
         ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
         ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
+    ]
+    return [test_path["EK60"].joinpath(*f) for f in files]
+
+@pytest.fixture(scope="module")
+def ek60_multi_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T024811.raw")
     ]
     return [test_path["EK60"].joinpath(*f) for f in files]
 
@@ -202,6 +214,72 @@ def test_combine_echodata(raw_datasets):
 
         if (combined_group is not None) and (test_ds is not None):
             assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
+
+
+@pytest.mark.parametrize("test_param", [
+        "single",
+        "multi"
+    ]
+)
+def test_combine_echodata_combined_and_others(ek60_multi_test_data, test_param, sonar_model="EK60"):
+        """
+        Integration test for combine_echodata with
+        a single combined ed and a single echodata
+        """
+        eds = [
+            echopype.open_raw(raw_file=file, sonar_model=sonar_model)
+            for file in ek60_multi_test_data
+        ]
+        # create temporary directory for zarr store
+        temp_zarr_dir = tempfile.TemporaryDirectory()
+        first_zarr = (
+            temp_zarr_dir.name
+            + f"/combined_echodata.zarr"
+        )
+        combined_ed = echopype.combine_echodata(eds[:2])
+        combined_ed.to_zarr(first_zarr, overwrite=True)
+
+        combined_ed = echopype.open_converted(first_zarr)
+
+        if test_param == "single":
+            data_inputs = [combined_ed, eds[2]]
+        else:
+            data_inputs = [combined_ed, eds[2], eds[3]]
+        combined_ed2 = echopype.combine_echodata(
+            data_inputs
+        )
+
+        assert isinstance(combined_ed, EchoData)
+        assert isinstance(combined_ed2, EchoData)
+
+        # Ensure that they're from the same file source
+        assert eds[0]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[0].values
+        assert eds[1]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[1].values
+        assert eds[2]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[2].values
+        if test_param == "multi":
+            assert eds[3]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[3].values
+
+        # Check beam_group1. Should be exactly same xr dataset
+        group_path = "Sonar/Beam_group1"
+        ds0 = eds[0][group_path]
+        filt_ds0 = combined_ed[group_path].sel(ping_time=ds0.ping_time)
+        assert filt_ds0.identical(ds0) is True
+
+        ds1 = eds[1][group_path]
+        filt_ds1 = combined_ed[group_path].sel(ping_time=ds1.ping_time)
+        assert filt_ds1.identical(ds1) is True
+
+        ds2 = eds[2][group_path]
+        filt_ds2 = combined_ed2[group_path].sel(ping_time=ds2.ping_time)
+        assert filt_ds2.identical(ds2) is True
+
+        if test_param == "multi":
+            ds3 = eds[3][group_path]
+            filt_ds3 = combined_ed2[group_path].sel(ping_time=ds3.ping_time)
+            assert filt_ds3.identical(ds3) is True
+
+        filt_combined = combined_ed2[group_path].sel(ping_time=combined_ed[group_path].ping_time)
+        assert filt_combined.identical(combined_ed[group_path])
 
 
 def test_combine_echodata_channel_selection():

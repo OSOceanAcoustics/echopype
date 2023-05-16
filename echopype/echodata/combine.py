@@ -447,14 +447,16 @@ def _update_provenance(prov_ds: xr.Dataset, group_attrs: Dict[str, list]):
 
     xr_dict = dict()
     for name, val in group_attrs.items():
-        if "attrs" in name:
-            # create Dataset variables
-            coord_name = name[:-1] + "_key"
-            xr_dict[name] = {"dims": ["echodata_filename", coord_name], "data": val}
+        np_val = np.array(val)  # make val into np array
+        if np_val.size > 0:  # only keep ones with values
+            if "attrs" in name:
+                # create Dataset variables
+                coord_name = name[:-1] + "_key"
+                xr_dict[name] = {"dims": ["echodata_filename", coord_name], "data": val}
 
-        else:
-            # create Dataset coordinates
-            xr_dict[name] = {"dims": [name], "data": val}
+            else:
+                # create Dataset coordinates
+                xr_dict[name] = {"dims": [name], "data": val}
 
     # construct the Provenance Dataset's attributes
     prov_attributes = echopype_prov_attrs("conversion")
