@@ -37,6 +37,8 @@ DEFAULT_ENCODINGS = {
 
 EXPECTED_VAR_DTYPE = {"channel": np.str_, "beam": np.str_}  # channel name  # beam name
 
+PREFERRED_CHUNKS = "preferred_chunks"
+
 
 def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
     """
@@ -141,7 +143,6 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
 
     # create zarr specific encoding
     encoding = dict()
-    PREFERRED_CHUNKS = "preferred_chunks"
     for name, val in ds.variables.items():
         val_encoding = val.encoding
         val_encoding.update(get_zarr_compression(val, compression_settings))
