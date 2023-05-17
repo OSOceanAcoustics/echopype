@@ -213,7 +213,7 @@ class EchoData:
 
     @property
     def group_paths(self) -> Set[str]:
-        return {i[1:] if i != "/" else "Top-level" for i in self._tree.groups}
+        return tuple(i[1:] if i != "/" else "Top-level" for i in self._tree.groups)
 
     @staticmethod
     def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
