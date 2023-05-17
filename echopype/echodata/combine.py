@@ -1,24 +1,31 @@
+import datetime
 import itertools
 import re
 from collections import defaultdict
+from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 import fsspec
 import numpy as np
+import pandas as pd
 import xarray as xr
 from datatree import DataTree
 
 from ..utils.io import validate_output_path
 from ..utils.log import _init_logger
-from ..utils.prov import echopype_prov_attrs
 from .echodata import EchoData
 
 logger = _init_logger(__name__)
 
 POSSIBLE_TIME_DIMS = {"time1", "time2", "time3", "ping_time"}
 APPEND_DIMS = {"filenames"}.union(POSSIBLE_TIME_DIMS)
+DATE_CREATED_ATTR = "date_created"
+CONVERSION_TIME_ATTR = "conversion_time"
+ED_GROUP = "echodata_group"
+ED_FILENAME = "echodata_filename"
+FILENAMES = "filenames"
 
 
 def check_zarr_path(
@@ -440,43 +447,6 @@ def _check_echodata_channels(
     return channel_selection
 
 
-def _update_provenance(prov_ds: xr.Dataset, group_attrs: Dict[str, list]):
-    # Update filenames to iter integers
-    FILENAMES = "filenames"
-    prov_ds[FILENAMES] = prov_ds[FILENAMES].copy(data=np.arange(*prov_ds[FILENAMES].shape))
-
-    xr_dict = dict()
-    for name, val in group_attrs.items():
-        np_val = np.array(val)  # make val into np array
-        if np_val.size > 0:  # only keep ones with values
-            if "attrs" in name:
-                # create Dataset variables
-                coord_name = name[:-1] + "_key"
-                xr_dict[name] = {"dims": ["echodata_filename", coord_name], "data": val}
-
-            else:
-                # create Dataset coordinates
-                xr_dict[name] = {"dims": [name], "data": val}
-
-    # construct the Provenance Dataset's attributes
-    prov_attributes = echopype_prov_attrs("conversion")
-
-    if "duplicate_ping_times" in group_attrs["provenance_attr_key"]:
-        dup_pings_position = group_attrs["provenance_attr_key"].index("duplicate_ping_times")
-
-        # see if the duplicate_ping_times value is equal to 1
-        elem_is_one = [
-            True if val[dup_pings_position] == 1 else False
-            for val in group_attrs["provenance_attrs"]
-        ]
-
-        # set duplicate_ping_times = 1 if any file has 1
-        prov_attributes["duplicate_ping_times"] = 1 if any(elem_is_one) else 0
-
-    all_ds_attrs = xr.Dataset.from_dict(xr_dict)
-    return prov_ds.update(all_ds_attrs).assign_attrs(prov_attributes)
-
-
 def _check_ascending_ds_times(ds_list: List[xr.Dataset], ed_group: str) -> None:
     """
     A minimal check that the first time value of each Dataset is less than
@@ -637,35 +607,61 @@ def _compare_attrs(attr1: dict, attr2: dict) -> List[str]:
                     f"are not the same, combine cannot be used!"
                 )
 
-        else:
-            if attr1[key] != attr2[key]:
-                raise RuntimeError(
-                    f"The attribute {key}'s value amongst the ds lists are not the "
-                    f"same, combine cannot be used!"
-                )
 
-    return numpy_keys
+def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
+    """Function for merging attributes"""
+    merged_dict = {}
+    for attribute in attributes:
+        for key, value in attribute.items():
+            if value == "" and key not in merged_dict:
+                merged_dict[key] = value
+            elif value != "":
+                merged_dict[key] = value
+    return merged_dict
+
+
+def _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model):
+    index_keys = [ED_GROUP, ED_FILENAME]
+    df_list = []
+    for group, attributes in attrs_dict.items():
+        df = pd.DataFrame.from_records(attributes)
+        df.loc[:, ED_FILENAME] = echodata_filenames
+        df[ED_GROUP] = group
+        df.loc[:, ED_FILENAME] = echodata_filenames
+        df = df.set_index(index_keys)
+        df_list.append(df)
+
+    df_merged = reduce(
+        lambda left, right: pd.merge(left, right, on=index_keys, how="outer"), df_list
+    )
+    prov_ds = df_merged.to_xarray()
+    # Set these provenance as string
+    if sonar_model.lower() != "ek80":
+        # Skip for EK80
+        # TODO: This is right now problematic with array attribute for filter coeff
+        prov_ds = prov_ds.fillna("").astype(str)
+    prov_ds[ED_GROUP] = prov_ds[ED_GROUP].astype(str)
+    prov_ds[ED_FILENAME] = prov_ds[ED_FILENAME].astype(str)
+    return prov_ds
 
 
 def _combine(
+    sonar_model: str,
     eds: List[EchoData] = [],
     echodata_filenames: List[str] = [],
     ed_group_chan_sel: Dict[str, Optional[List[str]]] = {},
 ):
-    group_attrs = defaultdict(list)
-    group_attrs["echodata_filename"] = echodata_filenames
+    all_group_paths = dict.fromkeys(
+        itertools.chain.from_iterable([list(ed.group_paths) for ed in eds])
+    ).keys()
+    # For dealing with attributes
+    attrs_dict = {}
 
+    # Create Echodata tree dict
     tree_dict = {}
-    # loop through all possible group and write them to a zarr store
-    for grp_info in EchoData.group_map.values():
-        # obtain the appropriate group name
-        if grp_info["ep_group"]:
-            ed_group = grp_info["ep_group"]
-        else:
-            ed_group = "Top-level"
-
+    for ed_group in all_group_paths:
         # collect the group Dataset from all eds that have their channels unselected
-        all_chan_ds_list = [ed[ed_group] for ed in eds if ed_group in ed.group_paths]
+        all_chan_ds_list = [ed[ed_group] for ed in eds]
 
         # select only the appropriate channels from each Dataset
         ds_list = [
@@ -676,12 +672,13 @@ def _combine(
         ]
 
         if ds_list:
+            # Get all of the keys and attributes
+            ds_attrs = [ds.attrs for ds in ds_list]
+            # Attribute holding
+            attrs_dict[ed_group] = ds_attrs
+
             # Checks for ascending time in dataset list
             _check_ascending_ds_times(ds_list, ed_group)
-
-            # Extract group attribute values
-            ds_info = _get_ds_info(ds_list, ed_group)
-            group_attrs.update(ds_info)
 
             # get all dimensions in ds that are append dimensions
             ds_append_dims = set(ds_list[0].dims).intersection(APPEND_DIMS)
@@ -693,21 +690,49 @@ def _combine(
                 for dim in ds_append_dims:
                     drop_dims = [c_dim for c_dim in ds_append_dims if c_dim != dim]
                     sub_ds = xr.concat(
-                        [ed_subset.drop_dims(drop_dims) for ed_subset in ds_list],
+                        [ds.drop_dims(drop_dims) for ds in ds_list],
                         dim=dim,
                         coords="minimal",
                         data_vars="minimal",
                     )
                     combined_ds = combined_ds.assign(sub_ds.variables)
-                    # Same as "override" setting for concat
-                    combined_ds.attrs = ds_list[0].attrs
 
-            if ed_group == "Provenance":
-                combined_ds = combined_ds.pipe(_update_provenance, group_attrs)
-
+            # Modify default attrs
             if ed_group == "Top-level":
                 ed_group = "/"
+
+            # Merge attributes and set to dataset
+            if ed_group == "Vendor_specific":
+                # For vendor specific get attribute from first file
+                group_attrs = ds_attrs[0]
+            else:
+                group_attrs = _merge_attributes(ds_attrs)
+
+            # Empty out attributes for now, will be refilled later
+            combined_ds.attrs = group_attrs
+
+            # Add combined flag for Provenance
+            if ed_group == "Provenance":
+                combined_ds.attrs.update(
+                    {
+                        "is_combined": True,
+                        "conversion_time": datetime.datetime.utcnow().strftime(
+                            "%Y-%m-%dT%H:%M:%SZ"
+                        ),
+                    }
+                )
+
+            # Data holding
             tree_dict[ed_group] = combined_ds
+
+    # Capture provenance for all the attributes
+    prov_ds = _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model)
+    # Update the provenance dataset with the captured data
+    prov_ds = tree_dict["Provenance"].assign(prov_ds)
+    # Update filenames to iter integers
+    prov_ds[FILENAMES] = prov_ds[FILENAMES].copy(data=np.arange(*prov_ds[FILENAMES].shape))
+    tree_dict["Provenance"] = prov_ds
+
     return tree_dict
 
 
@@ -814,7 +839,10 @@ def combine_echodata(
     ed_group_chan_sel = _check_echodata_channels(echodatas, channel_selection)
 
     tree_dict = _combine(
-        eds=echodatas, echodata_filenames=echodata_filenames, ed_group_chan_sel=ed_group_chan_sel
+        sonar_model=sonar_model,
+        eds=echodatas,
+        echodata_filenames=echodata_filenames,
+        ed_group_chan_sel=ed_group_chan_sel,
     )
 
     tree = DataTree.from_dict(tree_dict, name="root")
