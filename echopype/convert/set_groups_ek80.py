@@ -1334,7 +1334,7 @@ class SetGroupsEK80(SetGroupsBase):
                 )
             # filter coeffs and decimation factor for pulse compression (PC)
             if self.parser_obj.fil_df and (ch in self.parser_obj.fil_coeffs.keys()):
-                coeffs_vals = self.parser_obj.fil_coeffs[ch][1]
+                coeffs_vals = self.parser_obj.fil_coeffs[ch][2]
                 coeffs_and_decimation[PULSE_COMPRESS][FILTER_IMAG].append(np.imag(coeffs_vals))
                 coeffs_and_decimation[PULSE_COMPRESS][FILTER_REAL].append(np.real(coeffs_vals))
                 coeffs_and_decimation[PULSE_COMPRESS][DECIMATION].append(
