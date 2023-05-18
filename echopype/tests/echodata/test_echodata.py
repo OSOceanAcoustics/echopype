@@ -197,7 +197,7 @@ def range_check_files(request, test_path):
 
 
 class TestEchoData:
-    expected_groups = {
+    expected_groups = (
         'Top-level',
         'Environment',
         'Platform',
@@ -206,7 +206,7 @@ class TestEchoData:
         'Sonar',
         'Sonar/Beam_group1',
         'Vendor_specific',
-    }
+    )
 
     @pytest.fixture(scope="class")
     def mock_echodata(self):
