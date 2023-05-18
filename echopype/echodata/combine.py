@@ -1,7 +1,6 @@
 import datetime
 import itertools
 import re
-from collections import defaultdict
 from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -497,114 +496,6 @@ def _check_ascending_ds_times(ds_list: List[xr.Dataset], ed_group: str) -> None:
                 raise RuntimeError(
                     f"The coordinate {time} is not in ascending order for "
                     f"group {ed_group}, combine cannot be used!"
-                )
-
-
-def _get_ds_info(ds_list: List[xr.Dataset], ed_group: str) -> Dict[str, list]:
-    """
-    Constructs useful dictionaries that contain information
-    about the dimensions of the Dataset. Additionally, collects
-    the attributes from each Dataset in ``ds_list`` and saves
-    this group specific information to the class variable
-    ``group_attrs``.
-
-    Parameters
-    ----------
-    ds_list: list of xr.Dataset
-        The Datasets that will be combined
-    ed_group: str
-        The name of the EchoData group corresponding to the
-        Datasets in ``ds_list``
-
-    Notes
-    -----
-    If attribute values are numpy arrays, then they will not be included
-    in the ``self.group_attrs``. Instead, these values will only appear
-    in the attributes of the combined ``EchoData`` object.
-    """
-
-    group_attrs = defaultdict(list)
-
-    # format ed_name appropriately
-    ed_group = ed_group.replace("-", "_").replace("/", "_").lower()
-
-    if ed_group == "top_level":
-        # Let's skip the attribute comparison for top level
-        numpy_keys = []
-    else:
-        if len(ds_list) == 1:
-            # get numpy keys if we only have one Dataset
-            numpy_keys = _compare_attrs(ds_list[0].attrs, ds_list[0].attrs)
-        else:
-            # compare attributes and get numpy keys, if they exist
-            for ind in range(len(ds_list) - 1):
-                numpy_keys = _compare_attrs(ds_list[ind].attrs, ds_list[ind + 1].attrs)
-
-    # collect Dataset attributes
-    for count, ds in enumerate(ds_list):
-        # get reduced attributes that do not include numpy keys
-        red_attrs = {key: val for key, val in ds.attrs.items() if key not in numpy_keys}
-
-        if count == 0:
-            group_attrs[ed_group + "_attr_key"].extend(red_attrs.keys())
-
-        group_attrs[ed_group + "_attrs"].append(list(red_attrs.values()))
-    return group_attrs
-
-
-def _compare_attrs(attr1: dict, attr2: dict) -> List[str]:
-    """
-    Compares two attribute dictionaries to ensure that they
-    are acceptably identical.
-
-    Parameters
-    ----------
-    attr1: dict
-        Attributes from Dataset 1
-    attr2: dict
-        Attributes from Dataset 2
-
-    Returns
-    -------
-    numpy_keys: list
-        All keys that have numpy arrays as values
-
-    Raises
-    ------
-    RuntimeError
-        - If the keys are not the same
-        - If the values are not identical
-        - If the keys ``date_created`` or ``conversion_time``
-        do not have the same types
-
-    Notes
-    -----
-    For the keys ``date_created``, ``conversion_time`` the values
-    are not required to be identical, rather their type must be identical.
-    """
-
-    # make sure all keys are identical (this should never be triggered)
-    if attr1.keys() != attr2.keys():
-        raise RuntimeError(
-            "The attribute keys amongst the ds lists are not the same, combine cannot be used!"
-        )
-
-    # make sure that all values are identical
-    numpy_keys = []
-    for key in attr1.keys():
-        if isinstance(attr1[key], np.ndarray):
-            numpy_keys.append(key)
-
-            if not np.allclose(attr1[key], attr2[key], rtol=1e-12, atol=1e-12, equal_nan=True):
-                raise RuntimeError(
-                    f"The attribute {key}'s value amongst the ds lists are not the "
-                    f"same, combine cannot be used!"
-                )
-        elif key in ["date_created", "conversion_time"]:
-            if not isinstance(attr1[key], type(attr2[key])):
-                raise RuntimeError(
-                    f"The attribute {key}'s type amongst the ds lists "
-                    f"are not the same, combine cannot be used!"
                 )
 
 
