@@ -582,7 +582,7 @@ def _combine(
     Parameters
     ----------
     sonar_model : str
-        The sonar model used for all elements in ``eds`
+        The sonar model used for all elements in ``eds``
     eds: list of EchoData object
         The list of ``EchoData`` objects to be combined
     echodata_filenames : list of str
