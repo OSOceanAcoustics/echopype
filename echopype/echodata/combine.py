@@ -609,7 +609,20 @@ def _compare_attrs(attr1: dict, attr2: dict) -> List[str]:
 
 
 def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
-    """Function for merging attributes"""
+    """
+    Merges a list of attributes dictionary
+
+    Parameters
+    ----------
+    attributes : list of dict
+        List of attributes dictionary
+        E.g. [{'attr1': 'val1'}, {'attr2': 'val2'}, ...]
+
+    Returns
+    -------
+    dict
+        The merged attribute dictionary
+    """
     merged_dict = {}
     for attribute in attributes:
         for key, value in attribute.items():
@@ -620,7 +633,29 @@ def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
     return merged_dict
 
 
-def _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model):
+def _capture_prov_attrs(
+    attrs_dict: Dict[str, List[Dict[str, str]]], echodata_filenames: List[str], sonar_model: str
+) -> xr.Dataset:
+    """
+    Capture and create provenance dataset,
+    from the combined attribute values.
+
+    Parameters
+    ----------
+    attrs_dict : dict of list
+        Dictionary of attributes for each of the group.
+        E.g. {'Group': [{'attr1': 'val1'}, {'attr2': 'val2'}, ...]}
+    echodata_filenames : list of str
+        The filenames of the echodata objects
+    sonar_model : str
+        The sonar model
+
+    Returns
+    -------
+    xr.Dataset
+        The provenance dataset for all the attribute values
+
+    """
     index_keys = [ED_GROUP, ED_FILENAME]
     df_list = []
     for group, attributes in attrs_dict.items():
@@ -650,7 +685,31 @@ def _combine(
     eds: List[EchoData] = [],
     echodata_filenames: List[str] = [],
     ed_group_chan_sel: Dict[str, Optional[List[str]]] = {},
-):
+) -> Dict[str, xr.Dataset]:
+    """
+    Combines the echodata objects and export to a dictionary tree.
+
+    Parameters
+    ----------
+    sonar_model : str
+        The sonar model used for all elements in ``eds`
+    eds: list of EchoData object
+        The list of ``EchoData`` objects to be combined
+    echodata_filenames : list of str
+        The filenames of the echodata objects
+    ed_group_chan_sel: dict
+        A dictionary with keys corresponding to the ``EchoData`` groups
+        and values specify what channels should be selected within that
+        group. If a value is ``None``, then a subset of channels should
+        not be selected.
+
+    Returns
+    -------
+    dict of xr.Dataset
+        The dictionary tree containing the xarray dataset
+        for each of the combined group
+
+    """
     all_group_paths = dict.fromkeys(
         itertools.chain.from_iterable([list(ed.group_paths) for ed in eds])
     ).keys()
@@ -711,7 +770,7 @@ def _combine(
             # Empty out attributes for now, will be refilled later
             combined_ds.attrs = group_attrs
 
-            # Add combined flag for Provenance
+            # Add combined flag and update conversion time for Provenance
             if ed_group == "Provenance":
                 combined_ds.attrs.update(
                     {
@@ -838,6 +897,7 @@ def combine_echodata(
     # perform channel check and get channel selection for each EchoData group
     ed_group_chan_sel = _check_echodata_channels(echodatas, channel_selection)
 
+    # combine the echodata objects and get the tree dict
     tree_dict = _combine(
         sonar_model=sonar_model,
         eds=echodatas,
@@ -845,8 +905,10 @@ def combine_echodata(
         ed_group_chan_sel=ed_group_chan_sel,
     )
 
+    # create datatree from tree dictionary
     tree = DataTree.from_dict(tree_dict, name="root")
 
+    # create echodata object from datatree
     ed_comb = EchoData(sonar_model=sonar_model)
     ed_comb._set_tree(tree)
     ed_comb._load_tree()
