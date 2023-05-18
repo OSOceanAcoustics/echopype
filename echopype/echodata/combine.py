@@ -553,7 +553,6 @@ def _capture_prov_attrs(
         df = pd.DataFrame.from_records(attributes)
         df.loc[:, ED_FILENAME] = echodata_filenames
         df[ED_GROUP] = group
-        df.loc[:, ED_FILENAME] = echodata_filenames
         df = df.set_index(index_keys)
         df_list.append(df)
 
