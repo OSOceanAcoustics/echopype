@@ -1353,7 +1353,7 @@ class SetGroupsEK80(SetGroupsBase):
         return ds
 
     @staticmethod
-    def _add_cd(
+    def _add_filter_params(
         dataset: xr.Dataset, coeffs_and_decimation: Dict[str, Dict[str, List[Union[int, NDArray]]]]
     ) -> xr.Dataset:
         """
@@ -1400,6 +1400,6 @@ class SetGroupsEK80(SetGroupsBase):
                     }
                     dims = ["channel"]
                 # Set the xarray data dictionary
-                coeffs_xr_data[f"{cd_type} {key}"] = (dims, data, attrs)
+                coeffs_xr_data[f"{cd_type}_{key}"] = (dims, data, attrs)
 
         return dataset.assign(coeffs_xr_data)
