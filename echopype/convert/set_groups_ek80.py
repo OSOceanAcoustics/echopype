@@ -1317,29 +1317,30 @@ class SetGroupsEK80(SetGroupsBase):
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
-        #  Save decimation factors and filter coefficients
+        # Save decimation factors and filter coefficients
+        # Param map values
+        # 1: wide band transceiver (WBT)
+        # 2: pulse compression (PC)
+        param_map = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
         coeffs_and_decimation = {
-            t: {FILTER_IMAG: [], FILTER_REAL: [], DECIMATION: []}
-            for t in [WIDE_BAND_TRANS, PULSE_COMPRESS]
+            t: {FILTER_IMAG: [], FILTER_REAL: [], DECIMATION: []} for t in list(param_map.values())
         }
 
         for ch in self.sorted_channel["all"]:
-            # filter coeffs and decimation factor for wide band transceiver (WBT)
-            if self.parser_obj.fil_coeffs and (ch in self.parser_obj.fil_coeffs.keys()):
-                coeffs_vals = self.parser_obj.fil_coeffs[ch][1]
-                coeffs_and_decimation[WIDE_BAND_TRANS][FILTER_IMAG].append(np.imag(coeffs_vals))
-                coeffs_and_decimation[WIDE_BAND_TRANS][FILTER_REAL].append(np.real(coeffs_vals))
-                coeffs_and_decimation[WIDE_BAND_TRANS][DECIMATION].append(
-                    self.parser_obj.fil_df[ch][1]
-                )
-            # filter coeffs and decimation factor for pulse compression (PC)
-            if self.parser_obj.fil_df and (ch in self.parser_obj.fil_coeffs.keys()):
-                coeffs_vals = self.parser_obj.fil_coeffs[ch][2]
-                coeffs_and_decimation[PULSE_COMPRESS][FILTER_IMAG].append(np.imag(coeffs_vals))
-                coeffs_and_decimation[PULSE_COMPRESS][FILTER_REAL].append(np.real(coeffs_vals))
-                coeffs_and_decimation[PULSE_COMPRESS][DECIMATION].append(
-                    self.parser_obj.fil_df[ch][2]
-                )
+            fil_coeffs = self.parser_obj.fil_coeffs.get(ch, None)
+            fil_df = self.parser_obj.fil_df.get(ch, None)
+
+            if fil_coeffs and fil_df:
+                # get filter coefficient values
+                for type_num, values in fil_coeffs.items():
+                    param = param_map[type_num]
+                    coeffs_and_decimation[param][FILTER_IMAG].append(np.imag(values))
+                    coeffs_and_decimation[param][FILTER_REAL].append(np.real(values))
+
+                # get decimation factor values
+                for type_num, value in fil_df.items():
+                    param = param_map[type_num]
+                    coeffs_and_decimation[param][DECIMATION].append(value)
 
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
