@@ -5,6 +5,8 @@ import numpy as np
 import xarray as xr
 from scipy import signal
 
+from ..convert.set_groups_ek80 import DECIMATION, FILTER_IMAG, FILTER_REAL
+
 
 def tapered_chirp(
     fs,
@@ -99,15 +101,23 @@ def get_vend_filter_EK80(
     np.ndarray or int
         The filter coefficient or the decimation factor
     """
+    # Select the channel requested
+    sel_vend = vend.sel(channel=channel_id)
+
     if param_type == "coeff":
-        v = vend.attrs[f"{channel_id} {filter_name} filter_r"] + 1j * np.array(
-            vend.attrs[f"{channel_id} {filter_name} filter_i"]
-        )
+        var_imag = f"{filter_name}_{FILTER_IMAG}"
+        var_real = f"{filter_name}_{FILTER_REAL}"
+        # Compute complex number from imaginary and real parts
+        v_complex = sel_vend[var_real] + 1j * sel_vend[var_imag]
+        # Drop nan fillers and get the values
+        v = v_complex.dropna(dim=f"{filter_name}_filter_n").values
         if v.size == 1:
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
-        return vend.attrs[f"{channel_id} {filter_name} decimation"]
+        var_df = f"{filter_name}_{DECIMATION}"
+        # Get the decimation value
+        return sel_vend[var_df].values
 
 
 def get_filter_coeff(vend: xr.Dataset) -> Dict:
