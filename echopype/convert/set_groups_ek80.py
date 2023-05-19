@@ -1,14 +1,21 @@
 from collections import defaultdict
-from typing import List
+from typing import Dict, List, Union
 
 import numpy as np
 import xarray as xr
+from numpy.typing import NDArray
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 from .set_groups_base import SetGroupsBase
 
 logger = _init_logger(__name__)
+
+WIDE_BAND_TRANS = "WBT"
+PULSE_COMPRESS = "PC"
+FILTER_IMAG = "filter_i"
+FILTER_REAL = "filter_r"
+DECIMATION = "decimation"
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -1310,32 +1317,93 @@ class SetGroupsEK80(SetGroupsBase):
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
-        #  Save decimation factors and filter coefficients
-        coeffs = dict()
-        decimation_factors = dict()
+        # Save decimation factors and filter coefficients
+        # Param map values
+        # 1: wide band transceiver (WBT)
+        # 2: pulse compression (PC)
+        param_map = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
+        coeffs_and_decimation = {
+            t: {FILTER_IMAG: [], FILTER_REAL: [], DECIMATION: []} for t in list(param_map.values())
+        }
+
         for ch in self.sorted_channel["all"]:
-            # filter coeffs and decimation factor for wide band transceiver (WBT)
-            if self.parser_obj.fil_coeffs and (ch in self.parser_obj.fil_coeffs.keys()):
-                coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
-                decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
-            # filter coeffs and decimation factor for pulse compression (PC)
-            if self.parser_obj.fil_df and (ch in self.parser_obj.fil_coeffs.keys()):
-                coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
-                decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
+            fil_coeffs = self.parser_obj.fil_coeffs.get(ch, None)
+            fil_df = self.parser_obj.fil_df.get(ch, None)
+
+            if fil_coeffs and fil_df:
+                # get filter coefficient values
+                for type_num, values in fil_coeffs.items():
+                    param = param_map[type_num]
+                    coeffs_and_decimation[param][FILTER_IMAG].append(np.imag(values))
+                    coeffs_and_decimation[param][FILTER_REAL].append(np.real(values))
+
+                # get decimation factor values
+                for type_num, value in fil_df.items():
+                    param = param_map[type_num]
+                    coeffs_and_decimation[param][DECIMATION].append(value)
 
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
 
-        # Save filter coefficients as real and imaginary parts as attributes
-        for k, v in coeffs.items():
-            ds.attrs[k + "_r"] = np.real(v)
-            ds.attrs[k + "_i"] = np.imag(v)
-
-        # Save decimation factors as attributes
-        for k, v in decimation_factors.items():
-            ds.attrs[k] = v
+        # Add the coeffs and decimation
+        ds = ds.pipe(self._add_filter_params, coeffs_and_decimation)
 
         # Save the entire config XML in vendor group in case of info loss
         ds.attrs["config_xml"] = self.parser_obj.config_datagram["xml"]
 
         return ds
+
+    @staticmethod
+    def _add_filter_params(
+        dataset: xr.Dataset, coeffs_and_decimation: Dict[str, Dict[str, List[Union[int, NDArray]]]]
+    ) -> xr.Dataset:
+        """
+        Assembles filter coefficient and decimation factors and add to the dataset
+
+        Parameters
+        ----------
+        dataset : xr.Dataset
+            xarray dataset where the filter coefficient and decimation factors will be added
+        coeffs_and_decimation : dict
+            dictionary holding the filter coefficient and decimation factors
+
+        Returns
+        -------
+        xr.Dataset
+            The modified dataset with filter coefficient and decimation factors included
+        """
+        attribute_values = {
+            FILTER_IMAG: "filter coefficients (imaginary part)",
+            FILTER_REAL: "filter coefficients (real part)",
+            DECIMATION: "decimation factor",
+            WIDE_BAND_TRANS: "Wideband transceiver",
+            PULSE_COMPRESS: "Pulse compression",
+        }
+
+        coeffs_xr_data = {}
+        for cd_type, values in coeffs_and_decimation.items():
+            for key, data in values.items():
+                if data:
+                    if "filter" in key:
+                        attrs = {
+                            "long_name": f"{attribute_values[cd_type]} {attribute_values[key]}"
+                        }
+                        # filter_i and filter_r
+                        max_len = np.max([len(a) for a in data])
+                        # Pad arrays
+                        data = np.asarray(
+                            [
+                                np.pad(a, (0, max_len - len(a)), "constant", constant_values=np.nan)
+                                for a in data
+                            ]
+                        )
+                        dims = ["channel", f"{cd_type}_filter_n"]
+                    else:
+                        attrs = {
+                            "long_name": f"{attribute_values[cd_type]} {attribute_values[DECIMATION]}"  # noqa
+                        }
+                        dims = ["channel"]
+                    # Set the xarray data dictionary
+                    coeffs_xr_data[f"{cd_type}_{key}"] = (dims, data, attrs)
+
+        return dataset.assign(coeffs_xr_data)
