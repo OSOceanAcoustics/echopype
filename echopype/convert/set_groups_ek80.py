@@ -1345,7 +1345,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds = xr.merge([ds_table, ds_cal])
 
         # Add the coeffs and decimation
-        ds = ds.pipe(self._add_cd, coeffs_and_decimation)
+        ds = ds.pipe(self._add_filter_params, coeffs_and_decimation)
 
         # Save the entire config XML in vendor group in case of info loss
         ds.attrs["config_xml"] = self.parser_obj.config_datagram["xml"]
@@ -1382,24 +1382,27 @@ class SetGroupsEK80(SetGroupsBase):
         coeffs_xr_data = {}
         for cd_type, values in coeffs_and_decimation.items():
             for key, data in values.items():
-                if "filter" in key:
-                    attrs = {"long_name": f"{attribute_values[cd_type]} {attribute_values[key]}"}
-                    # filter_i and filter_r
-                    max_len = np.max([len(a) for a in data])
-                    # Pad arrays
-                    data = np.asarray(
-                        [
-                            np.pad(a, (0, max_len - len(a)), "constant", constant_values=np.nan)
-                            for a in data
-                        ]
-                    )
-                    dims = ["channel", f"{cd_type}_filter_n"]
-                else:
-                    attrs = {
-                        "long_name": f"{attribute_values[cd_type]} {attribute_values[DECIMATION]}"
-                    }
-                    dims = ["channel"]
-                # Set the xarray data dictionary
-                coeffs_xr_data[f"{cd_type}_{key}"] = (dims, data, attrs)
+                if data:
+                    if "filter" in key:
+                        attrs = {
+                            "long_name": f"{attribute_values[cd_type]} {attribute_values[key]}"
+                        }
+                        # filter_i and filter_r
+                        max_len = np.max([len(a) for a in data])
+                        # Pad arrays
+                        data = np.asarray(
+                            [
+                                np.pad(a, (0, max_len - len(a)), "constant", constant_values=np.nan)
+                                for a in data
+                            ]
+                        )
+                        dims = ["channel", f"{cd_type}_filter_n"]
+                    else:
+                        attrs = {
+                            "long_name": f"{attribute_values[cd_type]} {attribute_values[DECIMATION]}"  # noqa
+                        }
+                        dims = ["channel"]
+                    # Set the xarray data dictionary
+                    coeffs_xr_data[f"{cd_type}_{key}"] = (dims, data, attrs)
 
         return dataset.assign(coeffs_xr_data)
