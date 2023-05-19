@@ -5,6 +5,7 @@ from scipy.io import loadmat
 from echopype import open_raw
 
 from echopype.testing import TEST_DATA_FOLDER
+from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 
 
 @pytest.fixture
@@ -415,10 +416,8 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
     """Make sure we can convert EK80 file with empty filter coefficients."""
     echodata = open_raw(raw_file=ek80_path.joinpath('D20210330-T123857.raw'), sonar_model='EK80')
 
-    ch_ids = list(echodata["Sonar/Beam_group1"]["channel"].values)
+    vendor_spec_ds = echodata["Vendor_specific"]
 
-    for ch_id in ch_ids:
-        assert f"{ch_id} WBT filter_r" not in echodata["Vendor_specific"].attrs.keys()
-        assert f"{ch_id} WBT filter_i" not in echodata["Vendor_specific"].attrs.keys()
-        assert f"{ch_id} PC filter_r" not in echodata["Vendor_specific"].attrs.keys()
-        assert f"{ch_id} PC filter_i" not in echodata["Vendor_specific"].attrs.keys()
+    for t in [WIDE_BAND_TRANS, PULSE_COMPRESS]:
+        for p in [FILTER_REAL, FILTER_IMAG, DECIMATION]:
+            assert f"{t}_{p}" not in vendor_spec_ds
