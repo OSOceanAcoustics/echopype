@@ -3,7 +3,7 @@ import itertools
 import re
 from functools import reduce
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from warnings import warn
 
 import fsspec
@@ -499,6 +499,43 @@ def _check_ascending_ds_times(ds_list: List[xr.Dataset], ed_group: str) -> None:
                 )
 
 
+def _check_filter_params(ds_list: List[xr.Dataset], ed_group: Literal["Vendor_specific"]) -> None:
+    """
+    Check for identical filter params for all inputs in Vendor specific group
+
+    Parameters
+    ----------
+    ds_list: list of xr.Dataset
+        List of Datasets to be combined
+    ed_group: "Vendor_specific"
+        The name of the ``EchoData`` group being combined,
+        this is only works for "Vendor_specific" group.
+
+    Returns
+    -------
+    None
+
+
+    Raises
+    ------
+    RuntimeError
+        If non identical filter parameters is found.
+    """
+    if ed_group != "Vendor_specific":
+        raise ValueError("Group must be `Vendor_specific`!")
+    it = iter(ds_list)
+    # Init as identical, must stay True.
+    is_identical = True
+    dataset = next(it)
+    for next_dataset in it:
+        is_identical = dataset.identical(next_dataset)
+        if not is_identical:
+            raise RuntimeError(
+                f"Non identical filter parameters in {ed_group} group. " "Objects cannot be merged!"
+            )
+        dataset = next_dataset
+
+
 def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
     """
     Merges a list of attributes dictionary
@@ -629,6 +666,10 @@ def _combine(
             # Checks for ascending time in dataset list
             _check_ascending_ds_times(ds_list, ed_group)
 
+            # Checks for filter parameters for "Vendor_specific" ONLY
+            if ed_group == "Vendor_specific":
+                _check_filter_params(ds_list, ed_group)
+
             # get all dimensions in ds that are append dimensions
             ds_append_dims = set(ds_list[0].dims).intersection(APPEND_DIMS)
 
@@ -651,11 +692,7 @@ def _combine(
                 ed_group = "/"
 
             # Merge attributes and set to dataset
-            if ed_group == "Vendor_specific":
-                # For vendor specific get attribute from first file
-                group_attrs = ds_attrs[0]
-            else:
-                group_attrs = _merge_attributes(ds_attrs)
+            group_attrs = _merge_attributes(ds_attrs)
 
             # Empty out attributes for now, will be refilled later
             combined_ds.attrs = group_attrs
