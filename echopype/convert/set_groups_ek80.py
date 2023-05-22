@@ -728,7 +728,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
                             "long_name"
                         ],  # noqa
-                        "units": "V",
+                        "units": "dB",
                     },
                 ),
                 "backscatter_i": (
@@ -738,7 +738,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "long_name": self._varattrs["beam_var_default"]["backscatter_i"][
                             "long_name"
                         ],
-                        "units": "V",
+                        "units": "dB",
                     },
                 ),
             },

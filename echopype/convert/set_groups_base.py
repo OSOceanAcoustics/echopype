@@ -542,7 +542,7 @@ class SetGroupsBase(abc.ABC):
             name="backscatter_r",
             attrs={
                 "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
-                "units": "V",
+                "units": "dB",
             },
         )
 
@@ -552,7 +552,7 @@ class SetGroupsBase(abc.ABC):
             name="backscatter_i",
             attrs={
                 "long_name": self._varattrs["beam_var_default"]["backscatter_i"]["long_name"],
-                "units": "V",
+                "units": "dB",
             },
         )
 
