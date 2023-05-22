@@ -403,7 +403,10 @@ class SetGroupsBase(abc.ABC):
                 ),
             },
             name="backscatter_r",
-            attrs={"long_name": "Backscatter power", "units": "dB"},
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
+                "units": "dB",
+            },
         )
 
         return backscatter_r
@@ -537,14 +540,20 @@ class SetGroupsBase(abc.ABC):
             data=complex_r,
             coords=array_coords,
             name="backscatter_r",
-            attrs={"long_name": "Real part of backscatter power", "units": "V"},
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
+                "units": "V",
+            },
         )
 
         backscatter_i = xr.DataArray(
             data=complex_i,
             coords=array_coords,
             name="backscatter_i",
-            attrs={"long_name": "Imaginary part of backscatter power", "units": "V"},
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_i"]["long_name"],
+                "units": "V",
+            },
         )
 
         return backscatter_r, backscatter_i

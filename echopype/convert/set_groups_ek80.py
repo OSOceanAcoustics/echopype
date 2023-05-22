@@ -724,12 +724,22 @@ class SetGroupsEK80(SetGroupsBase):
                 "backscatter_r": (
                     ["ping_time", "range_sample", "beam"],
                     np.real(data),
-                    {"long_name": "Real part of backscatter power", "units": "V"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],  # noqa
+                        "units": "V",
+                    },
                 ),
                 "backscatter_i": (
                     ["ping_time", "range_sample", "beam"],
                     np.imag(data),
-                    {"long_name": "Imaginary part of backscatter power", "units": "V"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_i"][
+                            "long_name"
+                        ],
+                        "units": "V",
+                    },
                 ),
             },
             coords={
@@ -823,7 +833,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "backscatter_r": (
                     ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
-                    {"long_name": "Backscatter power", "units": "dB"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],
+                        "units": "dB",
+                    },
                 ),
             },
             coords={

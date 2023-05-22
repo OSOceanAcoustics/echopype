@@ -681,7 +681,12 @@ class SetGroupsEK60(SetGroupsBase):
                 var_dict["backscatter_r"] = (
                     ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
-                    {"long_name": "Backscatter power", "units": "dB"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],  # noqa
+                        "units": "dB",
+                    },
                 )
 
                 ds_tmp = xr.Dataset(
