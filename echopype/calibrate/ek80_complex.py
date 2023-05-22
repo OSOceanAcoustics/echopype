@@ -1,9 +1,11 @@
 from collections import defaultdict
-from typing import Dict, Literal, Union
+from typing import Dict, Literal, Optional, Union
 
 import numpy as np
 import xarray as xr
 from scipy import signal
+
+from ..convert.set_groups_ek80 import DECIMATION, FILTER_IMAG, FILTER_REAL
 
 
 def tapered_chirp(
@@ -79,7 +81,7 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
 
 def get_vend_filter_EK80(
     vend: xr.Dataset, channel_id: str, filter_name: str, param_type: Literal["coeff", "decimation"]
-) -> Union[np.ndarray, int]:
+) -> Optional[Union[np.ndarray, int]]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
 
@@ -96,18 +98,31 @@ def get_vend_filter_EK80(
 
     Returns
     -------
-    np.ndarray or int
+    np.ndarray or int or None
         The filter coefficient or the decimation factor
     """
+    var_imag = f"{filter_name}_{FILTER_IMAG}"
+    var_real = f"{filter_name}_{FILTER_REAL}"
+    var_df = f"{filter_name}_{DECIMATION}"
+
+    # if the variables are not in the dataset, simply return None
+    if not all([var in vend for var in [var_imag, var_real, var_df]]):
+        return None
+
+    # Select the channel requested
+    sel_vend = vend.sel(channel=channel_id)
+
     if param_type == "coeff":
-        v = vend.attrs[f"{channel_id} {filter_name} filter_r"] + 1j * np.array(
-            vend.attrs[f"{channel_id} {filter_name} filter_i"]
-        )
+        # Compute complex number from imaginary and real parts
+        v_complex = sel_vend[var_real] + 1j * sel_vend[var_imag]
+        # Drop nan fillers and get the values
+        v = v_complex.dropna(dim=f"{filter_name}_filter_n").values
         if v.size == 1:
             v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
-        return vend.attrs[f"{channel_id} {filter_name} decimation"]
+        # Get the decimation value
+        return sel_vend[var_df].values
 
 
 def get_filter_coeff(vend: xr.Dataset) -> Dict:
