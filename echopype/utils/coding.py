@@ -144,20 +144,19 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
     # create zarr specific encoding
     encoding = dict()
     for name, val in ds.variables.items():
-        val_encoding = val.encoding
-        val_encoding.update(get_zarr_compression(val, compression_settings))
+        encoding[name] = {**val.encoding}
+        encoding[name].update(get_zarr_compression(val, compression_settings))
 
-        # If data array is not a dask array yet,
-        # create a custom chunking encoding
-        # currently defaults to 100MB
-        if not ds.chunks and len(val.shape) > 0:
+        # Always optimize chunk if not specified already
+        # user can specify desired chunk in encoding
+        existing_chunks = encoding[name].get("chunks", None)
+        if len(val.shape) > 0 and existing_chunks is not None:
             chunks = _get_auto_chunk(val)
-            val_encoding.update({"chunks": chunks})
+            encoding[name]["chunks"] = chunks
 
-        if PREFERRED_CHUNKS in val_encoding:
+        if PREFERRED_CHUNKS in encoding[name]:
             # Remove 'preferred_chunks', use chunks only instead
-            val_encoding.pop(PREFERRED_CHUNKS)
-        encoding[name] = val_encoding
+            encoding[name].pop(PREFERRED_CHUNKS)
 
     return encoding
 

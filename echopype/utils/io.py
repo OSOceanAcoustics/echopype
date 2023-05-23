@@ -60,6 +60,9 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
     if engine == "netcdf4":
         ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, **kwargs)
     elif engine == "zarr":
+        # Ensure that encoding and chunks match
+        for var, enc in encoding.items():
+            ds[var] = ds[var].chunk(enc.get("chunks", {}))
         ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding, **kwargs)
     else:
         raise ValueError(f"{engine} is not a supported save format")
