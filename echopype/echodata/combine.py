@@ -499,7 +499,9 @@ def _check_ascending_ds_times(ds_list: List[xr.Dataset], ed_group: str) -> None:
                 )
 
 
-def _check_filter_params(ds_list: List[xr.Dataset], ed_group: Literal["Vendor_specific"]) -> None:
+def _check_filter_params(
+    ds_list: List[xr.Dataset], ed_group: Literal["Vendor_specific"], ds_append_dims: set
+) -> None:
     """
     Check for identical filter params for all inputs in Vendor specific group
 
@@ -510,19 +512,28 @@ def _check_filter_params(ds_list: List[xr.Dataset], ed_group: Literal["Vendor_sp
     ed_group: "Vendor_specific"
         The name of the ``EchoData`` group being combined,
         this is only works for "Vendor_specific" group.
+    ds_append_dims: set
+        A set of datasets append dimensions
 
     Returns
     -------
     None
 
-
     Raises
     ------
+    ValueError
+        If ``ed_group`` is not ``Vendor_specific``.
     RuntimeError
         If non identical filter parameters is found.
     """
     if ed_group != "Vendor_specific":
         raise ValueError("Group must be `Vendor_specific`!")
+
+    if len(ds_append_dims) > 0:
+        # If there's a dataset appending dimension, drop for comparison
+        # of the other values... everything else should be identical
+        ds_list = [ds.drop_dims(ds_append_dims) for ds in ds_list]
+
     it = iter(ds_list)
     # Init as identical, must stay True.
     is_identical = True
@@ -666,12 +677,12 @@ def _combine(
             # Checks for ascending time in dataset list
             _check_ascending_ds_times(ds_list, ed_group)
 
-            # Checks for filter parameters for "Vendor_specific" ONLY
-            if ed_group == "Vendor_specific":
-                _check_filter_params(ds_list, ed_group)
-
             # get all dimensions in ds that are append dimensions
             ds_append_dims = set(ds_list[0].dims).intersection(APPEND_DIMS)
+
+            # Checks for filter parameters for "Vendor_specific" ONLY
+            if ed_group == "Vendor_specific":
+                _check_filter_params(ds_list, ed_group, ds_append_dims)
 
             if len(ds_append_dims) == 0:
                 combined_ds = ds_list[0]
