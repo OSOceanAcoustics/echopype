@@ -261,7 +261,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 "backscatter_r": (
                     ["channel", "ping_time", "range_sample"],
                     N,
-                    {"long_name": "Backscatter power", "units": "dB"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],
+                        "units": "count",
+                    },
                 ),
                 "equivalent_beam_angle": (
                     ["channel"],
