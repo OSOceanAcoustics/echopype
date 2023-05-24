@@ -264,7 +264,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     {
                         "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
                             "long_name"
-                        ],  # noqa
+                        ],
                         "units": "count",
                     },
                 ),
