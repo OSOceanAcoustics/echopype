@@ -746,8 +746,6 @@ def combine_echodata(
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
-    This is accomplished by writing each element of ``echodata_list`` in parallel
-    (using Dask) to the zarr store specified by ``zarr_path``.
 
     Parameters
     ----------
