@@ -503,7 +503,7 @@ def _check_filter_params(
     ds_list: List[xr.Dataset], ed_group: Literal["Vendor_specific"], ds_append_dims: set
 ) -> None:
     """
-    Check for identical filter params for all inputs in Vendor specific group
+    Check for identical params for all inputs without an appending dimension in Vendor specific group
 
     Parameters
     ----------
@@ -511,7 +511,7 @@ def _check_filter_params(
         List of Datasets to be combined
     ed_group: "Vendor_specific"
         The name of the ``EchoData`` group being combined,
-        this is only works for "Vendor_specific" group.
+        this only works for "Vendor_specific" group.
     ds_append_dims: set
         A set of datasets append dimensions
 
@@ -549,7 +549,7 @@ def _check_filter_params(
 
 def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
     """
-    Merges a list of attributes dictionary
+    Merge a list of attributes dictionary
 
     Parameters
     ----------
@@ -592,7 +592,7 @@ def _capture_prov_attrs(
     Returns
     -------
     xr.Dataset
-        The provenance dataset for all the attribute values
+        The provenance dataset for all attribute values from the list of echodata objects that are combined.
 
     """
     index_keys = [ED_GROUP, ED_FILENAME]
