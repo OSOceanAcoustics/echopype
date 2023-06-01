@@ -572,8 +572,13 @@ def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
     for attribute in attributes:
         for key, value in attribute.items():
             if value == "" and key not in merged_dict:
+                # checks if current attr value is empty,
+                # and doesn't exist in merged attribute
                 merged_dict[key] = value
             elif value != "":
+                # if current attr value is not empty,
+                # then overwrite the merged attribute,
+                # keeping attribute from latest value
                 merged_dict[key] = value
     return merged_dict
 
