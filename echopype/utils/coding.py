@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 import zarr
 from dask.array.core import auto_chunks
+from dask.utils import parse_bytes
 from xarray import coding
 
 DEFAULT_TIME_ENCODING = {
@@ -136,9 +137,27 @@ def get_zarr_compression(var: xr.Variable, compression_settings: dict) -> dict:
         raise NotImplementedError(f"Zarr Encoding for dtype = {var.dtype} has not been set!")
 
 
-def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
+def set_zarr_encodings(
+    ds: xr.Dataset, compression_settings: dict, chunk_size: str = "100MB", ctol: str = "10MB"
+) -> dict:
     """
     Obtains all variable encodings based on zarr default values
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The dataset object to generate encoding for
+    compression_settings : dict
+        The compression settings dictionary
+    chunk_size : dict
+        The desired chunk size
+    ctol : dict
+        The chunk size tolerance before rechunking
+
+    Returns
+    -------
+    dict
+        The encoding dictionary
     """
 
     # create zarr specific encoding
@@ -150,8 +169,28 @@ def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
         # Always optimize chunk if not specified already
         # user can specify desired chunk in encoding
         existing_chunks = encoding[name].get("chunks", None)
-        if len(val.shape) > 0 and existing_chunks is not None:
-            chunks = _get_auto_chunk(val)
+        optimal_chunk_size = parse_bytes(chunk_size)
+        chunk_size_tolerance = parse_bytes(ctol)
+
+        if len(val.shape) > 0:
+            rechunk = True
+            if existing_chunks is not None:
+                # Perform chunk optimization
+                # 1. Get the chunk total from existing chunks
+                chunk_total = np.prod(existing_chunks) * val.dtype.itemsize
+                # 2. Get chunk size difference from the optimal chunk size
+                chunk_diff = optimal_chunk_size - chunk_total
+                # 3. Check difference from tolerance, if diff is less than
+                #    tolerance then no need to rechunk
+                if chunk_diff < chunk_size_tolerance:
+                    rechunk = False
+                    chunks = existing_chunks
+
+            if rechunk:
+                # Use dask auto chunk to determine the optimal chunk
+                # spread for optimal chunk size
+                chunks = _get_auto_chunk(val, chunk_size=chunk_size)
+
             encoding[name]["chunks"] = chunks
 
     return encoding
