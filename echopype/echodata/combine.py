@@ -1,7 +1,6 @@
 import datetime
 import itertools
 import re
-from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from warnings import warn
@@ -607,22 +606,20 @@ def _capture_prov_attrs(
         the list of echodata objects that are combined.
 
     """
-    index_keys = [ED_GROUP, ED_FILENAME]
-    df_list = []
+    ds_list = []
     for group, attributes in attrs_dict.items():
         df = pd.DataFrame.from_records(attributes)
         df.loc[:, ED_FILENAME] = echodata_filenames
-        df[ED_GROUP] = group
-        df = df.set_index(index_keys)
-        df_list.append(df)
+        df = df.set_index(ED_FILENAME)
 
-    df_merged = reduce(
-        lambda left, right: pd.merge(left, right, on=index_keys, how="outer"), df_list
-    )
-    prov_ds = df_merged.to_xarray()
+        group_ds = df.to_xarray()
+        for _, var in group_ds.data_vars.items():
+            var.attrs.update({ED_GROUP: group})
+        ds_list.append(group_ds)
+
+    prov_ds = xr.merge(ds_list)
     # Set these provenance as string
     prov_ds = prov_ds.fillna("").astype(str)
-    prov_ds[ED_GROUP] = prov_ds[ED_GROUP].astype(str)
     prov_ds[ED_FILENAME] = prov_ds[ED_FILENAME].astype(str)
     return prov_ds
 
