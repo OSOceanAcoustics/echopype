@@ -229,6 +229,7 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         Integration test for combine_echodata with the following cases:
         - a single combined echodata object and a single echodata object
         - a single combined echodata object and 2 single echodata objects
+        - a single combined echodata object and another combined single echodata object
         """
         eds = [
             echopype.open_raw(raw_file=file, sonar_model=sonar_model)
