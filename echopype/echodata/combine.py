@@ -621,10 +621,7 @@ def _capture_prov_attrs(
     )
     prov_ds = df_merged.to_xarray()
     # Set these provenance as string
-    if sonar_model.lower() != "ek80":
-        # Skip for EK80
-        # TODO: This is right now problematic with array attribute for filter coeff
-        prov_ds = prov_ds.fillna("").astype(str)
+    prov_ds = prov_ds.fillna("").astype(str)
     prov_ds[ED_GROUP] = prov_ds[ED_GROUP].astype(str)
     prov_ds[ED_FILENAME] = prov_ds[ED_FILENAME].astype(str)
     return prov_ds
