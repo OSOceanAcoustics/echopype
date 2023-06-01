@@ -153,22 +153,22 @@ def _check_channel_selection_form(
             raise TypeError("Each value of channel_selection must be a list of strings!")
 
 
-def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
+def check_eds(echodata_list: List[EchoData]) -> Tuple[str, List[str]]:
     """
     Ensures that the input list of ``EchoData`` objects for ``combine_echodata``
     is in the correct form and all necessary items exist.
 
     Parameters
     ----------
-    echodatas: list of EchoData object
+    echodata_list: list of EchoData object
         The list of `EchoData` objects to be combined.
 
     Returns
     -------
     sonar_model : str
-        The sonar model used for all values in ``echodatas``
+        The sonar model used for all values in ``echodata_list``
     echodata_filenames : list of str
-        The source files names for all values in ``echodatas``
+        The source files names for all values in ``echodata_list``
 
     Raises
     ------
@@ -183,17 +183,19 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     """
 
     # make sure that the input is a list of EchoData objects
-    if not isinstance(echodatas, list) and all([isinstance(ed, EchoData) for ed in echodatas]):
+    if not isinstance(echodata_list, list) and all(
+        [isinstance(ed, EchoData) for ed in echodata_list]
+    ):
         raise TypeError("The input, eds, must be a list of EchoData objects!")
 
     # get the sonar model for the combined object
-    if echodatas[0].sonar_model is None:
+    if echodata_list[0].sonar_model is None:
         raise ValueError("all EchoData objects must have non-None sonar_model values")
     else:
-        sonar_model = echodatas[0].sonar_model
+        sonar_model = echodata_list[0].sonar_model
 
     echodata_filenames = []
-    for ed in echodatas:
+    for ed in echodata_list:
         # check sonar model
         if ed.sonar_model is None:
             raise ValueError("all EchoData objects must have non-None sonar_model values")
@@ -375,16 +377,17 @@ def _create_channel_selection_dict(
 
 
 def _check_echodata_channels(
-    echodatas: List[EchoData], user_channel_selection: Optional[Union[List, Dict[str, list]]] = None
+    echodata_list: List[EchoData],
+    user_channel_selection: Optional[Union[List, Dict[str, list]]] = None,
 ) -> Dict[str, Optional[List[str]]]:
     """
     Coordinates the routines that check to make sure each ``EchoData`` group with a ``channel``
-    dimension has consistent channels for all elements in ``echodatas``, taking into account
+    dimension has consistent channels for all elements in ``echodata_list``, taking into account
     the input ``user_channel_selection``.
 
     Parameters
     ----------
-    echodatas: list of EchoData object
+    echodata_list: list of EchoData object
         The list of ``EchoData`` objects to be combined
     user_channel_selection: list or dict, optional
         A user provided input that will be used to specify which channels will be
@@ -410,17 +413,19 @@ def _check_echodata_channels(
     """
 
     # determine if the EchoData group contains a channel dimension
-    has_chan_dim = {grp: "channel" in echodatas[0][grp].dims for grp in echodatas[0].group_paths}
+    has_chan_dim = {
+        grp: "channel" in echodata_list[0][grp].dims for grp in echodata_list[0].group_paths
+    }
 
     # create dictionary specifying the channels that should be selected for each group
     channel_selection = _create_channel_selection_dict(
-        echodatas[0].sonar_model, has_chan_dim, user_channel_selection
+        echodata_list[0].sonar_model, has_chan_dim, user_channel_selection
     )
 
-    for ed_group in echodatas[0].group_paths:
-        if "channel" in echodatas[0][ed_group].dims:
+    for ed_group in echodata_list[0].group_paths:
+        if "channel" in echodata_list[0][ed_group].dims:
             # get each EchoData's channels as a list of list
-            all_chan_list = [list(ed[ed_group].channel.values) for ed in echodatas]
+            all_chan_list = [list(ed[ed_group].channel.values) for ed in echodata_list]
 
             # make sure each EchoData does not have repeating channels
             all_chan_unique = [len(set(ed_chans)) == len(ed_chans) for ed_chans in all_chan_list]
@@ -431,7 +436,7 @@ def _check_echodata_channels(
 
                 # get files that produced the EchoData objects with repeated channels
                 files_w_rep_chan = [
-                    echodatas[ind]["Provenance"].source_filenames.values[0] for ind in false_ind
+                    echodata_list[ind]["Provenance"].source_filenames.values[0] for ind in false_ind
                 ]
 
                 raise RuntimeError(
@@ -503,7 +508,8 @@ def _check_filter_params(
     ds_list: List[xr.Dataset], ed_group: Literal["Vendor_specific"], ds_append_dims: set
 ) -> None:
     """
-    Check for identical params for all inputs without an appending dimension in Vendor specific group
+    Check for identical params for all inputs without an
+    appending dimension in Vendor specific group
 
     Parameters
     ----------
@@ -592,7 +598,8 @@ def _capture_prov_attrs(
     Returns
     -------
     xr.Dataset
-        The provenance dataset for all attribute values from the list of echodata objects that are combined.
+        The provenance dataset for all attribute values from
+        the list of echodata objects that are combined.
 
     """
     index_keys = [ED_GROUP, ED_FILENAME]
@@ -734,17 +741,17 @@ def _combine(
 
 
 def combine_echodata(
-    echodatas: List[EchoData] = None,
+    echodata_list: List[EchoData] = None,
     channel_selection: Optional[Union[List, Dict[str, list]]] = None,
 ) -> EchoData:
     """
     Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
-    This is accomplished by writing each element of ``echodatas`` in parallel
+    This is accomplished by writing each element of ``echodata_list`` in parallel
     (using Dask) to the zarr store specified by ``zarr_path``.
 
     Parameters
     ----------
-    echodatas : list of EchoData object
+    echodata_list : list of EchoData object
         The list of ``EchoData`` objects to be combined
     channel_selection: list of str or dict, optional
         Specifies what channels should be selected for an ``EchoData`` group
@@ -778,9 +785,9 @@ def combine_echodata(
     RuntimeError
         If the first time value of each ``EchoData`` group is not less
         than the first time value of the subsequent corresponding
-        ``EchoData`` group, with respect to the order in ``echodatas``
+        ``EchoData`` group, with respect to the order in ``echodata_list``
     RuntimeError
-        If the same ``EchoData`` groups in ``echodatas`` do not
+        If the same ``EchoData`` groups in ``echodata_list`` do not
         have the same number of channels and the same name for each
         of these channels.
     RuntimeError
@@ -796,10 +803,10 @@ def combine_echodata(
         with a duplicate value.
     RuntimeError
         If ``channel_selection=None`` and the ``channel`` dimensions are not the
-        same across the same group under each object in ``echodatas``.
+        same across the same group under each object in ``echodata_list``.
     NotImplementedError
         If ``channel_selection`` is a list and the listed channels are not contained
-        in the ``EchoData`` group across all objects in ``echodatas``.
+        in the ``EchoData`` group across all objects in ``echodata_list``.
 
     Notes
     -----
@@ -813,32 +820,32 @@ def combine_echodata(
 
     >>> ed1 = echopype.open_converted("file1.zarr")
     >>> ed2 = echopype.open_converted("file2.zarr")
-    >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2])
+    >>> combined = echopype.combine_echodata(echodata_list=[ed1, ed2])
 
     Combine in-memory ``EchoData`` objects:
 
     >>> ed1 = echopype.open_raw(raw_file="EK60_file1.raw", sonar_model="EK60")
     >>> ed2 = echopype.open_raw(raw_file="EK60_file2.raw", sonar_model="EK60")
-    >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2])
+    >>> combined = echopype.combine_echodata(echodata_list=[ed1, ed2])
     """
     # return empty EchoData object, if no EchoData objects are provided
-    if echodatas is None:
+    if echodata_list is None:
         warn("No EchoData objects were provided, returning an empty EchoData object.")
         return EchoData()
 
     # Ensure the list of all EchoData objects to be combined are valid
-    sonar_model, echodata_filenames = check_echodatas_input(echodatas)
+    sonar_model, echodata_filenames = check_eds(echodata_list)
 
     # make sure channel_selection is the appropriate type and only contains the beam groups
     _check_channel_selection_form(channel_selection)
 
     # perform channel check and get channel selection for each EchoData group
-    ed_group_chan_sel = _check_echodata_channels(echodatas, channel_selection)
+    ed_group_chan_sel = _check_echodata_channels(echodata_list, channel_selection)
 
     # combine the echodata objects and get the tree dict
     tree_dict = _combine(
         sonar_model=sonar_model,
-        eds=echodatas,
+        eds=echodata_list,
         echodata_filenames=echodata_filenames,
         ed_group_chan_sel=ed_group_chan_sel,
     )
