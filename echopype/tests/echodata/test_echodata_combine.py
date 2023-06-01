@@ -220,7 +220,8 @@ def test_combine_echodata(raw_datasets):
 
 @pytest.mark.parametrize("test_param", [
         "single",
-        "multi"
+        "multi",
+        "combined"
     ]
 )
 def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sonar_model="EK60"):
@@ -239,27 +240,40 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
             temp_zarr_dir.name
             + f"/combined_echodata.zarr"
         )
+        second_zarr = (
+            temp_zarr_dir.name
+            + f"/combined_echodata2.zarr"
+        )
+        # First combined file
         combined_ed = echopype.combine_echodata(eds[:2])
         combined_ed.to_zarr(first_zarr, overwrite=True)
 
+        # Second combined file
+        combined_ed_other = echopype.combine_echodata(eds[2:])
+        combined_ed_other.to_zarr(second_zarr, overwrite=True)
+
         combined_ed = echopype.open_converted(first_zarr)
+        combined_ed_other = echopype.open_converted(second_zarr)
 
         if test_param == "single":
             data_inputs = [combined_ed, eds[2]]
-        else:
+        elif test_param == "multi":
             data_inputs = [combined_ed, eds[2], eds[3]]
+        else:
+            data_inputs = [combined_ed, combined_ed_other]
         combined_ed2 = echopype.combine_echodata(
             data_inputs
         )
 
         assert isinstance(combined_ed, EchoData)
+        assert isinstance(combined_ed_other, EchoData)
         assert isinstance(combined_ed2, EchoData)
 
         # Ensure that they're from the same file source
         assert eds[0]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[0].values
         assert eds[1]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[1].values
         assert eds[2]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[2].values
-        if test_param == "multi":
+        if test_param != "single":
             assert eds[3]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[3].values
 
         # Check beam_group1. Should be exactly same xr dataset
@@ -276,7 +290,7 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         filt_ds2 = combined_ed2[group_path].sel(ping_time=ds2.ping_time)
         assert filt_ds2.identical(ds2) is True
 
-        if test_param == "multi":
+        if test_param != "single":
             ds3 = eds[3][group_path]
             filt_ds3 = combined_ed2[group_path].sel(ping_time=ds3.ping_time)
             assert filt_ds3.identical(ds3) is True

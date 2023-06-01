@@ -207,12 +207,16 @@ def check_eds(echodata_list: List[EchoData]) -> Tuple[str, List[str]]:
         elif ed.converted_raw_path is not None:
             filepath = ed.converted_raw_path
         else:
-            # unreachable
-            raise ValueError("EchoData object does not have a file path")
+            # defaulting to none, must be from memory
+            filepath = None
 
-        filename = Path(filepath).name
-        if filename in echodata_filenames:
-            raise ValueError("EchoData objects have conflicting filenames")
+        # set default filename to internal memory
+        filename = "internal-memory"
+        if filepath is not None:
+            filename = Path(filepath).name
+            if filename in echodata_filenames:
+                raise ValueError("EchoData objects have conflicting filenames")
+
         echodata_filenames.append(filename)
 
     return sonar_model, echodata_filenames
@@ -503,7 +507,7 @@ def _check_ascending_ds_times(ds_list: List[xr.Dataset], ed_group: str) -> None:
                 )
 
 
-def _check_filter_params(
+def _check_no_append_vendor_params(
     ds_list: List[xr.Dataset], ed_group: Literal["Vendor_specific"], ds_append_dims: set
 ) -> None:
     """
@@ -660,6 +664,9 @@ def _combine(
     # For dealing with attributes
     attrs_dict = {}
 
+    # Check if input data are combined datasets
+    all_combined = all(ed["Provenance"].attrs.get("is_combined", False) for ed in eds)
+
     # Create Echodata tree dict
     tree_dict = {}
     for ed_group in all_group_paths:
@@ -688,7 +695,7 @@ def _combine(
 
             # Checks for filter parameters for "Vendor_specific" ONLY
             if ed_group == "Vendor_specific":
-                _check_filter_params(ds_list, ed_group, ds_append_dims)
+                _check_no_append_vendor_params(ds_list, ed_group, ds_append_dims)
 
             if len(ds_append_dims) == 0:
                 combined_ds = ds_list[0]
@@ -701,6 +708,7 @@ def _combine(
                         dim=dim,
                         coords="minimal",
                         data_vars="minimal",
+                        compat="no_conflicts",
                     )
                     combined_ds = combined_ds.assign(sub_ds.variables)
 
@@ -728,10 +736,13 @@ def _combine(
             # Data holding
             tree_dict[ed_group] = combined_ds
 
-    # Capture provenance for all the attributes
-    prov_ds = _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model)
-    # Update the provenance dataset with the captured data
-    prov_ds = tree_dict["Provenance"].assign(prov_ds)
+    if not all_combined:
+        # Capture provenance for all the attributes
+        prov_ds = _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model)
+        # Update the provenance dataset with the captured data
+        prov_ds = tree_dict["Provenance"].assign(prov_ds)
+    else:
+        prov_ds = tree_dict["Provenance"]
     # Update filenames to iter integers
     prov_ds[FILENAMES] = prov_ds[FILENAMES].copy(data=np.arange(*prov_ds[FILENAMES].shape))
     tree_dict["Provenance"] = prov_ds
