@@ -8,7 +8,7 @@ import echopype
 from echopype.utils.coding import set_time_encodings
 from echopype.echodata import EchoData
 from pathlib import Path
-from echopype.echodata.combine import check_echodatas_input, check_zarr_path, _check_echodata_channels
+from echopype.echodata.combine import check_eds, check_zarr_path, _check_echodata_channels
 from typing import List, Tuple, Dict
 import tempfile
 import pytest
@@ -478,7 +478,7 @@ class TestZarrCombine:
 
         zarr_path = check_zarr_path(zarr_file_name)
 
-        _, echodata_filenames = check_echodatas_input(eds)
+        _, echodata_filenames = check_eds(eds)
 
         # get channel selection for each EchoData group
         ed_group_chan_sel = _check_echodata_channels(eds, user_channel_selection=None)
