@@ -574,15 +574,30 @@ def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
     merged_dict = {}
     for attribute in attributes:
         for key, value in attribute.items():
-            if value == "" and key not in merged_dict:
-                # checks if current attr value is empty,
-                # and doesn't exist in merged attribute
+            if key not in merged_dict:
+                # if current key is not in merged attribute,
+                # then save the value for that key
                 merged_dict[key] = value
-            elif value != "":
-                # if current attr value is not empty,
-                # then overwrite the merged attribute,
-                # keeping attribute from latest value
+            elif merged_dict[key] == "":
+                # if current key is already in merged attribute,
+                # check if the value of that key is empty,
+                # in this case overwrite the value with current value
                 merged_dict[key] = value
+            # By default the rest of the behavior
+            # will keep the first non-empty value it sees
+
+            # NOTE: @lsetiawan (6/2/2023) - Comment this out for now until
+            # attributes are fully evaluated by @leewujung and @emiliom
+            # if value == "" and key not in merged_dict:
+            #     # checks if current attr value is empty,
+            #     # and doesn't exist in merged attribute,
+            #     # saving the first non empty value only
+            #     merged_dict[key] = value
+            # elif value != "":
+            #     # if current attr value is not empty,
+            #     # then overwrite the merged attribute,
+            #     # keeping attribute from latest value
+            #     merged_dict[key] = value
     return merged_dict
 
 

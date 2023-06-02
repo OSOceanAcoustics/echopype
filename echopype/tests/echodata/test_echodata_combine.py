@@ -10,8 +10,11 @@ import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
 from echopype.echodata import EchoData
 
-from echopype.echodata.combine import _create_channel_selection_dict, _check_echodata_channels, \
-    _check_channel_consistency
+from echopype.echodata.combine import (
+    _create_channel_selection_dict,
+    _check_channel_consistency,
+    _merge_attributes
+)
 
 
 @pytest.fixture
@@ -553,3 +556,26 @@ def test_create_channel_selection_dict(sonar_model, has_chan_dim,
 
             channel_selection_dict = _create_channel_selection_dict(model, has_chan_dim, usr_sel_chan)
             assert channel_selection_dict == expected_dict
+
+@pytest.mark.parametrize(
+    ["attributes", "expected"],
+    [
+        ([{"key1": ""}, {"key1": "test2"}, {"key1": "test1"}], {"key1": "test2"}),
+        (
+            [{"key1": "test1"}, {"key1": ""}, {"key1": "test2"}, {"key2": ""}],
+            {"key1": "test1", "key2": ""},
+        ),
+        (
+            [
+                {"key1": ""},
+                {"key2": "test1", "key1": "test2"},
+                {"key2": "test3"},
+            ],
+            {"key2": "test1", "key1": "test2"},
+        ),
+    ],
+)
+def test__merge_attributes(attributes, expected):
+    merged = _merge_attributes(attributes)
+
+    assert merged == expected
