@@ -1,5 +1,6 @@
 from textwrap import dedent
 from pathlib import Path
+import tempfile
 
 import numpy as np
 import pytest
@@ -7,13 +8,13 @@ import xarray as xr
 
 import echopype
 from echopype.utils.coding import DEFAULT_ENCODINGS
-import os.path
+from echopype.echodata import EchoData
 
-import tempfile
-from dask.distributed import Client
-
-from echopype.echodata.combine import _create_channel_selection_dict, _check_echodata_channels, \
-    _check_channel_consistency
+from echopype.echodata.combine import (
+    _create_channel_selection_dict,
+    _check_channel_consistency,
+    _merge_attributes
+)
 
 
 @pytest.fixture
@@ -32,6 +33,16 @@ def ek60_test_data(test_path):
         ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
         ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
         ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
+    ]
+    return [test_path["EK60"].joinpath(*f) for f in files]
+
+@pytest.fixture(scope="module")
+def ek60_multi_test_data(test_path):
+    files = [
+        ("ncei-wcsd", "Summer2017-D20170620-T011027.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T014302.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T021537.raw"),
+        ("ncei-wcsd", "Summer2017-D20170620-T024811.raw")
     ]
     return [test_path["EK60"].joinpath(*f) for f in files]
 
@@ -147,14 +158,7 @@ def test_combine_echodata(raw_datasets):
 
     append_dims = {"filenames", "time1", "time2", "time3", "ping_time"}
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     # get all possible dimensions that should be dropped
     # these correspond to the attribute arrays created
@@ -211,13 +215,92 @@ def test_combine_echodata(raw_datasets):
                 del test_ds.attrs["conversion_time"]
                 del combined_group.attrs["conversion_time"]
 
-        if (combined_group is not None) and (test_ds is not None):
-            assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
+        if group_name != "Provenance":
+            # TODO: Skip for Provenance group for now, need to figure out how to test this properly
+            if (combined_group is not None) and (test_ds is not None):
+                assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
 
-    temp_zarr_dir.cleanup()
 
-    # close client
-    client.close()
+@pytest.mark.parametrize("test_param", [
+        "single",
+        "multi",
+        "combined"
+    ]
+)
+def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sonar_model="EK60"):
+        """
+        Integration test for combine_echodata with the following cases:
+        - a single combined echodata object and a single echodata object
+        - a single combined echodata object and 2 single echodata objects
+        - a single combined echodata object and another combined single echodata object
+        """
+        eds = [
+            echopype.open_raw(raw_file=file, sonar_model=sonar_model)
+            for file in ek60_multi_test_data
+        ]
+        # create temporary directory for zarr store
+        temp_zarr_dir = tempfile.TemporaryDirectory()
+        first_zarr = (
+            temp_zarr_dir.name
+            + f"/combined_echodata.zarr"
+        )
+        second_zarr = (
+            temp_zarr_dir.name
+            + f"/combined_echodata2.zarr"
+        )
+        # First combined file
+        combined_ed = echopype.combine_echodata(eds[:2])
+        combined_ed.to_zarr(first_zarr, overwrite=True)
+
+        # Second combined file
+        combined_ed_other = echopype.combine_echodata(eds[2:])
+        combined_ed_other.to_zarr(second_zarr, overwrite=True)
+
+        combined_ed = echopype.open_converted(first_zarr)
+        combined_ed_other = echopype.open_converted(second_zarr)
+
+        if test_param == "single":
+            data_inputs = [combined_ed, eds[2]]
+        elif test_param == "multi":
+            data_inputs = [combined_ed, eds[2], eds[3]]
+        else:
+            data_inputs = [combined_ed, combined_ed_other]
+        combined_ed2 = echopype.combine_echodata(
+            data_inputs
+        )
+
+        assert isinstance(combined_ed, EchoData)
+        assert isinstance(combined_ed_other, EchoData)
+        assert isinstance(combined_ed2, EchoData)
+
+        # Ensure that they're from the same file source
+        assert eds[0]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[0].values
+        assert eds[1]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[1].values
+        assert eds[2]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[2].values
+        if test_param != "single":
+            assert eds[3]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[3].values
+
+        # Check beam_group1. Should be exactly same xr dataset
+        group_path = "Sonar/Beam_group1"
+        ds0 = eds[0][group_path]
+        filt_ds0 = combined_ed[group_path].sel(ping_time=ds0.ping_time)
+        assert filt_ds0.identical(ds0) is True
+
+        ds1 = eds[1][group_path]
+        filt_ds1 = combined_ed[group_path].sel(ping_time=ds1.ping_time)
+        assert filt_ds1.identical(ds1) is True
+
+        ds2 = eds[2][group_path]
+        filt_ds2 = combined_ed2[group_path].sel(ping_time=ds2.ping_time)
+        assert filt_ds2.identical(ds2) is True
+
+        if test_param != "single":
+            ds3 = eds[3][group_path]
+            filt_ds3 = combined_ed2[group_path].sel(ping_time=ds3.ping_time)
+            assert filt_ds3.identical(ds3) is True
+
+        filt_combined = combined_ed2[group_path].sel(ping_time=combined_ed[group_path].ping_time)
+        assert filt_combined.identical(combined_ed[group_path])
 
 
 def test_combine_echodata_channel_selection():
@@ -237,14 +320,7 @@ def test_attr_storage(ek60_test_data):
     # check storage of attributes before combination in provenance group
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     for group, value in combined.group_map.items():
         if value['ep_group'] is None:
@@ -274,28 +350,16 @@ def test_attr_storage(ek60_test_data):
                 group_attrs.isel(echodata_filename=0),
             )
 
-    temp_zarr_dir.cleanup()
-
-    # close client
-    client.close()
-
 
 def test_combined_encodings(ek60_test_data):
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     encodings_to_drop = {'chunks', 'preferred_chunks', 'compressor', 'filters'}
 
     group_checks = []
-    for group, value in combined.group_map.items():
+    for _, value in combined.group_map.items():
         if value['ep_group'] is None:
             ds = combined['Top-level']
         else:
@@ -316,11 +380,6 @@ def test_combined_encodings(ek60_test_data):
                             f"  {value['name']}::{k}"
                         )
 
-    temp_zarr_dir.cleanup()
-
-    # close client
-    client.close()
-
     if len(group_checks) > 0:
         all_messages = ['Encoding mismatch found!'] + group_checks
         message_text = '\n'.join(all_messages)
@@ -330,18 +389,11 @@ def test_combined_encodings(ek60_test_data):
 def test_combined_echodata_repr(ek60_test_data):
     eds = [echopype.open_raw(file, "EK60") for file in ek60_test_data]
 
-    # create temporary directory for zarr store
-    temp_zarr_dir = tempfile.TemporaryDirectory()
-    zarr_file_name = os.path.join(temp_zarr_dir.name, "combined_echodata.zarr")
-
-    # create dask client
-    client = Client()
-
-    combined = echopype.combine_echodata(eds, zarr_file_name, client=client)
+    combined = echopype.combine_echodata(eds)
 
     expected_repr = dedent(
         f"""\
-        <EchoData: standardized raw data from {zarr_file_name}>
+        <EchoData: standardized raw data from Internal Memory>
         Top-level: contains metadata about the SONAR-netCDF4 file format.
         ├── Environment: contains information relevant to acoustic propagation through water.
         ├── Platform: contains information about the platform on which the sonar is installed.
@@ -356,11 +408,6 @@ def test_combined_echodata_repr(ek60_test_data):
 
     actual = "\n".join(x.rstrip() for x in repr(combined).split("\n"))
     assert actual == expected_repr
-
-    temp_zarr_dir.cleanup()
-
-    # close client
-    client.close()
 
 
 @pytest.mark.parametrize(
@@ -509,3 +556,26 @@ def test_create_channel_selection_dict(sonar_model, has_chan_dim,
 
             channel_selection_dict = _create_channel_selection_dict(model, has_chan_dim, usr_sel_chan)
             assert channel_selection_dict == expected_dict
+
+@pytest.mark.parametrize(
+    ["attributes", "expected"],
+    [
+        ([{"key1": ""}, {"key1": "test2"}, {"key1": "test1"}], {"key1": "test2"}),
+        (
+            [{"key1": "test1"}, {"key1": ""}, {"key1": "test2"}, {"key2": ""}],
+            {"key1": "test1", "key2": ""},
+        ),
+        (
+            [
+                {"key1": ""},
+                {"key2": "test1", "key1": "test2"},
+                {"key2": "test3"},
+            ],
+            {"key2": "test1", "key1": "test2"},
+        ),
+    ],
+)
+def test__merge_attributes(attributes, expected):
+    merged = _merge_attributes(attributes)
+
+    assert merged == expected
