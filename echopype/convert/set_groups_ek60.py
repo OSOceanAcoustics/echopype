@@ -241,6 +241,11 @@ class SetGroupsEK60(SetGroupsBase):
         time1, msg_type, lat, lon = self._extract_NMEA_latlon()
 
         # NMEA dataset: variables filled with nan if do not exist
+        platform_dict = {
+            "platform_name": self.ui_param["platform_name"],
+            "platform_type": self.ui_param["platform_type"],
+            "platform_code_ICES": self.ui_param["platform_code_ICES"],
+        }
         ds = xr.Dataset(
             {
                 "latitude": (
@@ -253,7 +258,11 @@ class SetGroupsEK60(SetGroupsBase):
                     lon,
                     self._varattrs["platform_var_default"]["longitude"],
                 ),
-                "sentence_type": (["time1"], msg_type),
+                "sentence_type": (
+                    ["time1"],
+                    msg_type,
+                    self._varattrs["platform_var_default"]["sentence_type"],
+                ),
             },
             coords={
                 "time1": (
@@ -354,11 +363,6 @@ class SetGroupsEK60(SetGroupsBase):
                         },
                     ),
                 },
-                attrs={
-                    "platform_code_ICES": self.ui_param["platform_code_ICES"],
-                    "platform_name": self.ui_param["platform_name"],
-                    "platform_type": self.ui_param["platform_type"],
-                },
             )
 
             # Attach channel dimension/coordinate
@@ -388,6 +392,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Merge with NMEA data
         ds = xr.merge([ds, ds_plat], combine_attrs="override")
+        ds = ds.assign_attrs(platform_dict)
 
         return set_time_encodings(ds)
 
