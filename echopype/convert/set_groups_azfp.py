@@ -149,6 +149,36 @@ class SetGroupsAZFP(SetGroupsBase):
 
         ds = xr.Dataset(
             {
+                "latitude": (
+                    ["time1"],
+                    [np.nan],
+                    self._varattrs["platform_var_default"]["latitude"],
+                ),
+                "longitude": (
+                    ["time1"],
+                    [np.nan],
+                    self._varattrs["platform_var_default"]["longitude"],
+                ),
+                "pitch": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["pitch"],
+                ),
+                "roll": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["roll"],
+                ),
+                "vertical_offset": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["vertical_offset"],
+                ),
+                "water_level": (
+                    ["time3"],
+                    [np.nan],
+                    self._varattrs["platform_var_default"]["water_level"],
+                ),
                 "tilt_x": (
                     ["time2"],
                     unpacked_data["tilt_x"],
@@ -166,6 +196,18 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 **{
+                    var: (
+                        ["channel"],
+                        [np.nan] * len(self.channel_ids_sorted),
+                        self._varattrs["platform_var_default"][var],
+                    )
+                    for var in [
+                        "transducer_offset_x",
+                        "transducer_offset_y",
+                        "transducer_offset_z",
+                    ]
+                },
+                **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
                     for var in [
                         "MRU_offset_x",
@@ -177,15 +219,34 @@ class SetGroupsAZFP(SetGroupsBase):
                         "position_offset_x",
                         "position_offset_y",
                         "position_offset_z",
-                        "transducer_offset_x",
-                        "transducer_offset_y",
-                        "transducer_offset_z",
-                        "vertical_offset",
-                        "water_level",
                     ]
                 },
+                "frequency_nominal": (
+                    ["channel"],
+                    self.freq_sorted,
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
+                ),
             },
             coords={
+                "channel": (
+                    ["channel"],
+                    self.channel_ids_sorted,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "time1": (
+                    ["time1"],
+                    # xarray and probably CF don't accept time coordinate variable with Nan values
+                    [time2[0]],
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA position data.",
+                    },
+                ),
                 "time2": (
                     ["time2"],
                     time2,
@@ -195,6 +256,19 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
                         "orientation data.",
+                    },
+                ),
+                "time3": (
+                    ["time3"],
+                    # xarray and probably CF don't accept time coordinate variable with Nan values
+                    [time2[0]],
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for platform-related sampling environment",
+                        "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform-related "
+                        "sampling environment. Note that Platform.time3 is "
+                        "the same as Environment.time1.",
                     },
                 ),
             },
