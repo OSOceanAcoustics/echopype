@@ -269,6 +269,7 @@ class EchoData:
         self,
         extra_platform_data: xr.Dataset,
         time_dim="time",
+        variable_mappings=Dict[str, str],
         extra_platform_data_file_name=None,
     ):
         """
@@ -296,6 +297,9 @@ class EchoData:
         time_dim: str, default="time"
             The name of the time dimension in `extra_platform_data`; used for extracting
             data from `extra_platform_data`.
+        variable_mappings: Dict[str,str]
+            A dictionary mapping Platform variable names (dict key) to the
+            external-data variable name (dict value).
         extra_platform_data_file_name: str, default=None
             File name for source of extra platform data, if read from a file
 
@@ -361,8 +365,35 @@ class EchoData:
         )
 
         platform = self["Platform"]
+
+        # Drop variable_mappings items where either the Platform group or
+        # extra_platform_data doesn't contain the corresponding variables
+        # TODO: Emit a warning for dropped dict items
+        for platform_var, external_var in variable_mappings.items():
+            if platform_var not in platform or external_var not in extra_platform_data:
+                # remove the dict item and issue a warning
+                variable_mappings[platform_var] = "INVALID"
+
+        variable_mappings_final = {k: v for k, v in variable_mappings.items() if v != "INVALID"}
+
+        # Drop existing variables from platform_vars_sourcenames set
+        # when a matching variable exists in the external data
+        replaced_vars = variable_mappings_final.keys()
+        replaced_vars_notnan = [var for var in replaced_vars if not platform[var].isnull().all()]
+        # TODO: Fine tune the warning to specify that only variables that have data
+        #  (are not all nan) will be dropped
+        if len(replaced_vars_notnan) > 0:
+            logger.warning(
+                f"Some variables in the original Platform group will be overwritten: {', '.join(replaced_vars_notnan)}"  # noqa
+            )
+        platform = platform.drop_vars(replaced_vars, errors="ignore")
+
+        # NOTE: Dropping time1 dim ONLY is a hard-wired choice
+        # TODO: Emit a warning if time1 dim exists and has non-nan variables using it?
+        #   See the use of logger.warning below, for a similar purpose
+        # open_raw assigns Platform time1 only to latitude, longitude and sentence_type
+        # drop_dims on time1 will ALWAYS delete these variables
         platform = platform.drop_dims(["time1"], errors="ignore")
-        # drop_dims is also dropping latitude, longitude and sentence_type why?
         platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
         history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
@@ -373,51 +404,47 @@ class EchoData:
         }
         platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
 
-        platform_vars_sourcenames = {
-            "pitch": ["pitch", "PITCH"],
-            "roll": ["roll", "ROLL"],
-            "vertical_offset": ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
-            "latitude": ["lat", "latitude", "LATITUDE"],
-            "longitude": ["lon", "longitude", "LONGITUDE"],
-            "water_level": ["water_level", "WATER_LEVEL"],
-        }
+        # TODO: Create new time2 with identical values as time1, if required,
+        #   ie, if a variable will be created that is supposed to have a time2 dim (eg, pitch).
+        #   Basically: time1: lat, lon, sentence_type; time2: all others
+        # If present, sentence_type was dropped when time1 was dropped
+        time1_vars = {"latitude", "longitude"}
+        time2_vars = set(variable_mappings_final).difference(time1_vars)
 
-        dropped_vars_target = platform_vars_sourcenames.keys()
-        dropped_vars = []
-        for var in dropped_vars_target:
-            if var in platform and (~platform[var].isnull()).all():
-                dropped_vars.append(var)
-        if len(dropped_vars) > 0:
-            logger.warning(
-                f"Some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
-            )
-        platform = platform.drop_vars(
-            dropped_vars_target,
-            errors="ignore",
-        )
+        # TODO: Oh no! For this to work, we have to drop ALL variables currently on time2!
+        #   For AZFP, that includes tilt_x and tilt_y!!
+        if len(time2_vars) > 0:
+            platform = platform.drop_dims(["time2"], errors="ignore")
+            platform = platform.assign_coords(time2=extra_platform_data[time_dim].values)
+            time2_attrs = {
+                "axis": "T",
+                "long_name": "Timestamps for platform motion and orientation data",
+                "standard_name": "time",
+                "comment": "Time coordinate corresponding to platform motion and "
+                "orientation data.",
+                "history": history_attr + ". Identical to time1.",
+            }
+            platform["time2"] = platform["time2"].assign_attrs(**time2_attrs)
 
-        def mapping_search_variable(mapping, keys, default=None):
-            for key in keys:
-                if key in mapping:
-                    return mapping[key].data
-            return default
+        # TODO: segment these platform vars in groups, by the time dim (1, 2, 3) they use.
+        #   Or, change the value to be a tuple where the 1st element is the time dim?
+        #   Alternatively, initially, assume that the external data has a single time dimension
+        #   and all vars created by update_platform will share that dim (time1)?
 
-        num_obs = len(extra_platform_data[time_dim])
-        for platform_var, sourcenames in platform_vars_sourcenames.items():
-            platform = platform.update(
-                {
-                    platform_var: (
-                        "time1",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            sourcenames,
-                            platform.get(platform_var, np.full(num_obs, np.nan)),
-                        ),
-                    )
-                }
-            )
+        # Create new (replaced) variables using dataset "update"
+        for time_name, time_vars in [("time1", time1_vars), ("time2", time2_vars)]:
+            for platform_var in time_vars:
+                platform = platform.update(
+                    {
+                        platform_var: (
+                            time_name,
+                            extra_platform_data[variable_mappings_final[platform_var]].data,
+                        )
+                    }
+                )
 
-        for var in dropped_vars_target:
+        # Assign attributes to newly created (replaced) variables
+        for var in replaced_vars:
             var_attrs = self._varattrs["platform_var_default"][var]
             # Insert history attr only if the variable was inserted with valid values
             if not platform[var].isnull().all():
