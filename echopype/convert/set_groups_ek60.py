@@ -278,8 +278,9 @@ class SetGroupsEK60(SetGroupsBase):
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "water_level": (
-                    ["time3"],
-                    self.parser_obj.ping_data_dict["transducer_depth"][ch],
+                    [],
+                    # a scalar, assumed to be a constant in the source transducer_depth data
+                    self.parser_obj.ping_data_dict["transducer_depth"][ch][0],
                     self._varattrs["platform_var_default"]["water_level"],
                 ),
                 **{
@@ -315,17 +316,6 @@ class SetGroupsEK60(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
                         "orientation data.",
-                    },
-                ),
-                "time3": (
-                    ["time3"],
-                    self.parser_obj.ping_time[ch],
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for platform-related sampling environment",
-                        "standard_name": "time",
-                        "comment": "Time coordinate corresponding to platform-related "
-                        "sampling environment.",
                     },
                 ),
             },
