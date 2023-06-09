@@ -144,7 +144,7 @@ class SetGroupsAZFP(SetGroupsBase):
         time2 = self.parser_obj.ping_time
         time1 = [time2[0]]
 
-        # If tilt_x and/or tilt_y are all nan, create single-value timme2 dimension
+        # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
         # and single-value (np.nan) tilt_x and tilt_y
         tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
         tilt_y = [np.nan] if np.isnan(unpacked_data["tilt_y"]).all() else unpacked_data["tilt_y"]
