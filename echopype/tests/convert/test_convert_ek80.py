@@ -58,23 +58,23 @@ def check_env_xml(echodata):
     assert "sound_velocity_profile_depth"
     assert np.array_equal(echodata["Environment"]["sound_velocity_profile_depth"], [1, 1000])
 
-    # check plat vars
+    # check a subset of plat vars
     plat_vars = {
-        "drop_keel_offset": [np.nan],
+        "drop_keel_offset": [np.nan, 0, 7.5],
         "drop_keel_offset_is_manual": [0, 1],
         "water_level": [0],
         "water_level_draft_is_manual": [0, 1]
     }
     for plat_var, expected_plat_var_values in plat_vars.items():
         assert plat_var in echodata["Platform"]
-        assert echodata["Platform"][plat_var].dims == ("time3",)
         if np.isnan(expected_plat_var_values).all():
             assert np.isnan(echodata["Platform"][plat_var]).all()
         else:
-            assert all([env_var_value in expected_plat_var_values for env_var_value in echodata["Platform"][plat_var]])
+            assert echodata["Platform"][plat_var] in expected_plat_var_values
 
     # check plat dims
-    assert "time3" in echodata["Platform"]
+    assert "time1" in echodata["Platform"]
+    assert "time2" in echodata["Platform"]
 
 
 def test_convert(ek80_new_file, dump_output_dir):

@@ -318,15 +318,16 @@ class SetGroupsEK80(SetGroupsBase):
         time2 = np.array(time2) if time2 is not None else [np.nan]
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
-        platform_dict = {
-            "platform_name": self.ui_param["platform_name"],
-            "platform_type": self.ui_param["platform_type"],
-            "platform_code_ICES": self.ui_param["platform_code_ICES"],
-        }
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         ds = xr.Dataset(
             {
                 "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
                 "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
+                "sentence_type": (
+                    ["time1"],
+                    msg_type,
+                    self._varattrs["platform_var_default"]["sentence_type"],
+                ),
                 "pitch": (
                     ["time2"],
                     np.array(self.parser_obj.mru.get("pitch", [np.nan])),
@@ -343,32 +344,21 @@ class SetGroupsEK80(SetGroupsBase):
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "water_level": (
-                    ["time3"],
-                    [water_level],
+                    [],
+                    water_level,
                     self._varattrs["platform_var_default"]["water_level"],
                 ),
-                "sentence_type": (
-                    ["time1"],
-                    msg_type,
-                    self._varattrs["platform_var_default"]["sentence_type"],
-                ),
                 "drop_keel_offset": (
-                    ["time3"],
-                    [self.parser_obj.environment["drop_keel_offset"]]
-                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
-                    else [np.nan],
+                    [],
+                    self.parser_obj.environment.get("drop_keel_offset", np.nan),
                 ),
                 "drop_keel_offset_is_manual": (
-                    ["time3"],
-                    [self.parser_obj.environment["drop_keel_offset_is_manual"]]
-                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
-                    else [np.nan],
+                    [],
+                    self.parser_obj.environment.get("drop_keel_offset_is_manual", np.nan),
                 ),
                 "water_level_draft_is_manual": (
-                    ["time3"],
-                    [self.parser_obj.environment["water_level_draft_is_manual"]]
-                    if "water_level_draft_is_manual" in self.parser_obj.environment
-                    else [np.nan],
+                    [],
+                    self.parser_obj.environment.get("water_level_draft_is_manual", np.nan),
                 ),
                 "transducer_offset_x": (
                     ["channel"],
@@ -448,20 +438,6 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
                         "orientation data.",
-                    },
-                ),
-                "time3": (
-                    ["time3"],
-                    [self.parser_obj.environment["timestamp"]]
-                    if "timestamp" in self.parser_obj.environment
-                    else np.datetime64("NaT"),
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for platform-related sampling environment",
-                        "standard_name": "time",
-                        "comment": "Time coordinate corresponding to platform-related "
-                        "sampling environment. Note that Platform.time3 is "
-                        "the same as Environment.time1.",
                     },
                 ),
             },

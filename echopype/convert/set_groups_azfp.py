@@ -139,15 +139,12 @@ class SetGroupsAZFP(SetGroupsBase):
 
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
-        platform_dict = {
-            "platform_name": self.ui_param["platform_name"],
-            "platform_type": self.ui_param["platform_type"],
-            "platform_code_ICES": self.ui_param["platform_code_ICES"],
-        }
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
         time2 = self.parser_obj.ping_time
+        time1 = [time2[0]]
 
-        # If tilt_x and/or tilt_y are all nan, create single-value timme2 dimension
+        # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
         # and single-value (np.nan) tilt_x and tilt_y
         tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
         tilt_y = [np.nan] if np.isnan(unpacked_data["tilt_y"]).all() else unpacked_data["tilt_y"]
@@ -182,8 +179,8 @@ class SetGroupsAZFP(SetGroupsBase):
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "water_level": (
-                    ["time3"],
-                    [np.nan],
+                    [],
+                    np.nan,
                     self._varattrs["platform_var_default"]["water_level"],
                 ),
                 "tilt_x": (
@@ -191,7 +188,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     tilt_x,
                     {
                         "long_name": "Tilt X",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
                 "tilt_y": (
@@ -199,7 +196,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     tilt_y,
                     {
                         "long_name": "Tilt Y",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
                 **{
@@ -248,7 +245,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 "time1": (
                     ["time1"],
                     # xarray and probably CF don't accept time coordinate variable with Nan values
-                    [time2[0]],
+                    time1,
                     {
                         **self._varattrs["platform_coord_default"]["time1"],
                         "comment": "Time coordinate corresponding to NMEA position data.",
@@ -263,19 +260,6 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
                         "orientation data.",
-                    },
-                ),
-                "time3": (
-                    ["time3"],
-                    # xarray and probably CF don't accept time coordinate variable with Nan values
-                    [time2[0]],
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for platform-related sampling environment",
-                        "standard_name": "time",
-                        "comment": "Time coordinate corresponding to platform-related "
-                        "sampling environment. Note that Platform.time3 is "
-                        "the same as Environment.time1.",
                     },
                 ),
             },
