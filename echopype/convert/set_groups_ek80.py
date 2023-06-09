@@ -318,17 +318,15 @@ class SetGroupsEK80(SetGroupsBase):
         time2 = np.array(time2) if time2 is not None else [np.nan]
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         ds = xr.Dataset(
             {
-                "frequency_nominal": (
-                    ["channel"],
-                    freq,
-                    {
-                        "units": "Hz",
-                        "long_name": "Transducer frequency",
-                        "valid_min": 0.0,
-                        "standard_name": "sound_frequency",
-                    },
+                "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
+                "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
+                "sentence_type": (
+                    ["time1"],
+                    msg_type,
+                    self._varattrs["platform_var_default"]["sentence_type"],
                 ),
                 "pitch": (
                     ["time2"],
@@ -345,20 +343,22 @@ class SetGroupsEK80(SetGroupsBase):
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
-                "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
-                "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
-                "sentence_type": (["time1"], msg_type),
+                "water_level": (
+                    [],
+                    water_level,
+                    self._varattrs["platform_var_default"]["water_level"],
+                ),
                 "drop_keel_offset": (
-                    ["time3"],
-                    [self.parser_obj.environment["drop_keel_offset"]]
-                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
-                    else [np.nan],
+                    [],
+                    self.parser_obj.environment.get("drop_keel_offset", np.nan),
                 ),
                 "drop_keel_offset_is_manual": (
-                    ["time3"],
-                    [self.parser_obj.environment["drop_keel_offset_is_manual"]]
-                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
-                    else [np.nan],
+                    [],
+                    self.parser_obj.environment.get("drop_keel_offset_is_manual", np.nan),
+                ),
+                "water_level_draft_is_manual": (
+                    [],
+                    self.parser_obj.environment.get("water_level_draft_is_manual", np.nan),
                 ),
                 "transducer_offset_x": (
                     ["channel"],
@@ -390,21 +390,6 @@ class SetGroupsEK80(SetGroupsBase):
                     ],
                     self._varattrs["platform_var_default"]["transducer_offset_z"],
                 ),
-                "water_level": (
-                    ["time3"],
-                    [water_level],
-                    {
-                        "long_name": "z-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "water_level_draft_is_manual": (
-                    ["time3"],
-                    [self.parser_obj.environment["water_level_draft_is_manual"]]
-                    if "water_level_draft_is_manual" in self.parser_obj.environment
-                    else [np.nan],
-                ),
                 **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
                     for var in [
@@ -419,12 +404,30 @@ class SetGroupsEK80(SetGroupsBase):
                         "position_offset_z",
                     ]
                 },
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
+                ),
             },
             coords={
                 "channel": (
                     ["channel"],
                     self.sorted_channel["power_complex"],
                     self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "time1": (
+                    ["time1"],
+                    time1,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA position data.",
+                    },
                 ),
                 "time2": (
                     ["time2"],
@@ -437,36 +440,9 @@ class SetGroupsEK80(SetGroupsBase):
                         "orientation data.",
                     },
                 ),
-                "time3": (
-                    ["time3"],
-                    [self.parser_obj.environment["timestamp"]]
-                    if "timestamp" in self.parser_obj.environment
-                    else np.datetime64("NaT"),
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for platform-related sampling environment",
-                        "standard_name": "time",
-                        "comment": "Time coordinate corresponding to platform-related "
-                        "sampling environment. Note that Platform.time3 is "
-                        "the same as Environment.time1.",
-                    },
-                ),
-                "time1": (
-                    ["time1"],
-                    time1,
-                    {
-                        **self._varattrs["platform_coord_default"]["time1"],
-                        "comment": "Time coordinate corresponding to NMEA position data.",
-                    },
-                ),
-            },
-            attrs={
-                "platform_code_ICES": self.ui_param["platform_code_ICES"],
-                "platform_name": self.ui_param["platform_name"],
-                "platform_type": self.ui_param["platform_type"],
-                # TODO: check what this 'drop_keel_offset' is
             },
         )
+        ds = ds.assign_attrs(platform_dict)
         return set_time_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):

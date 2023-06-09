@@ -139,32 +139,78 @@ class SetGroupsAZFP(SetGroupsBase):
 
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
-        platform_dict = {
-            "platform_name": self.ui_param["platform_name"],
-            "platform_type": self.ui_param["platform_type"],
-            "platform_code_ICES": self.ui_param["platform_code_ICES"],
-        }
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
         time2 = self.parser_obj.ping_time
+        time1 = [time2[0]]
+
+        # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
+        # and single-value (np.nan) tilt_x and tilt_y
+        tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
+        tilt_y = [np.nan] if np.isnan(unpacked_data["tilt_y"]).all() else unpacked_data["tilt_y"]
+        if (len(tilt_x) == 1 and np.isnan(tilt_x)) and (len(tilt_y) == 1 and np.isnan(tilt_y)):
+            time2 = [time2[0]]
 
         ds = xr.Dataset(
             {
+                "latitude": (
+                    ["time1"],
+                    [np.nan],
+                    self._varattrs["platform_var_default"]["latitude"],
+                ),
+                "longitude": (
+                    ["time1"],
+                    [np.nan],
+                    self._varattrs["platform_var_default"]["longitude"],
+                ),
+                "pitch": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["pitch"],
+                ),
+                "roll": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["roll"],
+                ),
+                "vertical_offset": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["vertical_offset"],
+                ),
+                "water_level": (
+                    [],
+                    np.nan,
+                    self._varattrs["platform_var_default"]["water_level"],
+                ),
                 "tilt_x": (
                     ["time2"],
-                    unpacked_data["tilt_x"],
+                    tilt_x,
                     {
                         "long_name": "Tilt X",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
                 "tilt_y": (
                     ["time2"],
-                    unpacked_data["tilt_y"],
+                    tilt_y,
                     {
                         "long_name": "Tilt Y",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
+                **{
+                    var: (
+                        ["channel"],
+                        [np.nan] * len(self.channel_ids_sorted),
+                        self._varattrs["platform_var_default"][var],
+                    )
+                    for var in [
+                        "transducer_offset_x",
+                        "transducer_offset_y",
+                        "transducer_offset_z",
+                    ]
+                },
                 **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
                     for var in [
@@ -177,15 +223,34 @@ class SetGroupsAZFP(SetGroupsBase):
                         "position_offset_x",
                         "position_offset_y",
                         "position_offset_z",
-                        "transducer_offset_x",
-                        "transducer_offset_y",
-                        "transducer_offset_z",
-                        "vertical_offset",
-                        "water_level",
                     ]
                 },
+                "frequency_nominal": (
+                    ["channel"],
+                    self.freq_sorted,
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
+                ),
             },
             coords={
+                "channel": (
+                    ["channel"],
+                    self.channel_ids_sorted,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "time1": (
+                    ["time1"],
+                    # xarray and probably CF don't accept time coordinate variable with Nan values
+                    time1,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA position data.",
+                    },
+                ),
                 "time2": (
                     ["time2"],
                     time2,
