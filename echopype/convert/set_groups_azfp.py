@@ -142,6 +142,7 @@ class SetGroupsAZFP(SetGroupsBase):
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
         time2 = self.parser_obj.ping_time
+        time1 = [time2[0]]
 
         # If tilt_x and/or tilt_y are all nan, create single-value timme2 dimension
         # and single-value (np.nan) tilt_x and tilt_y
@@ -187,7 +188,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     tilt_x,
                     {
                         "long_name": "Tilt X",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
                 "tilt_y": (
@@ -195,7 +196,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     tilt_y,
                     {
                         "long_name": "Tilt Y",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
                 **{
@@ -244,7 +245,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 "time1": (
                     ["time1"],
                     # xarray and probably CF don't accept time coordinate variable with Nan values
-                    [time2[0]],
+                    time1,
                     {
                         **self._varattrs["platform_coord_default"]["time1"],
                         "comment": "Time coordinate corresponding to NMEA position data.",
