@@ -371,20 +371,18 @@ class EchoData:
         # TODO: Emit a warning for dropped dict items
         for platform_var, external_var in variable_mappings.items():
             if platform_var not in platform or external_var not in extra_platform_data:
-                # remove the dict item and issue a warning
+                # Flag the dict item
                 variable_mappings[platform_var] = "INVALID"
 
         variable_mappings_final = {k: v for k, v in variable_mappings.items() if v != "INVALID"}
 
-        # Drop existing variables from platform_vars_sourcenames set
-        # when a matching variable exists in the external data
+        # Drop existing variables from the Platform group based on what is
+        # specified in variable_mappings_final
         replaced_vars = variable_mappings_final.keys()
         replaced_vars_notnan = [var for var in replaced_vars if not platform[var].isnull().all()]
-        # TODO: Fine tune the warning to specify that only variables that have data
-        #  (are not all nan) will be dropped
         if len(replaced_vars_notnan) > 0:
             logger.warning(
-                f"Some variables in the original Platform group will be overwritten: {', '.join(replaced_vars_notnan)}"  # noqa
+                f"Some variables with valid data in the original Platform group will be overwritten: {', '.join(replaced_vars_notnan)}"  # noqa
             )
         platform = platform.drop_vars(replaced_vars, errors="ignore")
 
@@ -404,27 +402,31 @@ class EchoData:
         }
         platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
 
-        # TODO: Create new time2 with identical values as time1, if required,
-        #   ie, if a variable will be created that is supposed to have a time2 dim (eg, pitch).
-        #   Basically: time1: lat, lon, sentence_type; time2: all others
-        # If present, sentence_type was dropped when time1 was dropped
-        time1_vars = {"latitude", "longitude"}
-        time2_vars = set(variable_mappings_final).difference(time1_vars)
+        # If present, sentence_type was dropped when time1 was dropped.
+        # In our implementation of the convention, only latitude and longitude (and
+        # sentence_type for ek60 & ek80) are assigned a time1 dimension.
+        # Here, we will use time1 for ALL external variables, to avoid deleting valid data
+        # for variables not being overwritten by the user
+        time1_vars = set(variable_mappings_final)
 
-        # TODO: Oh no! For this to work, we have to drop ALL variables currently on time2!
-        #   For AZFP, that includes tilt_x and tilt_y!!
-        if len(time2_vars) > 0:
-            platform = platform.drop_dims(["time2"], errors="ignore")
-            platform = platform.assign_coords(time2=extra_platform_data[time_dim].values)
-            time2_attrs = {
-                "axis": "T",
-                "long_name": "Timestamps for platform motion and orientation data",
-                "standard_name": "time",
-                "comment": "Time coordinate corresponding to platform motion and "
-                "orientation data.",
-                "history": history_attr + ". Identical to time1.",
-            }
-            platform["time2"] = platform["time2"].assign_attrs(**time2_attrs)
+        # This commented code is for the case of using time2. I'll delete it in the final PR changes
+        # Create new time2 with identical values as time1, if required, ie, if a variable will be
+        # created that is supposed to have a time2 dim (eg, pitch).
+        # time1_vars = {"latitude", "longitude"}
+        # time2_vars = set(variable_mappings_final).difference(time1_vars)
+        #
+        # if len(time2_vars) > 0:
+        #     platform = platform.drop_dims(["time2"], errors="ignore")
+        #     platform = platform.assign_coords(time2=extra_platform_data[time_dim].values)
+        #     time2_attrs = {
+        #         "axis": "T",
+        #         "long_name": "Timestamps for platform motion and orientation data",
+        #         "standard_name": "time",
+        #         "comment": "Time coordinate corresponding to platform motion and "
+        #         "orientation data.",
+        #         "history": history_attr + ". Identical to time1.",
+        #     }
+        #     platform["time2"] = platform["time2"].assign_attrs(**time2_attrs)
 
         # TODO: segment these platform vars in groups, by the time dim (1, 2, 3) they use.
         #   Or, change the value to be a tuple where the 1st element is the time dim?
@@ -432,7 +434,9 @@ class EchoData:
         #   and all vars created by update_platform will share that dim (time1)?
 
         # Create new (replaced) variables using dataset "update"
-        for time_name, time_vars in [("time1", time1_vars), ("time2", time2_vars)]:
+        # This commented code is for the case of using time2. I'll delete it in the final PR changes
+        # for time_name, time_vars in [("time1", time1_vars), ("time2", time2_vars)]:
+        for time_name, time_vars in [("time1", time1_vars)]:
             for platform_var in time_vars:
                 platform = platform.update(
                     {

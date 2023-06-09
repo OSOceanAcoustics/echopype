@@ -478,7 +478,8 @@ def test_nan_range_entries(range_check_files):
         (
                 "external-trajectory",
                 "EK80",
-                ("pitch", "roll", "longitude", "latitude"),
+                # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
+                {"pitch": "PITCH", "roll": "ROLL", "longitude": "longitude", "latitude": "latitude"},
                 "EK80",
                 (
                         "saildrone",
@@ -492,7 +493,8 @@ def test_nan_range_entries(range_check_files):
         (
                 "fixed-location",
                 "EK60",
-                ("longitude", "latitude"),
+                # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
+                {"longitude": "longitude", "latitude": "latitude"},
                 "EK60",
                 (
                         "ooi",
@@ -514,9 +516,11 @@ def test_update_platform(
     raw_file = test_path[path_model] / raw_path[0] / raw_path[1]
     ed = echopype.open_raw(raw_file, sonar_model=sonar_model)
 
-    for variable in updated:
+    # Test that the variables in Platform are all empty (nan)
+    for variable in updated.keys():
         assert np.isnan(ed["Platform"][variable].values).all()
 
+    # Prepare the external data
     if ext_type == "external-trajectory":
         extra_platform_data_file_name = platform_data[1]
         extra_platform_data = xr.open_dataset(
@@ -534,12 +538,14 @@ def test_update_platform(
             },
         )
 
+    # Run update_platform
     ed.update_platform(
         extra_platform_data,
+        variable_mappings=updated,
         extra_platform_data_file_name=extra_platform_data_file_name,
     )
 
-    for variable in updated:
+    for variable in updated.keys():
         assert not np.isnan(ed["Platform"][variable].values).all()
 
     # times have max interval of 2s
