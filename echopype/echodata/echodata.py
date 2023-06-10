@@ -428,11 +428,6 @@ class EchoData:
         #     }
         #     platform["time2"] = platform["time2"].assign_attrs(**time2_attrs)
 
-        # TODO: segment these platform vars in groups, by the time dim (1, 2, 3) they use.
-        #   Or, change the value to be a tuple where the 1st element is the time dim?
-        #   Alternatively, initially, assume that the external data has a single time dimension
-        #   and all vars created by update_platform will share that dim (time1)?
-
         # Create new (replaced) variables using dataset "update"
         # This commented code is for the case of using time2. I'll delete it in the final PR changes
         # for time_name, time_vars in [("time1", time1_vars), ("time2", time2_vars)]:
