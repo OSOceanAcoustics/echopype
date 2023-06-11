@@ -197,20 +197,20 @@ def test_plot_mvbs(
 
 
 @pytest.mark.parametrize(
-    ("water_level", "expect_warning"),
+    ("vertical_offset", "expect_warning"),
     [
         (True, False),
         ([True], True),
         (False, True),
-        (xr.DataArray(np.array(50.0)).expand_dims({'channel': 3}), False),
         (xr.DataArray(np.array(50.0)), False),
+        ([10, 30.5], False),
         (10, False),
         (30.5, False),
     ],
 )
-def test_water_level_echodata(water_level, expect_warning, caplog):
+def test_vertical_offset_echodata(vertical_offset, expect_warning, caplog):
     from echopype.echodata import EchoData
-    from echopype.visualize.api import _add_water_level
+    from echopype.visualize.api import _add_vertical_offset
     echopype.verbose()
 
     filepath = ek60_path / "ncei-wcsd" / "Summer2017-D20170719-T211347.raw"
@@ -231,37 +231,33 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
 
     single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
                                       ping_time='2017-07-19T21:13:47.984999936').values
-    no_input_water_level = False
+    no_input_vertical_offset = False
 
-    if isinstance(water_level, list):
-        water_level = water_level[0]
-        echodata["Platform"] = echodata["Platform"].drop_vars('water_level')
-        no_input_water_level = True
+    if isinstance(vertical_offset, list):
+        vertical_offset = vertical_offset[0]
+        echodata["Platform"] = echodata["Platform"].drop_vars('vertical_offset')
+        no_input_vertical_offset = True
 
-    if isinstance(water_level, xr.DataArray):
-        if 'channel' in water_level.dims:
-            original_array = single_array + water_level.isel(channel=0).values
-    elif isinstance(water_level, bool) and water_level is True:
-        if no_input_water_level is False:
+    if isinstance(vertical_offset, xr.DataArray):
+        original_array = single_array + vertical_offset.values
+    elif isinstance(vertical_offset, bool) and vertical_offset is True:
+        if not no_input_vertical_offset:
             original_array = (
                 single_array
-                + echodata["Platform"].water_level.sel(
-                    channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
-                    time3='2017-07-19T21:13:47.984999936'
-                ).values
+                + echodata["Platform"].vertical_offset.sel(time2='2017-07-19T21:13:47.984999936').values
             )
         else:
             original_array = single_array
-    elif water_level is not False and isinstance(water_level, (int, float)):
-        original_array = single_array + water_level
+    elif vertical_offset is not False and isinstance(vertical_offset, (int, float)):
+        original_array = single_array + vertical_offset
     else:
         original_array = single_array
 
     results = None
     try:
-        results = _add_water_level(
+        results = _add_vertical_offset(
             range_in_meter=range_in_meter,
-            water_level=water_level,
+            vertical_offset=vertical_offset,
             data_type=EchoData,
             platform_data=echodata["Platform"],
         )
@@ -269,7 +265,7 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
             assert 'WARNING' in caplog.text
     except Exception as e:
         assert isinstance(e, ValueError)
-        assert str(e) == 'Water level must have any of these dimensions: channel, ping_time, range_sample'  # noqa
+        assert str(e) == 'vertical_offset must have any of these dimensions: ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
         final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
@@ -280,18 +276,17 @@ def test_water_level_echodata(water_level, expect_warning, caplog):
 
 
 @pytest.mark.parametrize(
-    ("water_level", "expect_warning"),
+    ("vertical_offset", "expect_warning"),
     [
         (True, True),
         (False, True),
-        (xr.DataArray(np.array(50.0)).expand_dims({'channel': 3}), False),
         (xr.DataArray(np.array(50.0)), False),
         (10, False),
         (30.5, False),
     ],
 )
-def test_water_level_Sv_dataset(water_level, expect_warning, caplog):
-    from echopype.visualize.api import _add_water_level
+def test_vertical_offset_Sv_dataset(vertical_offset, expect_warning, caplog):
+    from echopype.visualize.api import _add_vertical_offset
     echopype.verbose()
 
     filepath = ek60_path / "ncei-wcsd" / "Summer2017-D20170719-T211347.raw"
@@ -308,19 +303,18 @@ def test_water_level_Sv_dataset(water_level, expect_warning, caplog):
     single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
                                       ping_time='2017-07-19T21:13:47.984999936').values
 
-    if isinstance(water_level, xr.DataArray):
-        if 'channel' in water_level.dims:
-            original_array = single_array + water_level.isel(channel=0).values
-    elif not isinstance(water_level, bool) and isinstance(water_level, (int, float)):
-        original_array = single_array + water_level
+    if isinstance(vertical_offset, xr.DataArray):
+        original_array = single_array + vertical_offset.values
+    elif not isinstance(vertical_offset, bool) and isinstance(vertical_offset, (int, float)):
+        original_array = single_array + vertical_offset
     else:
         original_array = single_array
 
     results = None
     try:
-        results = _add_water_level(
+        results = _add_vertical_offset(
             range_in_meter=range_in_meter,
-            water_level=water_level,
+            vertical_offset=vertical_offset,
             data_type=xr.Dataset,
         )
 
@@ -328,7 +322,7 @@ def test_water_level_Sv_dataset(water_level, expect_warning, caplog):
             assert 'WARNING' in caplog.text
     except Exception as e:
         assert isinstance(e, ValueError)
-        assert str(e) == 'Water level must have any of these dimensions: channel, ping_time, range_sample'  # noqa
+        assert str(e) == 'vertical_offset must have any of these dimensions: ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
         final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
