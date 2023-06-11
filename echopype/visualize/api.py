@@ -1,4 +1,4 @@
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Type
 
 import xarray as xr
 
@@ -222,7 +222,7 @@ def _check_ping_time(ping_time):
 def _add_vertical_offset(
     range_in_meter: xr.DataArray,
     vertical_offset: Union[int, float, xr.DataArray, bool],
-    data_type: Union[xr.Dataset, EchoData],
+    data_type: Union[Type[xr.Dataset], Type[EchoData]],
     platform_data: Optional[xr.Dataset] = None,
 ) -> xr.DataArray:
     # Below, we rename time2 to ping_time because range_in_meter is in ping_time

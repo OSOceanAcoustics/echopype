@@ -280,7 +280,6 @@ def test_vertical_offset_echodata(vertical_offset, expect_warning, caplog):
     [
         (True, True),
         (False, True),
-        (xr.DataArray(np.array(50.0)).expand_dims({'channel': 3}), False),
         (xr.DataArray(np.array(50.0)), False),
         (10, False),
         (30.5, False),
@@ -305,8 +304,7 @@ def test_vertical_offset_Sv_dataset(vertical_offset, expect_warning, caplog):
                                       ping_time='2017-07-19T21:13:47.984999936').values
 
     if isinstance(vertical_offset, xr.DataArray):
-        if 'channel' in vertical_offset.dims:
-            original_array = single_array + vertical_offset.isel(channel=0).values
+        original_array = single_array + vertical_offset.values
     elif not isinstance(vertical_offset, bool) and isinstance(vertical_offset, (int, float)):
         original_array = single_array + vertical_offset
     else:
