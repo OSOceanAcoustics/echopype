@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Tuple
+from typing import Tuple
 from datetime import datetime
 
 import xarray as xr
