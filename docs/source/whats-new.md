@@ -4,6 +4,32 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.7.2 (2023 June 18)
+
+## Overview
+
+This release includes an efficiency boost for combining multiple `EchoData` objects, a number of changes of variable type and attributes in the `Vendor_specific` and `Platform` groups, and updates on related methods necessitated by these changes.
+
+## Enhancement
+- Overhaul combine_echodata method (#1042)
+  - No longer require spinning up dask client under the hood during combine
+  - Use `xr.concat` directly compatible with delayed computation
+  - No longer require destination path as input argument
+- `EchoData.update_platform` changes (TBD)
+
+## Variable storage changes
+- Standardize `backscatter_r/i` long_name in the `Sonar/Beam_groupX` group, and correct units (#1047)
+- Bring more consistency in the `Platform` group across sensors on conversion (#1058, #1061)
+  - Standardize `Platform` variables, including attributes, in reference to SONAR-netCDF4 ver.1 with custom echopyp modifications
+  - Remove previously incorrect variable dimension in EK60 data
+  - Ensure dimension consistency in AZFP data
+- Move filter coefficients and decimation factor to variables in EK80 `Vendor_specific` group (#1044, #1046)
+
+
+
+
+
+
 # v0.7.1 (2023 May 1)
 
 ## Overview
