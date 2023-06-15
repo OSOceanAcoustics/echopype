@@ -551,25 +551,25 @@ def test_update_platform(
     # times have max interval of 2s
     # check times are > min(ed["Sonar/Beam_group1"]["ping_time"]) - 2s
     assert (
-        ed["Platform"]["time1"]
+        ed["Platform"]["time3"]
         > ed["Sonar/Beam_group1"]["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time < min(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed["Platform"]["time1"] < ed["Sonar/Beam_group1"]["ping_time"].min()
+            ed["Platform"]["time3"] < ed["Sonar/Beam_group1"]["ping_time"].min()
         )
         <= 1
     )
     # check times are < max(ed["Sonar/Beam_group1"]["ping_time"]) + 2s
     assert (
-        ed["Platform"]["time1"]
+        ed["Platform"]["time3"]
         < ed["Sonar/Beam_group1"]["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time > max(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed["Platform"]["time1"] > ed["Sonar/Beam_group1"]["ping_time"].max()
+            ed["Platform"]["time3"] > ed["Sonar/Beam_group1"]["ping_time"].max()
         )
         <= 1
     )

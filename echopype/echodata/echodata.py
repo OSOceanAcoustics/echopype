@@ -268,7 +268,7 @@ class EchoData:
     def update_platform(
         self,
         extra_platform_data: xr.Dataset,
-        time_dim="time",
+        # time_dim="time",
         variable_mappings=Dict[str, str],
         extra_platform_data_file_name=None,
     ):
@@ -319,136 +319,167 @@ class EchoData:
             and extra_platform_data.attrs["featureType"].lower() == "trajectory"
         ):
             for coordvar in extra_platform_data.coords:
-                if (
-                    "cf_role" in extra_platform_data[coordvar].attrs
-                    and extra_platform_data[coordvar].attrs["cf_role"] == "trajectory_id"
-                ):
+                coordvar_attrs = extra_platform_data[coordvar].attrs
+                if "cf_role" in coordvar_attrs and coordvar_attrs["cf_role"] == "trajectory_id":
                     trajectory_var = coordvar
+
+                if "standard_name" in coordvar_attrs and coordvar_attrs["standard_name"] == "time":
+                    time_dim = coordvar
 
             # assumes there's only one trajectory in the dataset (index 0)
             extra_platform_data = extra_platform_data.sel(
                 {trajectory_var: extra_platform_data[trajectory_var][0]}
             )
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
-            extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
+            obs_dim = list(extra_platform_data[time_dim].dims)[0]
+            extra_platform_data = extra_platform_data.swap_dims({obs_dim: time_dim})
+
+        def _extvar_properties(ds, name):
+            """Test the external variable for presence and all-nan values,
+            and extract its time dimension name.
+            Returns <presence>, <valid values>, <time dim name>
+            """
+            if name in ds:
+                # Assumes the only dimension in the variable is a time dimension
+                time_dim_name = ds[name].dims[0] if len(ds[name].dims) > 0 else "scalar"
+                if not ds[name].isnull().all():
+                    return True, True, time_dim_name
+                else:
+                    return True, False, time_dim_name
+            else:
+                return False, False, None
 
         # clip incoming time to 1 less than min of EchoData["Sonar/Beam_group1"]["ping_time"] and
         #   1 greater than max of EchoData["Sonar/Beam_group1"]["ping_time"]
         # account for unsorted external time by checking whether each time value is between
         #   min and max ping_time instead of finding the 2 external times corresponding to the
         #   min and max ping_time and taking all the times between those indices
-        sorted_external_time = extra_platform_data[time_dim].data
-        sorted_external_time.sort()
-        # fmt: off
-        min_index = max(
-            np.searchsorted(
-                sorted_external_time, self["Sonar/Beam_group1"]["ping_time"].min(), side="left"
-            ) - 1,
-            0,
-        )
-        # fmt: on
-        max_index = min(
-            np.searchsorted(
-                sorted_external_time,
-                self["Sonar/Beam_group1"]["ping_time"].max(),
-                side="right",
-            ),
-            len(sorted_external_time) - 1,
-        )
-        extra_platform_data = extra_platform_data.sel(
-            {
-                time_dim: np.logical_and(
-                    sorted_external_time[min_index] <= extra_platform_data[time_dim],
-                    extra_platform_data[time_dim] <= sorted_external_time[max_index],
-                )
-            }
-        )
+        def _clip_by_time_dim(external_ds, ext_time_dim_name):
+            # external_ds is extra_platform_data[vars-list-on-time_dim_name]
+            sorted_external_time = external_ds[ext_time_dim_name].data
+            sorted_external_time.sort()
+            # fmt: off
+            min_index = max(
+                np.searchsorted(
+                    sorted_external_time, self["Sonar/Beam_group1"]["ping_time"].min(), side="left"
+                ) - 1,
+                0,
+            )
+            # fmt: on
+            max_index = min(
+                np.searchsorted(
+                    sorted_external_time,
+                    self["Sonar/Beam_group1"]["ping_time"].max(),
+                    side="right",
+                ),
+                len(sorted_external_time) - 1,
+            )
+            return external_ds.sel(
+                {
+                    ext_time_dim_name: np.logical_and(
+                        sorted_external_time[min_index] <= external_ds[ext_time_dim_name],
+                        external_ds[ext_time_dim_name] <= sorted_external_time[max_index],
+                    )
+                }
+            )
+
+        # History attribute to be included in each updated variable
+        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
+        if extra_platform_data_file_name:
+            history_attr += ", from file " + extra_platform_data_file_name
 
         platform = self["Platform"]
 
         # Drop variable_mappings items where either the Platform group or
-        # extra_platform_data doesn't contain the corresponding variables
-        # TODO: Emit a warning for dropped dict items
+        # extra_platform_data don't contain the corresponding variables or contain only nan data
+        mappings_expanded = {}
         for platform_var, external_var in variable_mappings.items():
-            if platform_var not in platform or external_var not in extra_platform_data:
-                # Flag the dict item
-                variable_mappings[platform_var] = "INVALID"
-
-        variable_mappings_final = {k: v for k, v in variable_mappings.items() if v != "INVALID"}
-
-        # Drop existing variables from the Platform group based on what is
-        # specified in variable_mappings_final
-        replaced_vars = variable_mappings_final.keys()
-        replaced_vars_notnan = [var for var in replaced_vars if not platform[var].isnull().all()]
-        if len(replaced_vars_notnan) > 0:
-            logger.warning(
-                f"Some variables with valid data in the original Platform group will be overwritten: {', '.join(replaced_vars_notnan)}"  # noqa
-            )
-        platform = platform.drop_vars(replaced_vars, errors="ignore")
-
-        # NOTE: Dropping time1 dim ONLY is a hard-wired choice
-        # TODO: Emit a warning if time1 dim exists and has non-nan variables using it?
-        #   See the use of logger.warning below, for a similar purpose
-        # open_raw assigns Platform time1 only to latitude, longitude and sentence_type
-        # drop_dims on time1 will ALWAYS delete these variables
-        platform = platform.drop_dims(["time1"], errors="ignore")
-        platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
-        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
-        if extra_platform_data_file_name:
-            history_attr += ", from file " + extra_platform_data_file_name
-        time1_attrs = {
-            **self._varattrs["platform_coord_default"]["time1"],
-            **{"history": history_attr},
-        }
-        platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
-
-        # If present, sentence_type was dropped when time1 was dropped.
-        # In our implementation of the convention, only latitude and longitude (and
-        # sentence_type for ek60 & ek80) are assigned a time1 dimension.
-        # Here, we will use time1 for ALL external variables, to avoid deleting valid data
-        # for variables not being overwritten by the user
-        time1_vars = set(variable_mappings_final)
-
-        # This commented code is for the case of using time2. I'll delete it in the final PR changes
-        # Create new time2 with identical values as time1, if required, ie, if a variable will be
-        # created that is supposed to have a time2 dim (eg, pitch).
-        # time1_vars = {"latitude", "longitude"}
-        # time2_vars = set(variable_mappings_final).difference(time1_vars)
-        #
-        # if len(time2_vars) > 0:
-        #     platform = platform.drop_dims(["time2"], errors="ignore")
-        #     platform = platform.assign_coords(time2=extra_platform_data[time_dim].values)
-        #     time2_attrs = {
-        #         "axis": "T",
-        #         "long_name": "Timestamps for platform motion and orientation data",
-        #         "standard_name": "time",
-        #         "comment": "Time coordinate corresponding to platform motion and "
-        #         "orientation data.",
-        #         "history": history_attr + ". Identical to time1.",
-        #     }
-        #     platform["time2"] = platform["time2"].assign_attrs(**time2_attrs)
-
-        # Create new (replaced) variables using dataset "update"
-        # This commented code is for the case of using time2. I'll delete it in the final PR changes
-        # for time_name, time_vars in [("time1", time1_vars), ("time2", time2_vars)]:
-        for time_name, time_vars in [("time1", time1_vars)]:
-            for platform_var in time_vars:
-                platform = platform.update(
-                    {
-                        platform_var: (
-                            time_name,
-                            extra_platform_data[variable_mappings_final[platform_var]].data,
-                        )
-                    }
+            if platform_var in platform:
+                platform_validvalues = not platform[platform_var].isnull().all()
+                ext_present, ext_validvalues, ext_time_dim_name = _extvar_properties(
+                    extra_platform_data, external_var
                 )
+                if ext_present and ext_validvalues:
+                    mappings_expanded[platform_var] = (
+                        external_var,
+                        ext_time_dim_name,
+                        platform_validvalues,
+                    )
 
-        # Assign attributes to newly created (replaced) variables
-        for var in replaced_vars:
-            var_attrs = self._varattrs["platform_var_default"][var]
-            # Insert history attr only if the variable was inserted with valid values
-            if not platform[var].isnull().all():
-                var_attrs["history"] = history_attr
-            platform[var] = platform[var].assign_attrs(**var_attrs)
+        # Generate warnings regarding variables that will be updated
+        vars_not_handled = set(variable_mappings.keys()).difference(mappings_expanded.keys())
+        if len(vars_not_handled) > 0:
+            logger.warning(
+                f"The following requested variables will not be updated: {', '.join(vars_not_handled)}"  # noqa
+            )
+
+        vars_notnan_replaced = [
+            platform_var for platform_var, v in mappings_expanded.items() if v[-1]
+        ]
+        if len(vars_notnan_replaced) > 0:
+            logger.warning(
+                f"Some variables with valid data in the original Platform group will be overwritten: {', '.join(vars_notnan_replaced)}"  # noqa
+            )
+
+        # Create names for required new time dimensions
+        ext_time_dims = list({v[1] for v in mappings_expanded.values() if v[1] != "scalar"})
+        time_dims_max = max([int(dim[-1]) for dim in platform.dims if dim.startswith("time")])
+        new_time_dims = [f"time{time_dims_max+i+1}" for i in range(len(ext_time_dims))]
+        # Map each new time dim name to the external time dim name:
+        new_time_dims_mappings = {new: ext for new, ext in zip(new_time_dims, ext_time_dims)}
+
+        # Process variable updates by corresponding new time dimensions
+        for time_dim in new_time_dims:
+            ext_time_dim = new_time_dims_mappings[time_dim]
+            mappings_selected = {k: v for k, v in mappings_expanded.items() if v[1] == ext_time_dim}
+            ext_vars = [v[0] for v in mappings_selected.values()]
+            ext_ds = _clip_by_time_dim(extra_platform_data[ext_vars], ext_time_dim)
+
+            # Create new time coordinate and dimension
+            platform = platform.assign_coords(**{time_dim: ext_ds[ext_time_dim].values})
+            # TODO: Update long_name and comment to something more appropriate
+            time_attrs = {
+                "axis": "T",
+                "standard_name": "time",
+                "long_name": "Timestamps for platform motion and orientation data",
+                "comment": "Time coordinate corresponding to platform motion and "
+                "orientation data.",
+                "history": f"{history_attr}. From external {ext_time_dim} variable.",
+            }
+            platform[time_dim] = platform[time_dim].assign_attrs(**time_attrs)
+
+            # Process each platform variable that will be replaced
+            for platform_var in mappings_selected.keys():
+                ext_var = mappings_expanded[platform_var][0]
+
+                # Create new (replaced) variable using dataset "update"
+                # With update, dropping the variable first is not needed
+                platform = platform.update({platform_var: (time_dim, ext_ds[ext_var].data)})
+
+                # Assign attributes to newly created (replaced) variables
+                var_attrs = self._varattrs["platform_var_default"][platform_var]
+                var_attrs["history"] = f"{history_attr}. From external {ext_var} variable."
+                platform[platform_var] = platform[platform_var].assign_attrs(**var_attrs)
+
+        # Update scalar variables, if any
+        scalar_vars = [
+            platform_var for platform_var, v in mappings_expanded.items() if v[1] == "scalar"
+        ]
+        for platform_var in scalar_vars:
+            ext_var = mappings_expanded[platform_var][0]
+            # Replace the scalar value and add a history attribute
+            platform[platform_var].data = float(extra_platform_data[ext_var].data)
+            platform[platform_var] = platform[platform_var].assign_attrs(
+                **{"history": f"{history_attr}. From external {ext_var} variable."}
+            )
+
+        # Drop pre-existing time dimensions that are no longer being used
+        used_dims = {
+            platform[platform_var].dims[0]
+            for platform_var in platform.data_vars
+            if len(platform[platform_var].dims) > 0
+        }
+        platform = platform.drop_dims(set(platform.dims).difference(used_dims), errors="ignore")
 
         self["Platform"] = set_time_encodings(platform)
 
