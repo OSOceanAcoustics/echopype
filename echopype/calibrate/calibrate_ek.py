@@ -1,4 +1,5 @@
-from typing import Dict
+from typing import Dict, Tuple
+from datetime import datetime
 
 import numpy as np
 import xarray as xr
@@ -583,7 +584,32 @@ class CalibrateEK80(CalibrateEK):
         else:
             return out
 
-    def _compute_cal(self, cal_type) -> xr.Dataset:
+    def _cal_complex_samples_freq_dep(
+        self, cal_type: str, bbox: Tuple[datetime, datetime, float, float]
+    ) -> xr.Dataset:
+        """Calibrate frequency-dependent spectra from EK80 complex data.
+
+        Parameters
+        ----------
+        cal_type : str
+            'Sv' for calculating volume backscattering strength, or
+            'TS' for calculating target strength
+        bbox : tuple
+            A tuple specifying the start time, end time, start range, end range
+
+        Returns
+        -------
+        xr.Dataset
+            The calibrated dataset containing frequency-dependent Sv or TS spectra
+        """
+
+        # Compute based on cal_type
+        if cal_type == "Sv":
+            return "Sv"
+        else:  # TS
+            return "TS"
+
+    def _compute_cal(self, cal_type, freq_dep, bbox) -> xr.Dataset:
         """
         Private method to compute Sv or TS from EK80 data, called by compute_Sv or compute_TS.
 
@@ -592,6 +618,10 @@ class CalibrateEK80(CalibrateEK):
         cal_type : str
             'Sv' for calculating volume backscattering strength, or
             'TS' for calculating target strength
+        freq_dep : bool
+            whether or not to produce frequency-dependent spectra
+        bbox : bbox
+            bounding box for computing frequency-dependent spectra
 
         Returns
         -------
@@ -605,14 +635,17 @@ class CalibrateEK80(CalibrateEK):
 
         if flag_complex:
             # Complex samples can be BB or CW
-            ds_cal = self._cal_complex_samples(cal_type=cal_type)
+            if freq_dep:
+                ds_cal = self._cal_complex_samples_freq_dep(cal_type=cal_type, bbox=bbox)
+            else:
+                ds_cal = self._cal_complex_samples(cal_type=cal_type)
         else:
             # Power samples only make sense for CW mode data
             ds_cal = self._cal_power_samples(cal_type=cal_type)
 
         return ds_cal
 
-    def compute_Sv(self):
+    def compute_Sv(self, freq_dep, bbox):
         """Compute volume backscattering strength (Sv).
 
         Returns
@@ -621,9 +654,9 @@ class CalibrateEK80(CalibrateEK):
             A DataSet containing volume backscattering strength (``Sv``)
             and the corresponding range (``echo_range``) in units meter.
         """
-        return self._compute_cal(cal_type="Sv")
+        return self._compute_cal("Sv", freq_dep, bbox)
 
-    def compute_TS(self):
+    def compute_TS(self, freq_dep, bbox):
         """Compute target strength (TS).
 
         Returns
@@ -632,4 +665,4 @@ class CalibrateEK80(CalibrateEK):
             A DataSet containing target strength (``TS``)
             and the corresponding range (``echo_range``) in units meter.
         """
-        return self._compute_cal(cal_type="TS")
+        return self._compute_cal("TS", freq_dep, bbox)

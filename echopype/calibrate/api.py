@@ -1,3 +1,6 @@
+from typing import Dict, Literal, Tuple
+from datetime import datetime
+
 import xarray as xr
 
 from ..echodata import EchoData
@@ -27,6 +30,8 @@ def _compute_cal(
     ecs_file=None,
     waveform_mode=None,
     encode_mode=None,
+    freq_dep: bool=False,
+    bbox: Tuple[datetime, datetime, float, float]=None
 ):
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
@@ -45,6 +50,16 @@ def _compute_cal(
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
 
+    # Check if frequency-dependent calibration makes sense
+    if freq_dep:
+        if echodata.sonar_model != "EK80" or waveform_mode != "BB" or encode_mode != "complex":
+            raise ValueError("Frequency-dependent computation only allows for broadband data!")
+        else:
+            if bbox is None:
+                raise ValueError(
+                    "A bounding box ('bbox') is required for frequency-dependent computation"
+                )
+
     # Set up calibration object
     cal_obj = CALIBRATOR[echodata.sonar_model](
         echodata,
@@ -53,13 +68,16 @@ def _compute_cal(
         ecs_file=ecs_file,
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
+        freq_dep=freq_dep,
+        bbox=bbox,
     )
 
     # Perform calibration
+    # Note freq_dep and bbox are only used for EK80 BB complex data
     if cal_type == "Sv":
-        cal_ds = cal_obj.compute_Sv()
+        cal_ds = cal_obj.compute_Sv(freq_dep=freq_dep, bbox=bbox)
     elif cal_type == "TS":
-        cal_ds = cal_obj.compute_TS()
+        cal_ds = cal_obj.compute_TS(freq_dep=freq_dep, bbox=bbox)
     else:
         raise ValueError("cal_type must be Sv or TS")
 
@@ -88,6 +106,10 @@ def _compute_cal(
                     "encode_mode": encode_mode,
                 }
             )
+            # TODO: revisit this once function if completed
+            if freq_dep:
+                ds["bbox"] = bbox    
+
 
     add_attrs(cal_type, cal_ds)
 
