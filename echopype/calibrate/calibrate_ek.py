@@ -1,5 +1,5 @@
-from typing import Dict, Tuple
 from datetime import datetime
+from typing import Dict, Tuple
 
 import numpy as np
 import xarray as xr

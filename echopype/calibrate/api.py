@@ -1,5 +1,5 @@
-from typing import Tuple
 from datetime import datetime
+from typing import Tuple
 
 import xarray as xr
 
@@ -30,8 +30,8 @@ def _compute_cal(
     ecs_file=None,
     waveform_mode=None,
     encode_mode=None,
-    freq_dep: bool=False,
-    bbox: Tuple[datetime, datetime, float, float]=None
+    freq_dep: bool = False,
+    bbox: Tuple[datetime, datetime, float, float] = None,
 ):
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
@@ -108,8 +108,7 @@ def _compute_cal(
             )
             # TODO: revisit this once function if completed
             if freq_dep:
-                ds["bbox"] = bbox    
-
+                ds["bbox"] = bbox
 
     add_attrs(cal_type, cal_ds)
 
