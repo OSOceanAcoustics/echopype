@@ -268,35 +268,27 @@ class EchoData:
     def update_platform(
         self,
         extra_platform_data: xr.Dataset,
-        # time_dim="time",
         variable_mappings=Dict[str, str],
         extra_platform_data_file_name=None,
     ):
         """
         Updates the `EchoData["Platform"]` group with additional external platform data.
 
-        `extra_platform_data` must be an xarray Dataset.
-        The name of the time dimension in `extra_platform_data` is specified by the
-        `time_dim` parameter.
-        Data is extracted from `extra_platform_data` by variable name; only the data
-        in `extra_platform_data` with the following variable names will be used:
-            - `"pitch"`
-            - `"roll"`
-            - `"vertical_offset"`
-            - `"latitude"`
-            - `"longitude"`
-            - `"water_level"`
-        The data inserted into the Platform group will be indexed by a dimension named
-        `"time1"`.
+        `extra_platform_data` must be an xarray Dataset. Data is extracted from
+        `extra_platform_data` by variable name. Only data assigned to a pre-existing
+        (but possibly all-nan) variable name in Platform will be processed. These
+        Platform variables include latitude, longitude, pitch, roll, vertical_offset, etc.
+        Different external variables may be dependent on different time dimensions, but
+        latitude and longitude (if specified) must share the same time dimension. New
+        time dimensions will be added as needed. For example, if variables to be added
+        from the external data use two time dimensions and the Platform group has time
+        dimensions time2 and time2, new dimensions time3 and time4 will be created.
 
         Parameters
         ----------
         extra_platform_data : xr.Dataset
             An `xr.Dataset` containing the additional platform data to be added
             to the `EchoData["Platform"]` group.
-        time_dim: str, default="time"
-            The name of the time dimension in `extra_platform_data`; used for extracting
-            data from `extra_platform_data`.
         variable_mappings: Dict[str,str]
             A dictionary mapping Platform variable names (dict key) to the
             external-data variable name (dict value).
@@ -306,9 +298,12 @@ class EchoData:
         Examples
         --------
         >>> ed = echopype.open_raw(raw_file, "EK60")
-        >>> extra_platform_data = xr.open_dataset(extra_platform_data_file)
-        >>> ed.update_platform(extra_platform_data,
-        >>>         extra_platform_data_file_name=extra_platform_data_file)
+        >>> extra_platform_data = xr.open_dataset(extra_platform_data_file_name)
+        >>> ed.update_platform(
+        >>>     extra_platform_data,
+        >>>     variable_mappings={"longitude": "lon", "latitude": "lat", "roll": "ROLL"},
+        >>>     extra_platform_data_file_name=extra_platform_data_file_name
+        >>> )
         """
 
         # Handle data stored as a CF Trajectory Discrete Sampling Geometry
