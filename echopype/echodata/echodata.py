@@ -398,11 +398,27 @@ class EchoData:
                     extra_platform_data, external_var
                 )
                 if ext_present and ext_validvalues:
-                    mappings_expanded[platform_var] = (
-                        external_var,
-                        ext_time_dim_name,
-                        platform_validvalues,
+                    mappings_expanded[platform_var] = dict(
+                        external_var=external_var,
+                        ext_time_dim_name=ext_time_dim_name,
+                        platform_validvalues=platform_validvalues,
                     )
+
+        # If longitude or latitude are requested, verify that both are present
+        # and they share the same external time dimension
+        if "longitude" in mappings_expanded or "latitude" in mappings_expanded:
+            if "longitude" not in mappings_expanded or "latitude" not in mappings_expanded:
+                raise ValueError(
+                    "Only one of latitude and longitude are specified. Please include both, or neither."  # noqa
+                )
+            if (
+                mappings_expanded["longitude"]["ext_time_dim_name"]
+                != mappings_expanded["latitude"]["ext_time_dim_name"]
+            ):
+                raise ValueError(
+                    "The external latitude and longitude use different time dimensions. "
+                    "They must share the same time dimension."
+                )
 
         # Generate warnings regarding variables that will be updated
         vars_not_handled = set(variable_mappings.keys()).difference(mappings_expanded.keys())
@@ -412,7 +428,9 @@ class EchoData:
             )
 
         vars_notnan_replaced = [
-            platform_var for platform_var, v in mappings_expanded.items() if v[-1]
+            platform_var
+            for platform_var, v in mappings_expanded.items()
+            if v["platform_validvalues"]
         ]
         if len(vars_notnan_replaced) > 0:
             logger.warning(
@@ -420,7 +438,13 @@ class EchoData:
             )
 
         # Create names for required new time dimensions
-        ext_time_dims = list({v[1] for v in mappings_expanded.values() if v[1] != "scalar"})
+        ext_time_dims = list(
+            {
+                v["ext_time_dim_name"]
+                for v in mappings_expanded.values()
+                if v["ext_time_dim_name"] != "scalar"
+            }
+        )
         time_dims_max = max([int(dim[-1]) for dim in platform.dims if dim.startswith("time")])
         new_time_dims = [f"time{time_dims_max+i+1}" for i in range(len(ext_time_dims))]
         # Map each new time dim name to the external time dim name:
@@ -429,17 +453,18 @@ class EchoData:
         # Process variable updates by corresponding new time dimensions
         for time_dim in new_time_dims:
             ext_time_dim = new_time_dims_mappings[time_dim]
-            mappings_selected = {k: v for k, v in mappings_expanded.items() if v[1] == ext_time_dim}
-            ext_vars = [v[0] for v in mappings_selected.values()]
+            mappings_selected = {
+                k: v for k, v in mappings_expanded.items() if v["ext_time_dim_name"] == ext_time_dim
+            }
+            ext_vars = [v["external_var"] for v in mappings_selected.values()]
             ext_ds = _clip_by_time_dim(extra_platform_data[ext_vars], ext_time_dim)
 
             # Create new time coordinate and dimension
             platform = platform.assign_coords(**{time_dim: ext_ds[ext_time_dim].values})
-            # TODO: Update long_name and comment to something more appropriate
             time_attrs = {
                 "axis": "T",
                 "standard_name": "time",
-                "long_name": "Timestamps for platform motion and orientation data",
+                "long_name": "Timestamps from an external dataset",
                 "comment": "Time coordinate originated from a dataset "
                 "external to the sonar data files.",
                 "history": f"{history_attr}. From external {ext_time_dim} variable.",
@@ -448,23 +473,26 @@ class EchoData:
 
             # Process each platform variable that will be replaced
             for platform_var in mappings_selected.keys():
-                ext_var = mappings_expanded[platform_var][0]
+                ext_var = mappings_expanded[platform_var]["external_var"]
+                platform_var_attrs = platform[platform_var].attrs.copy()
 
                 # Create new (replaced) variable using dataset "update"
                 # With update, dropping the variable first is not needed
                 platform = platform.update({platform_var: (time_dim, ext_ds[ext_var].data)})
 
                 # Assign attributes to newly created (replaced) variables
-                var_attrs = self._varattrs["platform_var_default"][platform_var]
+                var_attrs = platform_var_attrs
                 var_attrs["history"] = f"{history_attr}. From external {ext_var} variable."
                 platform[platform_var] = platform[platform_var].assign_attrs(**var_attrs)
 
         # Update scalar variables, if any
         scalar_vars = [
-            platform_var for platform_var, v in mappings_expanded.items() if v[1] == "scalar"
+            platform_var
+            for platform_var, v in mappings_expanded.items()
+            if v["ext_time_dim_name"] == "scalar"
         ]
         for platform_var in scalar_vars:
-            ext_var = mappings_expanded[platform_var][0]
+            ext_var = mappings_expanded[platform_var]["external_var"]
             # Replace the scalar value and add a history attribute
             platform[platform_var].data = float(extra_platform_data[ext_var].data)
             platform[platform_var] = platform[platform_var].assign_attrs(
