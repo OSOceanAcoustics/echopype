@@ -356,7 +356,9 @@ class EchoData:
             # fmt: off
             min_index = max(
                 np.searchsorted(
-                    sorted_external_time, self["Sonar/Beam_group1"]["ping_time"].min(), side="left"
+                    sorted_external_time,
+                    self["Sonar/Beam_group1"]["ping_time"].min(),
+                    side="left"
                 ) - 1,
                 0,
             )
