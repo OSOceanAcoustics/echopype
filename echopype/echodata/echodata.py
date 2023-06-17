@@ -36,10 +36,6 @@ TVG_CORRECTION_FACTOR = {
     "EA640": 0,
 }
 
-VALID_PLATFORM_VARS = (
-
-)
-
 logger = _init_logger(__name__)
 
 
