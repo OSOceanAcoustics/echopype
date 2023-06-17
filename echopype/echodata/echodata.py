@@ -408,6 +408,13 @@ class EchoData:
                         platform_validvalues=platform_validvalues,
                     )
 
+        # Generate warning if mappings_expanded is empty
+        if not mappings_expanded:
+            logger.warning(
+                f"No variables will be updated, "
+                "check variable_mappings to ensure variable names are correctly specified!"
+            )
+
         # If longitude or latitude are requested, verify that both are present
         # and they share the same external time dimension
         if "longitude" in mappings_expanded or "latitude" in mappings_expanded:

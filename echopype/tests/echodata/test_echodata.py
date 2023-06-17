@@ -670,3 +670,24 @@ def test_update_platform_latlon(test_path, variable_mappings):
         )
 
     ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
+
+
+@pytest.mark.filterwarnings("ignore:No variables will be updated")
+def test_update_platform_no_update(test_path):
+    raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+    ed = echopype.open_raw(raw_file, sonar_model="EK60")
+
+    extra_platform_data = xr.Dataset(
+        {
+            "lon": (["time"], np.array([-100.0])),
+            "lat": (["time"], np.array([-50.0])),
+        },
+        coords={
+            "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+        },
+    )
+
+    # variable names in mappings different from actual external dataset
+    variable_mappings = {"longitude": "longitude", "latitude": "latitude"}
+
+    ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
