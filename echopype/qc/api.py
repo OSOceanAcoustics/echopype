@@ -18,12 +18,12 @@ def _clean_reversed(time_old: np.ndarray):
     # substitute out the reversed timestamp using the previous one
     time_old_diff[neg_ind] = time_old_diff[neg_ind - 1]
 
-    # perform cummulative sum of differences after 1st neg index
-    c_diff = np.cumsum(time_old_diff[neg_ind[0]:], axis=0)
+    # perform cumulative sum of differences after 1st neg index
+    c_diff = np.cumsum(time_old_diff[neg_ind[0] :], axis=0)
 
     # create new array that preserves differences, but enforces increasing vals
     new_time = time_old.copy()
-    new_time[neg_ind[0]+1:] = new_time[neg_ind[0]] + c_diff
+    new_time[neg_ind[0] + 1 :] = new_time[neg_ind[0]] + c_diff
 
     return new_time
 
