@@ -11,11 +11,13 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 This release includes an efficiency boost for combining multiple `EchoData` objects, a number of changes of variable type and attributes in the `Vendor_specific` and `Platform` groups, and updates on related methods necessitated by these changes.
 
 ## Enhancement
-- Overhaul combine_echodata method (#1042)
+- Overhaul the `combine_echodata` function (#1042)
   - No longer require spinning up dask client under the hood during combine
   - Use `xr.concat` directly compatible with delayed computation
   - No longer require destination path as input argument
-- `EchoData.update_platform` changes (TBD)
+- Overhaul `EchoData.update_platform` (#1060)
+  - Allow adding external variables with arbitrary number of time dimensions, with new time dimensions following an increasing order (e.g., `time3`, `time4`, etc)
+  - Only allow updating standardized, sonar model-dependent Platform group variables
 
 ## Variable storage changes
 - Standardize `backscatter_r/i` long_name in the `Sonar/Beam_groupX` group, and correct units (#1047)
