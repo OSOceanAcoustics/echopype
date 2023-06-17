@@ -473,7 +473,7 @@ def test_nan_range_entries(range_check_files):
 
 
 @pytest.mark.parametrize(
-    ["ext_type", "sonar_model", "updated", "path_model", "raw_path", "platform_data"],
+    ["ext_type", "sonar_model", "variable_mappings", "path_model", "raw_path", "platform_data"],
     [
         (
                 "external-trajectory",
@@ -507,7 +507,7 @@ def test_nan_range_entries(range_check_files):
 def test_update_platform(
         ext_type,
         sonar_model,
-        updated,
+        variable_mappings,
         path_model,
         raw_path,
         platform_data,
@@ -517,7 +517,7 @@ def test_update_platform(
     ed = echopype.open_raw(raw_file, sonar_model=sonar_model)
 
     # Test that the variables in Platform are all empty (nan)
-    for variable in updated.keys():
+    for variable in variable_mappings.keys():
         assert np.isnan(ed["Platform"][variable].values).all()
 
     # Prepare the external data
@@ -541,11 +541,11 @@ def test_update_platform(
     # Run update_platform
     ed.update_platform(
         extra_platform_data,
-        variable_mappings=updated,
+        variable_mappings=variable_mappings,
         extra_platform_data_file_name=extra_platform_data_file_name,
     )
 
-    for variable in updated.keys():
+    for variable in variable_mappings.keys():
         assert not np.isnan(ed["Platform"][variable].values).all()
 
     # times have max interval of 2s
@@ -573,3 +573,53 @@ def test_update_platform(
         )
         <= 1
     )
+
+
+def test_update_platform_multidim(test_path):
+    raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+    ed = echopype.open_raw(raw_file, sonar_model="EK60")
+
+    extra_platform_data = xr.Dataset(
+        {
+            "lon": (["time"], np.array([-100.0])),
+            "lat": (["time"], np.array([-50.0])),
+            "pitch": (["time_pitch"], np.array([0.1])),
+            "waterlevel": ([], float(10)),
+        },
+        coords={
+            "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+            "time_pitch": (
+                ["time_pitch"],
+                # Adding a time delta is not necessary, but it may be handy if we later
+                # want to expand the scope of this test
+                np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]) + np.timedelta64(5, "s")
+            )
+        },
+    )
+
+    platform_preexisting_dims = ed["Platform"].dims
+
+    variable_mappings = {
+        "longitude": "lon",
+        "latitude": "lat",
+        "pitch": "pitch",
+        "water_level": "waterlevel"
+    }
+    ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
+
+    # Updated variables are not all nan
+    for variable in variable_mappings.keys():
+        assert not np.isnan(ed["Platform"][variable].values).all()
+
+    # Number of dimensions in Platform group and addition of time3 and time4
+    assert len(ed["Platform"].dims) == len(platform_preexisting_dims) + 2
+    assert "time3" in ed["Platform"].dims
+    assert "time4" in ed["Platform"].dims
+
+    # Dimension assignment
+    assert ed["Platform"]["longitude"].dims[0] == ed["Platform"]["latitude"].dims[0]
+    assert ed["Platform"]["pitch"].dims[0] != ed["Platform"]["longitude"].dims[0]
+    assert ed["Platform"]["longitude"].dims[0] not in platform_preexisting_dims
+    assert ed["Platform"]["pitch"].dims[0] not in platform_preexisting_dims
+    # scalar variable
+    assert len(ed["Platform"]["water_level"].dims) == 0
