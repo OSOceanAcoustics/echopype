@@ -34,6 +34,7 @@ MODULES_TO_TEST = {
     "mask": {},
     "metrics": {},
     "preprocess": {},
+    "qc": {},
     "utils": {},
     "visualize": {},
 }
