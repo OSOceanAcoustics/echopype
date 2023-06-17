@@ -441,7 +441,7 @@ class EchoData:
                 "standard_name": "time",
                 "long_name": "Timestamps for platform motion and orientation data",
                 "comment": "Time coordinate originated from a dataset "
-                                      "external to the sonar data files.",
+                "external to the sonar data files.",
                 "history": f"{history_attr}. From external {ext_time_dim} variable.",
             }
             platform[time_dim] = platform[time_dim].assign_attrs(**time_attrs)
