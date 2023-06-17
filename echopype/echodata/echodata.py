@@ -371,6 +371,10 @@ class EchoData:
                 ),
                 len(sorted_external_time) - 1,
             )
+            # TODO: this element-wise comparison is expensive and seems an ad-hoc patch
+            # to deal with potentially reversed timestamps in the external dataset.
+            # Review at workflow stage to see if to clean up timestamp reversals
+            # and just find start/end timestamp for slicing.
             return external_ds.sel(
                 {
                     ext_time_dim_name: np.logical_and(
