@@ -398,6 +398,9 @@ class EchoData:
         # contain the corresponding variables or contain valid (not all nan) data
         mappings_expanded = {}
         for platform_var, external_var in variable_mappings.items():
+            # TODO: instead of using existing Platform group variables, a better practice is to
+            # define a set of allowable Platform variables (sonar_model dependent) for this check.
+            # This set can be dynamically generated from an external source like a CDL or yaml.
             if platform_var in platform:
                 platform_validvalues = not platform[platform_var].isnull().all()
                 ext_present, ext_validvalues, ext_time_dim_name = _extvar_properties(
