@@ -387,7 +387,7 @@ class EchoData:
 
         platform = self["Platform"]
 
-        # Retain only variable_mappings items where 
+        # Retain only variable_mappings items where
         # either the Platform group or extra_platform_data
         # contain the corresponding variables or contain valid (not all nan) data
         mappings_expanded = {}
