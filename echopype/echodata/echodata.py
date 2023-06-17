@@ -36,6 +36,10 @@ TVG_CORRECTION_FACTOR = {
     "EA640": 0,
 }
 
+VALID_PLATFORM_VARS = (
+
+)
+
 logger = _init_logger(__name__)
 
 
@@ -411,7 +415,7 @@ class EchoData:
         # Generate warning if mappings_expanded is empty
         if not mappings_expanded:
             logger.warning(
-                f"No variables will be updated, "
+                "No variables will be updated, "
                 "check variable_mappings to ensure variable names are correctly specified!"
             )
 
