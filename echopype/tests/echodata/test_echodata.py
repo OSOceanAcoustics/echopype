@@ -476,31 +476,31 @@ def test_nan_range_entries(range_check_files):
     ["ext_type", "sonar_model", "variable_mappings", "path_model", "raw_path", "platform_data"],
     [
         (
-                "external-trajectory",
-                "EK80",
-                # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
-                {"pitch": "PITCH", "roll": "ROLL", "longitude": "longitude", "latitude": "latitude"},
-                "EK80",
-                (
-                        "saildrone",
-                        "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
-                ),
-                (
-                        "saildrone",
-                        "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",  #noqa
-                ),
+            "external-trajectory",
+            "EK80",
+            # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
+            {"pitch": "PITCH", "roll": "ROLL", "longitude": "longitude", "latitude": "latitude"},
+            "EK80",
+            (
+                    "saildrone",
+                    "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
+            ),
+            (
+                    "saildrone",
+                    "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",  #noqa
+            ),
         ),
         (
-                "fixed-location",
-                "EK60",
-                # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
-                {"longitude": "longitude", "latitude": "latitude"},
-                "EK60",
-                (
-                        "ooi",
-                        "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
-                ),
-                (-100.0, -50.0),
+            "fixed-location",
+            "EK60",
+            # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
+            {"longitude": "longitude", "latitude": "latitude"},
+            "EK60",
+            (
+                    "ooi",
+                    "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+            ),
+            (-100.0, -50.0),
         ),
     ],
 )
@@ -623,3 +623,50 @@ def test_update_platform_multidim(test_path):
     assert ed["Platform"]["pitch"].dims[0] not in platform_preexisting_dims
     # scalar variable
     assert len(ed["Platform"]["water_level"].dims) == 0
+
+
+@pytest.mark.parametrize(
+    ["variable_mappings"],
+    [
+        pytest.param(
+            # lat and lon both exist, but aligned on different time dimension: should fail
+            {"longitude": "lon", "latitude": "lat"},
+            marks=pytest.mark.xfail(strict=True, reason="Fail since lat and lon not on the same time dimension")
+        ),
+        pytest.param(
+            # only lon exists: should fail
+            {"longitude": "lon"},
+            marks=pytest.mark.xfail(strict=True, reason="Fail since only lon exists without lat")
+        ),
+    ],
+    ids=[
+        "lat_lon_diff_time",
+        "lon_only"
+    ]
+)
+def test_update_platform_latlon(test_path, variable_mappings):
+    raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+    ed = echopype.open_raw(raw_file, sonar_model="EK60")
+
+    if "latitude" in variable_mappings:
+        extra_platform_data = xr.Dataset(
+            {
+                "lon": (["time1"], np.array([-100.0])),
+                "lat": (["time2"], np.array([-50.0])),
+            },
+            coords={
+                "time1": (["time1"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+                "time2": (["time2"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]) + np.timedelta64(5, "s")),
+            },
+        )
+    else:
+        extra_platform_data = xr.Dataset(
+            {
+                "lon": (["time"], np.array([-100.0])),
+            },
+            coords={
+                "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+            },
+        )
+
+    ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
