@@ -72,7 +72,7 @@ def test_raw_to_mvbs(
                 "time": (["time"], np.array([ed["Sonar/Beam_group1"]["ping_time"].values.min()]))
             },
         )
-        ed.update_platform(point_ds)
+        ed.update_platform(point_ds, variable_mappings={"latitude": "latitude", "longitude": "longitude"})
         _presence_test(ed["Top-level"], "Level 1A")
     else:
         _absence_test(ed["Top-level"])
