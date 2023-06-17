@@ -282,6 +282,8 @@ class EchoData:
         `extra_platform_data` by variable name. Only data assigned to a pre-existing
         (but possibly all-nan) variable name in Platform will be processed. These
         Platform variables include latitude, longitude, pitch, roll, vertical_offset, etc.
+        See the variables present in the EchoData object's Platform group to obtain a
+        complete list of possible variables.
         Different external variables may be dependent on different time dimensions, but
         latitude and longitude (if specified) must share the same time dimension. New
         time dimensions will be added as needed. For example, if variables to be added
