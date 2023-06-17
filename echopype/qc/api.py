@@ -9,33 +9,26 @@ from ..utils.log import _init_logger
 logger = _init_logger(__name__)
 
 
-def _clean_ping_time(ping_time_old, local_win_len=100):
-    ping_time_old_diff = np.diff(ping_time_old)
-    neg_idx = np.argwhere(
-        ping_time_old_diff < np.timedelta64(0, "ns")
-    )  # indices with negative diff
-    if neg_idx.size != 0:
-        ni = neg_idx[0][0]
-        local_win = np.arange(-local_win_len, local_win_len)
-        local_pt_diff = ping_time_old_diff[ni + local_win]
-        local_pt_median = np.median(
-            np.delete(local_pt_diff, local_win_len)
-        )  # median after removing negative element
-        ping_time_new = np.hstack(
-            (
-                ping_time_old[: ni + 1],
-                ping_time_old[ni]
-                + np.cumsum(np.hstack((local_pt_median, ping_time_old_diff[(ni + 1) :]))),
-            )
-        )
-        return _clean_ping_time(ping_time_new, local_win_len=local_win_len)
-    else:
-        return ping_time_old  # no negative diff
+def _clean_reversed(time_old: np.ndarray):
+    time_old_diff = np.diff(time_old)
+
+    # get indices of arr_diff with negative values
+    neg_ind = np.argwhere(time_old_diff < 0).flatten()
+
+    # substitute out the reversed timestamp using the previous one
+    time_old_diff[neg_ind] = time_old_diff[neg_ind - 1]
+
+    # perform cummulative sum of differences after 1st neg index
+    c_diff = np.cumsum(time_old_diff[neg_ind[0]:], axis=0)
+
+    # create new array that preserves differences, but enforces increasing vals
+    new_time = time_old.copy()
+    new_time[neg_ind[0]+1:] = new_time[neg_ind[0]] + c_diff
+
+    return new_time
 
 
-def coerce_increasing_time(
-    ds: xr.Dataset, time_name: str = "ping_time", local_win_len: int = 100
-) -> None:
+def coerce_increasing_time(ds: xr.Dataset, time_name: str = "ping_time") -> None:
     """
     Coerce a time coordinate so that it always flows forward. If coercion
     is necessary, the input `ds` will be directly modified.
@@ -62,7 +55,7 @@ def coerce_increasing_time(
     would remain undisturbed.
     """
 
-    ds[time_name].values[:] = _clean_ping_time(ds[time_name].values, local_win_len=local_win_len)
+    ds[time_name].data[:] = _clean_reversed(ds[time_name].data)
 
 
 def exist_reversed_time(ds, time_name):
