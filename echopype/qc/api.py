@@ -9,26 +9,35 @@ from ..utils.log import _init_logger
 logger = _init_logger(__name__)
 
 
-def _clean_reversed(time_old: np.ndarray):
+def _clean_reversed(time_old: np.ndarray, win_len: float):
     time_old_diff = np.diff(time_old)
 
     # get indices of arr_diff with negative values
-    neg_ind = np.argwhere(time_old_diff < 0).flatten()
+    neg_idx = np.argwhere(time_old_diff < np.timedelta64(0, "ns")).flatten()
 
     # substitute out the reversed timestamp using the previous one
-    time_old_diff[neg_ind] = time_old_diff[neg_ind - 1]
+    new_diff = []
+    for ni in neg_idx:
+        local_win_idx = ni + np.arange(-win_len, 0)
+        if local_win_idx[0] < 0:
+            first_valid_idx = np.argwhere(local_win_idx == 0).flatten()[0]
+            local_win_idx = local_win_idx[first_valid_idx:]
+        new_diff.append(np.median(time_old_diff[local_win_idx]))
+    time_old_diff[neg_idx] = new_diff
 
     # perform cumulative sum of differences after 1st neg index
-    c_diff = np.cumsum(time_old_diff[neg_ind[0] :], axis=0)
+    c_diff = np.cumsum(time_old_diff[neg_idx[0] :], axis=0)
 
     # create new array that preserves differences, but enforces increasing vals
     new_time = time_old.copy()
-    new_time[neg_ind[0] + 1 :] = new_time[neg_ind[0]] + c_diff
+    new_time[neg_idx[0] + 1 :] = new_time[neg_idx[0]] + c_diff
 
     return new_time
 
 
-def coerce_increasing_time(ds: xr.Dataset, time_name: str = "ping_time") -> None:
+def coerce_increasing_time(
+    ds: xr.Dataset, time_name: str = "ping_time", win_len: float=100
+) -> None:
     """
     Coerce a time coordinate so that it always flows forward. If coercion
     is necessary, the input `ds` will be directly modified.
@@ -39,9 +48,9 @@ def coerce_increasing_time(ds: xr.Dataset, time_name: str = "ping_time") -> None
         a dataset for which the time coordinate needs to be corrected
     time_name : str
         name of the time coordinate to be corrected
-    local_win_len : int
-        half length of the local window within which the median pinging interval
-        is used to infer the correct next ping time
+    win_len : int
+        length of the local window before the reversed timestamp within which
+        the median pinging interval is used to infer the next ping time
 
     Returns
     -------
@@ -49,13 +58,13 @@ def coerce_increasing_time(ds: xr.Dataset, time_name: str = "ping_time") -> None
 
     Notes
     -----
-    This is to correct for problems sometimes observed in EK60 data
+    This is to correct for problems sometimes observed in EK60/80 data
     where a time coordinate (``ping_time`` or ``time1``) would suddenly
     go backward for one ping, but then the rest of the pinging interval
     would remain undisturbed.
     """
 
-    ds[time_name].data[:] = _clean_reversed(ds[time_name].data)
+    ds[time_name].data[:] = _clean_reversed(ds[time_name].data, win_len)
 
 
 def exist_reversed_time(ds, time_name):
