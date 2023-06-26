@@ -17,6 +17,7 @@ from ..utils import io
 from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
+from .utils.ek import should_use_swap
 
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
@@ -315,6 +316,8 @@ def open_raw(
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
     use_swap: bool = False,
+    swap_path: Optional[str] = None,
+    swap_storage_options: Optional[Dict[str, str]] = None,
     max_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
@@ -345,6 +348,7 @@ def open_raw(
     storage_options : dict
         options for cloud storage
     use_swap: bool
+        **DEPRECATED**
         If True, variables with a large memory footprint will be
         written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
     max_mb : int
@@ -373,6 +377,9 @@ def open_raw(
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
+    # Initially set use_swap False
+    use_swap = False
+
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
 
@@ -402,15 +409,6 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
-    # TODO: remove once 'auto' option is added
-    if not isinstance(use_swap, bool):
-        raise ValueError("use_swap must be of type bool.")
-
-    # Ensure use_swap is 'auto', if it is a string
-    # TODO: use the following when we allow for 'auto' option
-    # if isinstance(use_swap, str) and use_swap != "auto":
-    #     raise ValueError("use_swap must be a bool or equal to 'auto'.")
-
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
     if SONAR_MODELS[sonar_model]["xml"]:
@@ -430,22 +428,24 @@ def open_raw(
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        # Create sonar_model-specific p2z object
-        p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
+        if swap_path is None:
+            # Overwrite use_swap if it's True below
+            # Use local swap directory
+            use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
+        else:
+            # TODO: Check for storage options if remote swap path
+            # TODO: Add docstring about swap path
+            # TODO: Validate swap paths
+            use_swap = True
 
-        # Determines if writing to zarr is necessary and writes to zarr
-        p2z_flag = use_swap is True or (
-            use_swap == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
-        )
-
-        if p2z_flag:
+        if use_swap:
+            # Create sonar_model-specific p2z object
+            p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
             p2z.datagram_to_zarr(max_mb=max_mb)
             # Rectangularize the transmit data
             parser.rectangularize_transmit_ping_data(data_type="complex")
         else:
-            del p2z
-            # Create general p2z object
-            p2z = Parsed2Zarr(parser)
+            p2z = Parsed2Zarr(parser)  # Create general p2z object
             parser.rectangularize_data()
 
     else:
