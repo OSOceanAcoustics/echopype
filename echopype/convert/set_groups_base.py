@@ -175,16 +175,20 @@ class SetGroupsBase(abc.ABC):
                 pynmea2.ParseError,
             ):
                 nmea_msg.append(None)
-        lat, lon = [], []
-        for x in nmea_msg:
-            try:
-                lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
-            except:
-                lat.append(np.nan)
-            try:
-                lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
-            except:
-                lon.append(np.nan)
+        if nmea_msg:
+            lat, lon = [], []
+            for x in nmea_msg:
+                try:
+                    lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
+                except:
+                    lat.append(np.nan)
+                try:
+                    lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
+                except:
+                    lon.append(np.nan)
+        else:
+            lat = [np.nan]
+            lon = [np.nan]
         msg_type = (
             np.array([x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg])
             if nmea_msg
