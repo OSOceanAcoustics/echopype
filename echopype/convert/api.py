@@ -316,8 +316,8 @@ def open_raw(
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
     use_swap: bool = False,
-    swap_path: Optional[str] = None,
-    swap_storage_options: Optional[Dict[str, str]] = None,
+    destination_path: Optional[str] = None,
+    # path_storage_options: Optional[Dict[str, str]] = None,
     max_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
@@ -428,10 +428,14 @@ def open_raw(
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        if swap_path is None:
+        if destination_path is None:
             # Overwrite use_swap if it's True below
             # Use local swap directory
             use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
+        elif destination_path == "swap":
+            use_swap = True
+        elif destination_path == "no_swap":
+            use_swap = False
         else:
             # TODO: Check for storage options if remote swap path
             # TODO: Add docstring about swap path

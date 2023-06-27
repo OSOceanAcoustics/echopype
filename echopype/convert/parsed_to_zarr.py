@@ -1,14 +1,24 @@
 import secrets
 import sys
-from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
+import fsspec
 import more_itertools as miter
 import numpy as np
 import pandas as pd
 import zarr
 
-from ..utils.io import ECHOPYPE_DIR, check_file_permissions
+from ..utils.io import ECHOPYPE_DIR, check_file_permissions, validate_output_path
+
+
+def _create_zarr_store_map(path, storage_options):
+    file_path = validate_output_path(
+        source_file=secrets.token_hex(16),
+        engine="zarr",
+        save_path=path,
+        output_storage_options=storage_options,
+    )
+    return fsspec.get_mapper(file_path, **storage_options)
 
 
 class Parsed2Zarr:
@@ -26,45 +36,47 @@ class Parsed2Zarr:
         self.zarr_root = None
         self.parser_obj = parser_obj  # parser object ParseEK60/ParseEK80/etc.
 
-    def _create_zarr_info(self):
+    def _create_zarr_info(
+        self, dest_path: str = None, dest_storage_options: Dict = {}, retries: int = 10
+    ):
         """
         Creates the temporary directory for zarr
         storage, zarr file name, zarr store, and
         the root group of the zarr store.
         """
 
-        # get current working directory
-        current_dir = Path.cwd()
+        if dest_path is None:
+            # Check permission of cwd, raise exception if no permission
+            check_file_permissions(ECHOPYPE_DIR)
 
-        # Check permission of cwd, raise exception if no permission
-        check_file_permissions(current_dir)
-
-        # construct temporary directory that will hold the zarr file
-        out_dir = current_dir / ECHOPYPE_DIR / "temp_output" / "parsed2zarr_temp_files"
-        if not out_dir.exists():
-            out_dir.mkdir(parents=True)
+            # construct temporary directory that will hold the zarr file
+            dest_path = ECHOPYPE_DIR / "temp_output" / "parsed2zarr_temp_files"
+            if not dest_path.exists():
+                dest_path.mkdir(parents=True)
 
         # establish temporary directory we will write zarr files to
-        self.temp_zarr_dir = str(out_dir)
+        self.temp_zarr_dir = str(dest_path)
 
-        # create zarr store name
-        zarr_file_name = str(out_dir / secrets.token_hex(16)) + ".zarr"
+        # attempt to find different zarr_file_name
+        attempt = 0
+        exists = True
+        while exists:
+            zarr_store = _create_zarr_store_map(
+                path=dest_path, storage_options=dest_storage_options
+            )
+            exists = zarr_store.fs.exists(zarr_store.root)
+            attempt += 1
 
-        # attempt to find different zarr_file_name, if it already exists
-        count = 0
-        while Path(zarr_file_name).exists() and count < 10:
-            # generate new zarr_file_name
-            zarr_file_name = str(out_dir / secrets.token_hex(16)) + ".zarr"
-            count += 1
-
-        # error out if we are unable to get a unique name, else assign name to class variable
-        if (count == 10) and Path(zarr_file_name).exists():
-            raise RuntimeError("Unable to construct an unused zarr file name for Parsed2Zarr!")
-        else:
-            self.zarr_file_name = zarr_file_name
+            if attempt == retries and exists:
+                raise RuntimeError(
+                    (
+                        "Unable to construct an unused zarr file name for Parsed2Zarr ",
+                        f"after {retries} retries!",
+                    )
+                )
 
         # create zarr store and zarr group we want to write to
-        self.store = zarr.DirectoryStore(self.zarr_file_name)
+        self.store = zarr_store
         self.zarr_root = zarr.group(store=self.store, overwrite=True)
 
     def _close_store(self):
@@ -72,7 +84,7 @@ class Parsed2Zarr:
 
         # consolidate metadata and close zarr store
         zarr.consolidate_metadata(self.store)
-        self.store.close()
+        # self.store.close()
 
     @staticmethod
     def set_multi_index(
