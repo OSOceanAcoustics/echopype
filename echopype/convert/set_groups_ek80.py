@@ -989,9 +989,8 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.store
-        backscatter_r = self._get_power_dataarray(zarr_path)
-        angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
+        backscatter_r = self.parsed2zarr_obj.power_dataarray
+        angle_athwartship, angle_alongship = self.parsed2zarr_obj.angle_dataarrays
 
         # create power related ds using DataArrays created from zarr file
         ds_power = xr.merge([backscatter_r, angle_athwartship, angle_alongship])
@@ -1031,8 +1030,7 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.store
-        backscatter_r, backscatter_i = self._get_complex_dataarrays(zarr_path)
+        backscatter_r, backscatter_i = self.parsed2zarr_obj.complex_dataarrays
 
         # create power related ds using DataArrays created from zarr file
         ds_complex = xr.merge([backscatter_r, backscatter_i])
