@@ -1,4 +1,3 @@
-import atexit
 import datetime
 import warnings
 from html import escape
@@ -77,12 +76,10 @@ class EchoData:
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
-    @atexit.register  # Allow clean up when program quits
     def cleanup(self):
         if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.store is not None):
             # get Path object of temporary zarr file created by Parsed2Zarr
             p2z_temp_file = self.parsed2zarr_obj.store
-            print(p2z_temp_file.root)
 
             # remove temporary directory created by Parsed2Zarr, if it exists
             if p2z_temp_file.fs.exists(p2z_temp_file.root):
