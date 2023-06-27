@@ -317,7 +317,7 @@ def open_raw(
     storage_options: Optional[Dict[str, str]] = None,
     use_swap: bool = False,
     destination_path: Optional[str] = None,
-    # path_storage_options: Optional[Dict[str, str]] = None,
+    destination_storage_options: Optional[Dict[str, str]] = None,
     max_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
@@ -445,7 +445,11 @@ def open_raw(
         if use_swap:
             # Create sonar_model-specific p2z object
             p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
-            p2z.datagram_to_zarr(max_mb=max_mb)
+            p2z.datagram_to_zarr(
+                dest_path=destination_path,
+                dest_storage_options=destination_storage_options,
+                max_mb=max_mb,
+            )
             # Rectangularize the transmit data
             parser.rectangularize_transmit_ping_data(data_type="complex")
         else:
