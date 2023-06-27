@@ -17,12 +17,13 @@ logger = _init_logger(__name__)
 class ParseBase:
     """Parent class for all convert classes."""
 
-    def __init__(self, file, storage_options):
+    def __init__(self, file, storage_options, sonar_model):
         self.source_file = file
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.ping_time = []  # list to store ping time
         self.storage_options = storage_options
         self.zarr_datagrams = []  # holds all parsed datagrams
+        self.sonar_model = sonar_model
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
@@ -31,8 +32,8 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, params, storage_options, dgram_zarr_vars):
-        super().__init__(file, storage_options)
+    def __init__(self, file, params, storage_options, dgram_zarr_vars, sonar_model):
+        super().__init__(file, storage_options, sonar_model)
 
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename

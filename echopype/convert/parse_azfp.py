@@ -110,8 +110,8 @@ class ParseAZFP(ParseBase):
     HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
     FILE_TYPE = 64770
 
-    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}):
-        super().__init__(file, storage_options)
+    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}, sonar_model="AZFP"):
+        super().__init__(file, storage_options, sonar_model)
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
         self.timestamp_pattern = FILENAME_DATETIME_AZFP
