@@ -435,7 +435,11 @@ def open_raw(
 
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
-        file_chk, params=params, storage_options=storage_options, dgram_zarr_vars=dgram_zarr_vars
+        file_chk,
+        params=params,
+        storage_options=storage_options,
+        dgram_zarr_vars=dgram_zarr_vars,
+        sonar_model=sonar_model,
     )
 
     parser.parse_raw()
@@ -450,7 +454,7 @@ def open_raw(
             # Overwrite use_swap if it's True below
             # Use local swap directory
             use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
-        if destination_path in swap_map:
+        elif destination_path in swap_map:
             use_swap = swap_map[destination_path]
         else:
             # TODO: Add docstring about swap path
