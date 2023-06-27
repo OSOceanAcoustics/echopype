@@ -1,6 +1,6 @@
 import secrets
 import sys
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import fsspec
 import more_itertools as miter
@@ -37,7 +37,7 @@ class Parsed2Zarr:
         self.parser_obj = parser_obj  # parser object ParseEK60/ParseEK80/etc.
 
     def _create_zarr_info(
-        self, dest_path: str = None, dest_storage_options: Dict = {}, retries: int = 10
+        self, dest_path: str = None, dest_storage_options: Optional[Dict] = None, retries: int = 10
     ):
         """
         Creates the temporary directory for zarr
@@ -56,6 +56,10 @@ class Parsed2Zarr:
 
         # establish temporary directory we will write zarr files to
         self.temp_zarr_dir = str(dest_path)
+
+        # Set default storage options if None
+        if dest_storage_options is None:
+            dest_storage_options = {}
 
         # attempt to find different zarr_file_name
         attempt = 0

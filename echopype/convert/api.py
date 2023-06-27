@@ -345,12 +345,20 @@ def open_raw(
     convert_params : dict
         parameters (metadata) that may not exist in the raw file
         and need to be added to the converted file
-    storage_options : dict
+    storage_options : dict, optional
         options for cloud storage
     use_swap: bool
-        **DEPRECATED**
+        **DEPRECATED: This flag is ignored**
         If True, variables with a large memory footprint will be
         written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
+    destination_path: str
+        The path to a swap directory in a case of a large memory footprint.
+        This path can be a remote path like s3://bucket/swap_dir.
+        By default, it will create a temporary zarr store at
+        ``~/.echopype/temp_output/parsed2zarr_temp_files`` if needed.
+    destination_storage_options: dict, optional
+        Options for remote storage for the swap directory ``destination_path``
+        argument.
     max_mb : int
         The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
@@ -373,10 +381,16 @@ def open_raw(
 
     Notes
     -----
-    ``use_swap=True`` is only available for the following
+    In a case of a large memory footprint, the program will determine if using
+    a temporary swap space is needed. If so, it will use that space
+    during conversion to prevent out of memory errors.
+    Users can override this behaviour by either passing ``"swap"`` or ``"no_swap"``
+    into the ``destination_path`` argument.
+    This feature is only available for the following
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
+
     # Initially set use_swap False
     use_swap = False
 
@@ -428,19 +442,27 @@ def open_raw(
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+        swap_map = {
+            "swap": True,
+            "no_swap": False,
+        }
         if destination_path is None:
             # Overwrite use_swap if it's True below
             # Use local swap directory
             use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
-        elif destination_path == "swap":
-            use_swap = True
-        elif destination_path == "no_swap":
-            use_swap = False
+        if destination_path in swap_map:
+            use_swap = swap_map[destination_path]
         else:
-            # TODO: Check for storage options if remote swap path
             # TODO: Add docstring about swap path
-            # TODO: Validate swap paths
             use_swap = True
+            if "://" in destination_path and destination_storage_options is None:
+                raise ValueError(
+                    (
+                        "Please provide storage options for remote destination. ",
+                        "If access is already configured locally, ",
+                        "simply put an empty dictionary.",
+                    )
+                )
 
         if use_swap:
             # Create sonar_model-specific p2z object
