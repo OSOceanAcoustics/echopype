@@ -13,6 +13,8 @@ import zarr
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.io import ECHOPYPE_DIR, check_file_permissions, validate_output_path
 
+DEFAULT_ZARR_TEMP_DIR = ECHOPYPE_DIR / "temp_output" / "parsed2zarr_temp_files"
+
 
 def _create_zarr_store_map(path, storage_options):
     file_path = validate_output_path(
@@ -58,7 +60,7 @@ class Parsed2Zarr:
             check_file_permissions(ECHOPYPE_DIR)
 
             # construct temporary directory that will hold the zarr file
-            dest_path = ECHOPYPE_DIR / "temp_output" / "parsed2zarr_temp_files"
+            dest_path = DEFAULT_ZARR_TEMP_DIR
             if not dest_path.exists():
                 dest_path.mkdir(parents=True)
 
