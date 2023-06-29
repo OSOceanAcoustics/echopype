@@ -3,7 +3,14 @@ import xarray as xr
 from typing import List, Tuple
 from echopype import open_raw
 from pathlib import Path
+from zarr.hierarchy import Group as ZGroup
 import os.path
+from fsspec import FSMap
+from echopype.convert.parsed_to_zarr import Parsed2Zarr, DEFAULT_ZARR_TEMP_DIR
+from echopype.convert.parsed_to_zarr_ek60 import Parsed2ZarrEK60
+from echopype.echodata.convention import sonarnetcdf_1
+from echopype.convert.api import _check_file, SONAR_MODELS
+
 
 
 @pytest.fixture
@@ -176,3 +183,83 @@ def test_direct_to_zarr_integration(path_model: str, raw_file: str,
 
         # make sure that the temporary zarr was deleted
         assert temp_zarr_path.fs.exists(temp_zarr_path.root) is False
+
+class TestParsed2Zarr:
+    sample_file = "L0003-D20040909-T161906-EK60.raw"
+    sonar_model = "EK60"
+    xml_path = None
+    convert_params = None
+    storage_options = {}
+    max_mb = 100
+
+    @pytest.fixture(scope="class")
+    def ek60_parsed2zarr_obj(self, ek60_parser_obj):
+        return Parsed2ZarrEK60(ek60_parser_obj)
+
+    @pytest.fixture(scope="class")
+    def ek60_parser_obj(self, test_path):
+        folder_path = test_path[self.sonar_model]
+        raw_file = str(folder_path / self.sample_file)
+
+        file_chk, xml_chk = _check_file(
+            raw_file,
+            self.sonar_model,
+            self.xml_path,
+            self.storage_options
+        )
+
+        if SONAR_MODELS[self.sonar_model]["xml"]:
+            params = xml_chk
+        else:
+            params = "ALL"
+
+        # obtain dict associated with directly writing to zarr
+        dgram_zarr_vars = SONAR_MODELS[self.sonar_model]["dgram_zarr_vars"]
+
+        # Parse raw file and organize data into groups
+        parser = SONAR_MODELS[self.sonar_model]["parser"](
+            file_chk,
+            params=params,
+            storage_options=self.storage_options,
+            dgram_zarr_vars=dgram_zarr_vars
+        )
+
+        # Parse the data
+        parser.parse_raw()
+        return parser
+
+    @pytest.mark.parametrize(
+        ["sonar_model", "p2z_class"],
+        [
+            (None, Parsed2Zarr),
+            ("EK60", Parsed2ZarrEK60),
+        ]
+    )
+    def test_constructor(self, sonar_model, p2z_class, ek60_parser_obj):
+        if sonar_model is None:
+            p2z = p2z_class(None)
+            assert p2z.parser_obj is None
+            assert p2z.temp_zarr_dir is None
+            assert p2z.zarr_file_name is None
+            assert p2z.store is None
+            assert p2z.zarr_root is None
+            assert p2z._varattrs == sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+        else:
+            p2z = p2z_class(ek60_parser_obj)
+            assert isinstance(p2z.parser_obj, SONAR_MODELS[self.sonar_model]["parser"])
+            assert p2z.sonar_model == self.sonar_model
+
+    @pytest.mark.parametrize("dest_path",[None])
+    def test__create_zarr_info(self, ek60_parsed2zarr_obj, dest_path):
+        ek60_parsed2zarr_obj._create_zarr_info(dest_path)
+
+        zarr_store = ek60_parsed2zarr_obj.store
+        zarr_root = ek60_parsed2zarr_obj.zarr_root
+
+        assert isinstance(zarr_store, FSMap)
+        assert isinstance(zarr_root, ZGroup)
+        assert zarr_store.root.endswith(".zarr")
+
+        if dest_path is None:
+            assert os.path.dirname(zarr_store.root) == str(DEFAULT_ZARR_TEMP_DIR)
+            assert ek60_parsed2zarr_obj.temp_zarr_dir == str(DEFAULT_ZARR_TEMP_DIR)
