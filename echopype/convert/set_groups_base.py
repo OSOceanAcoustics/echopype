@@ -198,7 +198,7 @@ class SetGroupsBase(abc.ABC):
         else:
             lat, lon = [np.nan], [np.nan]
         msg_type = (
-            np.array([x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg])
+            [x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg]
             if nmea_msg
             else [np.nan]
         )
