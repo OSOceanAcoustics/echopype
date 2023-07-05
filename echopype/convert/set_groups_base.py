@@ -1,5 +1,6 @@
 import abc
 from typing import List, Set, Tuple
+import warnings
 
 import dask.array
 import numpy as np
@@ -179,11 +180,19 @@ class SetGroupsBase(abc.ABC):
         for x in nmea_msg:
             try:
                 lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
-            except:
+            except ValueError as ve:
+                warnings.warn(
+                    "At least one latitude entry is problematic and "
+                    f"are assigned None in the converted data: {str(ve)}"
+                )
                 lat.append(np.nan)
             try:
                 lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
-            except:
+            except ValueError as ve:
+                warnings.warn(
+                    f"At least one longitude entry is problematic and "
+                    f"are assigned None in the converted data: {str(ve)}"
+                )
                 lon.append(np.nan)
         msg_type = (
             np.array([x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg])
