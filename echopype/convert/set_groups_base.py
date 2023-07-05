@@ -1,6 +1,6 @@
 import abc
-from typing import List, Set, Tuple
 import warnings
+from typing import List, Set, Tuple
 
 import dask.array
 import numpy as np
