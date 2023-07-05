@@ -176,24 +176,27 @@ class SetGroupsBase(abc.ABC):
                 pynmea2.ParseError,
             ):
                 nmea_msg.append(None)
-        lat, lon = [], []
-        for x in nmea_msg:
-            try:
-                lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
-            except ValueError as ve:
-                warnings.warn(
-                    "At least one latitude entry is problematic and "
-                    f"are assigned None in the converted data: {str(ve)}"
-                )
-                lat.append(np.nan)
-            try:
-                lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
-            except ValueError as ve:
-                warnings.warn(
-                    f"At least one longitude entry is problematic and "
-                    f"are assigned None in the converted data: {str(ve)}"
-                )
-                lon.append(np.nan)
+        if nmea_msg:
+            lat, lon = [], []
+            for x in nmea_msg:
+                try:
+                    lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
+                except ValueError as ve:
+                    lat.append(np.nan)
+                    warnings.warn(
+                        "At least one latitude entry is problematic and "
+                        f"are assigned None in the converted data: {str(ve)}"
+                    )
+                try:
+                    lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
+                except ValueError as ve:
+                    lon.append(np.nan)
+                    warnings.warn(
+                        f"At least one longitude entry is problematic and "
+                        f"are assigned None in the converted data: {str(ve)}"
+                    )
+        else:
+            lat, lon = [np.nan], [np.nan]
         msg_type = (
             np.array([x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg])
             if nmea_msg
