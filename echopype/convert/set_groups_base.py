@@ -41,7 +41,6 @@ class SetGroupsBase(abc.ABC):
         self.engine = engine
         self.compress = compress
         self.overwrite = overwrite
-        self.ui_param = params
 
         # parsed data written directly to zarr object
         self.parsed2zarr_obj = parsed2zarr_obj
@@ -71,7 +70,6 @@ class SetGroupsBase(abc.ABC):
             "summary": "",
             "title": "",
             "date_created": np.datetime_as_string(date_created, "s") + "Z",
-            "survey_name": self.ui_param["survey_name"],
         }
         # Save
         ds = xr.Dataset()
