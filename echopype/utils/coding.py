@@ -54,8 +54,6 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
 
     if isinstance(ds, xr.Dataset):
         for name, var in ds.variables.items():
-            if np.issubdtype(var.dtype, np.object_):
-                print(f"{name}: dtype {var.dtype}")
             if name in EXPECTED_VAR_DTYPE:
                 expected_dtype = EXPECTED_VAR_DTYPE[name]
             elif np.issubdtype(var.dtype, np.object_):
