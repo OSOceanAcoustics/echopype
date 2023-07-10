@@ -38,7 +38,11 @@ DEFAULT_ENCODINGS = {
 }
 
 
-EXPECTED_VAR_DTYPE = {"channel": np.str_, "cal_channel_id": np.str_, "beam": np.str_}  # channel name  # beam name
+EXPECTED_VAR_DTYPE = {
+    "channel": np.str_,
+    "cal_channel_id": np.str_,
+    "beam": np.str_,
+}  # channel name  # beam name
 
 PREFERRED_CHUNKS = "preferred_chunks"
 
