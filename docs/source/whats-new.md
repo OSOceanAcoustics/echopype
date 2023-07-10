@@ -4,7 +4,7 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
-# v0.7.2 (2023 June 18)
+# v0.7.2 (2023 July 14)
 
 ## Overview
 
@@ -18,6 +18,9 @@ This release includes an efficiency boost for combining multiple `EchoData` obje
 - Overhaul `EchoData.update_platform` (#1060)
   - Allow adding external variables with arbitrary number of time dimensions, with new time dimensions following an increasing order (e.g., `time3`, `time4`, etc)
   - Only allow updating standardized, sonar model-dependent Platform group variables
+- Remove outdated `ui_param` (#1071)
+- Revise qc function to clean up reversed time (#1065)
+- Update matplotlib call to register EK500 colormap (#1068)
 
 ## Variable storage changes
 - Standardize `backscatter_r/i` long_name in the `Sonar/Beam_groupX` group, and correct units (#1047)
@@ -26,6 +29,13 @@ This release includes an efficiency boost for combining multiple `EchoData` obje
   - Remove previously incorrect variable dimension in EK60 data
   - Ensure dimension consistency in AZFP data
 - Move filter coefficients and decimation factor to variables in EK80 `Vendor_specific` group (#1044, #1046)
+
+## Bug fixes
+- Set and fix encoding for variable encoding (#1072)
+  - Specify handling for expected string type
+  - Sanitize and set encoding as part of EchoData
+- Handling problematic NMEA messages when setting lat/lon in Platform group (#1067)
+
 
 
 
