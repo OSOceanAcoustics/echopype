@@ -38,7 +38,7 @@ DEFAULT_ENCODINGS = {
 }
 
 
-EXPECTED_VAR_DTYPE = {"channel": np.str_, "beam": np.str_}  # channel name  # beam name
+EXPECTED_VAR_DTYPE = {"channel": np.str_, "cal_channel_id": np.str_, "beam": np.str_}  # channel name  # beam name
 
 PREFERRED_CHUNKS = "preferred_chunks"
 
@@ -50,6 +50,8 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
 
     if isinstance(ds, xr.Dataset):
         for name, var in ds.variables.items():
+            if np.issubdtype(var.dtype, np.object_):
+                print(f"{name}: dtype {var.dtype}")
             if name in EXPECTED_VAR_DTYPE:
                 expected_dtype = EXPECTED_VAR_DTYPE[name]
             elif np.issubdtype(var.dtype, np.object_):
