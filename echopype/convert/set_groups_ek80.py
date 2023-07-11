@@ -305,9 +305,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
 
         # Collect variables
-        if self.ui_param["water_level"] is not None:
-            water_level = self.ui_param["water_level"]
-        elif "water_level_draft" in self.parser_obj.environment:
+        if "water_level_draft" in self.parser_obj.environment:
             water_level = self.parser_obj.environment["water_level_draft"]
         else:
             water_level = np.nan
