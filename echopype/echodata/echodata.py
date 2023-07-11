@@ -14,7 +14,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..utils.coding import set_time_encodings
+from ..utils.coding import sanitize_dtypes, set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
@@ -218,7 +218,8 @@ class EchoData:
     @staticmethod
     def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
-            return node.ds
+            # validate and clean dtypes
+            return sanitize_dtypes(node.ds)
         return None
 
     def __get_node(self, key: Optional[str]) -> DataTree:
