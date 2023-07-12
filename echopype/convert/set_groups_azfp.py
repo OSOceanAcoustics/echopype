@@ -473,18 +473,26 @@ class SetGroupsAZFP(SetGroupsBase):
                 # parameters with channel dimension from XML file
                 "XML_transmit_duration_nominal": (["channel"], tdn),  # tdn comes from parameters
                 "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
-                "XML_digitization_rate": (["channel"], parameters["dig_rate"][self.freq_ind_sorted]),  # noqa
-                "XML_lockout_index": (["channel"], parameters["lockout_index"][self.freq_ind_sorted]),  # noqa
+                "XML_digitization_rate": (
+                    ["channel"],
+                    parameters["dig_rate"][self.freq_ind_sorted],
+                ),  # noqa
+                "XML_lockout_index": (
+                    ["channel"],
+                    parameters["lockout_index"][self.freq_ind_sorted],
+                ),  # noqa
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
                 "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
                 "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
                 "VTX": (["channel"], parameters["VTX"][self.freq_ind_sorted]),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
-                    ["channel"], parameters["range_samples"][self.freq_ind_sorted],  # noqa
+                    ["channel"],
+                    parameters["range_samples"][self.freq_ind_sorted],  # noqa
                 ),
                 "number_of_digitized_samples_averaged_per_pings": (
-                    ["channel"], parameters["range_averaging_samples"][self.freq_ind_sorted],  # noqa
+                    ["channel"],
+                    parameters["range_averaging_samples"][self.freq_ind_sorted],  # noqa
                 ),
                 # parameters with dim len=0 from XML file
                 "XML_sensors_flag": parameters["sensors_flag"],
