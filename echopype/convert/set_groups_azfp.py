@@ -476,11 +476,11 @@ class SetGroupsAZFP(SetGroupsBase):
                 "XML_digitization_rate": (
                     ["channel"],
                     parameters["dig_rate"][self.freq_ind_sorted],
-                )
+                ),
                 "XML_lockout_index": (
                     ["channel"],
                     parameters["lockout_index"][self.freq_ind_sorted],
-                )
+                ),
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
                 "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
                 "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
