@@ -56,8 +56,8 @@ def ds_time():
         "win_len6"
     ]
 )
-def test__clean_reversed(local_win_len, input_arr, expected_arr):
-    arr_fixed = _clean_reversed(input_arr, local_win_len)
+def test__clean_reversed(win_len, input_arr, expected_arr):
+    arr_fixed = _clean_reversed(input_arr, win_len)
 
     # fixed array follows monotonically increasing order
     arr_fixed_diff = np.diff(arr_fixed)

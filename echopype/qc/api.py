@@ -36,7 +36,7 @@ def _clean_reversed(time_old: np.ndarray, win_len: int):
 
 
 def coerce_increasing_time(
-    ds: xr.Dataset, time_name: str = "ping_time", win_len: float = 100
+    ds: xr.Dataset, time_name: str = "ping_time", win_len: int = 100
 ) -> None:
     """
     Coerce a time coordinate so that it always flows forward. If coercion
