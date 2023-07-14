@@ -70,9 +70,8 @@ class CalibrateAZFP(CalibrateBase):
         EL = (
             self.cal_params["EL"]
             - 2.5 / a
-            + self.echodata["Sonar/Beam_group1"]["backscatter_r"].squeeze("beam", drop=True)
-            / (26214 * a)
-        )  # eq.(5)  # has beam dim due to backscatter_r
+            + self.echodata["Sonar/Beam_group1"]["backscatter_r"] / (26214 * a)
+        )  # eq.(5)
 
         if cal_type == "Sv":
             # eq.(9)

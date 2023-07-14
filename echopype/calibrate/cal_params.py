@@ -352,8 +352,8 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
         if v is None:
             # Params from Sonar/Beam_group1
             if p == "equivalent_beam_angle":
-                # equivalent_beam_angle has dims: channel, ping_time, beam --> only need channel
-                out_dict[p] = beam[p].isel(ping_time=0, beam=0).drop(["ping_time", "beam"])
+                # equivalent_beam_angle has dims: channel, ping_time --> only need channel
+                out_dict[p] = beam[p].isel(ping_time=0).drop("ping_time")
 
             # Params from Vendor_specific group
             elif p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
