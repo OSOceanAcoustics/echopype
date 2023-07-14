@@ -245,7 +245,11 @@ class SetGroupsEK60(SetGroupsBase):
         # Read lat/long from NMEA datagram
         time1, msg_type, lat, lon = self._extract_NMEA_latlon()
 
-        # NMEA dataset: variables filled with nan if do not exist
+        # NMEA dataset: variables filled with np.nan if they do not exist
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
+        # Values for the variables below having a channel (ch) dependence
+        # are identical across channels
+        ch = list(self.sorted_channel.keys())[0]
         ds = xr.Dataset(
             {
                 "latitude": (
@@ -258,7 +262,46 @@ class SetGroupsEK60(SetGroupsBase):
                     lon,
                     self._varattrs["platform_var_default"]["longitude"],
                 ),
-                "sentence_type": (["time1"], msg_type),
+                "sentence_type": (
+                    ["time1"],
+                    msg_type,
+                    self._varattrs["platform_var_default"]["sentence_type"],
+                ),
+                "pitch": (
+                    ["time2"],
+                    self.parser_obj.ping_data_dict["pitch"][ch],
+                    self._varattrs["platform_var_default"]["pitch"],
+                ),
+                "roll": (
+                    ["time2"],
+                    self.parser_obj.ping_data_dict["roll"][ch],
+                    self._varattrs["platform_var_default"]["roll"],
+                ),
+                "vertical_offset": (
+                    ["time2"],
+                    self.parser_obj.ping_data_dict["heave"][ch],
+                    self._varattrs["platform_var_default"]["vertical_offset"],
+                ),
+                "water_level": (
+                    [],
+                    # a scalar, assumed to be a constant in the source transducer_depth data
+                    self.parser_obj.ping_data_dict["transducer_depth"][ch][0],
+                    self._varattrs["platform_var_default"]["water_level"],
+                ),
+                **{
+                    var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                    for var in [
+                        "MRU_offset_x",
+                        "MRU_offset_y",
+                        "MRU_offset_z",
+                        "MRU_rotation_x",
+                        "MRU_rotation_y",
+                        "MRU_rotation_z",
+                        "position_offset_x",
+                        "position_offset_y",
+                        "position_offset_z",
+                    ]
+                },
             },
             coords={
                 "time1": (
@@ -268,43 +311,26 @@ class SetGroupsEK60(SetGroupsBase):
                         **self._varattrs["platform_coord_default"]["time1"],
                         "comment": "Time coordinate corresponding to NMEA position data.",
                     },
-                )
+                ),
+                "time2": (
+                    ["time2"],
+                    self.parser_obj.ping_time[ch],
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for platform motion and orientation data",
+                        "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform motion and "
+                        "orientation data.",
+                    },
+                ),
             },
         )
-
-        # TODO: consider allow users to set water_level like in EK80?
-        # if self.ui_param['water_level'] is not None:
-        #     water_level = self.ui_param['water_level']
-        # else:
-        #     water_level = np.nan
-        #     print('WARNING: The water_level_draft was not in the file. Value '
-        #           'set to None.')
 
         # Loop over channels and merge all
         ds_plat = []
         for ch in self.sorted_channel.keys():
             ds_tmp = xr.Dataset(
                 {
-                    "pitch": (
-                        ["time2"],
-                        self.parser_obj.ping_data_dict["pitch"][ch],
-                        self._varattrs["platform_var_default"]["pitch"],
-                    ),
-                    "roll": (
-                        ["time2"],
-                        self.parser_obj.ping_data_dict["roll"][ch],
-                        self._varattrs["platform_var_default"]["roll"],
-                    ),
-                    "vertical_offset": (
-                        ["time2"],
-                        self.parser_obj.ping_data_dict["heave"][ch],
-                        self._varattrs["platform_var_default"]["vertical_offset"],
-                    ),
-                    "water_level": (
-                        ["time3"],
-                        self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                        self._varattrs["platform_var_default"]["water_level"],
-                    ),
                     "transducer_offset_x": (
                         [],
                         self.parser_obj.config_datagram["transceivers"][ch].get("pos_x", np.nan),
@@ -320,58 +346,10 @@ class SetGroupsEK60(SetGroupsBase):
                         self.parser_obj.config_datagram["transceivers"][ch].get("pos_z", np.nan),
                         self._varattrs["platform_var_default"]["transducer_offset_z"],
                     ),
-                    **{
-                        var: ([], np.nan, self._varattrs["platform_var_default"][var])
-                        for var in [
-                            "MRU_offset_x",
-                            "MRU_offset_y",
-                            "MRU_offset_z",
-                            "MRU_rotation_x",
-                            "MRU_rotation_y",
-                            "MRU_rotation_z",
-                            "position_offset_x",
-                            "position_offset_y",
-                            "position_offset_z",
-                        ]
-                    },
-                },
-                coords={
-                    "time2": (
-                        ["time2"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamps for platform motion and orientation data",
-                            "standard_name": "time",
-                            "comment": "Time coordinate corresponding to platform motion and "
-                            "orientation data.",
-                        },
-                    ),
-                    "time3": (
-                        ["time3"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamps for platform-related sampling environment",
-                            "standard_name": "time",
-                            "comment": "Time coordinate corresponding to platform-related "
-                            "sampling environment.",
-                        },
-                    ),
-                },
-                attrs={
-                    "platform_code_ICES": self.ui_param["platform_code_ICES"],
-                    "platform_name": self.ui_param["platform_name"],
-                    "platform_type": self.ui_param["platform_type"],
                 },
             )
-
             # Attach channel dimension/coordinate
             ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
-            ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
-                self._varattrs["beam_coord_default"]["channel"]
-            )
-
             ds_tmp["frequency_nominal"] = (
                 ["channel"],
                 [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
@@ -390,9 +368,13 @@ class SetGroupsEK60(SetGroupsBase):
         #  pitch/roll/heave are the same for all freq channels
         #  consider only saving those from the first channel
         ds_plat = xr.merge(ds_plat)
+        ds_plat["channel"] = ds_plat["channel"].assign_attrs(
+            self._varattrs["beam_coord_default"]["channel"]
+        )
 
         # Merge with NMEA data
         ds = xr.merge([ds, ds_plat], combine_attrs="override")
+        ds = ds.assign_attrs(platform_dict)
 
         return set_time_encodings(ds)
 

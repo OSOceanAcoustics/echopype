@@ -141,8 +141,10 @@ variable_and_varattributes:
       long_name: z-axis distance from the platform coordinate system origin to the sonar transducer
       units: m
     vertical_offset:
-      long_name: Platform vertical offset from nominal
+      long_name: Platform vertical offset from nominal water level
       units: m
     water_level:
-      long_name: z-axis distance from the platform coordinate system origin to the sonar transducer
+      long_name: Distance from the platform coordinate system origin to the nominal water level along the z-axis
       units: m
+    sentence_type:
+      long_name: NMEA sentence type

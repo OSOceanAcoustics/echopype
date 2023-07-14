@@ -13,7 +13,7 @@ import xarray as xr
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
 
-from ..utils.coding import sanitize_dtypes, set_storage_encodings
+from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
 
 if TYPE_CHECKING:
@@ -51,8 +51,6 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
     If ``compression_settings`` are set, compress all variables with those settings
     """
 
-    # validate and fix dtype
-    ds = sanitize_dtypes(ds)
     # set zarr or netcdf specific encodings for each variable in ds
     encoding = set_storage_encodings(ds, compression_settings, engine)
 
