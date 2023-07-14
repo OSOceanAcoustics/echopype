@@ -38,7 +38,7 @@ def ds_time():
 
 
 @pytest.mark.parametrize(
-    ["local_win_len", "input_arr", "expected_arr"],
+    ["win_len", "input_arr", "expected_arr"],
     [
         (
             2,
