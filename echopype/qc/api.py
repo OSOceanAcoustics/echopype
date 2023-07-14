@@ -9,7 +9,7 @@ from ..utils.log import _init_logger
 logger = _init_logger(__name__)
 
 
-def _clean_reversed(time_old: np.ndarray, win_len: float):
+def _clean_reversed(time_old: np.ndarray, win_len: int):
     time_old_diff = np.diff(time_old)
 
     # get indices of arr_diff with negative values
