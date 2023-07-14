@@ -69,7 +69,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
             ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx]
             for fidx in range(5)
         ],
-        echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).transpose(
+        echodata["Sonar/Beam_group1"].backscatter_r.transpose(
             'channel', 'range_sample', 'ping_time'
         ),
         rtol=0,
@@ -82,7 +82,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 ds_matlab['rawData'][0]['pings'][0][angle][0][fidx]
                 for fidx in range(5)
             ],
-            echodata["Sonar/Beam_group1"]['angle_' + angle].isel(beam=0).transpose(
+            echodata["Sonar/Beam_group1"]['angle_' + angle].transpose(
                 'channel', 'range_sample', 'ping_time'
             ),
         )
@@ -121,8 +121,7 @@ def test_convert_ek60_echoview_raw(ek60_path):
             echodata["Sonar/Beam_group1"].backscatter_r.isel(
                 channel=sorted_freq_ind[fidx],
                 ping_time=slice(None, 10),
-                range_sample=slice(1, None),
-                beam=0
+                range_sample=slice(1, None)
             ),
             atol=9e-6,
             rtol=atol,
