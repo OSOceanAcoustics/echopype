@@ -1338,7 +1338,7 @@ class SetGroupsEK80(SetGroupsBase):
         ds = ds.pipe(self._add_filter_params, coeffs_and_decimation)
 
         # Save the entire config XML in vendor group in case of info loss
-        ds.attrs["config_xml"] = self.parser_obj.config_datagram["xml"]
+        ds["config_xml"] = self.parser_obj.config_datagram["xml"]
 
         return ds
 
