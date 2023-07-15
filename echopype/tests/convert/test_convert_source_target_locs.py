@@ -80,8 +80,7 @@ def output_save_path(request):
     return request.param
 
 
-# @pytest.fixture(params=["zarr", "netcdf4"])
-@pytest.fixture(params=["zarr"])
+@pytest.fixture(params=["zarr", "netcdf4"])
 def export_engine(request):
     return request.param
 
