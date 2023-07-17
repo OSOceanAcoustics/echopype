@@ -33,7 +33,6 @@ MODULES_TO_TEST = {
     "echodata": {},
     "mask": {},
     "metrics": {},
-    "preprocess": {},
     "utils": {},
     "visualize": {},
 }
