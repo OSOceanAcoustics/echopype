@@ -34,7 +34,7 @@ def single_ek60_zarr(test_path):
         (str, "ncei-wcsd", "Summer2017-D20170615-T190214.zarr"),
         (None, "ncei-wcsd", "Summer2017-D20170615-T190214__NEW.nc"),
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.nc",
-        "http://localhost:8080/data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
+        "http://localhost:8080/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
         "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
         fsspec.get_mapper(
             "s3://data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.zarr",
@@ -343,15 +343,11 @@ class TestEchoData:
         shutil.rmtree(zarr_path)
 
 
-def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
+def test_open_converted(ek60_converted_zarr, common_storage_options):  # noqa
     def _check_path(zarr_path):
         storage_options = {}
         if zarr_path.startswith("s3://"):
-            storage_options = dict(
-                client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-                key="minioadmin",
-                secret="minioadmin",
-            )
+            storage_options = common_storage_options
         return storage_options
 
     storage_options = {}
