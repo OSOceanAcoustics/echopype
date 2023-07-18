@@ -253,7 +253,7 @@ class CalibrateEK80(CalibrateEK):
             # use true center frequency to interpolate for various cal params
             self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
                 channel=self.chan_sel
-            ).isel(beam=0).drop("beam") / 2
+            ) / 2
         else:
             # use nominal channel frequency for CW pulse
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
