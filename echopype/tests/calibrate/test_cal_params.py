@@ -84,12 +84,12 @@ def beam_EK():
         "beamwidth_twoway_alongship", "beamwidth_twoway_athwartship"
     ]:
         beam[p_name] = xr.DataArray(
-            np.array([[[123, 123, 123, 123], [456, 456, 456, 456]]]),
-            dims=["ping_time", "channel", "beam"],
-            coords={"channel": ["chA", "chB"], "ping_time": [1], "beam": [1, 2, 3, 4]},
+            np.array([[123], [456]]),
+            dims=["channel", "ping_time"],
+            coords={"channel": ["chA", "chB"], "ping_time": [1]},
         )
     beam["frequency_nominal"] = xr.DataArray([25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]})
-    return beam.transpose("channel", "ping_time", "beam")
+    return beam.transpose("channel", "ping_time")
 
 
 @pytest.mark.parametrize(
