@@ -497,14 +497,9 @@ def get_cal_params_EK(
                         )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
-                        if "beam" in beam[p].dims:
-                            out_dict[p] = beam[p].isel(beam=0).drop("beam") + 20 * np.log10(
-                                beam["frequency_nominal"] / freq_center
-                            )
-                        else:
-                            out_dict[p] = beam[p] + 20 * np.log10(
-                                beam["frequency_nominal"] / freq_center
-                            )
+                        out_dict[p] = (
+                            beam[p] + 20 * np.log10(beam["frequency_nominal"] / freq_center)
+                        )
                     elif p == "gain_correction":
                         # interpolate or pull from narrowband table
                         out_dict[p] = _get_interp_da(
