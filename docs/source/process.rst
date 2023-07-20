@@ -78,6 +78,12 @@ The steps for performing these analyses are summarized below:
          ping_num=5,        # number of pings for estimating noise
       )
 
+.. attention::
+
+   The ``clean`` and ``commongrid`` subpackages were introduced in version 0.7.0.
+   They contain functions previously found in the deprecated ``preprocess`` subpackage;
+   ``preprocess`` was removed in version 0.8.0.
+
 The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
 which is essentially a container for multiple xarray ``Dataset`` instances,
 and return a single xarray ``Dataset`` containing the calibrated backscatter
@@ -98,7 +104,9 @@ For example, to save the Sv and MVBS results to disk:
    ds_MVBS.to_netcdf('file_MVBS.nc')
 
 
-.. note:: Echopype's data processing functionality is being developed actively.
+.. note::
+
+   Echopype's data processing functionality is being developed actively.
    Be sure to check back here often!
 
 
