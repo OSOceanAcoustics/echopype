@@ -54,14 +54,14 @@ The steps for performing these analyses are summarized below:
    .. code-block:: python
 
       # Reduce data based on physical units
-      ds_MVBS = ep.preprocess.compute_MVBS(
+      ds_MVBS = ep.commongrid.compute_MVBS(
            ds_Sv,               # calibrated Sv dataset
            range_meter_bin=20,  # bin size to average along echo_range in meters
            ping_time_bin='20S'  # bin size to average along ping_time in seconds
        )
 
       # Reduce data based on sample number
-      ds_MVBS = ep.preprocess.compute_MVBS_index_binning(
+      ds_MVBS = ep.commongrid.compute_MVBS_index_binning(
            ds_Sv,             # calibrated Sv dataset
            range_sample_num=30,  # number of sample bins to average along the range_sample dimensionm
            ping_num=5         # number of pings to average
@@ -72,7 +72,7 @@ The steps for performing these analyses are summarized below:
    .. code-block:: python
 
       # Remove noise
-      ds_Sv_clean = ep.preprocess.remove_noise(    # obtain a denoised Sv dataset
+      ds_Sv_clean = ep.clean.remove_noise(    # obtain a denoised Sv dataset
          ds_Sv,             # calibrated Sv dataset
          range_sample_num=30,  # number of samples along the range_sample dimension for estimating noise
          ping_num=5,        # number of pings for estimating noise
@@ -82,11 +82,11 @@ The functions in the ``calibrate`` subpackage take in an ``EchoData`` object,
 which is essentially a container for multiple xarray ``Dataset`` instances,
 and return a single xarray ``Dataset`` containing the calibrated backscatter
 quantities and the samples' corresponding range in meters.
-The input and output of all functions in the ``preprocess``
-subpackage are xarray ``Dataset`` instances, with the input being a ``Dataset``
+The input and output of all functions in the ``clean`` and ``commongrid``
+subpackages are xarray ``Dataset`` instances, with the input being a ``Dataset``
 containing ``Sv`` and ``echo_range`` generated from calibration.
 
-The ``calibrate`` and ``preprocess`` functions do not save the calculation results to disk,
+The ``calibrate``, ``clean`` and ``commongrid`` functions do not save the calculation results to disk,
 but the returned xarray ``Dataset`` can be saved using native xarray methods
 such as ``to_netcdf`` and ``to_zarr``.
 
