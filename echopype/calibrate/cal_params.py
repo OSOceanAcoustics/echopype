@@ -451,12 +451,8 @@ def get_cal_params_EK(
                 # CW: params do not require interpolation, except for impedance_transducer
                 if waveform_mode == "CW":
                     if p in PARAM_BEAM_NAME_MAP.keys():
-                        p_beam = PARAM_BEAM_NAME_MAP[p]
                         # pull from data file, these should always exist
-                        if "beam" in beam[p_beam].coords:
-                            out_dict[p] = beam[p_beam].isel(beam=0).drop("beam")
-                        else:
-                            out_dict[p] = beam[p_beam]
+                        out_dict[p] = beam[PARAM_BEAM_NAME_MAP[p]]
                     elif p == "gain_correction":
                         # pull from data file narrowband table
                         out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
