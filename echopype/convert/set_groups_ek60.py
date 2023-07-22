@@ -24,14 +24,16 @@ class SetGroupsEK60(SetGroupsBase):
     # in converting from v0.5.x to v0.6.0. The values within
     # these sets are applied to all Sonar/Beam_groupX groups.
 
+    # 2023-05-25 note: We have decided to remove the beam dimension from EK60,
+    # where it was added as a length-1 dimension only to more closely match
+    # the SONAR-netCDF4 v1 convention. For the time being, we are retaining the
+    # infrastructure that adds this dimension, but updating the variables lists.
+
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {"backscatter_r", "angle_athwartship", "angle_alongship"}
+    beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {"beam_type"}
-
-    # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {
+    ping_time_only_names = {
         "beam_direction_x",
         "beam_direction_y",
         "beam_direction_z",
@@ -44,6 +46,9 @@ class SetGroupsEK60(SetGroupsBase):
         "equivalent_beam_angle",
         "gain_correction",
     }
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = set()
 
     beamgroups_possible = [
         {

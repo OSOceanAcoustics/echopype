@@ -146,12 +146,6 @@ def get_angle_power_samples(
             "from split-beam transducers!"
         )
 
-    # drop the beam dimension in theta and phi, if it exists
-    # this cannot be removed because beam dimension exists in all power data (beam dim: length=1)
-    if "beam" in theta.dims:
-        theta = theta.drop("beam").squeeze(dim="beam")
-        phi = phi.drop("beam").squeeze(dim="beam")
-
     return theta, phi
 
 

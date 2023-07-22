@@ -27,20 +27,11 @@ class SetGroupsEK80(SetGroupsBase):
     # these sets are applied to all Sonar/Beam_groupX groups.
 
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {
-        "backscatter_r",
-        "backscatter_i",
-        "angle_athwartship",
-        "angle_alongship",
-        "frequency_start",
-        "frequency_end",
-    }
+    beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {"beam_type"}
-
-    # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {
+    ping_time_only_names = {
+        "beam_type",
         "beam_direction_x",
         "beam_direction_y",
         "beam_direction_z",
@@ -52,6 +43,9 @@ class SetGroupsEK80(SetGroupsBase):
         "beamwidth_twoway_alongship",
         "beamwidth_twoway_athwartship",
     }
+
+    # Variables that need beam and ping_time dimensions added to them.
+    beam_ping_time_names = set()
 
     beamgroups_possible = [
         {

@@ -19,13 +19,18 @@ class SetGroupsAZFP(SetGroupsBase):
     # these sets are applied to all Sonar/Beam_groupX groups.
 
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {"backscatter_r"}
+    beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {"sample_interval", "transmit_duration_nominal"}
+    ping_time_only_names = {
+        "sample_interval",
+        "transmit_duration_nominal",
+        "equivalent_beam_angle",
+        "gain_correction",
+    }
 
     # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {"equivalent_beam_angle", "gain_correction"}
+    beam_ping_time_names = set()
 
     beamgroups_possible = [
         {
