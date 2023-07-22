@@ -262,25 +262,6 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
                 coords={"ping_time": [1], "channel": ["chA", "chB"]}
             ),
         ),
-        #       - xr.DataArray with coordinates channel, ping_time, beam
-        (
-            xr.DataArray(
-                np.array([[np.nan, np.nan, np.nan, 4, 5, 6]]),
-                dims=["cal_channel_id", "cal_frequency"],
-                coords={"cal_channel_id": ["chB"],
-                        "cal_frequency": [10, 20, 30, 40, 50, 60]},
-            ),
-            xr.DataArray(
-                np.array([[[100, 200]]] * 4),
-                dims=["beam", "ping_time", "channel"],
-                coords={"beam": [0, 1, 2, 3], "ping_time": [1], "channel": ["chA", "chB"]},
-            ),
-            xr.DataArray(
-                [[100], [5.5]],
-                dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]}
-            ),
-        ),
         #       - xr.DataArray with coordinates channel, ping_time
         (
             xr.DataArray(
@@ -313,7 +294,6 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
         "in_None_alt_da",
         "in_da_all_channel_out_interp",
         "in_da_some_channel_alt_scalar",
-        "in_da_some_channel_alt_da3coords",  # channel, ping_time, beam
         "in_da_some_channel_alt_da2coords",  # channel, ping_time
     ]
 )

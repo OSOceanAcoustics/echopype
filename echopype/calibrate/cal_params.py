@@ -231,13 +231,7 @@ def _get_interp_da(
                 BB_factor.sel(channel=ch_id) if isinstance(BB_factor, xr.DataArray) else BB_factor
             )
             if isinstance(alternative, xr.DataArray):
-                # drop the redundant beam dimension if exist
-                if "beam" in alternative.coords:
-                    param.append(
-                        (alternative.sel(channel=ch_id).isel(beam=0) * BB_factor_ch).data.squeeze()
-                    )
-                else:
-                    param.append((alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze())
+                param.append((alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze())
             elif isinstance(alternative, (int, float)):
                 # expand to have ping_time dimension
                 param.append(
