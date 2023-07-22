@@ -223,7 +223,7 @@ def _get_interp_da(
             param.append(
                 da_param.sel(cal_channel_id=ch_id)
                 .interp(cal_frequency=freq_center.sel(channel=ch_id))
-                .data.squeeze()
+                .data
             )
         # if no frequency-dependent param exists, use alternative
         else:
@@ -231,20 +231,20 @@ def _get_interp_da(
                 BB_factor.sel(channel=ch_id) if isinstance(BB_factor, xr.DataArray) else BB_factor
             )
             if isinstance(alternative, xr.DataArray):
-                param.append((alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze())
+                alt = (alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze()
             elif isinstance(alternative, (int, float)):
-                # expand to have ping_time dimension
-                param.append(
-                    np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze()
-                    * BB_factor_ch
-                )
+                alt = np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze() * BB_factor_ch
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
+            if alt.size == 1 and "ping_time" in freq_center.coords:
+                # expand to size of ping_time coordinate
+                alt = np.array([alt] * freq_center.sel(channel=ch_id).size)
+            param.append(alt)
 
     param = np.array(param)
 
     if "ping_time" in freq_center.coords:
-        if len(param.shape) == 1:  # this means ping_time has length=1
+        if len(param.shape) == 1:  # this means param has only the channel but not the ping_time dim
             param = np.expand_dims(param, axis=1)
         return xr.DataArray(
             param,
@@ -346,8 +346,7 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
         if v is None:
             # Params from Sonar/Beam_group1
             if p == "equivalent_beam_angle":
-                # equivalent_beam_angle has dims: channel, ping_time --> only need channel
-                out_dict[p] = beam[p].isel(ping_time=0).drop("ping_time")
+                out_dict[p] = beam[p]  # has only channel dim
 
             # Params from Vendor_specific group
             elif p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
