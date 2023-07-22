@@ -39,11 +39,11 @@ def beam_AZFP():
     """
     beam = xr.Dataset()
     beam["equivalent_beam_angle"] = xr.DataArray(
-        [[[10, 20]]],
-        dims=["ping_time", "beam", "channel"],
-        coords={"channel": ["chA", "chB"], "ping_time": [1], "beam": [1]},
+        [[10, 20]],
+        dims=["ping_time", "channel"],
+        coords={"channel": ["chA", "chB"], "ping_time": [1]},
     )
-    return beam.transpose("channel", "ping_time", "beam")
+    return beam.transpose("channel", "ping_time")
 
 
 @pytest.fixture
