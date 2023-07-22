@@ -286,10 +286,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     """
     pc_all = []
     for chan in backscatter["channel"]:
-        backscatter_chan = (
-            backscatter.sel(channel=chan)
-            .dropna(dim="beam", how="all")
-        )
+        backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
 
         tx = chirp[str(chan.values)]
         replica = np.flipud(np.conj(tx))

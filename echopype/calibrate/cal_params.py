@@ -233,7 +233,10 @@ def _get_interp_da(
             if isinstance(alternative, xr.DataArray):
                 alt = (alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze()
             elif isinstance(alternative, (int, float)):
-                alt = np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze() * BB_factor_ch
+                alt = (
+                    np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze()
+                    * BB_factor_ch
+                )
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
             if alt.size == 1 and "ping_time" in freq_center.coords:

@@ -212,9 +212,7 @@ def get_angle_complex_samples(
             theta_ch, phi_ch = _compute_angle_from_complex(
                 bs=bs.sel(channel=ch_id),
                 # beam_type is not time-varying
-                beam_type=(
-                    ds_beam["beam_type"].sel(channel=ch_id)
-                ),
+                beam_type=(ds_beam["beam_type"].sel(channel=ch_id)),
                 sens=[
                     angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
                     angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
