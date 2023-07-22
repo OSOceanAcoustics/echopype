@@ -58,7 +58,7 @@ def check_env_xml(echodata):
     assert "sound_velocity_profile_depth"
     assert np.array_equal(echodata["Environment"]["sound_velocity_profile_depth"], [1, 1000])
 
-    # check a subset of platform variables. plat_vars specifies a list of possible, expected scalar values 
+    # check a subset of platform variables. plat_vars specifies a list of possible, expected scalar values
     # for each variable. The variables from the EchoData object are tested against this dictionary
     # to verify their presence and their scalar values
     plat_vars = {

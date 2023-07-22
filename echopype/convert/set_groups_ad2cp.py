@@ -245,13 +245,6 @@ class SetGroupsAd2cp(SetGroupsBase):
                 "roll": "roll",
             }
         )
-        ds = ds.assign_attrs(
-            {
-                "platform_name": self.ui_param["platform_name"],  # type: ignore
-                "platform_type": self.ui_param["platform_type"],  # type: ignore
-                "platform_code_ICES": self.ui_param["platform_code_ICES"],  # type: ignore
-            }
-        )
         return set_time_encodings(ds)
 
     def set_beam(self) -> List[xr.Dataset]:

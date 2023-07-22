@@ -424,16 +424,7 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
-                "XML_transmit_duration_nominal": (["channel"], tdn),
-                "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
-                "XML_digitization_rate": (
-                    ["channel"],
-                    parameters["dig_rate"][self.freq_ind_sorted],
-                ),
-                "XML_lockout_index": (
-                    ["channel"],
-                    parameters["lockout_index"][self.freq_ind_sorted],
-                ),
+                # unpacked ping by ping data from 01A file
                 "digitization_rate": (["channel"], unpacked_data["dig_rate"][self.freq_ind_sorted]),
                 "lockout_index": (
                     ["channel"],
@@ -466,9 +457,30 @@ class SetGroupsAZFP(SetGroupsBase):
                 "battery_main": (["ping_time"], unpacked_data["battery_main"]),
                 "battery_tx": (["ping_time"], unpacked_data["battery_tx"]),
                 "profile_number": (["ping_time"], unpacked_data["profile_number"]),
+                # unpacked ping by ping ancillary data from 01A file
                 "temperature_counts": (["ping_time"], anc[:, 4]),
                 "tilt_x_count": (["ping_time"], anc[:, 0]),
                 "tilt_y_count": (["ping_time"], anc[:, 1]),
+                # unpacked data with dim len=0 from 01A file
+                "profile_flag": unpacked_data["profile_flag"],
+                "burst_interval": unpacked_data["burst_int"],
+                "ping_per_profile": unpacked_data["ping_per_profile"],
+                "average_pings_flag": unpacked_data["avg_pings"],
+                "spare_channel": unpacked_data["spare_chan"],
+                "ping_period": unpacked_data["ping_period"],
+                "phase": unpacked_data["phase"],
+                "number_of_channels": unpacked_data["num_chan"],
+                # parameters with channel dimension from XML file
+                "XML_transmit_duration_nominal": (["channel"], tdn),  # tdn comes from parameters
+                "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
+                "XML_digitization_rate": (
+                    ["channel"],
+                    parameters["dig_rate"][self.freq_ind_sorted],
+                ),
+                "XML_lockout_index": (
+                    ["channel"],
+                    parameters["lockout_index"][self.freq_ind_sorted],
+                ),
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
                 "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
                 "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
@@ -482,6 +494,29 @@ class SetGroupsAZFP(SetGroupsBase):
                     ["channel"],
                     parameters["range_averaging_samples"][self.freq_ind_sorted],
                 ),
+                # parameters with dim len=0 from XML file
+                "XML_sensors_flag": parameters["sensors_flag"],
+                "XML_burst_interval": parameters["burst_interval"],
+                "XML_sonar_serial_number": parameters["serial_number"],
+                "number_of_frequency": parameters["num_freq"],
+                "number_of_pings_per_burst": parameters["pings_per_burst"],
+                "average_burst_pings_flag": parameters["average_burst_pings"],
+                # temperature coefficients from XML file
+                "temperature_ka": parameters["ka"],
+                "temperature_kb": parameters["kb"],
+                "temperature_kc": parameters["kc"],
+                "temperature_A": parameters["A"],
+                "temperature_B": parameters["B"],
+                "temperature_C": parameters["C"],
+                # tilt coefficients from XML file
+                "tilt_X_a": parameters["X_a"],
+                "tilt_X_b": parameters["X_b"],
+                "tilt_X_c": parameters["X_c"],
+                "tilt_X_d": parameters["X_d"],
+                "tilt_Y_a": parameters["Y_a"],
+                "tilt_Y_b": parameters["Y_b"],
+                "tilt_Y_c": parameters["Y_c"],
+                "tilt_Y_d": parameters["Y_d"],
             },
             coords={
                 "channel": (
@@ -503,38 +538,6 @@ class SetGroupsAZFP(SetGroupsBase):
                     list(range(len(unpacked_data["ancillary"][0]))),
                 ),
                 "ad_len": (["ad_len"], list(range(len(unpacked_data["ad"][0])))),
-            },
-            attrs={
-                "XML_sensors_flag": parameters["sensors_flag"],
-                "XML_burst_interval": parameters["burst_interval"],
-                "XML_sonar_serial_number": parameters["serial_number"],
-                "profile_flag": unpacked_data["profile_flag"],
-                "burst_interval": unpacked_data["burst_int"],
-                "ping_per_profile": unpacked_data["ping_per_profile"],
-                "average_pings_flag": unpacked_data["avg_pings"],
-                "spare_channel": unpacked_data["spare_chan"],
-                "ping_period": unpacked_data["ping_period"],
-                "phase": unpacked_data["phase"],
-                "number_of_channels": unpacked_data["num_chan"],
-                "number_of_frequency": parameters["num_freq"],
-                "number_of_pings_per_burst": parameters["pings_per_burst"],
-                "average_burst_pings_flag": parameters["average_burst_pings"],
-                # Temperature coefficients
-                "temperature_ka": parameters["ka"],
-                "temperature_kb": parameters["kb"],
-                "temperature_kc": parameters["kc"],
-                "temperature_A": parameters["A"],
-                "temperature_B": parameters["B"],
-                "temperature_C": parameters["C"],
-                # Tilt coefficients
-                "tilt_X_a": parameters["X_a"],
-                "tilt_X_b": parameters["X_b"],
-                "tilt_X_c": parameters["X_c"],
-                "tilt_X_d": parameters["X_d"],
-                "tilt_Y_a": parameters["Y_a"],
-                "tilt_Y_b": parameters["Y_b"],
-                "tilt_Y_c": parameters["Y_c"],
-                "tilt_Y_d": parameters["Y_d"],
             },
         )
         return set_time_encodings(ds)
