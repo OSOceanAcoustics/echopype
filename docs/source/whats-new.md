@@ -4,7 +4,7 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
-# v0.7.2 (2023 July 14)
+# v0.8.0 (2023 July 27)
 
 ## Overview
 
@@ -23,6 +23,8 @@ This release includes an efficiency boost for combining multiple `EchoData` obje
 - Update matplotlib call to register EK500 colormap (#1068)
 
 ## Variable storage changes
+- Drop the `beam` and `ping_time` dimensions for some parameters (#1056, #1083)
+  - The dimensions of these parameters were previously expanded to conform with convention requirements, but this inflated the data volume, especially for in memory operations, and made the calibration code confusing
 - Standardize `backscatter_r/i` long_name in the `Sonar/Beam_groupX` group, and correct units (#1047)
 - Bring more consistency in the `Platform` group across sensors on conversion (#1058, #1061)
   - Standardize `Platform` variables, including attributes, in reference to SONAR-netCDF4 ver.1 with custom echopyp modifications
@@ -36,7 +38,11 @@ This release includes an efficiency boost for combining multiple `EchoData` obje
   - Sanitize and set encoding as part of EchoData
 - Handling problematic NMEA messages when setting lat/lon in Platform group (#1067)
 
-
+## Others
+- Remove the deprecated `preprocess` subpackage (#1077, #1082)
+  - Include documentation
+  - Remove preprocess from subpackages to test in run-test
+- Remove Pandas<2 pinning (#1080)
 
 
 
