@@ -213,7 +213,7 @@ def get_angle_complex_samples(
                 bs=bs.sel(channel=ch_id),
                 # beam_type is not time-varying
                 beam_type=(
-                    ds_beam["beam_type"].sel(channel=ch_id).isel(ping_time=0).drop("ping_time")
+                    ds_beam["beam_type"].sel(channel=ch_id)
                 ),
                 sens=[
                     angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
