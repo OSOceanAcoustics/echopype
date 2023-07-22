@@ -29,23 +29,14 @@ class SetGroupsEK60(SetGroupsBase):
     # the SONAR-netCDF4 v1 convention. For the time being, we are retaining the
     # infrastructure that adds this dimension, but updating the variables lists.
 
+    # 2023-07-21 note: We are also removing the ping_time dimension for parameters
+    # that do not change across ping.
+
     # Variables that need only the beam dimension added to them.
     beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {
-        "beam_direction_x",
-        "beam_direction_y",
-        "beam_direction_z",
-        "beamwidth_twoway_alongship",
-        "beamwidth_twoway_athwartship",
-        "angle_offset_alongship",
-        "angle_offset_athwartship",
-        "angle_sensitivity_alongship",
-        "angle_sensitivity_athwartship",
-        "equivalent_beam_angle",
-        "gain_correction",
-    }
+    ping_time_only_names = set()
 
     # Variables that need beam and ping_time dimensions added to them.
     beam_ping_time_names = set()

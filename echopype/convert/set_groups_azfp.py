@@ -22,11 +22,11 @@ class SetGroupsAZFP(SetGroupsBase):
     beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
+    # These variables do not change in typical AZFP use cases,
+    # but we keep them here for consistency with EK60/EK80 EchoData formats
     ping_time_only_names = {
         "sample_interval",
         "transmit_duration_nominal",
-        "equivalent_beam_angle",
-        "gain_correction",
     }
 
     # Variables that need beam and ping_time dimensions added to them.
