@@ -288,9 +288,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     for chan in backscatter["channel"]:
         backscatter_chan = (
             backscatter.sel(channel=chan)
-            # .dropna(dim="range_sample", how="all")
             .dropna(dim="beam", how="all")
-            # .dropna(dim="ping_time")
         )
 
         tx = chirp[str(chan.values)]
