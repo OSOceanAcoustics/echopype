@@ -79,7 +79,7 @@ environment for echopype development
 .. attention::
     We recommend using the ``libmamba`` solver instead of the classic solver,
     since the ``conda create`` and ``conda install`` step could take very long or fail.
-    See `instructions here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
+    See instructions `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
     for installation and usage.
 
 

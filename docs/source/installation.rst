@@ -23,10 +23,10 @@ or through conda from the `conda-forge Anaconda channel <https://anaconda.org/co
    See instructions `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
    for installation and usage.
 
+Previous releases are also available on PyPI and conda.
+
 For instructions on installing a development version of echopype,
 see the :doc:`contributing` page.
-
-Previous releases are also available on PyPI and conda.
 
 
 Examples
