@@ -18,22 +18,15 @@ or through conda from the `conda-forge Anaconda channel <https://anaconda.org/co
 
    $ conda install -c conda-forge echopype
 
-Previous releases are also available on PyPI and conda.
-
 .. attention::
-   Due to the dependencies, we recommend using ``mamba`` to install echopype.
-   It can be simply done through
-
-   .. code-block:: console
-
-      $ mamba install -c conda-forge echopype
-
-   ``mamba`` can be installed by installing the ``libmamba`` solver
-   following the instruction `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_.
-
+   We recommend using the ``libmamba`` solver instead of the classic solver.
+   See instructions `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
+   for installation and usage.
 
 For instructions on installing a development version of echopype,
 see the :doc:`contributing` page.
+
+Previous releases are also available on PyPI and conda.
 
 
 Examples
