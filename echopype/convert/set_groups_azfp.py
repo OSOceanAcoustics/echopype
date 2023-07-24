@@ -18,15 +18,27 @@ class SetGroupsAZFP(SetGroupsBase):
     # in converting from v0.5.x to v0.6.0. The values within
     # these sets are applied to all Sonar/Beam_groupX groups.
 
+    # 2023-07-24:
+    #   PRs:
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1056
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1083
+    #   Most of the artificially added beam and ping_time dimensions at v0.6.0
+    #   were reverted at v0.8.0, due to concerns with efficiency and code clarity
+    #   (see https://github.com/OSOceanAcoustics/echopype/issues/684 and
+    #        https://github.com/OSOceanAcoustics/echopype/issues/978).
+    #   However, the mechanisms to expand these dimensions were preserved for
+    #   flexibility and potential later use.
+    #   Note such expansion is still applied on AZFP data for 2 variables (see below).
+
     # Variables that need only the beam dimension added to them.
     beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
+    # These variables do not change with ping_time in typical AZFP use cases,
+    # but we keep them here for consistency with EK60/EK80 EchoData formats
     ping_time_only_names = {
         "sample_interval",
         "transmit_duration_nominal",
-        "equivalent_beam_angle",
-        "gain_correction",
     }
 
     # Variables that need beam and ping_time dimensions added to them.

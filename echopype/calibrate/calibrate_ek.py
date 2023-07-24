@@ -364,6 +364,8 @@ class CalibrateEK80(CalibrateEK):
 
                 # Assemble parameter data array with all channels
                 # Either interpolate or pull from narrowband input
+                # The ping_time dimension has to persist for BB case,
+                # because center frequency may change across ping
                 if "ping_time" in cal_params_dict[p].coords:
                     ds_cal_BB[p] = _get_interp_da(
                         da_param=ds_cal_BB[p],  # freq-dep xr.DataArray

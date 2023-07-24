@@ -189,7 +189,7 @@ def get_angle_complex_samples(
 
     # Compute angles
     # unique beam_type existing in the dataset
-    beam_type_all_ch = np.unique(ds_beam["beam_type"].isel(ping_time=0).data)
+    beam_type_all_ch = np.unique(ds_beam["beam_type"].data)
 
     if beam_type_all_ch.size == 1:
         # If beam_type is the same for all channels, process all channels at once
@@ -212,9 +212,7 @@ def get_angle_complex_samples(
             theta_ch, phi_ch = _compute_angle_from_complex(
                 bs=bs.sel(channel=ch_id),
                 # beam_type is not time-varying
-                beam_type=(
-                    ds_beam["beam_type"].sel(channel=ch_id).isel(ping_time=0).drop("ping_time")
-                ),
+                beam_type=(ds_beam["beam_type"].sel(channel=ch_id)),
                 sens=[
                     angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
                     angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
