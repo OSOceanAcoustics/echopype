@@ -24,13 +24,18 @@ class SetGroupsEK60(SetGroupsBase):
     # in converting from v0.5.x to v0.6.0. The values within
     # these sets are applied to all Sonar/Beam_groupX groups.
 
-    # 2023-05-25 note: We have decided to remove the beam dimension from EK60,
-    # where it was added as a length-1 dimension only to more closely match
-    # the SONAR-netCDF4 v1 convention. For the time being, we are retaining the
-    # infrastructure that adds this dimension, but updating the variables lists.
-
-    # 2023-07-21 note: We are also removing the ping_time dimension for parameters
-    # that do not change across ping.
+    # 2023-07-24:
+    #   PRs:
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1056
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1083
+    #   The artificially added beam and ping_time dimensions at v0.6.0
+    #   were reverted at v0.8.0, due to concerns with efficiency and code clarity
+    #   (see https://github.com/OSOceanAcoustics/echopype/issues/684 and
+    #        https://github.com/OSOceanAcoustics/echopype/issues/978).
+    #   However, the mechanisms to expand these dimensions were preserved for
+    #   flexibility and potential later use.
+    #   Note such expansion is still applied on AZFP data for 2 variables
+    #   (see set_groups_azfp.py).
 
     # Variables that need only the beam dimension added to them.
     beam_only_names = set()
