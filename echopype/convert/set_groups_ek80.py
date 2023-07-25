@@ -79,7 +79,7 @@ class SetGroupsEK80(SetGroupsBase):
         # if we have zarr files, create parser_obj.ch_ids
         if self.parsed2zarr_obj.temp_zarr_dir:
             for k, v in self.parsed2zarr_obj.p2z_ch_ids.items():
-                self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
+                self.parser_obj.ch_ids[k] = self.parsed2zarr_obj._get_channel_ids(v)
 
         # obtain sorted channel dict in ascending order for each usage scenario
         self.sorted_channel = {
