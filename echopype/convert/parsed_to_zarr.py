@@ -98,7 +98,7 @@ class Parsed2Zarr:
 
         # consolidate metadata and close zarr store
         zarr.consolidate_metadata(self.store)
-        # self.store.close()
+        self.store.close()
 
     @staticmethod
     def set_multi_index(
