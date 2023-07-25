@@ -1,6 +1,6 @@
 import abc
 import warnings
-from typing import List, Set, Tuple
+from typing import Set
 
 import numpy as np
 import pynmea2
