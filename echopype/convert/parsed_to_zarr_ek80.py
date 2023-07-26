@@ -1,10 +1,11 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import dask.array
 import numpy as np
 import pandas as pd
 import psutil
 import xarray as xr
+from zarr.errors import ArrayNotFoundError
 
 from .parsed_to_zarr_ek60 import Parsed2ZarrEK60
 
@@ -37,7 +38,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         self.channel_sort_rule = {ch: channels_new.index(ch) for ch in channels_old}
 
     @property
-    def tx_complex_dataarrays(self) -> Tuple[xr.DataArray, xr.DataArray]:
+    def tx_complex_dataarrays(self) -> Optional[Tuple[xr.DataArray, xr.DataArray]]:
         """
         Constructs the DataArrays from Dask arrays associated
         with the transmit complex data (RAW4).
@@ -47,64 +48,66 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         DataArrays named "transmit_pulse_r" and "transmit_pulse_i",
         respectively, representing the complex data.
         """
-        zarr_path = self.store
+        try:
+            zarr_path = self.store
 
-        # collect variables associated with the complex data
-        complex_r = dask.array.from_zarr(zarr_path, component="tx_complex/transmit_pulse_r")
-        complex_i = dask.array.from_zarr(zarr_path, component="tx_complex/transmit_pulse_i")
+            # collect variables associated with the complex data
+            complex_r = dask.array.from_zarr(zarr_path, component="tx_complex/transmit_pulse_r")
+            complex_i = dask.array.from_zarr(zarr_path, component="tx_complex/transmit_pulse_i")
 
-        comp_time_path = "tx_complex/" + self.complex_dims[0]
-        comp_chan_path = "tx_complex/" + self.complex_dims[1]
-        complex_time = dask.array.from_zarr(zarr_path, component=comp_time_path).compute()
-        complex_channel = dask.array.from_zarr(zarr_path, component=comp_chan_path).compute()
+            comp_time_path = "tx_complex/" + self.complex_dims[0]
+            comp_chan_path = "tx_complex/" + self.complex_dims[1]
+            complex_time = dask.array.from_zarr(zarr_path, component=comp_time_path).compute()
+            complex_channel = dask.array.from_zarr(zarr_path, component=comp_chan_path).compute()
 
-        # obtain channel names for complex data
-        comp_chan_names = self._get_channel_ids(complex_channel)
+            # obtain channel names for complex data
+            comp_chan_names = self._get_channel_ids(complex_channel)
 
-        array_coords = {
-            "ping_time": (
-                ["ping_time"],
-                complex_time,
-                self._varattrs["beam_coord_default"]["ping_time"],
-            ),
-            "channel": (
-                ["channel"],
-                comp_chan_names,
-                self._varattrs["beam_coord_default"]["channel"],
-            ),
-            "transmit_sample": (
-                ["transmit_sample"],
-                np.arange(complex_r.shape[2]),
-                {
-                    "long_name": "Transmit pulse sample number, base 0",
+            array_coords = {
+                "ping_time": (
+                    ["ping_time"],
+                    complex_time,
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+                "channel": (
+                    ["channel"],
+                    comp_chan_names,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "transmit_sample": (
+                    ["transmit_sample"],
+                    np.arange(complex_r.shape[2]),
+                    {
+                        "long_name": "Transmit pulse sample number, base 0",
+                        "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                    },
+                ),
+            }
+
+            transmit_pulse_r = xr.DataArray(
+                data=complex_r,
+                coords=array_coords,
+                name="transmit_pulse_r",
+                attrs={
+                    "long_name": "Real part of the transmit pulse",
+                    "units": "V",
                     "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
                 },
-            ),
-        }
+            )
 
-        transmit_pulse_r = xr.DataArray(
-            data=complex_r,
-            coords=array_coords,
-            name="transmit_pulse_r",
-            attrs={
-                "long_name": "Real part of the transmit pulse",
-                "units": "V",
-                "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
-            },
-        )
-
-        transmit_pulse_i = xr.DataArray(
-            data=complex_i,
-            coords=array_coords,
-            name="transmit_pulse_i",
-            attrs={
-                "long_name": "Imaginary part of the transmit pulse",
-                "units": "V",
-                "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
-            },
-        )
-
-        return transmit_pulse_r, transmit_pulse_i
+            transmit_pulse_i = xr.DataArray(
+                data=complex_i,
+                coords=array_coords,
+                name="transmit_pulse_i",
+                attrs={
+                    "long_name": "Imaginary part of the transmit pulse",
+                    "units": "V",
+                    "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                },
+            )
+            return transmit_pulse_r, transmit_pulse_i
+        except ArrayNotFoundError:
+            return None
 
     def _get_num_transd_sec(self, x: pd.DataFrame):
         """

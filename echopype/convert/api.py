@@ -476,8 +476,6 @@ def open_raw(
                 dest_storage_options=destination_storage_options,
                 max_mb=max_mb,
             )
-            # Rectangularize the transmit data
-            parser.rectangularize_transmit_ping_data(data_type="complex")
         else:
             p2z = Parsed2Zarr(parser)  # Create general p2z object
             parser.rectangularize_data()

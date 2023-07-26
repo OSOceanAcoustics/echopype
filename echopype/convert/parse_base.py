@@ -418,9 +418,8 @@ class ParseEK(ParseBase):
             common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
             if common_vars:
                 self._append_zarr_dgram(datagram, rx=rx)
-                if rx:
-                    for var in common_vars:
-                        del datagram[var]
+                for var in common_vars:
+                    del datagram[var]
 
         for k, v in datagram.items():
             if rx:
