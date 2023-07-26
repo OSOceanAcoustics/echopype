@@ -608,9 +608,9 @@ class SetGroupsEK80(SetGroupsBase):
     def _add_freq_start_end_ds(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
         """
         Returns a Dataset with variables
-        ``frequency_start`` and ``frequency_end``
+        ``transmit_frequency_start`` and ``transmit_frequency_stop``
         added to ``ds_tmp`` for a specific channel,
-        if ``frequency_start`` is in ping_data_dict.
+        if ``transmit_frequency_start`` is in ping_data_dict.
 
         Parameters
         ----------
@@ -629,7 +629,7 @@ class SetGroupsEK80(SetGroupsBase):
         ):
             ds_f_start_end = xr.Dataset(
                 {
-                    "frequency_start": (
+                    "transmit_frequency_start": (
                         ["ping_time"],
                         np.array(
                             self.parser_obj.ping_data_dict["frequency_start"][ch],
@@ -640,7 +640,7 @@ class SetGroupsEK80(SetGroupsBase):
                             "units": "Hz",
                         },
                     ),
-                    "frequency_end": (
+                    "transmit_frequency_stop": (
                         ["ping_time"],
                         np.array(
                             self.parser_obj.ping_data_dict["frequency_end"][ch],

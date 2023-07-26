@@ -246,9 +246,9 @@ class CalibrateEK80(CalibrateEK):
         # Use center frequency if in BB mode, else use nominal channel frequency
         if self.waveform_mode == "BB":
             # use true center frequency to interpolate for various cal params
-            self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
-                channel=self.chan_sel
-            ) / 2
+            self.freq_center = (
+                beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]
+            ).sel(channel=self.chan_sel) / 2
         else:
             # use nominal channel frequency for CW pulse
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
@@ -309,10 +309,10 @@ class CalibrateEK80(CalibrateEK):
         """
         # Use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        if "frequency_start" in beam and "frequency_end" in beam:
+        if "transmit_frequency_start" in beam and "transmit_frequency_stop" in beam:
             # At least some channels are BB
-            # frequency_start and frequency_end are NaN for CW channels
-            freq_center = (beam["frequency_start"] + beam["frequency_end"]) / 2
+            # transmit_frequency_start and transmit_frequency_stop are NaN for CW channels
+            freq_center = (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]) / 2
 
             return {
                 # For BB: drop channels containing CW samples (nan in freq start/end)
