@@ -905,6 +905,30 @@ class SetGroupsEK80(SetGroupsBase):
                 "slope": (
                     ["ping_time"],
                     self.parser_obj.ping_data_dict["slope"][ch],
+                    {"long_name": "Hann window slope parameter for transmit signal"},
+                ),
+                "channel_mode": (
+                    ["ping_time"],
+                    np.array(self.parser_obj.ping_data_dict["channel_mode"][ch], dtype=np.byte),
+                    {
+                        "long_name": "Transceiver mode",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["Active", "Inactive"],
+                    },
+                ),
+                "pulse_form": (
+                    ["ping_time"],
+                    np.array(self.parser_obj.ping_data_dict["pulse_form"][ch], dtype=np.byte),
+                    {
+                        "long_name": "Pulse type",
+                        "flag_values": [0, 1, 5],
+                        "flag_meanings": ["CW", "FM", "FMD"],
+                    },
+                ),
+                "range_sample_offset": (
+                    ["ping_time"],
+                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
+                    {"long_name": "First sample number"},
                 ),
             },
             coords={
