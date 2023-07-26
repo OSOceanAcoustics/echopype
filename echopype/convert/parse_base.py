@@ -78,6 +78,10 @@ class ParseEK(ParseBase):
         for dgram in self.zarr_datagrams:
             self._append_channel_ping_data(dgram, zarr_vars=False)
 
+        # append zarr transmit datagrams to channel ping data
+        for dgram in self.zarr_tx_datagrams:
+            self._append_channel_ping_data(dgram, rx=False, zarr_vars=False)
+
         # Rectangularize all data and convert to numpy array indexed by channel
         for data_type in ["power", "angle", "complex"]:
             # Receive data
