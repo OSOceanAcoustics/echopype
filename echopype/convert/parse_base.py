@@ -23,6 +23,7 @@ class ParseBase:
         self.ping_time = []  # list to store ping time
         self.storage_options = storage_options
         self.zarr_datagrams = []  # holds all parsed datagrams
+        self.zarr_tx_datagrams = []  # holds all parsed transmit datagrams
         self.sonar_model = sonar_model
 
     def _print_status(self):
@@ -349,7 +350,7 @@ class ParseEK(ParseBase):
             else:
                 logger.info("Unknown datagram type: " + str(new_datagram["type"]))
 
-    def _append_zarr_dgram(self, full_dgram: dict):
+    def _append_zarr_dgram(self, full_dgram: dict, rx: bool):
         """
         Selects a subset of the datagram values that
         need to be sent directly to a zarr file and
@@ -388,7 +389,10 @@ class ParseEK(ParseBase):
             reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
 
         if reduced_datagram:
-            self.zarr_datagrams.append(reduced_datagram)
+            if rx:
+                self.zarr_datagrams.append(reduced_datagram)
+            else:
+                self.zarr_tx_datagrams.append(reduced_datagram)
 
     def _append_channel_ping_data(self, datagram, rx=True, zarr_vars=True):
         """
@@ -410,12 +414,13 @@ class ParseEK(ParseBase):
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
 
         # append zarr variables, if they exist
-        if zarr_vars and rx:
+        if zarr_vars:
             common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
             if common_vars:
-                self._append_zarr_dgram(datagram)
-                for var in common_vars:
-                    del datagram[var]
+                self._append_zarr_dgram(datagram, rx=rx)
+                if rx:
+                    for var in common_vars:
+                        del datagram[var]
 
         for k, v in datagram.items():
             if rx:

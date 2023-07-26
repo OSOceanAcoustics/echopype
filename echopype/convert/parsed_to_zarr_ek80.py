@@ -20,6 +20,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         self.p2z_ch_ids = {}  # channel ids for power, angle, complex
         self.pow_ang_df = None  # df that holds power and angle data
         self.complex_df = None  # df that holds complex data
+        self.tx_df = None  # df that holds transmit data
 
         # get channel and channel_id association and sort by channel_id
         channels_old = list(self.parser_obj.config_datagram["configuration"].keys())
@@ -86,7 +87,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         )
 
     @staticmethod
-    def _split_complex_data(complex_series: pd.Series) -> pd.DataFrame:
+    def _split_complex_data(complex_series: pd.Series, rx: bool = True) -> pd.DataFrame:
         """
         Splits the 1D complex data into two 1D arrays
         representing the real and imaginary parts of
@@ -105,6 +106,9 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         respectively. The DataFrame will have the
         same index as ``complex_series``.
         """
+        columns = ["backscatter_r", "backscatter_i"]
+        if not rx:
+            columns = ["transmit_pulse_r", "transmit_pulse_i"]
 
         complex_split = complex_series.apply(
             lambda x: [np.real(x), np.imag(x)] if isinstance(x, np.ndarray) else [None, None]
@@ -112,11 +116,11 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         return pd.DataFrame(
             data=complex_split.to_list(),
-            columns=["backscatter_r", "backscatter_i"],
+            columns=columns,
             index=complex_series.index,
         )
 
-    def _write_complex(self, df: pd.DataFrame, max_mb: int):
+    def _write_complex(self, df: pd.DataFrame, max_mb: int, rx: bool = True):
         """
         Writes the complex data and associated indices
         to a zarr group.
@@ -142,11 +146,15 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         )
         channels = channels[indexer]
 
-        complex_series = self._reshape_series(complex_series)
+        if rx:
+            complex_series = self._reshape_series(complex_series)
+            grp_key = "complex"
+        else:
+            grp_key = "tx_complex"
 
-        complex_df = self._split_complex_data(complex_series)
+        self.p2z_ch_ids[grp_key] = channels.values  # store channel ids for variable
 
-        self.p2z_ch_ids["complex"] = channels.values  # store channel ids for variable
+        complex_df = self._split_complex_data(complex_series, rx=rx)
 
         # create multi index using the product of the unique dims
         unique_dims = [times, channels]
@@ -154,7 +162,11 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         complex_df = self.set_multi_index(complex_df, unique_dims)
 
         # write complex data to the complex group
-        zarr_grp = self.zarr_root.create_group("complex")
+        if rx:
+            zarr_grp = self.zarr_root.create_group(grp_key)
+        else:
+            zarr_grp = self.zarr_root.create_group(grp_key)
+
         for column in complex_df:
             self.write_df_column(
                 pd_series=complex_df[column],
@@ -218,6 +230,16 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         self.pow_ang_df.dropna(how="all", subset=["power", "angle"], inplace=True)
 
         self.complex_df = datagram_df.dropna().copy()
+
+    def _get_tx_zarr_df(self) -> None:
+        """Create dataframe for the transmit data."""
+
+        tx_datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_tx_datagrams)
+        # remove power and angle to conserve memory
+        del tx_datagram_df["power"]
+        del tx_datagram_df["angle"]
+
+        self.tx_df = tx_datagram_df.dropna().copy()
 
     def whether_write_to_zarr(self, mem_mult: float = 0.3) -> bool:
         """
@@ -307,5 +329,15 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
             self._write_complex(df=self.complex_df, max_mb=max_mb)
 
         del self.complex_df  # free memory
+
+        # write transmit data
+        if not isinstance(self.tx_df, pd.DataFrame):
+            self._get_tx_zarr_df()
+            del self.parser_obj.zarr_tx_datagrams  # free memory
+
+            if not self.tx_df.empty:
+                self._write_complex(df=self.tx_df, max_mb=max_mb, rx=False)
+
+            del self.tx_df  # free memory
 
         self._close_store()
