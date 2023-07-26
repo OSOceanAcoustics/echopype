@@ -72,6 +72,13 @@ commongrid
    :no-inheritance-diagram:
    :no-heading:
 
+consolidate
+^^^^^^^^^^
+
+.. automodapi:: echopype.consolidate
+   :no-inheritance-diagram:
+   :no-heading:
+
 qc
 ^^^
 
