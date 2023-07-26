@@ -633,22 +633,26 @@ class SetGroupsEK80(SetGroupsBase):
                         ["ping_time"],
                         np.array(
                             self.parser_obj.ping_data_dict["frequency_start"][ch],
-                            dtype=int,
+                            dtype=float,
                         ),
                         {
-                            "long_name": "Starting frequency of the transducer",
+                            "long_name": "Start frequency in transmitted pulse",
                             "units": "Hz",
+                            "standard_name": "sound_frequency",
+                            "valid_min": 0.0,
                         },
                     ),
                     "transmit_frequency_stop": (
                         ["ping_time"],
                         np.array(
                             self.parser_obj.ping_data_dict["frequency_end"][ch],
-                            dtype=int,
+                            dtype=float,
                         ),
                         {
-                            "long_name": "Ending frequency of the transducer",
+                            "long_name": "Stop frequency in transmitted pulse",
                             "units": "Hz",
+                            "standard_name": "sound_frequency",
+                            "valid_min": 0.0,
                         },
                     ),
                 },
