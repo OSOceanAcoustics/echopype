@@ -189,8 +189,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         test_power = pd.read_csv(file, delimiter=';').iloc[:, 13:].values
         assert np.allclose(
             test_power,
-            echodata["Sonar/Beam_group1"].backscatter_r.sel(channel=chan,
-                                            beam='1').dropna('range_sample'),
+            echodata["Sonar/Beam_group1"].backscatter_r.sel(channel=chan).dropna('range_sample'),
             rtol=0,
             atol=1.1e-5,
         )
@@ -216,7 +215,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         for ping_idx in df_angle['Ping_index'].value_counts().index:
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
-                major.sel(channel=chan, beam='1')
+                major.sel(channel=chan)
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,
@@ -224,7 +223,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
             )
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
-                minor.sel(channel=chan, beam='1')
+                minor.sel(channel=chan)
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,

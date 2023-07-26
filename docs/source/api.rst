@@ -58,10 +58,17 @@ calibrate
    :no-inheritance-diagram:
    :no-heading:
 
-preprocess
+clean
+^^^^^
+
+.. automodapi:: echopype.clean
+   :no-inheritance-diagram:
+   :no-heading:
+
+commongrid
 ^^^^^^^^^^
 
-.. automodapi:: echopype.preprocess
+.. automodapi:: echopype.commongrid
    :no-inheritance-diagram:
    :no-heading:
 

@@ -79,6 +79,9 @@ def test_cal_params_intake_EK60(ek60_path):
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK60(echodata=ed, env_params=None, cal_params=None, ecs_file=None)
 
     # Check cal params ingested from both ways
+    # Need to drop ping_time for cal_obj.cal_params since get_vend_cal_params_power
+    # retrieves sa_correction or gain_correction based on transmit_duration_nominal,
+    # which can vary cross ping_time
     assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop("ping_time").identical(cal_params_manual["gain_correction"])
 
     # Check against the final cal params in the calibration output
@@ -110,9 +113,7 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     beam = ed["Sonar/Beam_group1"].sel(channel=chan_sel)
     vend = ed["Vendor_specific"].sel(channel=chan_sel)
     freq_center = (
-        (beam["frequency_start"] + beam["frequency_end"])
-        .sel(channel=chan_sel).isel(beam=0).drop("beam") / 2
-    )
+        (beam["frequency_start"] + beam["frequency_end"]).sel(channel=chan_sel) / 2)
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
         "BB", freq_center, beam, vend, {"gain_correction": gain_freq_dep}
     )
@@ -181,6 +182,9 @@ def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     )
 
     # Check cal params ingested from both ways
+    # Need to drop ping_time for cal_obj.cal_params since get_vend_cal_params_power
+    # retrieves sa_correction or gain_correction based on transmit_duration_nominal,
+    # which can vary cross ping_time
     assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop("ping_time").identical(cal_params_manual["gain_correction"])
 
     # Check against the final cal params in the calibration output

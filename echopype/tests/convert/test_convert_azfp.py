@@ -60,7 +60,7 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
         np.array(
             [ds_matlab_output['Output'][0]['N'][fidx] for fidx in range(4)]
         ),
-        echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop_vars('beam').values,
+        echodata["Sonar/Beam_group1"].backscatter_r.values,
     )
 
     # Test vendor group
@@ -128,7 +128,7 @@ def test_convert_azfp_01a_raw_echoview(azfp_path):
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
-    assert np.array_equal(test_power, echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop_vars('beam')) # noqa
+    assert np.array_equal(test_power, echodata["Sonar/Beam_group1"].backscatter_r)
 
     # check convention-required variables in the Platform group
     check_platform_required_scalar_vars(echodata)
@@ -145,10 +145,10 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     )
     assert echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='55030-125-1').dropna(
         'range_sample'
-    ).shape == (360, 438, 1)
+    ).shape == (360, 438)
     assert echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='55030-769-4').dropna(
         'range_sample'
-    ).shape == (360, 135, 1)
+    ).shape == (360, 135)
 
     # check convention-required variables in the Platform group
     check_platform_required_scalar_vars(echodata)
