@@ -309,7 +309,8 @@ class CalibrateEK80(CalibrateEK):
         """
         # Use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        if "transmit_frequency_start" in beam and "transmit_frequency_stop" in beam:
+        pulse_form_uniq = np.unique(beam["pulse_form"].data)
+        if 1 in pulse_form_uniq or 5 in pulse_form_uniq:
             # At least some channels are BB
             # transmit_frequency_start and transmit_frequency_stop are NaN for CW channels
             freq_center = (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]) / 2
@@ -320,7 +321,6 @@ class CalibrateEK80(CalibrateEK):
                 # For CW: drop channels containing BB samples (not nan in freq start/end)
                 "CW": freq_center.where(np.isnan(freq_center), drop=True).channel,
             }
-
         else:
             # All channels are CW
             return {"BB": None, "CW": beam.channel}
