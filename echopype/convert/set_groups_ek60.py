@@ -638,9 +638,11 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
                 "data_type": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["mode"][ch],
+                    np.array(self.parser_obj.ping_data_dict["mode"][ch], dtype=np.byte),
                     {
-                        "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
+                        "long_name": "recorded data type (1=power only, 2=angle only, 3=power and angle)",  # noqa
+                        "flag_values": [1, 2, 3],
+                        "flag_meanings": ["power only", "angle only", "power and angle"],
                     },
                 ),
                 "range_sample_offset": (
@@ -648,15 +650,15 @@ class SetGroupsEK60(SetGroupsBase):
                     np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
                     {"long_name": "First sample number"},
                 ),
-                "offset": (
-                    ["ping_time"],
-                    self.parser_obj.ping_data_dict["offset"][ch],
-                    {"long_name": "Offset of first sample"},
-                ),
+                # TODO: Rename to channel_mode and change long_name to be consistent w/ ek80?
                 "transmit_mode": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["transmit_mode"][ch],
-                    {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
+                    np.array(self.parser_obj.ping_data_dict["transmit_mode"][ch], dtype=np.byte),
+                    {
+                        "long_name": "Transmit mode (0=Active, 1=Passive, 2=Test, -1=Unknown)",
+                        "flag_values": [-1, 0, 1, 2],
+                        "flag_meanings": ["Unknown", "Active", "Passive", "Test"],
+                    },
                 ),
             }
 
