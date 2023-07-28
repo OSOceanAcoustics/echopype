@@ -923,13 +923,8 @@ class SetGroupsEK80(SetGroupsBase):
                 "transmit_type": (
                     ["ping_time"],
                     pulse_form_map(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch])),
-                    {"long_name": "Type of transmitted pulse"},
-                ),
-                "range_sample_offset": (
-                    ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
                     {
-                        "long_name": "First sample number",
+                        "long_name": "Type of transmitted pulse",
                         "flag_values": ["CW", "FM", "FMD"],
                         "flag_meanings": [
                             "Continuous Wave",
@@ -937,6 +932,11 @@ class SetGroupsEK80(SetGroupsBase):
                             "Frequency Modulated D",
                         ],
                     },
+                ),
+                "range_sample_offset": (
+                    ["ping_time"],
+                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
+                    {"long_name": "First sample number"},
                 ),
             },
             coords={
