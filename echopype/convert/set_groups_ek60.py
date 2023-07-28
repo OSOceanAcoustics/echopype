@@ -643,10 +643,10 @@ class SetGroupsEK60(SetGroupsBase):
                         "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
                     },
                 ),
-                "count": (
+                "range_sample_offset": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["count"][ch],
-                    {"long_name": "Number of samples "},
+                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
+                    {"long_name": "First sample number"},
                 ),
                 "offset": (
                     ["ping_time"],
