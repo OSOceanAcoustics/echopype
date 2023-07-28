@@ -917,7 +917,7 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "long_name": "Transceiver mode",
                         "flag_values": [0, 1],
-                        "flag_meanings": ["Active", "Inactive"],
+                        "flag_meanings": ["Active", "Unknown"],
                     },
                 ),
                 "transmit_type": (
