@@ -873,6 +873,10 @@ class SetGroupsEK80(SetGroupsBase):
                 self.parser_obj.ping_data_dict["pulse_duration"][ch], dtype="float32"
             )
 
+        def pulse_form_map(pulse_form):
+            str_map = np.array(["CW", "FM", "", "", "", "FMD"])
+            return str_map[pulse_form]
+
         ds_common = xr.Dataset(
             {
                 "sample_interval": (
@@ -916,19 +920,23 @@ class SetGroupsEK80(SetGroupsBase):
                         "flag_meanings": ["Active", "Inactive"],
                     },
                 ),
-                "pulse_form": (
+                "transmit_type": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["pulse_form"][ch], dtype=np.byte),
-                    {
-                        "long_name": "Pulse type",
-                        "flag_values": [0, 1, 5],
-                        "flag_meanings": ["CW", "FM", "FMD"],
-                    },
+                    pulse_form_map(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch])),
+                    {"long_name": "Type of transmitted pulse"},
                 ),
                 "range_sample_offset": (
                     ["ping_time"],
                     np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
-                    {"long_name": "First sample number"},
+                    {
+                        "long_name": "First sample number",
+                        "flag_values": ["CW", "FM", "FMD"],
+                        "flag_meanings": [
+                            "Continuous Wave",
+                            "Frequency Modulated",
+                            "Frequency Modulated D",
+                        ],
+                    },
                 ),
             },
             coords={
