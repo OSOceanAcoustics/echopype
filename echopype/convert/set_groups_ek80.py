@@ -608,9 +608,9 @@ class SetGroupsEK80(SetGroupsBase):
     def _add_freq_start_end_ds(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
         """
         Returns a Dataset with variables
-        ``frequency_start`` and ``frequency_end``
+        ``transmit_frequency_start`` and ``transmit_frequency_stop``
         added to ``ds_tmp`` for a specific channel,
-        if ``frequency_start`` is in ping_data_dict.
+        if ``transmit_frequency_start`` is in ping_data_dict.
 
         Parameters
         ----------
@@ -620,35 +620,35 @@ class SetGroupsEK80(SetGroupsBase):
             Channel id
         """
 
+        # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
         # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        # TODO: use PulseForm instead of checking for the existence
-        #   of FrequencyStart and FrequencyEnd
-        if (
-            "frequency_start" in self.parser_obj.ping_data_dict.keys()
-            and self.parser_obj.ping_data_dict["frequency_start"][ch]
-        ):
+        if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
             ds_f_start_end = xr.Dataset(
                 {
-                    "frequency_start": (
+                    "transmit_frequency_start": (
                         ["ping_time"],
                         np.array(
                             self.parser_obj.ping_data_dict["frequency_start"][ch],
-                            dtype=int,
+                            dtype=float,
                         ),
                         {
-                            "long_name": "Starting frequency of the transducer",
+                            "long_name": "Start frequency in transmitted pulse",
                             "units": "Hz",
+                            "standard_name": "sound_frequency",
+                            "valid_min": 0.0,
                         },
                     ),
-                    "frequency_end": (
+                    "transmit_frequency_stop": (
                         ["ping_time"],
                         np.array(
                             self.parser_obj.ping_data_dict["frequency_end"][ch],
-                            dtype=int,
+                            dtype=float,
                         ),
                         {
-                            "long_name": "Ending frequency of the transducer",
+                            "long_name": "Stop frequency in transmitted pulse",
                             "units": "Hz",
+                            "standard_name": "sound_frequency",
+                            "valid_min": 0.0,
                         },
                     ),
                 },
@@ -869,6 +869,10 @@ class SetGroupsEK80(SetGroupsBase):
                 self.parser_obj.ping_data_dict["pulse_duration"][ch], dtype="float32"
             )
 
+        def pulse_form_map(pulse_form):
+            str_map = np.array(["CW", "FM", "", "", "", "FMD"])
+            return str_map[pulse_form]
+
         ds_common = xr.Dataset(
             {
                 "sample_interval": (
@@ -909,21 +913,25 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "long_name": "Transceiver mode",
                         "flag_values": [0, 1],
-                        "flag_meanings": ["Active", "Inactive"],
+                        "flag_meanings": ["Active", "Unknown"],
                     },
                 ),
-                "pulse_form": (
+                "transmit_type": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["pulse_form"][ch], dtype=np.byte),
+                    pulse_form_map(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch])),
                     {
-                        "long_name": "Pulse type",
-                        "flag_values": [0, 1, 5],
-                        "flag_meanings": ["CW", "FM", "FMD"],
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW", "FM", "FMD"],
+                        "flag_meanings": [
+                            "Continuous Wave",
+                            "Frequency Modulated",
+                            "Frequency Modulated D",
+                        ],
                     },
                 ),
                 "range_sample_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
+                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=np.int32),
                     {"long_name": "First sample number"},
                 ),
             },

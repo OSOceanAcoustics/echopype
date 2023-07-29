@@ -585,6 +585,26 @@ class SetGroupsEK60(SetGroupsBase):
                     ["channel"],
                     beam_params["gpt_software_version"],
                 ),
+                "transmit_frequency_start": (
+                    ["channel"],
+                    self.freq,
+                    {
+                        "long_name": "Start frequency in transmitted pulse",
+                        "units": "Hz",
+                        "standard_name": "sound_frequency",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "transmit_frequency_stop": (
+                    ["channel"],
+                    self.freq,
+                    {
+                        "long_name": "Stop frequency in transmitted pulse",
+                        "units": "Hz",
+                        "standard_name": "sound_frequency",
+                        "valid_min": 0.0,
+                    },
+                ),
             },
             coords={
                 "channel": (
