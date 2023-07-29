@@ -120,12 +120,12 @@ def _retrieve_correct_beam_group_EK80(
     power_ed_group = None
     complex_ed_group = None
 
-    pulse_form_uniq = np.unique(echodata["Sonar/Beam_group1"]["pulse_form"].data)
+    transmit_type_has_BB = not np.all(echodata["Sonar/Beam_group1"]["transmit_type"] == "CW")
     if waveform_mode == "BB":
         # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
         # when echodata contains CW power and BB complex samples, and transmit_frequency_start
         # variable in Beam_group1
-        if waveform_mode == "BB" and (len(pulse_form_uniq) == 1 and pulse_form_uniq[0] == 0):
+        if not transmit_type_has_BB:
             raise ValueError("waveform_mode='BB', but broadband data not found!")
         elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
             raise ValueError("waveform_mode='BB', but complex data does not exist!")
@@ -142,7 +142,7 @@ def _retrieve_correct_beam_group_EK80(
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
 
         # Raise error if waveform_mode="CW" but CW data does not exist
-        if encode_mode == "complex" and (1 in pulse_form_uniq or 5 in pulse_form_uniq):
+        if encode_mode == "complex" and transmit_type_has_BB:
             # complex + BB data
             if (
                 echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels

@@ -620,9 +620,9 @@ class SetGroupsEK80(SetGroupsBase):
             Channel id
         """
 
+        # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
         # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        pulse_form_uniq = np.unique(self.parser_obj.ping_data_dict["pulse_form"][ch])
-        if 1 in pulse_form_uniq or 5 in pulse_form_uniq:
+        if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
             ds_f_start_end = xr.Dataset(
                 {
                     "transmit_frequency_start": (
@@ -931,7 +931,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "range_sample_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
+                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=np.int32),
                     {"long_name": "First sample number"},
                 ),
             },
