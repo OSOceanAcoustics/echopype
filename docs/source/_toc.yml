@@ -13,7 +13,6 @@ parts:
   - file: convert
   - file: open-converted
   - file: data-proc
-  - file: process
   - file: data-format
     title: Data formats
     sections:
