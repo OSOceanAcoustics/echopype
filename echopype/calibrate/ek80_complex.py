@@ -12,6 +12,7 @@ def tapered_chirp(
     fs,
     transmit_duration_nominal,
     slope,
+    pulse_form,
     frequency_nominal=None,
     transmit_frequency_start=None,
     transmit_frequency_stop=None,
@@ -21,7 +22,7 @@ def tapered_chirp(
 
     Ref source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/main/Core/Calculation.py  # noqa
     """
-    if transmit_frequency_start is None and transmit_frequency_stop is None:  # CW waveform
+    if pulse_form[0] == 0:  # CW waveform
         transmit_frequency_start = frequency_nominal
         transmit_frequency_stop = frequency_nominal
 
@@ -229,9 +230,8 @@ def get_transmit_signal(
     # Make sure it is BB mode data
     # This is already checked in calibrate_ek
     # but keeping this here for use as standalone function
-    if waveform_mode == "BB" and (
-        ("transmit_frequency_start" not in beam) or ("transmit_frequency_stop" not in beam)
-    ):
+    pulse_form_uniq = np.unique(beam["pulse_form"].data)
+    if waveform_mode == "BB" and (len(pulse_form_uniq) == 1 and pulse_form_uniq[0] == 0):
         raise TypeError("File does not contain BB mode complex samples!")
 
     # Generate all transmit replica
@@ -243,6 +243,7 @@ def get_transmit_signal(
             tx_param_names = [
                 "transmit_duration_nominal",
                 "slope",
+                "pulse_form",
                 "transmit_frequency_start",
                 "transmit_frequency_stop",
             ]
@@ -250,6 +251,7 @@ def get_transmit_signal(
             tx_param_names = [
                 "transmit_duration_nominal",
                 "slope",
+                "pulse_form",
                 "frequency_nominal",
             ]
         tx_params = {}

@@ -621,12 +621,8 @@ class SetGroupsEK80(SetGroupsBase):
         """
 
         # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        # TODO: use PulseForm instead of checking for the existence
-        #   of FrequencyStart and FrequencyEnd
-        if (
-            "frequency_start" in self.parser_obj.ping_data_dict.keys()
-            and self.parser_obj.ping_data_dict["frequency_start"][ch]
-        ):
+        pulse_form_uniq = np.unique(self.parser_obj.ping_data_dict["pulse_form"][ch])
+        if 1 in pulse_form_uniq or 5 in pulse_form_uniq:
             ds_f_start_end = xr.Dataset(
                 {
                     "transmit_frequency_start": (
