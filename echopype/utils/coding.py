@@ -42,6 +42,8 @@ EXPECTED_VAR_DTYPE = {
     "channel": np.str_,
     "cal_channel_id": np.str_,
     "beam": np.str_,
+    "channel_mode": np.byte,
+    "range_sample_offset": np.int32,
 }  # channel name  # beam name
 
 PREFERRED_CHUNKS = "preferred_chunks"

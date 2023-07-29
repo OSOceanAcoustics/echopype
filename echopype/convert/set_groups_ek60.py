@@ -647,17 +647,17 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
                 "range_sample_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
+                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=np.int32),
                     {"long_name": "First sample number"},
                 ),
-                # TODO: Rename to channel_mode and change long_name to be consistent w/ ek80?
-                "transmit_mode": (
+                "channel_mode": (
                     ["ping_time"],
                     np.array(self.parser_obj.ping_data_dict["transmit_mode"][ch], dtype=np.byte),
                     {
-                        "long_name": "Transmit mode (0=Active, 1=Passive, 2=Test, -1=Unknown)",
+                        "long_name": "Transceiver mode",
                         "flag_values": [-1, 0, 1, 2],
                         "flag_meanings": ["Unknown", "Active", "Passive", "Test"],
+                        "comment": "From transmit_mode in the EK60 datagram",
                     },
                 ),
             }
