@@ -340,6 +340,19 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
+                # TODO: Add channel dim, to match ek60 and ek80?
+                "beam_type": (
+                    [],
+                    0,
+                    {
+                        "long_name": "Beam type",
+                        "flag_values": [0, 1],
+                        "flag_meanings": [
+                            "Single beam",
+                            "Split aperture beam",
+                        ],
+                    },
+                ),
                 "backscatter_r": (
                     ["channel", "ping_time", "range_sample"],
                     N,
@@ -380,6 +393,17 @@ class SetGroupsAZFP(SetGroupsBase):
                         "long_name": "Nominal bandwidth of transmitted pulse",
                         "units": "s",
                         "valid_min": 0.0,
+                    },
+                ),
+                "transmit_type": (
+                    [],
+                    "CW",
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW"],
+                        "flag_meanings": [
+                            "Continuous Wave",
+                        ],
                     },
                 ),
             },
