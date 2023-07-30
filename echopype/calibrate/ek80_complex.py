@@ -13,18 +13,14 @@ def tapered_chirp(
     transmit_duration_nominal,
     slope,
     transmit_type,
-    frequency_nominal=None,
-    transmit_frequency_start=None,
-    transmit_frequency_stop=None,
+    transmit_frequency_start,
+    transmit_frequency_stop,
 ):
     """
     Create the chirp replica following implementation from Lars Anderson.
 
     Ref source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/main/Core/Calculation.py  # noqa
     """
-    if transmit_type == "CW":  # CW waveform
-        transmit_frequency_start = frequency_nominal
-        transmit_frequency_stop = frequency_nominal
 
     tau = transmit_duration_nominal
     f0 = transmit_frequency_start
@@ -236,23 +232,15 @@ def get_transmit_signal(
     # Generate all transmit replica
     y_all = {}
     y_time_all = {}
+    # TODO: expand to deal with the case with varying tx param across ping_time
+    tx_param_names = [
+        "transmit_duration_nominal",
+        "slope",
+        "transmit_type",
+        "transmit_frequency_start",
+        "transmit_frequency_stop",
+    ]
     for ch in beam["channel"].values:
-        # TODO: expand to deal with the case with varying tx param across ping_time
-        if waveform_mode == "BB":
-            tx_param_names = [
-                "transmit_duration_nominal",
-                "slope",
-                "transmit_type",
-                "transmit_frequency_start",
-                "transmit_frequency_stop",
-            ]
-        else:
-            tx_param_names = [
-                "transmit_duration_nominal",
-                "slope",
-                "transmit_type",
-                "frequency_nominal",
-            ]
         tx_params = {}
         for p in tx_param_names:
             tx_params[p] = np.unique(beam[p].sel(channel=ch))
