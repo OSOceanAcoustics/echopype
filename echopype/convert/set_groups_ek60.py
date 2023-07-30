@@ -588,22 +588,12 @@ class SetGroupsEK60(SetGroupsBase):
                 "transmit_frequency_start": (
                     ["channel"],
                     self.freq,
-                    {
-                        "long_name": "Start frequency in transmitted pulse",
-                        "units": "Hz",
-                        "standard_name": "sound_frequency",
-                        "valid_min": 0.0,
-                    },
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
                 ),
                 "transmit_frequency_stop": (
                     ["channel"],
                     self.freq,
-                    {
-                        "long_name": "Stop frequency in transmitted pulse",
-                        "units": "Hz",
-                        "standard_name": "sound_frequency",
-                        "valid_min": 0.0,
-                    },
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
                 ),
             },
             coords={
