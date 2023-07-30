@@ -316,10 +316,10 @@ class CalibrateEK80(CalibrateEK):
             freq_center = (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]) / 2
 
             return {
-                # For BB: drop channels containing CW samples (nan in freq start/end)
-                "BB": freq_center.dropna(dim="channel").channel,
-                # For CW: drop channels containing BB samples (not nan in freq start/end)
-                "CW": freq_center.where(np.isnan(freq_center), drop=True).channel,
+                # For BB: Keep only non-CW channels (FM or FMD) based on transmit_type
+                "BB": freq_center.where(beam["transmit_type"] != "CW", drop=True).channel,
+                # For CW: Keep only CW channels based on transmit_type
+                "CW": freq_center.where(beam["transmit_type"] == "CW", drop=True).channel,
             }
         else:
             # All channels are CW

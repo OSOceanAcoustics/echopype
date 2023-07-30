@@ -143,13 +143,8 @@ def _retrieve_correct_beam_group_EK80(
 
         # Raise error if waveform_mode="CW" but CW data does not exist
         if encode_mode == "complex" and transmit_type_has_BB:
-            # complex + BB data
-            if (
-                echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels
-                == echodata["Sonar/Beam_group1"]["transmit_frequency_start"]
-                .dropna(dim="channel")["channel"]
-                .size  # number of BB channel
-            ):  # if all channels are BB
+            # complex + BB data (all channels are BB)
+            if np.all(echodata["Sonar/Beam_group1"]["transmit_type"] != "CW"):
                 raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
 
         if echodata["Sonar/Beam_group2"] is None:
