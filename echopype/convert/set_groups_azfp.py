@@ -395,9 +395,19 @@ class SetGroupsAZFP(SetGroupsBase):
                     [],
                     np.array(0, np.int16),
                     {
-                        "long_name": "Presence or not of non-quantitative processing applied to the backscattering data (sonar specific)",  # noqa
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
                         "flag_values": [0],
                         "flag_meanings": ["None"],
+                    },
+                ),
+                "sample_time_offset": (
+                    [],
+                    0.0,
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
                     },
                 ),
             },

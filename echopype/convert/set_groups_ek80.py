@@ -605,7 +605,8 @@ class SetGroupsEK80(SetGroupsBase):
                     [],
                     np.array(0, np.int16),
                     {
-                        "long_name": "Presence or not of non-quantitative processing applied to the backscattering data (sonar specific)",  # noqa
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
                         "flag_values": [0],
                         "flag_meanings": ["None"],
                     },
@@ -939,10 +940,17 @@ class SetGroupsEK80(SetGroupsBase):
                         "flag_meanings": ["CW", "FM", "FMD"],
                     },
                 ),
-                "range_sample_offset": (
+                "sample_time_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
-                    {"long_name": "First sample number"},
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
             },
             coords={
