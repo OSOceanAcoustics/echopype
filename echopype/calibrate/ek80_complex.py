@@ -68,8 +68,6 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
     ytx_wbt_deci = ytx_wbt[0 :: coeff_ch["wbt_decifac"]]
 
     # PC filter and decimation
-    if len(coeff_ch["pc_fil"].squeeze().shape) == 0:  # in case it is a single element
-        coeff_ch["pc_fil"] = [coeff_ch["pc_fil"].squeeze()]
     ytx_pc = signal.convolve(ytx_wbt_deci, coeff_ch["pc_fil"])
     ytx_pc_deci = ytx_pc[0 :: coeff_ch["pc_decifac"]]
     ytx_pc_deci_time = (
@@ -117,8 +115,6 @@ def get_vend_filter_EK80(
         v_complex = sel_vend[var_real] + 1j * sel_vend[var_imag]
         # Drop nan fillers and get the values
         v = v_complex.dropna(dim=f"{filter_name}_filter_n").values
-        if v.size == 1:
-            v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
         # Get the decimation value
