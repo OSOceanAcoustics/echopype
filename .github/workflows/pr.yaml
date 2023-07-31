@@ -21,7 +21,8 @@ jobs:
         runs-on: [ubuntu-latest, macos-latest]
         experimental: [false]
         include:
-        - python-version: "3.11"
+        - runs-on: ubuntu-latest
+          python-version: "3.11"
           experimental: true
     defaults:
       run:
