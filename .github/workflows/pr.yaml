@@ -57,7 +57,7 @@ jobs:
           micromamba info
           micromamba list
       - name: Remove docker-compose python
-        if: ${{ matrix.python-version == '3.10' }}
+        if: ${{ matrix.python-version == '3.10' || matrix.python-version == '3.11' }}
         run: sed -i "/docker-compose/d" requirements-dev.txt
       - name: Install dev tools
         run: |

@@ -16,17 +16,17 @@ jobs:
   test:
     name: ${{ matrix.python-version }}-build
     runs-on: ubuntu-20.04
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+        runs-on: [ubuntu-latest]
+        experimental: [false]
         include:
-        - python-version: 3.8
-          experimental: false
-        - python-version: 3.9
-          experimental: false
-        - python-version: "3.10"
+        - runs-on: ubuntu-latest
+          python-version: "3.11"
           experimental: true
     services:
       # TODO: figure out how to update tag when there's a new one
@@ -47,19 +47,19 @@ jobs:
         run: |
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
       - name: Setup micromamba
-        uses: mamba-org/provision-with-micromamba@v16
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
           environment-name: ${{ env.CONDA_ENV }}
-          cache-env: true
-          cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
-      - name: Print conda env
+          cache-environment: true
+          post-cleanup: 'all'
+      - name: Print conda environment
         shell: bash -l {0}
         run: |
-          conda info
-          conda list
+          micromamba info
+          micromamba list
       - name: Remove docker-compose python
-        if: ${{ matrix.python-version == '3.10' }}
+        if: ${{ matrix.python-version == '3.10' || matrix.python-version == '3.11' }}
         shell: bash -l {0}
         run: sed -i "/docker-compose/d" requirements-dev.txt
       - name: Install dev tools
