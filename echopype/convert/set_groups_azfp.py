@@ -342,7 +342,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "backscatter_r": (
                     ["channel", "ping_time", "range_sample"],
-                    N,
+                    np.array(N, dtype=np.float32),
                     {
                         "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
                             "long_name"
@@ -361,7 +361,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "gain_correction": (
                     ["channel"],
-                    unpacked_data["gain"][self.freq_ind_sorted],
+                    np.array(unpacked_data["gain"][self.freq_ind_sorted], dtype=np.float64),
                     {"long_name": "Gain correction", "units": "dB"},
                 ),
                 "sample_interval": (
