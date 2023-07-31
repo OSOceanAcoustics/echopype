@@ -585,6 +585,17 @@ class SetGroupsEK60(SetGroupsBase):
                     ["channel"],
                     beam_params["gpt_software_version"],
                 ),
+                "transmit_type": (
+                    [],
+                    "CW",
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW"],
+                        "flag_meanings": [
+                            "Continuous Wave",
+                        ],
+                    },
+                ),
             },
             coords={
                 "channel": (
