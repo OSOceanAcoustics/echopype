@@ -340,10 +340,9 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
-                # TODO: Add channel dim, to match ek60 and ek80?
                 "beam_type": (
-                    [],
-                    0,
+                    ["channel"],
+                    [0] * len(self.channel_ids_sorted),
                     {
                         "long_name": "Beam type",
                         "flag_values": [0, 1],
