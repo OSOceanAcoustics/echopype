@@ -585,6 +585,17 @@ class SetGroupsEK60(SetGroupsBase):
                     ["channel"],
                     beam_params["gpt_software_version"],
                 ),
+                "transmit_type": (
+                    [],
+                    "CW",
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW"],
+                        "flag_meanings": [
+                            "Continuous Wave",
+                        ],
+                    },
+                ),
                 "beam_stabilisation": (
                     [],
                     np.array(0, np.byte),
@@ -664,17 +675,10 @@ class SetGroupsEK60(SetGroupsBase):
                         "flag_meanings": ["power only", "angle only", "power and angle"],
                     },
                 ),
-                "sample_time_offset": (
+                "range_sample_offset": (
                     ["ping_time"],
-                    (
-                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
-                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
-                    ),
-                    {
-                        "long_name": "Time offset that is subtracted from the timestamp"
-                        " of each sample",
-                        "units": "s",
-                    },
+                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=np.int32),
+                    {"long_name": "First sample number"},
                 ),
                 "channel_mode": (
                     ["ping_time"],
