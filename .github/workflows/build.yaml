@@ -87,7 +87,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ci_test_log
-          path: ci_test_log.log
+          path: ci_${{ matrix.python-version }}_test_log.log
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
