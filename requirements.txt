@@ -6,6 +6,7 @@ numpy
 pynmea2
 pytz
 scipy
+scikit-image
 xarray
 # https://github.com/pydata/xarray/pull/7650
 pandas<2
