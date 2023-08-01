@@ -16,6 +16,8 @@ from fsspec.implementations.local import LocalFileSystem
 from ..utils.coding import sanitize_dtypes, set_storage_encodings
 from ..utils.log import _init_logger
 
+import uuid
+
 if TYPE_CHECKING:
     from ..core import PathHint
 SUPPORTED_ENGINES = {
@@ -313,11 +315,12 @@ def check_file_existence(file_path: "PathHint", storage_options: Dict[str, str] 
 
 def check_file_permissions(FILE_DIR):
     try:
+        fname = "."+ str(uuid.uuid4())
         if isinstance(FILE_DIR, FSMap):
             base_dir = os.path.dirname(FILE_DIR.root)
             if not base_dir:
                 base_dir = FILE_DIR.root
-            TEST_FILE = os.path.join(base_dir, ".permission_test").replace("\\", "/")
+            TEST_FILE = os.path.join(base_dir, fname).replace("\\", "/")
             with FILE_DIR.fs.open(TEST_FILE, "w") as f:
                 f.write("testing\n")
             FILE_DIR.fs.delete(TEST_FILE)
@@ -328,7 +331,7 @@ def check_file_permissions(FILE_DIR):
             if not FILE_DIR.exists():
                 logger.warning(f"{str(FILE_DIR)} does not exist. Attempting to create it.")
                 FILE_DIR.mkdir(exist_ok=True, parents=True)
-            TEST_FILE = FILE_DIR.joinpath(Path(".permission_test"))
+            TEST_FILE = FILE_DIR.joinpath(Path(fname))
             TEST_FILE.write_text("testing\n")
 
             # Do python version check since missing_ok is for python 3.9 and up
