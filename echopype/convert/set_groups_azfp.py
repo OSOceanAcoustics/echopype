@@ -585,12 +585,23 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
-                "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
-                "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
+                "EL": (
+                    ["channel"],
+                    parameters["EL"][self.freq_ind_sorted],
+                    {"long_name": "Sound pressure at the transducer", "units": "dB"},
+                ),
+                "TVR": (
+                    ["channel"],
+                    parameters["TVR"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Transmit voltage response of the transducer",
+                        "units": "dB re 1uPa/V at 1m",
+                    },
+                ),
                 "VTX": (
                     ["channel"],
                     parameters["VTX"][self.freq_ind_sorted],
-                    {"long_name": "Transmitter power supply"},
+                    {"long_name": "Amplified voltage sent to the transducer"},
                 ),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
