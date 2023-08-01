@@ -11,8 +11,8 @@ from scipy.interpolate import interp1d
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 
-from ..utils.mask_tranformation import log as _log
-from ..utils.mask_tranformation import lin as _lin
+from ..utils.mask_transformation import log as _log
+from ..utils.mask_transformation import lin as _lin
 
 def get_transient_noise_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
