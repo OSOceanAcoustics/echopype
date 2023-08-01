@@ -332,7 +332,7 @@ def twod(data, idim, jdim, irvals, jrvals, log=False, operation='mean'):
     # return data
     return datar, idimr, jdimr, percentage
 
-def oned(data, dim, rvals, axis, log=False, operation='mean'):
+def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
     """
     Resample down an array along i or j dimension.
     
@@ -366,7 +366,7 @@ def oned(data, dim, rvals, axis, log=False, operation='mean'):
             raise Exception('resampling intervals must be within dim range')
         
     # convert data to linear, if logarithmic
-    if log is True:
+    if log_var is True:
         data = lin(data)
         
     # get axis from dimension
@@ -426,7 +426,7 @@ def oned(data, dim, rvals, axis, log=False, operation='mean'):
                 percentage[i,:]=np.nansum(w_  ,axis=0)/np.nansum(w ,axis=0)*100                        
         
         # convert back to logarithmic, if data was logarithmic
-        if log is True:
+        if log_var is True:
             datar = log(datar)
         
         # get resampled dimension from resampling interval
@@ -488,7 +488,7 @@ def oned(data, dim, rvals, axis, log=False, operation='mean'):
                 percentage[:,j]=np.nansum(w_  ,axis=1)/np.nansum(w ,axis=1)*100                        
         
         # convert back to logarithmic, if data was logarithmic
-        if log is True:
+        if log_var is True:
             datar = log(datar)
         
         # get resampled dimension from resampling intervals
