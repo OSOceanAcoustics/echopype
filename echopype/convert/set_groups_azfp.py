@@ -442,66 +442,156 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 # unpacked ping by ping data from 01A file
-                "digitization_rate": (["channel"], unpacked_data["dig_rate"][self.freq_ind_sorted]),
+                "digitization_rate": (
+                    ["channel"],
+                    unpacked_data["dig_rate"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Number of samples per second in kHz that is processed by the "
+                        "A/D converter when digitizing the returned acoustic signal"
+                    },
+                ),
                 "lockout_index": (
                     ["channel"],
                     unpacked_data["lockout_index"][self.freq_ind_sorted],
+                    {
+                        "long_name": "The distance, rounded to the nearest Bin Size after the "
+                        "pulse is transmitted that over which AZFP will ignore echoes"
+                    },
                 ),
                 "number_of_bins_per_channel": (
                     ["channel"],
                     unpacked_data["num_bins"][self.freq_ind_sorted],
+                    {"long_name": "Number of bins per channel"},
                 ),
                 "number_of_samples_per_average_bin": (
                     ["channel"],
                     unpacked_data["range_samples_per_bin"][self.freq_ind_sorted],
+                    {"long_name": "Range samples per bin for each channel"},
                 ),
-                "board_number": (["channel"], unpacked_data["board_num"][self.freq_ind_sorted]),
-                "data_type": (["channel"], unpacked_data["data_type"][self.freq_ind_sorted]),
+                "board_number": (
+                    ["channel"],
+                    unpacked_data["board_num"][self.freq_ind_sorted],
+                    {"long_name": "The board the data came from channel 1-4"},
+                ),
+                "data_type": (
+                    ["channel"],
+                    unpacked_data["data_type"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Datatype for each channel 1=Avg unpacked_data (5bytes), "
+                        "0=raw (2bytes)"
+                    },
+                ),
                 "ping_status": (["ping_time"], unpacked_data["ping_status"]),
                 "number_of_acquired_pings": (
                     ["ping_time"],
                     unpacked_data["num_acq_pings"],
+                    {"long_name": "Pings acquired in the burst"},
                 ),
                 "first_ping": (["ping_time"], unpacked_data["first_ping"]),
                 "last_ping": (["ping_time"], unpacked_data["last_ping"]),
-                "data_error": (["ping_time"], unpacked_data["data_error"]),
+                "data_error": (
+                    ["ping_time"],
+                    unpacked_data["data_error"],
+                    {"long_name": "Error number if an error occurred"},
+                ),
                 "sensors_flag": (["ping_time"], unpacked_data["sensor_flag"]),
                 "ancillary": (
                     ["ping_time", "ancillary_len"],
                     unpacked_data["ancillary"],
+                    {"long_name": "Tilt-X, Y, Battery, Pressure, Temperature"},
                 ),
-                "ad_channels": (["ping_time", "ad_len"], unpacked_data["ad"]),
+                "ad_channels": (
+                    ["ping_time", "ad_len"],
+                    unpacked_data["ad"],
+                    {"long_name": "AD channel 6 and 7"},
+                ),
                 "battery_main": (["ping_time"], unpacked_data["battery_main"]),
                 "battery_tx": (["ping_time"], unpacked_data["battery_tx"]),
                 "profile_number": (["ping_time"], unpacked_data["profile_number"]),
                 # unpacked ping by ping ancillary data from 01A file
-                "temperature_counts": (["ping_time"], anc[:, 4]),
-                "tilt_x_count": (["ping_time"], anc[:, 0]),
-                "tilt_y_count": (["ping_time"], anc[:, 1]),
+                "temperature_counts": (
+                    ["ping_time"],
+                    anc[:, 4],
+                    {"long_name": "Raw counts for temperature"},
+                ),
+                "tilt_x_count": (["ping_time"], anc[:, 0], {"long_name": "Raw counts for Tilt-X"}),
+                "tilt_y_count": (["ping_time"], anc[:, 1], {"long_name": "Raw counts for Tilt-Y"}),
                 # unpacked data with dim len=0 from 01A file
                 "profile_flag": unpacked_data["profile_flag"],
-                "burst_interval": unpacked_data["burst_int"],
-                "ping_per_profile": unpacked_data["ping_per_profile"],
-                "average_pings_flag": unpacked_data["avg_pings"],
-                "spare_channel": unpacked_data["spare_chan"],
-                "ping_period": unpacked_data["ping_period"],
-                "phase": unpacked_data["phase"],
-                "number_of_channels": unpacked_data["num_chan"],
+                "burst_interval": (
+                    [],
+                    unpacked_data["burst_int"],
+                    {
+                        "long_name": "Time in seconds between bursts or between pings if the burst"
+                        " interval has been set equal to the ping period"
+                    },
+                ),
+                "ping_per_profile": (
+                    [],
+                    unpacked_data["ping_per_profile"],
+                    {
+                        "long_name": "Number of pings in a profile if ping averaging has been "
+                        "selected"
+                    },  # noqa
+                ),
+                "average_pings_flag": (
+                    [],
+                    unpacked_data["avg_pings"],
+                    {"long_name": "Flag indicating whether the pings average in time"},
+                ),
+                "spare_channel": ([], unpacked_data["spare_chan"], {"long_name": "Spare channel"}),
+                "ping_period": (
+                    [],
+                    unpacked_data["ping_period"],
+                    {"long_name": "Time between pings in a profile set"},
+                ),
+                "phase": (
+                    [],
+                    unpacked_data["phase"],
+                    {"long_name": "Phase number used to acquire the profile"},
+                ),
+                "number_of_channels": (
+                    [],
+                    unpacked_data["num_chan"],
+                    {"long_name": "Number of channels (1, 2, 3, or 4)"},
+                ),
                 # parameters with channel dimension from XML file
-                "XML_transmit_duration_nominal": (["channel"], tdn),  # tdn comes from parameters
-                "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
+                "XML_transmit_duration_nominal": (
+                    ["channel"],
+                    tdn,
+                    {"long_name": "(From XML file) Nominal bandwidth of transmitted pulse"},
+                ),  # tdn comes from parameters
+                "XML_gain_correction": (
+                    ["channel"],
+                    parameters["gain"][self.freq_ind_sorted],
+                    {"long_name": "(From XML file) Gain correction"},
+                ),
                 "XML_digitization_rate": (
                     ["channel"],
                     parameters["dig_rate"][self.freq_ind_sorted],
+                    {
+                        "long_name": "(From XML file) Number of samples per second in kHz that is "
+                        "processed by the A/D converter when digitizing the returned acoustic "
+                        "signal"
+                    },
                 ),
                 "XML_lockout_index": (
                     ["channel"],
                     parameters["lockout_index"][self.freq_ind_sorted],
+                    {
+                        "long_name": "(From XML file) The distance, rounded to the nearest "
+                        "Bin Size after the pulse is transmitted that over which AZFP will "
+                        "ignore echoes"
+                    },
                 ),
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
                 "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
                 "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
-                "VTX": (["channel"], parameters["VTX"][self.freq_ind_sorted]),
+                "VTX": (
+                    ["channel"],
+                    parameters["VTX"][self.freq_ind_sorted],
+                    {"long_name": "Transmitter power supply"},
+                ),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["channel"],
@@ -513,27 +603,52 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 # parameters with dim len=0 from XML file
                 "XML_sensors_flag": parameters["sensors_flag"],
-                "XML_burst_interval": parameters["burst_interval"],
+                "XML_burst_interval": (
+                    [],
+                    parameters["burst_interval"],
+                    {
+                        "long_name": "Time in seconds between bursts or between pings if the burst "
+                        "interval has been set equal to the ping period"
+                    },
+                ),
                 "XML_sonar_serial_number": parameters["serial_number"],
                 "number_of_frequency": parameters["num_freq"],
                 "number_of_pings_per_burst": parameters["pings_per_burst"],
                 "average_burst_pings_flag": parameters["average_burst_pings"],
                 # temperature coefficients from XML file
-                "temperature_ka": parameters["ka"],
-                "temperature_kb": parameters["kb"],
-                "temperature_kc": parameters["kc"],
-                "temperature_A": parameters["A"],
-                "temperature_B": parameters["B"],
-                "temperature_C": parameters["C"],
+                **{
+                    f"temperature_k{var}": (
+                        [],
+                        parameters[f"k{var}"],
+                        {"long_name": f"Thermistor bridge coefficient {var}"},
+                    )
+                    for var in ["a", "b", "c"]
+                },
+                **{
+                    f"temperature_{var}": (
+                        [],
+                        parameters[var],
+                        {"long_name": f"Thermistor calibration coefficient {var}"},
+                    )
+                    for var in ["A", "B", "C"]
+                },
                 # tilt coefficients from XML file
-                "tilt_X_a": parameters["X_a"],
-                "tilt_X_b": parameters["X_b"],
-                "tilt_X_c": parameters["X_c"],
-                "tilt_X_d": parameters["X_d"],
-                "tilt_Y_a": parameters["Y_a"],
-                "tilt_Y_b": parameters["Y_b"],
-                "tilt_Y_c": parameters["Y_c"],
-                "tilt_Y_d": parameters["Y_d"],
+                **{
+                    f"tilt_X_{var}": (
+                        [],
+                        parameters[f"X_{var}"],
+                        {"long_name": f"Calibration coefficient {var} for Tilt-X"},
+                    )
+                    for var in ["a", "b", "c", "d"]
+                },
+                **{
+                    f"tilt_Y_{var}": (
+                        [],
+                        parameters[f"Y_{var}"],
+                        {"long_name": f"Calibration coefficient {var} for Tilt-Y"},
+                    )
+                    for var in ["a", "b", "c", "d"]
+                },
             },
             coords={
                 "channel": (
