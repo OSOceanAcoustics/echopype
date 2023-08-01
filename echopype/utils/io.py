@@ -5,6 +5,7 @@ import os
 import pathlib
 import platform
 import sys
+import uuid
 from pathlib import Path, WindowsPath
 from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
@@ -15,8 +16,6 @@ from fsspec.implementations.local import LocalFileSystem
 
 from ..utils.coding import sanitize_dtypes, set_storage_encodings
 from ..utils.log import _init_logger
-
-import uuid
 
 if TYPE_CHECKING:
     from ..core import PathHint
@@ -315,7 +314,7 @@ def check_file_existence(file_path: "PathHint", storage_options: Dict[str, str] 
 
 def check_file_permissions(FILE_DIR):
     try:
-        fname = "."+ str(uuid.uuid4())
+        fname = "." + str(uuid.uuid4())
         if isinstance(FILE_DIR, FSMap):
             base_dir = os.path.dirname(FILE_DIR.root)
             if not base_dir:
