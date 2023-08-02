@@ -325,6 +325,7 @@ def add_splitbeam_angle(
     ]
     angle_params = {}
     for p_name in angle_param_list:
+        # BUG? source_Sv may not have the angle parameters???
         angle_params[p_name] = source_Sv[p_name]
 
     # fail if source_Sv and ds_beam do not have the same lengths
