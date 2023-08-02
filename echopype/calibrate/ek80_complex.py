@@ -288,9 +288,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         replica = np.flipud(np.conj(tx))
         pc = xr.apply_ufunc(
             lambda m: np.apply_along_axis(
-                lambda m: (
-                    signal.convolve(m, replica, mode="full")[tx.size - 1 :]
-                ),
+                lambda m: (signal.convolve(m, replica, mode="full")[tx.size - 1 :]),
                 axis=2,
                 arr=m,
             ),

@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import xarray as xr
 
-from ..calibrate.ek80_complex import compress_pulse, get_transmit_signal, get_norm_fac
+from ..calibrate.ek80_complex import compress_pulse, get_norm_fac, get_transmit_signal
 
 
 def _compute_angle_from_complex(
