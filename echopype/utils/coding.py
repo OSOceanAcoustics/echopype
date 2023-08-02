@@ -15,7 +15,7 @@ DEFAULT_TIME_ENCODING = {
 }
 
 COMPRESSION_SETTINGS = {
-    "netcdf4": {"zlib": True, "complevel": 4},
+    "netcdf4": {"zlib": False, "complevel": 4},
     # zarr compressors were chosen based on xarray results
     "zarr": {
         "float": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
