@@ -290,7 +290,6 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
             lambda m: np.apply_along_axis(
                 lambda m: (
                     signal.convolve(m, replica, mode="full")[tx.size - 1 :]
-                    / np.linalg.norm(tx) ** 2
                 ),
                 axis=2,
                 arr=m,
@@ -314,3 +313,25 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     )
 
     return pc_all
+
+
+def get_norm_fac(chirp: Dict) -> xr.DataArray:
+    """
+    Get normalization factor from the chirp dictionary.
+
+    Parameters
+    ----------
+    chirp : dict
+        transmit chirp replica indexed by ``channel``
+
+    Returns
+    -------
+    xr.DataArray
+        A data array containing the normalization factor, with channel coordinate
+    """
+    norm_fac = []
+    ch_all = []
+    for ch, tx in chirp.items():
+        norm_fac.append(np.linalg.norm(tx) ** 2)
+        ch_all.append(ch)
+    return xr.DataArray(norm_fac, coords={"channel": ch_all})

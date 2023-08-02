@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import xarray as xr
 
-from ..calibrate.ek80_complex import compress_pulse, get_transmit_signal
+from ..calibrate.ek80_complex import compress_pulse, get_transmit_signal, get_norm_fac
 
 
 def _compute_angle_from_complex(
@@ -186,6 +186,7 @@ def get_angle_complex_samples(
             fs=pc_params["receiver_sampling_frequency"],  # this is the added fs
         )
         bs = compress_pulse(backscatter=bs, chirp=tx)  # has beam dim
+        bs = bs / get_norm_fac(chirp=tx)  # normalization for each channel
 
     # Compute angles
     # unique beam_type existing in the dataset
