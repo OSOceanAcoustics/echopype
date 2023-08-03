@@ -9,18 +9,13 @@ import scipy.ndimage as nd
 from scipy.interpolate import interp1d
 from scipy.signal import convolve2d
 
-
-
 from skimage.morphology import remove_small_objects
-from skimage.morphology import erosion
-from skimage.morphology import dilation
+from skimage.morphology import erosion,dilation, square
 from skimage.measure import label
-
 
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from ..utils.mask_tranformation import log,lin,dim2ax,full,twod
-
 
 def get_seabed_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
@@ -295,7 +290,7 @@ def _get_seabed_mask_blackwell(Sv, r, theta=None, phi=None,
     else:
         mask = np.zeros_like(Sv, dtype=bool)
 
-    return mask, anglemask
+    return mask#, anglemask
 
 def _get_seabed_mask_blackwell_mod(Sv, r, theta=None, phi=None, r0=10, r1=1000, tSv=-75, ttheta=702, 
                   tphi=282, wtheta=28 , wphi=52, 
@@ -506,7 +501,8 @@ def _get_seabed_mask_experimental(Sv, r,
     # dilate mask to fill seabed breaches
     # (e.g. attenuated pings or gaps from previous masking) 
     kernel = np.ones((3,5))
-    mask = cv2.dilate(np.uint8(mask), kernel, iterations=nd)
+    #mask = cv2.dilate(np.uint8(mask), kernel, iterations=nd)
+    mask = dilation(np.uint8(mask), square(nd))
     mask = np.array(mask, dtype = 'bool')
         
     # proceed with the following only if seabed was detected
