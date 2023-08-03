@@ -395,9 +395,11 @@ def get_cal_params_EK(
 
     # Private function to get fs
     def _get_fs():
-        if "fs_receiver" in vend:
-            return vend["fs_receiver"]
+        # If receiver_sampling_frequency recorded, use it
+        if "receiver_sampling_frequency" in vend:
+            return vend["receiver_sampling_frequency"]
         else:
+            # If receiver_sampling_frequency not recorded, use default value
             # loop through channel since transceiver can vary
             fs = []
             for ch in vend["channel"]:

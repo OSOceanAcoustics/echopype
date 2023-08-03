@@ -596,6 +596,25 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["transceiver_software_version"],
                 ),
+                "beam_stabilisation": (
+                    [],
+                    np.array(0, np.byte),
+                    {
+                        "long_name": "Beam stabilisation applied (or not)",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["not stabilised", "stabilised"],
+                    },
+                ),
+                "non_quantitative_processing": (
+                    [],
+                    np.array(0, np.int16),
+                    {
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
+                        "flag_values": [0],
+                        "flag_meanings": ["None"],
+                    },
+                ),
             },
             coords={
                 "channel": (
@@ -938,10 +957,17 @@ class SetGroupsEK80(SetGroupsBase):
                         ],
                     },
                 ),
-                "range_sample_offset": (
+                "sample_time_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=np.int32),
-                    {"long_name": "First sample number"},
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
             },
             coords={
@@ -1276,7 +1302,7 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
         if "rx_sample_frequency" in param_dict:
-            ds_table["fs_receiver"] = xr.DataArray(
+            ds_table["receiver_sampling_frequency"] = xr.DataArray(
                 param_dict["rx_sample_frequency"].astype(float),
                 dims=["channel"],
                 coords={"channel": ds_table["channel"]},
