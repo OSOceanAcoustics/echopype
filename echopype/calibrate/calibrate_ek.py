@@ -312,14 +312,20 @@ class CalibrateEK80(CalibrateEK):
         if not np.all(beam["transmit_type"] == "CW"):
             # At least 1 BB ping exists -- this is analogous to what we had from before
             # Before: when at least 1 BB ping exists, frequency_start and frequency_end will exist
-            # transmit_frequency_start and transmit_frequency_stop are NaN for CW channels
-            freq_center = (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]) / 2
 
+            # assume transmit_type identical for all pings in a channel
+            first_ping_transmit_type = (
+                beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
+            )  # noqa
             return {
                 # For BB: Keep only non-CW channels (FM or FMD) based on transmit_type
-                "BB": freq_center.where(beam["transmit_type"] != "CW", drop=True).channel,
+                "BB": first_ping_transmit_type.where(
+                    first_ping_transmit_type != "CW", drop=True
+                ).channel,  # noqa
                 # For CW: Keep only CW channels based on transmit_type
-                "CW": freq_center.where(beam["transmit_type"] == "CW", drop=True).channel,
+                "CW": first_ping_transmit_type.where(
+                    first_ping_transmit_type == "CW", drop=True
+                ).channel,  # noqa
             }
         else:
             # All channels are CW
