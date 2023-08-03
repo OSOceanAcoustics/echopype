@@ -48,7 +48,7 @@ def get_impulse_noise_mask(
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
 
-        __authors__ = ['Alejandro Ariza'   # wrote ryan(), ryan_iterable(), and wang(),  _oned(), _full(), and _dim2ax(), _lin(), _log()
+        __authors__ = ['Alejandro Ariza'   # wrote ryan(), ryan_iterable(), and wang()
                        'Simedroni Raluca' # adapted the impulse noise masking algorithms from the Echopy library and implemented them for use with the Echopype library.
                         ]
     Parameters
