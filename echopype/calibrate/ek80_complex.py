@@ -235,7 +235,6 @@ def get_transmit_signal(
     tx_param_names = [
         "transmit_duration_nominal",
         "slope",
-        "transmit_type",  # not needed for tapered_chirp but good to check uniqueness
         "transmit_frequency_start",
         "transmit_frequency_stop",
     ]
