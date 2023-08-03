@@ -592,6 +592,25 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["transceiver_software_version"],
                 ),
+                "beam_stabilisation": (
+                    [],
+                    np.array(0, np.byte),
+                    {
+                        "long_name": "Beam stabilisation applied (or not)",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["not stabilised", "stabilised"],
+                    },
+                ),
+                "non_quantitative_processing": (
+                    [],
+                    np.array(0, np.int16),
+                    {
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
+                        "flag_values": [0],
+                        "flag_meanings": ["None"],
+                    },
+                ),
             },
             coords={
                 "channel": (
@@ -921,10 +940,17 @@ class SetGroupsEK80(SetGroupsBase):
                         "flag_meanings": ["CW", "FM", "FMD"],
                     },
                 ),
-                "range_sample_offset": (
+                "sample_time_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=int),
-                    {"long_name": "First sample number"},
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
             },
             coords={
