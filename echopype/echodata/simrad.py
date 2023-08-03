@@ -123,8 +123,7 @@ def _retrieve_correct_beam_group_EK80(
     transmit_type_has_BB = not np.all(echodata["Sonar/Beam_group1"]["transmit_type"] == "CW")
     if waveform_mode == "BB":
         # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
-        # when echodata contains CW power and BB complex samples, and transmit_frequency_start
-        # variable in Beam_group1
+        # when echodata contains CW power and BB complex samples
         if not transmit_type_has_BB:
             raise ValueError("waveform_mode='BB', but broadband data not found!")
         elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:

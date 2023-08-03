@@ -645,7 +645,6 @@ class SetGroupsEK80(SetGroupsBase):
             freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
         elif not self.sorted_channel["power"]:
             freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
-            # freq_start = np.full(self.parser_obj.ping_data_dict["power"][ch], freq)
             freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
             freq_stop = freq_start
         else:
