@@ -1,5 +1,5 @@
 from re import search
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import xarray as xr
@@ -211,18 +211,38 @@ def set_zarr_encodings(
     return encoding
 
 
-def set_netcdf_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
+def set_netcdf_encodings(
+    ds: xr.Dataset,
+    compression_settings: Dict[str, Any] = {},
+) -> Dict[str, Dict[str, Any]]:
     """
-    Obtains all variable encodings based on netcdf default values
-    """
+    Obtains all variables encodings based on netcdf default values
 
-    # TODO: below is the encoding we were using for netcdf, we need to make
-    #  sure that the encoding is appropriate for all data variables
-    encoding = (
-        {var: compression_settings for var in ds.data_vars}
-        if compression_settings is not None
-        else {}
-    )
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The dataset object to generate encoding for
+    compression_settings : dict
+        The compression settings dictionary
+
+    Returns
+    -------
+    dict
+        The final encoding values for dataset variables
+    """
+    encoding = dict()
+    for name, val in ds.variables.items():
+        encoding[name] = {**val.encoding}
+        if np.issubdtype(val.dtype, np.str_):
+            encoding[name].update(
+                {
+                    "zlib": False,
+                }
+            )
+        elif compression_settings:
+            encoding[name].update(compression_settings)
+        else:
+            encoding[name].update(COMPRESSION_SETTINGS["netcdf4"])
 
     return encoding
 
