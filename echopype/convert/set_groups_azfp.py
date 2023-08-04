@@ -425,7 +425,7 @@ class SetGroupsAZFP(SetGroupsBase):
                         "long_name": "Type of transmitted pulse",
                         "flag_values": ["CW"],
                         "flag_meanings": [
-                            "Continuous Wave",
+                            "Continuous Wave – a pulse nominally of one frequency",
                         ],
                     },
                 ),

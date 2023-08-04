@@ -898,7 +898,7 @@ class SetGroupsEK80(SetGroupsBase):
             )
 
         def pulse_form_map(pulse_form):
-            str_map = np.array(["CW", "FM", "", "", "", "FMD"])
+            str_map = np.array(["CW", "LFM", "", "", "", "FMD"])
             return str_map[pulse_form]
 
         ds_common = xr.Dataset(
@@ -949,11 +949,14 @@ class SetGroupsEK80(SetGroupsBase):
                     pulse_form_map(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch])),
                     {
                         "long_name": "Type of transmitted pulse",
-                        "flag_values": ["CW", "FM", "FMD"],
+                        "flag_values": ["CW", "LFM", "FMD"],
                         "flag_meanings": [
-                            "Continuous Wave",
-                            "Frequency Modulated",
-                            "Frequency Modulated D",
+                            "Continuous Wave – a pulse nominally of one frequency",
+                            "Linear Frequency Modulation – a pulse which varies from "
+                            "transmit_frequency_start to transmit_frequency_stop in a linear "
+                            "manner over the nominal pulse duration (transmit_duration_nominal)",
+                            "Frequency Modulated 'D' - An EK80-specific FM type that is not "
+                            "clearly described",
                         ],
                     },
                 ),

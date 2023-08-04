@@ -318,7 +318,7 @@ class CalibrateEK80(CalibrateEK):
                 beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
             )  # noqa
             return {
-                # For BB: Keep only non-CW channels (FM or FMD) based on transmit_type
+                # For BB: Keep only non-CW channels (LFM or FMD) based on transmit_type
                 "BB": first_ping_transmit_type.where(
                     first_ping_transmit_type != "CW", drop=True
                 ).channel,  # noqa
