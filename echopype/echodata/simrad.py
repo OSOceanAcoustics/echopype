@@ -122,6 +122,7 @@ def _retrieve_correct_beam_group_EK80(
 
     transmit_type = echodata["Sonar/Beam_group1"]["transmit_type"]
     # assume transmit_type identical for all pings in a channel
+    # TODO: change when allowing within-channel CW-BB switch
     first_ping_transmit_type = transmit_type.isel(ping_time=0)
     if waveform_mode == "BB":
         # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
@@ -140,7 +141,8 @@ def _retrieve_correct_beam_group_EK80(
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
 
         # Raise error if waveform_mode="CW" but CW data does not exist (not a single ping is CW)
-        if encode_mode == "complex" and np.all(transmit_type != "CW"):
+        # TODO: change when allowing within-channel CW-BB switch
+        if encode_mode == "complex" and np.all(first_ping_transmit_type != "CW"):
             raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
 
         if echodata["Sonar/Beam_group2"] is None:
