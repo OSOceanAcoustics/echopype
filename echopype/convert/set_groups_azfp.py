@@ -352,6 +352,20 @@ class SetGroupsAZFP(SetGroupsBase):
                         ],
                     },
                 ),
+                **{
+                    f"beam_direction_{var}": (
+                        ["channel"],
+                        [np.nan] * len(self.channel_ids_sorted),
+                        {
+                            "long_name": f"{var}-component of the vector that gives the pointing "
+                            "direction of the beam, in sonar beam coordinate "
+                            "system",
+                            "units": "1",
+                            "valid_range": (-1.0, 1.0),
+                        },
+                    )
+                    for var in ["x", "y", "z"]
+                },
                 "backscatter_r": (
                     ["channel", "ping_time", "range_sample"],
                     np.array(N, dtype=np.float32),
