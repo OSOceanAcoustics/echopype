@@ -451,11 +451,6 @@ def test_add_splitbeam_angle_BB_pc(test_path):
 
     # obtain the EchoData object with the data needed for the calculation
     ed = ep.open_raw(test_path["EK80_CAL"] / "2018115-D20181213-T094600.raw", sonar_model="EK80")
-    # ed = ep.open_raw(
-        # "/Volumes/SSD_2TB/MURI/spheroid_echoes/Data/20201203/cal_lfm90_170-D20201203-T193511.raw",
-        # "/Volumes/SSD_2TB/MURI/spheroid_echoes/Data/20201209/ar2.0-D20201210-T005803.raw",
-        # sonar_model="EK80"
-    # )
 
     # compute Sv as it is required for the split-beam angle calculation
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
