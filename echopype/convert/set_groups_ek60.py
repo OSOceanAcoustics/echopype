@@ -585,6 +585,16 @@ class SetGroupsEK60(SetGroupsBase):
                     ["channel"],
                     beam_params["gpt_software_version"],
                 ),
+                "transmit_frequency_start": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
                 "transmit_type": (
                     [],
                     "CW",
@@ -592,7 +602,7 @@ class SetGroupsEK60(SetGroupsBase):
                         "long_name": "Type of transmitted pulse",
                         "flag_values": ["CW"],
                         "flag_meanings": [
-                            "Continuous Wave",
+                            "Continuous Wave – a pulse nominally of one frequency",
                         ],
                     },
                 ),

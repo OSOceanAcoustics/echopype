@@ -473,7 +473,11 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
-                "beam_type": (["channel"], beam_params["transducer_beam_type"]),
+                "beam_type": (
+                    ["channel"],
+                    beam_params["transducer_beam_type"],
+                    {"long_name": "type of transducer (0-single, 1-split)"},
+                ),
                 "beamwidth_twoway_alongship": (
                     ["channel"],
                     beam_params["beam_width_alongship"],
@@ -622,15 +626,29 @@ class SetGroupsEK80(SetGroupsBase):
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
         )
 
+        if data_type == "power":
+            ds = ds.assign(
+                {
+                    "transmit_frequency_start": (
+                        ["channel"],
+                        freq,
+                        self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                    ),
+                    "transmit_frequency_stop": (
+                        ["channel"],
+                        freq,
+                        self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                    ),
+                }
+            )
+
         return ds
 
     def _add_freq_start_end_ds(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
         """
         Returns a Dataset with variables
-        ``frequency_start`` and ``frequency_end``
-        added to ``ds_tmp`` for a specific channel,
-        if ``frequency_start`` is in ping_data_dict.
-
+        ``transmit_frequency_start`` and ``transmit_frequency_stop``
+        added to ``ds_tmp`` for a specific channel.
         Parameters
         ----------
         ds_tmp: xr.Dataset
@@ -639,54 +657,43 @@ class SetGroupsEK80(SetGroupsBase):
             Channel id
         """
 
+        # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
         # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        # TODO: use PulseForm instead of checking for the existence
-        #   of FrequencyStart and FrequencyEnd
-        if (
-            "frequency_start" in self.parser_obj.ping_data_dict.keys()
-            and self.parser_obj.ping_data_dict["frequency_start"][ch]
-        ):
-            ds_f_start_end = xr.Dataset(
-                {
-                    "frequency_start": (
-                        ["ping_time"],
-                        np.array(
-                            self.parser_obj.ping_data_dict["frequency_start"][ch],
-                            dtype=int,
-                        ),
-                        {
-                            "long_name": "Starting frequency of the transducer",
-                            "units": "Hz",
-                        },
-                    ),
-                    "frequency_end": (
-                        ["ping_time"],
-                        np.array(
-                            self.parser_obj.ping_data_dict["frequency_end"][ch],
-                            dtype=int,
-                        ),
-                        {
-                            "long_name": "Ending frequency of the transducer",
-                            "units": "Hz",
-                        },
-                    ),
-                },
-                coords={
-                    "ping_time": (
-                        ["ping_time"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamp of each ping",
-                            "standard_name": "time",
-                        },
-                    ),
-                },
-            )
+        if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
+            freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
+            freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
+        elif not self.sorted_channel["power"]:
+            freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+            freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
+            freq_stop = freq_start
+        else:
+            return ds_tmp
 
-            ds_tmp = xr.merge(
-                [ds_tmp, ds_f_start_end], combine_attrs="override"
-            )  # override keeps the Dataset attributes
+        ds_f_start_end = xr.Dataset(
+            {
+                "transmit_frequency_start": (
+                    ["ping_time"],
+                    freq_start.astype(float),
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["ping_time"],
+                    freq_stop.astype(float),
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
+            },
+            coords={
+                "ping_time": (
+                    ["ping_time"],
+                    self.parser_obj.ping_time[ch],
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+            },
+        )
+
+        ds_tmp = xr.merge(
+            [ds_tmp, ds_f_start_end], combine_attrs="override"
+        )  # override keeps the Dataset attributes
 
         return ds_tmp
 
@@ -874,6 +881,8 @@ class SetGroupsEK80(SetGroupsBase):
                 }
             )
 
+        ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
+
         return set_time_encodings(ds_tmp)
 
     def _assemble_ds_common(self, ch, range_sample_size):
@@ -887,6 +896,10 @@ class SetGroupsEK80(SetGroupsBase):
             pulse_length = np.array(
                 self.parser_obj.ping_data_dict["pulse_duration"][ch], dtype="float32"
             )
+
+        def pulse_form_map(pulse_form):
+            str_map = np.array(["CW", "LFM", "", "", "", "FMD"])
+            return str_map[pulse_form]
 
         ds_common = xr.Dataset(
             {
@@ -928,16 +941,23 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "long_name": "Transceiver mode",
                         "flag_values": [0, 1],
-                        "flag_meanings": ["Active", "Inactive"],
+                        "flag_meanings": ["Active", "Unknown"],
                     },
                 ),
-                "pulse_form": (
+                "transmit_type": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["pulse_form"][ch], dtype=np.byte),
+                    pulse_form_map(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch])),
                     {
-                        "long_name": "Pulse type",
-                        "flag_values": [0, 1, 5],
-                        "flag_meanings": ["CW", "FM", "FMD"],
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW", "LFM", "FMD"],
+                        "flag_meanings": [
+                            "Continuous Wave – a pulse nominally of one frequency",
+                            "Linear Frequency Modulation – a pulse which varies from "
+                            "transmit_frequency_start to transmit_frequency_stop in a linear "
+                            "manner over the nominal pulse duration (transmit_duration_nominal)",
+                            "Frequency Modulated 'D' - An EK80-specific FM type that is not "
+                            "clearly described",
+                        ],
                     },
                 ),
                 "sample_time_offset": (

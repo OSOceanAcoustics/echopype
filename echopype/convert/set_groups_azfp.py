@@ -408,6 +408,16 @@ class SetGroupsAZFP(SetGroupsBase):
                         "valid_min": 0.0,
                     },
                 ),
+                "transmit_frequency_start": (
+                    ["channel"],
+                    self.freq_sorted,
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["channel"],
+                    self.freq_sorted,
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
                 "transmit_type": (
                     [],
                     "CW",
@@ -415,7 +425,7 @@ class SetGroupsAZFP(SetGroupsBase):
                         "long_name": "Type of transmitted pulse",
                         "flag_values": ["CW"],
                         "flag_meanings": [
-                            "Continuous Wave",
+                            "Continuous Wave – a pulse nominally of one frequency",
                         ],
                     },
                 ),
