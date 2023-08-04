@@ -1,4 +1,3 @@
-import datetime
 import itertools
 import re
 from pathlib import Path
@@ -13,6 +12,7 @@ from datatree import DataTree
 
 from ..utils.io import validate_output_path
 from ..utils.log import _init_logger
+from ..utils.prov import echopype_prov_attrs
 from .echodata import EchoData
 
 logger = _init_logger(__name__)
@@ -742,11 +742,13 @@ def _combine(
                 combined_ds.attrs.update(
                     {
                         "is_combined": True,
-                        "conversion_time": datetime.datetime.utcnow().strftime(
-                            "%Y-%m-%dT%H:%M:%SZ"
-                        ),
+                        "conversion_software_name": group_attrs["conversion_software_name"],
+                        "conversion_software_version": group_attrs["conversion_software_version"],
+                        "conversion_time": group_attrs["conversion_time"],
                     }
                 )
+                prov_dict = echopype_prov_attrs(process_type="combination")
+                combined_ds = combined_ds.assign_attrs(prov_dict)
 
             # Data holding
             tree_dict[ed_group] = combined_ds
