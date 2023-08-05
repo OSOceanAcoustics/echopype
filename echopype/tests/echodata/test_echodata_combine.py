@@ -233,6 +233,25 @@ def test_combine_echodata(raw_datasets):
                 assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
 
 
+def _check_prov_ds(prov_ds, eds):
+    """Checks the provenance dataset against original echodata object"""
+    for i in range(prov_ds.dims["echodata_filename"]):
+        ed_ds = eds[i]
+        one_ds = prov_ds.isel(echodata_filename=i, filenames=i)
+        for key, value in one_ds.data_vars.items():
+            if key == "source_filenames":
+                ed_group = "Provenance"
+                assert np.array_equal(
+                    ed_ds[ed_group][key].isel(filenames=0).values, value.values
+                )
+            else:
+                ed_group = value.attrs.get("echodata_group")
+                group_attrs = ed_ds[ed_group].attrs
+                expected_val = group_attrs[key]
+                if not isinstance(expected_val, str):
+                    expected_val = str(expected_val)
+                assert str(value.values) == expected_val
+
 @pytest.mark.parametrize("test_param", [
         "single",
         "multi",
@@ -263,6 +282,16 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         # First combined file
         combined_ed = echopype.combine_echodata(eds[:2])
         combined_ed.to_zarr(first_zarr, overwrite=True)
+        
+        # Checks for Provenance group
+        prov_ds = combined_ed["Provenance"]
+        for _, n_val in prov_ds.dims.items():
+            # Both dims of filenames and echodata filename 
+            # should be 2 at this point
+            assert n_val == 2
+        
+        _check_prov_ds(prov_ds, eds)
+        
 
         # Second combined file
         combined_ed_other = echopype.combine_echodata(eds[2:])
@@ -271,8 +300,11 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         combined_ed = echopype.open_converted(first_zarr)
         combined_ed_other = echopype.open_converted(second_zarr)
 
+        # Set expected values for Provenance
+        expected_n_vals = 4
         if test_param == "single":
             data_inputs = [combined_ed, eds[2]]
+            expected_n_vals = 3
         elif test_param == "multi":
             data_inputs = [combined_ed, eds[2], eds[3]]
         else:
@@ -313,6 +345,15 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
 
         filt_combined = combined_ed2[group_path].sel(ping_time=combined_ed[group_path].ping_time)
         assert filt_combined.identical(combined_ed[group_path])
+        
+        # Checks for Provenance group
+        prov_ds = combined_ed2["Provenance"]
+        for _, n_val in prov_ds.dims.items():
+            # Both dims of filenames and echodata filename 
+            # should be expected_n_vals at this point
+            assert n_val == expected_n_vals
+            
+        _check_prov_ds(prov_ds, eds)
 
 
 def test_combine_echodata_channel_selection():
