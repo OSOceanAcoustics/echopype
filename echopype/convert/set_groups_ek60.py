@@ -439,6 +439,16 @@ class SetGroupsEK60(SetGroupsBase):
                 for ch_seq in self.sorted_channel.keys()
             ]
 
+        for i, ch in enumerate(self.sorted_channel.keys()):
+            if (
+                np.isclose(beam_params["dir_x"][i], 0.00)
+                and np.isclose(beam_params["dir_y"][i], 0.00)
+                and np.isclose(beam_params["dir_z"][i], 0.00)
+            ):
+                beam_params["dir_x"][i] = np.nan
+                beam_params["dir_y"][i] = np.nan
+                beam_params["dir_z"][i] = np.nan
+
         # TODO: Need to discuss if to remove INDEX2POWER factor from the backscatter_r
         #  currently this factor is multiplied to the raw data before backscatter_r is saved.
         #  This is if we are encoding only raw data to the .nc/zarr file.
@@ -685,10 +695,17 @@ class SetGroupsEK60(SetGroupsBase):
                         "flag_meanings": ["power only", "angle only", "power and angle"],
                     },
                 ),
-                "range_sample_offset": (
+                "sample_time_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=np.int32),
-                    {"long_name": "First sample number"},
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
                 "channel_mode": (
                     ["ping_time"],
