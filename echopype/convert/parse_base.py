@@ -155,7 +155,7 @@ class ParseEK(ParseBase):
             # Convert ping time to 1D numpy array, stored in dict indexed by channel,
             #  this will help merge data from all channels into a cube
             for ch, val in self.ping_time.items():
-                self.ping_time[ch] = np.array(val)
+                self.ping_time[ch] = np.array(val, dtype="datetime64[ns]")
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
