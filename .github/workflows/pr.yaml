@@ -10,20 +10,24 @@ env:
 
 jobs:
   test:
-    name: ${{ matrix.python-version }}-build
-    runs-on: ubuntu-20.04
-    if: "!contains(github.event.pull_request.title, '[skip ci]')"
+    name: ${{ matrix.python-version }}--${{ matrix.runs-on }}
+    runs-on: ${{ matrix.runs-on }}
+    if: ${{ !contains(github.event.pull_request.title, '[skip ci]') }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-        - python-version: 3.8
-          experimental: false
-        - python-version: 3.9
-          experimental: false
-        - python-version: "3.10"
-          experimental: true
+        python-version: ["3.8", "3.9", "3.10"]
+        runs-on: [ubuntu-latest]
+        experimental: [false]
+        # TODO: Uncomment when netcdf is unpinned
+        # include:
+        # - runs-on: ubuntu-latest
+        #   python-version: "3.11"
+        #   experimental: true
+    defaults:
+      run:
+        shell: bash -l {0}
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
@@ -43,31 +47,32 @@ jobs:
         run: |
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
       - name: Setup micromamba
-        uses: mamba-org/provision-with-micromamba@v16
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
           environment-name: ${{ env.CONDA_ENV }}
-          cache-env: true
-          cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
-      - name: Print conda env
-        shell: bash -l {0}
+          cache-environment: true
+          post-cleanup: 'all'
+      - name: Print conda environment
         run: |
-          conda info
-          conda list
+          micromamba info
+          micromamba list
       - name: Remove docker-compose python
-        if: ${{ matrix.python-version == '3.10' }}
-        shell: bash -l {0}
+        if: ${{ matrix.python-version == '3.10' || matrix.python-version == '3.11' }}
         run: sed -i "/docker-compose/d" requirements-dev.txt
       - name: Install dev tools
-        shell: bash -l {0}
         run: |
           micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
+      # We only want to install this on one run, because otherwise we'll have
+      # duplicate annotations.
+      - name: Install error reporter
+        if: ${{ matrix.python-version == '3.9' }}
+        run: |
+          python -m pip install pytest-github-actions-annotate-failures
       - name: Install echopype
-        shell: bash -l {0}
         run: |
           python -m pip install -e .[plot]
       - name: Copying test data to services
-        shell: bash -l {0}
         run: |
           python .ci_helpers/docker/setup-services.py --deploy --data-only --http-server ${{ job.services.httpserver.id }}
 
@@ -79,16 +84,13 @@ jobs:
         with:
           format: 'csv'
       - name: Print Changed files
-        shell: bash -l {0}
         run: echo "${{ steps.files.outputs.added_modified_renamed }}"
       - name: Running all Tests
         if: contains(github.event.pull_request.title, '[all tests ci]')
-        shell: bash -l {0}
         run: |
           pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
       - name: Running Tests
-        if: "!contains(github.event.pull_request.title, '[all tests ci]')"
-        shell: bash -l {0}
+        if: ${{ !contains(github.event.pull_request.title, '[all tests ci]') }}
         run: |
           python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=${{ env.NUM_WORKERS }},--max-worker-restart=3,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }} |& tee ci_test_log.log
       - name: Upload ci test log
@@ -96,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ci_test_log
-          path: ci_test_log.log
+          path: ci_${{ matrix.python-version }}_test_log.log
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v3
         with:

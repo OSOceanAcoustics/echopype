@@ -1,3 +1,4 @@
+from datetime import datetime
 from textwrap import dedent
 from pathlib import Path
 import tempfile
@@ -160,6 +161,18 @@ def test_combine_echodata(raw_datasets):
 
     combined = echopype.combine_echodata(eds)
 
+    # Test Provenance conversion and combination attributes
+    for attr_token in ["software_name", "software_version", "time"]:
+        assert f"conversion_{attr_token}" in combined['Provenance'].attrs
+        assert f"combination_{attr_token}" in combined['Provenance'].attrs
+
+    def attr_time_to_dt(time_str):
+        return datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%SZ')
+    assert (
+            attr_time_to_dt(combined['Provenance'].attrs['conversion_time']) <=
+            attr_time_to_dt(combined['Provenance'].attrs['combination_time'])
+    )
+
     # get all possible dimensions that should be dropped
     # these correspond to the attribute arrays created
     all_drop_dims = []
@@ -174,7 +187,6 @@ def test_combine_echodata(raw_datasets):
     all_drop_dims.append("echodata_filename")
 
     for group_name in combined.group_paths:
-
         # get all Datasets to be combined
         combined_group: xr.Dataset = combined[group_name]
         eds_groups = [

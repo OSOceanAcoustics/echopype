@@ -75,6 +75,16 @@ variable_and_varattributes:
       long_name: Raw backscatter measurements (real part)
     backscatter_i:
       long_name: Raw backscatter measurements (imaginary part)
+    transmit_frequency_start:
+      long_name: Start frequency in transmitted pulse
+      units: Hz
+      standard_name: sound_frequency
+      valid_min: 0.0
+    transmit_frequency_stop:
+      long_name: Stop frequency in transmitted pulse
+      units: Hz
+      standard_name: sound_frequency
+      valid_min: 0.0
   platform_coord_default:
     time1:
       axis: T

@@ -585,6 +585,46 @@ class SetGroupsEK60(SetGroupsBase):
                     ["channel"],
                     beam_params["gpt_software_version"],
                 ),
+                "transmit_frequency_start": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
+                "transmit_type": (
+                    [],
+                    "CW",
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW"],
+                        "flag_meanings": [
+                            "Continuous Wave – a pulse nominally of one frequency",
+                        ],
+                    },
+                ),
+                "beam_stabilisation": (
+                    [],
+                    np.array(0, np.byte),
+                    {
+                        "long_name": "Beam stabilisation applied (or not)",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["not stabilised", "stabilised"],
+                    },
+                ),
+                "non_quantitative_processing": (
+                    [],
+                    np.array(0, np.int16),
+                    {
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
+                        "flag_values": [0],
+                        "flag_meanings": ["None"],
+                    },
+                ),
             },
             coords={
                 "channel": (

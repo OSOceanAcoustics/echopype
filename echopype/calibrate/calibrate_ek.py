@@ -252,9 +252,9 @@ class CalibrateEK80(CalibrateEK):
         # Use center frequency if in BB mode, else use nominal channel frequency
         if self.waveform_mode == "BB":
             # use true center frequency to interpolate for various cal params
-            self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
-                channel=self.chan_sel
-            ) / 2
+            self.freq_center = (
+                beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]
+            ).sel(channel=self.chan_sel) / 2
         else:
             # use nominal channel frequency for CW pulse
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
@@ -315,18 +315,24 @@ class CalibrateEK80(CalibrateEK):
         """
         # Use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        if "frequency_start" in beam and "frequency_end" in beam:
-            # At least some channels are BB
-            # frequency_start and frequency_end are NaN for CW channels
-            freq_center = (beam["frequency_start"] + beam["frequency_end"]) / 2
+        if not np.all(beam["transmit_type"] == "CW"):
+            # At least 1 BB ping exists -- this is analogous to what we had from before
+            # Before: when at least 1 BB ping exists, frequency_start and frequency_end will exist
 
+            # assume transmit_type identical for all pings in a channel
+            first_ping_transmit_type = (
+                beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
+            )  # noqa
             return {
-                # For BB: drop channels containing CW samples (nan in freq start/end)
-                "BB": freq_center.dropna(dim="channel").channel,
-                # For CW: drop channels containing BB samples (not nan in freq start/end)
-                "CW": freq_center.where(np.isnan(freq_center), drop=True).channel,
+                # For BB: Keep only non-CW channels (LFM or FMD) based on transmit_type
+                "BB": first_ping_transmit_type.where(
+                    first_ping_transmit_type != "CW", drop=True
+                ).channel,  # noqa
+                # For CW: Keep only CW channels based on transmit_type
+                "CW": first_ping_transmit_type.where(
+                    first_ping_transmit_type == "CW", drop=True
+                ).channel,  # noqa
             }
-
         else:
             # All channels are CW
             return {"BB": None, "CW": beam.channel}
