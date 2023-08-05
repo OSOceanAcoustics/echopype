@@ -685,10 +685,17 @@ class SetGroupsEK60(SetGroupsBase):
                         "flag_meanings": ["power only", "angle only", "power and angle"],
                     },
                 ),
-                "range_sample_offset": (
+                "sample_time_offset": (
                     ["ping_time"],
-                    np.array(self.parser_obj.ping_data_dict["offset"][ch], dtype=np.int32),
-                    {"long_name": "First sample number"},
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
                 "channel_mode": (
                     ["ping_time"],
