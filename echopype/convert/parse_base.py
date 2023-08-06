@@ -242,7 +242,7 @@ class ParseEK(ParseBase):
 
             # Convert the timestamp to a datetime64 object.
             new_datagram["timestamp"] = np.datetime64(
-                new_datagram["timestamp"].replace(tzinfo=None), "[ms]"
+                new_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
 
             num_datagrams_parsed += 1
