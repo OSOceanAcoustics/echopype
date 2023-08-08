@@ -80,7 +80,7 @@ jobs:
           curl http://localhost:8080/data/
       - name: Finding changed files
         id: files
-        uses: lsetiawan/get-changed-files@pr_target
+        uses: Ana06/get-changed-files@v2.2.0
         with:
           format: 'csv'
       - name: Print Changed files
