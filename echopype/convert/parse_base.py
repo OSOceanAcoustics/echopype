@@ -60,7 +60,9 @@ class ParseEK(ParseBase):
         self.dgram_zarr_vars = dgram_zarr_vars
 
     def _print_status(self):
-        time = dt.utcfromtimestamp(self.config_datagram["timestamp"].tolist()/1e9).strftime("%Y-%b-%d %H:%M:%S")
+        time = dt.utcfromtimestamp(self.config_datagram["timestamp"].tolist() / 1e9).strftime(
+            "%Y-%b-%d %H:%M:%S"
+        )
         logger.info(
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
