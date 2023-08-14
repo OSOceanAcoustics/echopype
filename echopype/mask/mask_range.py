@@ -36,7 +36,7 @@ def get_range_mask(
         SOFTWARE.
 
         __authors__ = ['Alejandro Ariza'   # wrote _above(), _below(), _inside(), _outside()
-                       'Simedroni Raluca' # adapted the range masking algorithms from the Echopy library and implemented them for use with the Echopype library.
+                       'Raluca Simedroni' # adapted the range masking algorithms from the Echopy library and implemented them for use with the Echopype library.
                ]
 
     This function can mask data that's above, below, inside or outside a given range. The desired frequency channel
