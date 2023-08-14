@@ -229,8 +229,7 @@ def test_vertical_offset_echodata(vertical_offset, expect_warning, caplog):
     )
     range_in_meter = cal_obj.range_meter
 
-    single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
-                                      ping_time='2017-07-19T21:13:47.984999936').values
+    single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11').isel(ping_time=0).values
     no_input_vertical_offset = False
 
     if isinstance(vertical_offset, list):
@@ -244,7 +243,7 @@ def test_vertical_offset_echodata(vertical_offset, expect_warning, caplog):
         if not no_input_vertical_offset:
             original_array = (
                 single_array
-                + echodata["Platform"].vertical_offset.sel(time2='2017-07-19T21:13:47.984999936').values
+                + echodata["Platform"].vertical_offset.isel(time2=0).values
             )
         else:
             original_array = single_array
@@ -268,8 +267,7 @@ def test_vertical_offset_echodata(vertical_offset, expect_warning, caplog):
         assert str(e) == 'vertical_offset must have any of these dimensions: ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
-        final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
-                                  ping_time='2017-07-19T21:13:47.984999936').values
+        final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11').isel(ping_time=0).values
         print(f"original_array = {original_array}")
         print(f"results = {results}")
         assert np.array_equal(original_array, final_array)
@@ -300,8 +298,7 @@ def test_vertical_offset_Sv_dataset(vertical_offset, expect_warning, caplog):
     ds = Sv.set_coords('echo_range')
     range_in_meter = ds.echo_range
 
-    single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
-                                      ping_time='2017-07-19T21:13:47.984999936').values
+    single_array = range_in_meter.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11').isel(ping_time=0).values
 
     if isinstance(vertical_offset, xr.DataArray):
         original_array = single_array + vertical_offset.values
@@ -325,7 +322,6 @@ def test_vertical_offset_Sv_dataset(vertical_offset, expect_warning, caplog):
         assert str(e) == 'vertical_offset must have any of these dimensions: ping_time, range_sample'  # noqa
 
     if isinstance(results, xr.DataArray):
-        final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11',
-                                  ping_time='2017-07-19T21:13:47.984999936').values
+        final_array = results.sel(channel='GPT  18 kHz 009072058c8d 1-1 ES18-11').isel(ping_time=0).values
 
         assert np.array_equal(original_array, final_array)
