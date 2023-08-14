@@ -49,7 +49,7 @@ def get_impulse_noise_mask(
         SOFTWARE.
 
         __authors__ = ['Alejandro Ariza'   # wrote ryan(), ryan_iterable(), and wang()
-                       'Simedroni Raluca' # adapted the impulse noise masking algorithms from the Echopy library and implemented them for use with the Echopype library.
+                       'Raluca Simedroni' # adapted the impulse noise masking algorithms from the Echopy library and implemented them for use with the Echopype library.
                         ]
     Parameters
     ----------
@@ -285,7 +285,9 @@ def get_impulse_noise_mask(
 
         Warning
         -------
-        Input Sv data shouldn't contain NaN values. These values are not processed correctly by the impulse noise removal algorithm and will be marked as noise in the output mask.
+        Input Sv data shouldn't contain NaN values.
+        These values are not processed correctly by the impulse noise removal algorithm and 
+        will be marked as noise in the output mask.
         Please ensure that Sv data is cleaned or appropriately preprocessed before using this function.
 
         This method identifies the locations of noise in the Sv data but does not follow
@@ -306,7 +308,10 @@ def get_impulse_noise_mask(
         # Check if there are any NaN values in the Sv data
         if np.isnan(Sv).any():
             warnings.warn(
-                "Input Sv data contains NaN values. These values are not processed correctly by the impulse noise removal algorithm and will be marked as noise in the output mask. Please ensure that Sv data is cleaned or appropriately preprocessed before using this function."
+                "Input Sv data contains NaN values."
+                "These values are not processed correctly by the impulse noise removal algorithm"
+                "and will be marked as noise in the output mask." 
+                "Please ensure that Sv data is cleaned or appropriately preprocessed before using this function."
             )
 
         # Transpose the Sv data so that the vertical dimension is the first dimension (axis 0)
@@ -378,7 +383,8 @@ def get_impulse_noise_mask(
             - 'mask', where True values represent likely impulse noise, and
             - 'mask_', where True values represent valid samples for side comparison.
 
-        When adapting for echopype, we must ensure the mask aligns with our data orientation. Hence, we transpose 'mask' and 'mask_' to match the shape of the data in 'Sv_ds'.
+        When adapting for echopype, we must ensure the mask aligns with our data orientation. 
+        Hence, we transpose 'mask' and 'mask_' to match the shape of the data in 'Sv_ds'.
 
         Then, we create a combined mask using a bitwise AND operation between 'mask' and '~mask_'.
 
@@ -448,7 +454,8 @@ def get_impulse_noise_mask(
             - 'mask', where True values represent likely impulse noise, and
             - 'mask_', where True values represent valid samples for side comparison.
 
-        When adapting for echopype, we must ensure the mask aligns with our data orientation. Hence, we transpose 'mask' and 'mask_' to match the shape of the data in 'Sv_ds'.
+        When adapting for echopype, we must ensure the mask aligns with our data orientation. 
+        Hence, we transpose 'mask' and 'mask_' to match the shape of the data in 'Sv_ds'.
 
         Then, we create a combined mask using a bitwise AND operation between 'mask' and '~mask_'.
 
