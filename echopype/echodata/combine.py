@@ -25,7 +25,6 @@ CONVERSION_TIME_ATTR = "conversion_time"
 ED_GROUP = "echodata_group"
 ED_FILENAME = "echodata_filename"
 FILENAMES = "filenames"
-ECHODATA_FILENAME = "echodata_filename"
 
 
 def check_zarr_path(
@@ -734,7 +733,7 @@ def _combine(
             {
                 "is_combined": is_combined,
                 "attrs_dict": _get_prov_attrs(ed["Provenance"], is_combined),
-                "echodata_filename": [str(s) for s in ed["Provenance"][ECHODATA_FILENAME].values]
+                "echodata_filename": [str(s) for s in ed["Provenance"][ED_FILENAME].values]
                 if is_combined
                 else [echodata_filenames[idx]],
             }
@@ -745,7 +744,7 @@ def _combine(
     if any_combined:
         # Fetches the true echodata filenames if there are any combined files
         echodata_filenames = list(
-            itertools.chain.from_iterable([d["echodata_filename"] for d in combined_mapping])
+            itertools.chain.from_iterable([d[ED_FILENAME] for d in combined_mapping])
         )
 
     # Create Echodata tree dict
@@ -845,7 +844,7 @@ def _combine(
         # Update the provenance dataset with the captured data
         prov_ds = tree_dict["Provenance"].assign(prov_ds)
     else:
-        prov_ds = tree_dict["Provenance"].drop_dims(ECHODATA_FILENAME).assign(prov_ds)
+        prov_ds = tree_dict["Provenance"].drop_dims(ED_FILENAME).assign(prov_ds)
 
     # Update filenames to iter integers
     prov_ds[FILENAMES] = prov_ds[FILENAMES].copy(data=np.arange(*prov_ds[FILENAMES].shape))  # noqa
