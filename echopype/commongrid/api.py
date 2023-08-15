@@ -107,8 +107,7 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         ds_Sv["ping_time"]
         .resample(ping_time=ping_time_bin, skipna=True)
         .asfreq()
-        .to_dataframe()
-        .index
+        .indexes["ping_time"]
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
 
