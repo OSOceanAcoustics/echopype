@@ -6,7 +6,6 @@ import xarray as xr
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
-from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
 from .set_groups_base import SetGroupsBase
@@ -78,18 +77,6 @@ class SetGroupsEK60(SetGroupsBase):
             self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
             for ch in self.sorted_channel.keys()
         ]
-
-    def set_provenance(self) -> xr.Dataset:
-        """Set the Provenance group."""
-        prov_dict = echopype_prov_attrs(process_type="conversion")
-        files_vars = source_files_vars(self.input_file)
-        ds = xr.Dataset(
-            data_vars=files_vars["source_files_var"],
-            coords=files_vars["source_files_coord"],
-            attrs=prov_dict,
-        )
-
-        return ds
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
