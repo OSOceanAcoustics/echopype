@@ -453,29 +453,22 @@ def get_MVBS_along_channels(
         The MVBS dataset of the input ``ds_Sv`` for all channels
     """
 
-    all_MVBS = []
-    for chan in ds_Sv.channel:
-        ds = ds_Sv.sel(channel=chan).squeeze()
+    # average should be done in linear domain
+    sv = ds_Sv["Sv"].pipe(_linear_transform)
 
-        # average should be done in linear domain
-        sv = ds["Sv"].pipe(_linear_transform)
+    # reduce along ping_time and echo_range
+    # by binning and averaging
+    mvbs = xarray_reduce(
+        sv,
+        sv["channel"],
+        ds_Sv["ping_time"],
+        ds_Sv["echo_range"],
+        func="mean",
+        expected_groups=(None, ping_interval, echo_range_interval),
+        isbin=[False, True, True],
+        method="map-reduce",
+        engine="flox",
+    )
 
-        # reduce along ping_time and echo_range
-        # by binning and averaging
-        res = xarray_reduce(
-            sv,
-            ds["ping_time"],
-            ds["echo_range"],
-            func="mean",
-            expected_groups=(ping_interval, echo_range_interval),
-            isbin=True,
-            method="map-reduce",
-            engine="flox",
-        )
-
-        # apply inverse mapping to get back to the original domain and store values
-        chan_MVBS = res.pipe(_linear_transform, inverse=True)
-        all_MVBS.append(chan_MVBS)
-
-    # collect the MVBS values for each channel
-    return xr.concat(all_MVBS, dim="channel")
+    # apply inverse mapping to get back to the original domain and store values
+    return mvbs.pipe(_linear_transform, inverse=True)
