@@ -460,6 +460,8 @@ def get_MVBS_along_channels(
         # average should be done in linear domain
         sv = ds["Sv"].pipe(_linear_transform)
 
+        # reduce along ping_time and echo_range
+        # by binning and averaging
         res = xarray_reduce(
             sv,
             ds["ping_time"],
