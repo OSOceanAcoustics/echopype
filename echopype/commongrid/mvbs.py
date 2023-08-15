@@ -8,6 +8,7 @@ from typing import Tuple, Union
 import dask.array
 import numpy as np
 import xarray as xr
+from flox.xarray import xarray_reduce
 
 
 def get_bin_indices(
@@ -404,9 +405,32 @@ def bin_and_mean_2d(
     return final
 
 
+def _linear_transform(
+    data: Union[dask.array.Array, np.ndarray], inverse: bool = False
+) -> Union[dask.array.Array, np.ndarray]:
+    """
+    Perform linear transform on data
+
+    Parameters
+    ----------
+    data : dask.array.Array or np.ndarray
+        The data to be transformed
+    inverse : bool
+        If True, perform inverse transform
+
+    Returns
+    -------
+    dask.array.Array or np.ndarray
+        The transformed data
+    """
+    if inverse:
+        return 10 * dask.array.log10(data)
+    return 10 ** (data / 10)
+
+
 def get_MVBS_along_channels(
     ds_Sv: xr.Dataset, echo_range_interval: np.ndarray, ping_interval: np.ndarray
-) -> np.ndarray:
+) -> xr.Dataset:
     """
     Computes the MVBS of ``ds_Sv`` along each channel for the given
     intervals.
@@ -417,45 +441,39 @@ def get_MVBS_along_channels(
         A Dataset containing ``Sv`` and ``echo_range`` data with coordinates
         ``channel``, ``ping_time``, and ``range_sample``
     echo_range_interval: np.ndarray
-        1D array (used by np.digitize) representing the binning required for ``echo_range``
+        1D array (used by np.digitize) representing
+        the binning required for ``echo_range``
     ping_interval: np.ndarray
-        1D array (used by np.digitize) representing the binning required for ``ping_time``
+        1D array (used by np.digitize) representing
+        the binning required for ``ping_time``
 
     Returns
     -------
-    np.ndarray
-        The MVBS value of the input ``ds_Sv`` for all channels
-
-    Notes
-    -----
-    If the values in ``ds_Sv`` are delayed then the binning and mean of ``Sv`` with
-    respect to ``echo_range`` will take place, then the delayed result will be computed,
-    and lastly the binning and mean with respect to ``ping_time`` will be completed. It
-    is necessary to apply a compute midway through this method because Dask graph layers
-    get too large and this makes downstream operations very inefficient.
+    xr.Dataset
+        The MVBS dataset of the input ``ds_Sv`` for all channels
     """
 
     all_MVBS = []
     for chan in ds_Sv.channel:
-        # squeeze to remove "channel" dim if present
-        # TODO: not sure why not already removed for the AZFP case. Investigate.
         ds = ds_Sv.sel(channel=chan).squeeze()
 
         # average should be done in linear domain
-        sv = 10 ** (ds["Sv"] / 10)
+        sv = ds["Sv"].pipe(_linear_transform)
 
-        # get MVBS for channel in linear domain
-        chan_MVBS = bin_and_mean_2d(
-            sv.data,
-            bins_time=ping_interval,
-            bins_er=echo_range_interval,
-            times=sv.ping_time.data,
-            echo_range=ds["echo_range"],
-            comprehensive_er_check=True,
+        res = xarray_reduce(
+            sv,
+            ds["ping_time"],
+            ds["echo_range"],
+            func="mean",
+            expected_groups=(ping_interval, echo_range_interval),
+            isbin=True,
+            method="map-reduce",
+            engine="flox",
         )
 
         # apply inverse mapping to get back to the original domain and store values
-        all_MVBS.append(10 * np.log10(chan_MVBS))
+        chan_MVBS = res.pipe(_linear_transform, inverse=True)
+        all_MVBS.append(chan_MVBS)
 
     # collect the MVBS values for each channel
-    return np.stack(all_MVBS, axis=0)
+    return xr.concat(all_MVBS, dim="channel")

@@ -94,31 +94,37 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     A dataset containing bin-averaged Sv
     """
 
+    # Clean up filenames dimension if it exists
+    # not needed here
+    if "filenames" in ds_Sv.dims:
+        ds_Sv = ds_Sv.drop_dims("filenames")
+
     # create bin information for echo_range
     range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
 
     # create bin information needed for ping_time
-    ping_interval = (
-        ds_Sv.ping_time.resample(ping_time=ping_time_bin, skipna=True).asfreq().ping_time.values
+    d_index = (
+        ds_Sv["ping_time"]
+        .resample(ping_time=ping_time_bin, skipna=True)
+        .asfreq()
+        .to_dataframe()
+        .index
     )
+    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
 
     # calculate the MVBS along each channel
-    MVBS_values = get_MVBS_along_channels(ds_Sv, range_interval, ping_interval)
+    raw_MVBS = get_MVBS_along_channels(ds_Sv, range_interval, ping_interval)
 
     # create MVBS dataset
+    # by transforming the binned dimensions to regular coords
     ds_MVBS = xr.Dataset(
-        data_vars={"Sv": (["channel", "ping_time", "echo_range"], MVBS_values)},
+        data_vars={"Sv": (["channel", "ping_time", "echo_range"], raw_MVBS.data)},
         coords={
-            "ping_time": ping_interval,
-            "channel": ds_Sv.channel,
-            "echo_range": range_interval[:-1],
+            "ping_time": np.array([v.left for v in raw_MVBS.ping_time_bins.values]),
+            "channel": raw_MVBS.channel.values,
+            "echo_range": np.array([v.left for v in raw_MVBS.echo_range_bins.values]),
         },
     )
-
-    # TODO: look into why 'filenames' exist here as a variable
-    # Added this check to support the test in test_process.py::test_compute_MVBS
-    if "filenames" in ds_MVBS.variables:
-        ds_MVBS = ds_MVBS.drop_vars("filenames")
 
     # ping_time_bin parsing and conversions
     # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
