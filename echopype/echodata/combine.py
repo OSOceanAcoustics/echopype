@@ -654,7 +654,7 @@ def _get_prov_attrs(
     Parameters
     ----------
     ds : xr.Dataset
-        The provenance dataset to get attributes from
+        The Provenance group dataset to get attributes from
     is_combined: bool
         The flag to indicate if it's combined
 
