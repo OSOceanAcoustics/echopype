@@ -15,7 +15,7 @@ from skimage.measure import label
 
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
-from ..utils.mask_tranformation import log,lin,dim2ax,full,twod
+from ..utils.mask_transformation import log,lin,dim2ax,full,twod
 
 def get_seabed_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
