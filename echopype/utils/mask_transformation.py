@@ -215,7 +215,7 @@ def dis2speed(t, dis):
     speed = np.r_[np.nan, speed]
     
     return speed
-def twod(data, idim, jdim, irvals, jrvals, log=False, operation='mean'):
+def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
     """
     Resample down an array along the two dimensions, i and j.
     
