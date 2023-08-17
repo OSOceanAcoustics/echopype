@@ -253,7 +253,7 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
             raise Exception('j resampling intervals must be within jdim range')
         
     # convert data to linear, if logarithmic
-    if log is True:
+    if log_var is True:
         data = lin(data)
     
     # get i/j axes from i/j dimensions and i/j intervals
