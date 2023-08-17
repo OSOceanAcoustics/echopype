@@ -1,7 +1,11 @@
 """
 Functions for reducing variabilities in backscatter data.
 """
+import pathlib
+from typing import Union
+import xarray as xr
 
+from . import signal_attenuation
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .noise_est import NoiseEst
 
@@ -74,3 +78,72 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
     ds_Sv = insert_input_processing_level(ds_Sv, input_ds=ds_Sv)
 
     return ds_Sv
+
+
+def get_attenuation_mask(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "ryan", **kwargs
+) -> xr.DataArray:
+    """
+    Create a mask based on the identified signal attenuations of Sv values at 38KHz.
+    This method is based on:
+    Ryan et al. (2015) ‘Reducing bias due to noise and attenuation in
+        open-ocean echo integration data’, ICES Journal of Marine Science,
+        72: 2482–2493.
+    and,
+    Ariza et al. (2022) 'Acoustic seascape partitioning through functional data analysis',
+    Journal of Biogeography, 00, 1– 15. https://doi.org/10.1111/jbi.14534
+
+
+    Parameters
+    ----------
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a mask for,
+        else it specifies the path to a zarr or netcdf file containing
+        a Dataset. This input must correspond to a Dataset that has the
+        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    mask_type: str with either "ryan" or "ariza" based on the
+                preferred method for signal attenuation mask generation
+    Returns
+    -------
+    xr.DataArray
+        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
+        criteria are filled with ``True``, else the regions are filled with ``False``.
+
+    Raises
+    ------
+    ValueError
+        If neither ``ryan`` or ``azira`` are given
+
+    Notes
+    -----
+
+
+    Examples
+    --------
+
+    """
+    assert mask_type in ["ryan", "ariza"], "mask_type must be either 'ryan' or 'ariza'"
+
+    Sv = source_Sv["Sv"].values[0]
+    r = source_Sv["echo_range"].values[0, 0]
+    if mask_type == "ryan":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"r0", "r1", "n", "thr", "start"}
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = signal_attenuation._ryan(Sv, r, **filtered_kwargs)
+    elif mask_type == "ariza":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"offset", "thr", "m", "n"}
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = signal_attenuation._ariza(Sv, r, **filtered_kwargs)
+    else:
+        raise ValueError("The provided mask_type must be ryan or ariza!")
+
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask
