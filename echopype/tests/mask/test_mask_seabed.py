@@ -52,7 +52,7 @@ def get_sv_dataset(file_path: str) -> tuple[Dataset, Optional[EchoData]]:
 
     ],
 )
-def test_get_impulse_noise_mask(
+def test_mask_seabed(
         mask_type, expected_true_false_counts
 ):
     source_Sv, ed = get_sv_dataset(test_data_path)
