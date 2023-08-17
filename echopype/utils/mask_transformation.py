@@ -366,7 +366,7 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
             raise Exception('resampling intervals must be within dim range')
         
     # convert data to linear, if logarithmic
-    if log is True:
+    if log_var is True:
         data = lin(data)
         
     # get axis from dimension
