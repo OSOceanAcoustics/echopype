@@ -3,6 +3,40 @@ from typing import List, Optional, Union
 import numpy as np
 import xarray as xr
 
+"""
+
+    Filters for masking data based on depth range.
+        These methods are based on:
+
+            Copyright (c) 2020 Echopy
+
+            Permission is hereby granted, free of charge, to any person obtaining a copy
+            of this software and associated documentation files (the "Software"), to deal
+            in the Software without restriction, including without limitation the rights
+            to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+            copies of the Software, and to permit persons to whom the Software is
+            furnished to do so, subject to the following conditions:
+
+            The above copyright notice and this permission notice shall be included in all
+            copies or substantial portions of the Software.
+
+            THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+            IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+            FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+            AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+            LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+            OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+            SOFTWARE.
+
+            __authors__ = ['Alejandro Ariza'   # wrote above(), below(), inside(), outside()]
+        
+    __authors__ = ['Raluca Simedroni' 
+                    # adapted the range masking algorithms from the Echopy library and implemented them 
+                    for use with the Echopype library.
+                    ]
+"""
+
+
 def get_range_mask(
     Sv_ds: xr.Dataset,
     channel: str,
@@ -12,34 +46,7 @@ def get_range_mask(
 ):
     """
     Creates a mask for a given data set based on the range and method provided.
-
-    Filters for masking data based on depth range.
-
-        Copyright (c) 2020 Echopy
-
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-
-        __authors__ = ['Alejandro Ariza'   # wrote _above(), _below(), _inside(), _outside()
-                       'Raluca Simedroni' # adapted the range masking algorithms from the Echopy library and implemented them for use with the Echopype library.
-               ]
-
-    This function can mask data that's above, below, inside or outside a given range. The desired frequency channel
+    This function can mask data that's `above`, `below`, `inside` or `outside` a given range. The desired frequency channel
     from the data set is selected, then the mask is created based on the method chosen.
 
     Parameters
