@@ -1,5 +1,5 @@
 """
-Algorithms for resampling data arrays. Algorithms for tranformation of acoustic units.
+Algorithms for resampling data arrays. Algorithms for transformation of acoustic units.
     
     Copyright (c) 2020 Echopy
 
