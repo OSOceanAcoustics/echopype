@@ -10,7 +10,40 @@ from ..utils.mask_transformation import full as _full
 from ..utils.mask_transformation import twod as _twod
 
 from skimage.measure import label
+"""
+  Algorithms for masking attenuated signal.
 
+  These methods are based on:
+    
+    Copyright (c) 2020 Echopy
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+
+    __authors__ = ['Alejandro Ariza'   # wrote ryan(), and ariza()
+               ]
+  
+  __authors__ = ['Mihai Boldeanu' 
+                  # adapted the mask attenuated signal algorithms from the Echopy library 
+                  and implemented them for use with the Echopype library.
+                ]
+"""
 def get_attenuation_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     mask_type: str = "ryan",
