@@ -1,5 +1,8 @@
 import os
-from typing import List, Optional, Union, Tuple
+import subprocess
+from typing import Tuple, Optional
+
+from xarray import Dataset
 
 import echopype as ep
 import echopype.mask
@@ -7,23 +10,37 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from echopype.echodata import EchoData
+from echopype.testing import TEST_DATA_FOLDER
 
-"""
-In order to run `test_mask_seabed.py` with pytest, follow the steps below:
-    1. Locate the `test_data` directory in the current project.
-    2. Download the necessary test file `JR179-D20080410-T150637.raw` from the provided link.
-        Link: [ ftp://ftp.bas.ac.uk/rapidkrill/ ]
-        The link was proviced HERE: [ https://github.com/open-ocean-sounding/echopy/tree/master/data ]
-After these steps, you should be able to successfully run the tests with pytest.
-"""
+file_name = "JR179-D20080410-T150637.RAW`"
+ftp_main = "ftp://ftp.bas.ac.uk"
+ftp_partial_path = "/rapidkrill/ek60/"
+
+test_data_path: str = os.path.join(
+    TEST_DATA_FOLDER,
+    file_name.upper(),
+)
 
 
+def set_up():
+    "Gets the test data if it doesn't already exist"
+    if not os.path.exists(TEST_DATA_FOLDER):
+        os.mkdir(TEST_DATA_FOLDER)
+    if not os.path.exists(test_data_path):
+        ftp_file_path = ftp_main + ftp_partial_path + file_name
+        print(ftp_file_path)
+        print(test_data_path)
+        subprocess.run(["wget", ftp_file_path, "-O", test_data_path])
 
-def get_sv_dataset(file_path: str) -> xr.DataArray:
+
+def get_sv_dataset(file_path: str) -> tuple[Dataset, Optional[EchoData]]:
+    set_up()
     ed = ep.open_raw(file_path, sonar_model="ek60")
     Sv = ep.calibrate.compute_Sv(ed).compute()
-    
+
     return Sv, ed
+
 
 @pytest.mark.parametrize(
     "mask_type,expected_true_false_counts",
@@ -32,25 +49,18 @@ def get_sv_dataset(file_path: str) -> xr.DataArray:
         ("experimental", (1514853, 652078)),
         ("blackwell", (1748083, 418848)),
         ("blackwell_mod", (1946168, 220763)),
-        
+
     ],
 )
 def test_get_impulse_noise_mask(
-    mask_type,expected_true_false_counts
+        mask_type, expected_true_false_counts
 ):
-    echopype_path = os.path.abspath("../")
-    test_data_path = os.path.join(
-        echopype_path,
-        "test_data",
-        "JR179-D20080410-T150637.raw",
-    )
-    file_path = test_data_path
-    source_Sv, ed = get_sv_dataset(file_path)
+    source_Sv, ed = get_sv_dataset(test_data_path)
     mask = echopype.mask.get_seabed_mask(
         source_Sv,
         mask_type=mask_type,
-        theta=ed["Sonar/Beam_group1"]["angle_alongship"].values[0,:,:,0].T,
-        phi  =ed["Sonar/Beam_group1"]["angle_athwartship"].values[0,:,:,0].T
+        theta=ed["Sonar/Beam_group1"]["angle_alongship"].values[0, :, :, 0].T,
+        phi=ed["Sonar/Beam_group1"]["angle_athwartship"].values[0, :, :, 0].T
     )
     count_true = np.count_nonzero(mask)
     count_false = mask.size - count_true
