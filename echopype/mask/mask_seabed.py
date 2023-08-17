@@ -22,8 +22,6 @@ def get_seabed_mask(
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz. 
-    This method is based on:
-    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     Parameters
     ----------
     source_Sv: xr.Dataset or str or pathlib.Path
