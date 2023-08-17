@@ -332,7 +332,7 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
     # return data
     return datar, idimr, jdimr, percentage
 
-def oned(data, dim, rvals, axis, log=False, operation='mean'):
+def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
     """
     Resample down an array along i or j dimension.
     
