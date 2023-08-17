@@ -86,135 +86,7 @@ def log(variable):
         log = log[0]       
     return log
 
-def Sv2sa(Sv, r, r0, r1, operation='mean'):
-    """
-    Compute Area backscattering coefficient (m2 m-2), by integrating Sv in a
-    given range interval.
-    
-    Args:
-        Sv (float)    : 2D array with Sv data (dB m-1)
-        r  (float)    : 1D array with range data (m)
-        r0 (int/float): Top range limit (m)
-        r1 (int/float): Bottom range limit (m)
-        method (str)  : Method for calculating sa. Accepts "mean" or "sum".
-        
-    Returns:
-        float: 1D array with area backscattering coefficient data.
-        float: 1D array with the percentage of vertical samples integrated.
-    """
-       
-    if operation=='mean':
-        svmean, pc, m_ = oned(lin(Sv), r, np.array([r0, r1]),
-                                 operation='mean')
-        integration_range = r1-r0
-        sa = svmean*integration_range
-        
-    elif operation=='sum':
-        svsum, pc, m_ = oned(lin(Sv), r, np.array([r0, r1]),
-                                operation='sum')
-        sample_height = (r[-1]-r[0])/len(r)
-        sa = svsum*sample_height
-    
-    return sa, pc, m_
 
-def Sv2NASC(Sv, r, r0, r1, operation='mean'):
-    """
-    Compute Nautical Area Scattering Soefficient (m2 nmi-2), by integrating Sv
-    in a given range interval.
-    
-    Args:
-        Sv (float)    : 2D array with Sv data (dB m-1)
-        r  (float)    : 1D array with range data (m)
-        r0 (int/float): Top range limit (m)
-        r1 (int/float): Bottom range limit (m)
-        method (str)  : Method for calculating sa. Accepts "mean" or "sum"
-        
-    Returns:
-        float: 1D array with Nautical Area Scattering Coefficient data.
-        float: 1D array with the percentage of vertical samples integrated.
-    """
-   
-    # get r0 and r1 indexes
-    r0 = np.argmin(abs(r-r0))
-    r1 = np.argmin(abs(r-r1))
-    
-    # get number and height of samples 
-    ns     = len(r[r0:r1])
-    sh = np.r_[np.diff(r), np.nan]
-    sh = np.tile(sh.reshape(-1,1), (1,len(Sv[0])))[r0:r1,:]
-    
-    # compute NASC    
-    sv = lin(Sv[r0:r1, :])
-    if operation=='mean':    
-        NASC = np.nanmean(sv * sh, axis=0) * ns * 4*np.pi*1852**2
-    elif operation=='sum':
-        NASC = np.nansum (sv * sh, axis=0)      * 4*np.pi*1852**2
-    else:
-        raise Exception('Method not recognised')
-    
-    # compute percentage of valid values (not NAN) behind every NASC integration    
-    per = (len(sv) - np.sum(np.isnan(sv*sh), axis=0)) / len(sv) * 100
-    
-    # correct sa with the proportion of valid values
-    NASC = NASC/(per/100)
-        
-    return NASC, per
-
-def pos2dis(lon, lat, units='nm'):
-    """
-    Return cumulated distance from longitude and latitude positions, in
-    nautical miles or kilometres.
-    
-    Args:
-        lon (float): 1D array with longitude data (decimal degrees)
-        lat (float): 1D array with latitude data (decimal degrees)
-        units (str): distance unit to return, accepts 'nm' and 'km'
-                     
-    Returns
-        float: 1D array with cumulated distance 
-    """
-
-    # calculate distance
-    dis = np.zeros(len(lon))*np.nan
-    
-    if units=='nm':
-        for i in range(len(dis)-1):
-            if np.isnan(lat[i]) | np.isnan(lon[i]) | np.isnan(lat[i+1]) | np.isnan(lon[i+1]):
-                dis[i] = np.nan
-            else:
-                dis[i] = distance((lat[i], lon[i]), (lat[i+1], lon[i+1])).nm
-    elif units=='km':
-        for i in range(len(dis)-1):
-            if np.isnan(lat[i]) | np.isnan(lon[i]) | np.isnan(lat[i+1]) | np.isnan(lon[i+1]):
-                dis[i] = np.nan
-            else:
-                dis[i] = distance((lat[i], lon[i]), (lat[i+1], lon[i+1])).km
-    else:
-        raise Exception('Units not recognised')
-    
-    # calculate cumulated distance
-    cumdis                = np.nancumsum(dis)
-    cumdis[np.isnan(dis)] = np.nan
-    
-    return cumdis
-
-def dis2speed(t, dis):
-    """
-    Return speed in distance travelled per hour.
-    
-    Args:
-        t   (datetime64[ms]): 1D array with time.
-        dis (float         ): 1D array with distance travelled.
-        
-    Returns:
-        float: 1D array with speed data.
-    """
-    
-    # divide by one hour (=3600 x 1000 milliseconds)
-    speed = np.diff(dis) / (np.float64(np.diff(t))/1000) *3600
-    speed = np.r_[np.nan, speed]
-    
-    return speed
 def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
     """
     Resample down an array along the two dimensions, i and j.
@@ -335,66 +207,66 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
 def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
     """
     Resample down an array along i or j dimension.
-    
+
     Args:
         data  (float) : 2D array with data to be resampled.
         dim   (float) : original dimension.
         rvals (float) : resampling dimension intervals.
         axis  (int  ) : resampling axis (0= i vertical ax, 1= j horizontal ax).
-        log   (bool ) : if True, data is considered logarithmic and it will 
+        log   (bool ) : if True, data is considered logarithmic and it will
                         be converted to linear during the calculations.
         operation(str): type of resampling operation. Accepts "mean" or "sum".
-                    
+
     Returns:
         float: 2D resampled data array
         float: 1D resampled array corresponding to either i or j dimension.
         float: 2D array with percentage of valid samples included on each
                resampled cell.
     """
-    
+
     # check if appropiate axis input
     if axis>1:
         raise Exception('axis must be 0 or 1')
-        
+
     # check if appropiate resampled dimension
     if len(rvals)<2:
         raise Exception('length of resampling intervals must be >2')
-    
-    # check if intervals are within the dimension range of values 
+
+    # check if intervals are within the dimension range of values
     for rval in rvals:
         if (rval<dim[0]) | (dim[-1]<rval):
             raise Exception('resampling intervals must be within dim range')
-        
+
     # convert data to linear, if logarithmic
     if log_var is True:
         data = lin(data)
-        
+
     # get axis from dimension
-    ax   = np.arange(len(dim))   
+    ax   = np.arange(len(dim))
     axrs = dim2ax(dim, ax, rvals)
-    
+
     # proceed along i dimension
     if axis==0:
         iax   = ax
         iaxrs = axrs
-        
+
         # check data and axis match
         if len(data)!=len(iax):
             raise Exception('data height and i dimension length must be equal')
-        
+
         # declare new array to allocate resampled values, and new array to
         # alllocate the percentage of values used for resampling
         datar     = np.zeros((len(iaxrs)-1, len(data[0])))*np.nan
         percentage = np.zeros((len(iaxrs)-1, len(data[0])))*np.nan
-        
+
         # iterate along i dimension
         for i in range(len(iaxrs)-1):
-            
+
             # get i indexes to locate the samples for the resampling operation
-            idx0     = np.where(iax-iaxrs[i+0]<=0)[0][-1]        
+            idx0     = np.where(iax-iaxrs[i+0]<=0)[0][-1]
             idx1     = np.where(iaxrs[i+1]-iax> 0)[0][-1]
             idx      = np.arange(idx0, idx1+1)
-            
+
             # get i weights as the sum of the proportions of samples taken
             iweight0 = 1 - abs(iax[idx0]-iaxrs[i+0])
             iweight1 = abs(iax[idx1]-iaxrs[i+1])
@@ -402,17 +274,17 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
                 iweights = np.r_[iweight0, np.ones(len(idx)-2), iweight1]
             else:
                 iweights = np.array([iweight0-1 + iweight1])
-                
+
             # get data and weight 2D matrices for the resampling operation
             d = data[idx[0]:idx[-1]+1, :]
             w = np.multiply.outer(iweights, np.ones(len(data[0])))
-                      
+
             # if d is an all-NAN array, return NAN as the weighted operation
             # and zero as the percentage of valid numbers used for binning
             if np.isnan(d).all():
                 datar     [i, :] = np.nan
                 percentage[i, :] = 0
-            
+
             # compute weighted operation and percentage valid numbers otherwise
             else:
                 w_             =w.copy()
@@ -423,40 +295,40 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
                     datar    [i,:]= np.nansum(d*w_,axis=0)
                 else:
                     raise Exception('Operation not recognised')
-                percentage[i,:]=np.nansum(w_  ,axis=0)/np.nansum(w ,axis=0)*100                        
-        
+                percentage[i,:]=np.nansum(w_  ,axis=0)/np.nansum(w ,axis=0)*100
+
         # convert back to logarithmic, if data was logarithmic
         if log_var is True:
             datar = log(datar)
-        
+
         # get resampled dimension from resampling interval
         dimr = rvals
-        
+
         # return data
         return datar, dimr, percentage
-    
+
     # proceed along j dimension
     if axis==1:
         jax   = ax
         jaxrs = axrs
-        
+
         # check data and axis match
         if len(data[0])!=len(jax):
             raise Exception('data width and j dimension lenght must be equal')
-        
+
         # declare new array to allocate resampled values, and new array to
         # alllocate the percentage of values used for resampling
         datar      = np.zeros((len(data), len(jaxrs)-1))*np.nan
         percentage = np.zeros((len(data), len(jaxrs)-1))*np.nan
-        
+
         # iterate along j dimension
         for j in range(len(jaxrs)-1):
-            
+
             # get j indexes to locate the samples for the resampling operation
-            jdx0     = np.where(jax-jaxrs[j+0]<=0)[0][-1]        
+            jdx0     = np.where(jax-jaxrs[j+0]<=0)[0][-1]
             jdx1     = np.where(jaxrs[j+1]-jax> 0)[0][-1]
             jdx      = np.arange(jdx0, jdx1+1)
-            
+
             # get j weights as the sum of the proportions of samples taken
             jweight0 = 1 - abs(jax[jdx0]-jaxrs[j+0])
             jweight1 = abs(jax[jdx1]-jaxrs[j+1])
@@ -464,17 +336,17 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
                 jweights = np.r_[jweight0, np.ones(len(jdx)-2), jweight1]
             else:
                 jweights = np.array([jweight0-1 + jweight1])
-                
+
             # get data and weight 2D matrices for the resampling operation
             d = data[:, jdx[0]:jdx[-1]+1]
             w = np.multiply.outer(np.ones(len(data)), jweights)
-                      
+
             # if d is an all-NAN array, return NAN as the weighted operation
             # and zero as the percentage of valid numbers used for resampling
             if np.isnan(d).all():
                 datar     [:, j] = np.nan
                 percentage[:, j] = 0
-            
+
             # compute weighted operation and percentage valid numbers otherwise
             else:
                 w_             =w.copy()
@@ -485,15 +357,15 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
                     datar     [:,j]=np.nansum(d*w_,axis=1)
                 else:
                     raise Exception('Operation not recognised')
-                percentage[:,j]=np.nansum(w_  ,axis=1)/np.nansum(w ,axis=1)*100                        
-        
+                percentage[:,j]=np.nansum(w_  ,axis=1)/np.nansum(w ,axis=1)*100
+
         # convert back to logarithmic, if data was logarithmic
         if log_var is True:
             datar = log(datar)
-        
+
         # get resampled dimension from resampling intervals
         dimr = rvals
-        
+
         # return data
         return datar, dimr, percentage
 
