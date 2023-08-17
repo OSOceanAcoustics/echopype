@@ -13,7 +13,7 @@ import xarray as xr
 from echopype.echodata import EchoData
 from echopype.testing import TEST_DATA_FOLDER
 
-file_name = "JR179-D20080410-T150637.RAW`"
+file_name = "JR179-D20080410-T150637.raw"
 ftp_main = "ftp://ftp.bas.ac.uk"
 ftp_partial_path = "/rapidkrill/ek60/"
 
