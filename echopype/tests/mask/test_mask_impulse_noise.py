@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union, Tuple
+import subprocess
 
 import echopype as ep
 import echopype.mask
@@ -7,37 +7,35 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from echopype.testing import TEST_DATA_FOLDER
 
-"""
-In order to run `test_mask_impulse_noise.py` with pytest, follow the steps below:
-    1. Locate the `test_data` directory in the current project.
-    2. Inside the `test_data` directory, create a new folder named `test_impulse_noise_mask_data`.
-    3. Download the necessary test file `JR230-D20091215-T121917.raw` from the provided link.
-        Link: [ ftp://ftp.bas.ac.uk/rapidkrill/ ]
-        The link was proviced HERE: [ https://github.com/open-ocean-sounding/echopy/tree/master/data ]
-After these steps, you should be able to successfully run the tests with pytest.
-"""
+file_name = "JR230-D20091215-T121917.raw"
+ftp_main = "ftp://ftp.bas.ac.uk"
+ftp_partial_path = "/rapidkrill/ek60/"
 
-echopype_path = os.path.abspath("./")
-test_data_path = os.path.join(
-    echopype_path,
-    "echopype",
-    "test_data",
-    "test_impulse_noise_mask_data",
-    "JR230-D20091215-T121917.raw",
+test_data_path: str = os.path.join(
+    TEST_DATA_FOLDER,
+    file_name,
 )
 
 
-file_path = test_data_path
+def set_up():
+    "Gets the test data if it doesn't already exist"
+    if not os.path.exists(TEST_DATA_FOLDER):
+        os.mkdir(TEST_DATA_FOLDER)
+    if not os.path.exists(test_data_path):
+        ftp_file_path = ftp_main + ftp_partial_path + file_name
+        subprocess.run(["wget", ftp_file_path, "-O", test_data_path])
 
 
 def get_sv_dataset(file_path: str) -> xr.DataArray:
+    set_up()
     ed = ep.open_raw(file_path, sonar_model="ek60")
     Sv = ep.calibrate.compute_Sv(ed).compute()
     return Sv
 
 
-source_Sv = get_sv_dataset(file_path)
+source_Sv = get_sv_dataset(test_data_path)
 desired_channel = "GPT 120 kHz 00907203422d 1 ES120-7"
 
 
