@@ -488,7 +488,7 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
                 percentage[:,j]=np.nansum(w_  ,axis=1)/np.nansum(w ,axis=1)*100                        
         
         # convert back to logarithmic, if data was logarithmic
-        if log is True:
+        if log_var is True:
             datar = log(datar)
         
         # get resampled dimension from resampling intervals
