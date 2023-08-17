@@ -9,14 +9,6 @@ import xarray as xr
 
 from echopype.testing import TEST_DATA_FOLDER
 
-"""
-In order to run `test_mask_transient.py` with pytest, follow the steps below:
-    1. Locate the `test_data` directory in the current project.
-    2. Download the necessary test file `JR161-D20061118-T010645.raw` from the provided link.
-        Link: [ ftp://ftp.bas.ac.uk/rapidkrill/ ]
-        The link was proviced HERE: [ https://github.com/open-ocean-sounding/echopy/tree/master/data ]
-After these steps, you should be able to successfully run the tests with pytest.
-"""
 
 file_name = "JR161-D20061118-T010645.raw"
 ftp_main = "ftp://ftp.bas.ac.uk"
