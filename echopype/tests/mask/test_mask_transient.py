@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union, Tuple
+import subprocess
 
 import echopype as ep
 import echopype.mask
@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from echopype.testing import TEST_DATA_FOLDER
 
 """
 In order to run `test_mask_transient.py` with pytest, follow the steps below:
@@ -17,7 +18,27 @@ In order to run `test_mask_transient.py` with pytest, follow the steps below:
 After these steps, you should be able to successfully run the tests with pytest.
 """
 
+file_name = "JR161-D20061118-T010645.raw"
+ftp_main = "ftp://ftp.bas.ac.uk"
+ftp_partial_path = "/rapidkrill/ek60/"
+
+test_data_path: str = os.path.join(
+    TEST_DATA_FOLDER,
+    file_name,
+)
+
+
+def set_up():
+    "Gets the test data if it doesn't already exist"
+    if not os.path.exists(TEST_DATA_FOLDER):
+        os.mkdir(TEST_DATA_FOLDER)
+    if not os.path.exists(test_data_path):
+        ftp_file_path = ftp_main + ftp_partial_path + file_name
+        subprocess.run(["wget", ftp_file_path, "-O", test_data_path])
+
+
 def get_sv_dataset(file_path: str) -> xr.DataArray:
+    set_up()
     ed = ep.open_raw(file_path, sonar_model="ek60")
     Sv = ep.calibrate.compute_Sv(ed).compute()
     return Sv
@@ -26,22 +47,14 @@ def get_sv_dataset(file_path: str) -> xr.DataArray:
 @pytest.mark.parametrize(
     "mask_type,r0,r1,n,roff,thr,excludeabove,operation,expected_true_false_counts",
     [
-        ("ryan", None, None, 20, None, 20, 250, 'percentile15',  (1941916, 225015)),
-        ("fielding", 200, 1000, 20,  250, [2,0], None, None,  (1890033, 276898)),
+        ("ryan", None, None, 20, None, 20, 250, 'percentile15', (1941916, 225015)),
+        ("fielding", 200, 1000, 20, 250, [2, 0], None, None, (1890033, 276898)),
     ],
 )
 def test_get_transient_mask(
-    mask_type,r0,r1,n,roff,thr,excludeabove,operation,expected_true_false_counts
+        mask_type, r0, r1, n, roff, thr, excludeabove, operation, expected_true_false_counts
 ):
-    echopype_path = os.path.abspath("../")
-    test_data_path = os.path.join(
-        echopype_path,
-        "test_data",
-        "JR161-D20061118-T010645.raw",
-    )
-    file_path = test_data_path
-    print(file_path)
-    source_Sv = get_sv_dataset(file_path)
+    source_Sv = get_sv_dataset(test_data_path)
     mask = echopype.mask.get_transient_noise_mask(
         source_Sv,
         mask_type=mask_type,
