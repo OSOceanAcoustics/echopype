@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union, Tuple
+import subprocess
 
 import echopype as ep
 import echopype.mask
@@ -7,17 +7,27 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from echopype.testing import TEST_DATA_FOLDER
 
-"""
-In order to run `test_mask_impulse_noise.py` with pytest, follow the steps below:
-    1. Locate the `test_data` directory in the current project.
-    2. Download the necessary test file `JR161-D20061118-T010645.raw` from the provided link.
-        Link: [ ftp://ftp.bas.ac.uk/rapidkrill/ ]
-        The link was proviced HERE: [ https://github.com/open-ocean-sounding/echopy/tree/master/data ]
-After these steps, you should be able to successfully run the tests with pytest.
-"""
+file_name = "JR161-D20061118-T010645.raw"
+ftp_main = "ftp://ftp.bas.ac.uk"
+ftp_partial_path = "/rapidkrill/ek60/"
+
+test_data_path: str = os.path.join(
+    TEST_DATA_FOLDER,
+    file_name,
+)
+
+def set_up():
+    "Gets the test data if it doesn't already exist"
+    if not os.path.exists(TEST_DATA_FOLDER):
+        os.mkdir(TEST_DATA_FOLDER)
+    if not os.path.exists(test_data_path):
+        ftp_file_path = ftp_main + ftp_partial_path + file_name
+        subprocess.run(["wget", ftp_file_path, "-O", test_data_path])
 
 def get_sv_dataset(file_path: str) -> xr.DataArray:
+    set_up()
     ed = ep.open_raw(file_path, sonar_model="ek60")
     Sv = ep.calibrate.compute_Sv(ed).compute()
     return Sv
@@ -32,14 +42,7 @@ def get_sv_dataset(file_path: str) -> xr.DataArray:
 def test_get_signal_attenuation_mask(
     mask_type, r0,r1,n,m,thr,start,offset,expected_true_false_counts
 ):
-    echopype_path = os.path.abspath("../")
-    test_data_path = os.path.join(
-        echopype_path,
-        "test_data",
-        "JR161-D20061118-T010645.raw",
-    )
-    file_path = test_data_path
-    source_Sv = get_sv_dataset(file_path)
+    source_Sv = get_sv_dataset(test_data_path)
     mask = echopype.mask.get_attenuation_mask(
         source_Sv,
         mask_type=mask_type,
