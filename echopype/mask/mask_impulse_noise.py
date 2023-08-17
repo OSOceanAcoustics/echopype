@@ -12,21 +12,12 @@ import echopype as ep
 
 from ..utils import mask_transformation
 
-def get_impulse_noise_mask(
-    source_Sv: xr.Dataset,
-    desired_channel: str,
-    thr: Union[Tuple[float, float], int, float],
-    m: Optional[Union[int, float]] = None,
-    n: Optional[Union[int, Tuple[int, int]]] = None,
-    erode: Optional[List[Tuple[int, int]]] = None,
-    dilate: Optional[List[Tuple[int, int]]] = None,
-    median: Optional[List[Tuple[int, int]]] = None,
-    method: str = "ryan",
-) -> xr.DataArray:
-    """
+
+"""
     Adaptation and Implementation of Impulse Noise Masking Algorithms: From Echopy to Echopype
 
         Algorithms for masking Impulse noise.
+        These methods are based on:
 
         Copyright (c) 2020 Echopy
 
@@ -49,8 +40,28 @@ def get_impulse_noise_mask(
         SOFTWARE.
 
         __authors__ = ['Alejandro Ariza'   # wrote ryan(), ryan_iterable(), and wang()
-                       'Raluca Simedroni' # adapted the impulse noise masking algorithms from the Echopy library and implemented them for use with the Echopype library.
-                        ]
+                
+    __authors__ = [ 'Raluca Simedroni' 
+                    # adapted the impulse noise masking algorithms 
+                    from the Echopy library and implemented them for use with the Echopype library.
+                   ]
+"""
+
+
+def get_impulse_noise_mask(
+    source_Sv: xr.Dataset,
+    desired_channel: str,
+    thr: Union[Tuple[float, float], int, float],
+    m: Optional[Union[int, float]] = None,
+    n: Optional[Union[int, Tuple[int, int]]] = None,
+    erode: Optional[List[Tuple[int, int]]] = None,
+    dilate: Optional[List[Tuple[int, int]]] = None,
+    median: Optional[List[Tuple[int, int]]] = None,
+    method: str = "ryan",
+) -> xr.DataArray:
+    """
+    Algorithms for masking Impulse noise.
+
     Parameters
     ----------
     source_Sv: xr.Dataset
