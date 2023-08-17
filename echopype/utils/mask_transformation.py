@@ -322,7 +322,7 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
                 percentage[i, j]  = np.nansum(  w_)/np.nansum(w )*100                        
     
     # convert back to logarithmic, if data was logarithmic
-    if log is True:
+    if log_var is True:
         datar = log(datar)
     
     # get resampled dimensions from resampling intervals
