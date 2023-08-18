@@ -1,14 +1,10 @@
-import operator as op
 import warnings
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
-from scipy.interpolate import interp1d
 from scipy.ndimage.filters import median_filter as medianf
 from skimage.morphology import dilation, erosion
-
-import echopype as ep
 
 from ..utils import mask_transformation
 
@@ -40,9 +36,9 @@ from ..utils import mask_transformation
         SOFTWARE.
 
         __authors__ = ['Alejandro Ariza'   # wrote ryan(), ryan_iterable(), and wang()
-                
-    __authors__ = [ 'Raluca Simedroni' 
-                    # adapted the impulse noise masking algorithms 
+
+    __authors__ = [ 'Raluca Simedroni'
+                    # adapted the impulse noise masking algorithms
                     from the Echopy library and implemented them for use with the Echopype library.
                    ]
 """
@@ -69,11 +65,15 @@ def get_impulse_noise_mask(
     desired_channel: str
         Name of the desired frequency channel.
     thr: float or tuple
-        User-defined threshold value (dB) (ryan and ryan iterable) or a 2-element tuple specifying the range of threshold values (wang).
+        User-defined threshold value (dB) (ryan and ryan iterable) o
+        r a 2-element tuple specifying the range of threshold values (wang).
     m: int or float, optional
-        Vertical binning length (in number of samples or range) (ryan and ryan iterable). Defaults to None.
+        Vertical binning length (in number of samples or range) (ryan and ryan iterable).
+        Defaults to None.
     n: int or tuple, optional
-        Number of pings either side for comparisons (ryan), or a 2-element tuple specifying the range (ryan iterable). Defaults to None.
+        Number of pings either side for comparisons (ryan),
+        or a 2-element tuple specifying the range (ryan iterable).
+        Defaults to None.
     erode: List of 2-element tuples, optional
         List indicating the window's size for each erosion cycle (wang). Defaults to None.
     dilate: List of 2-element tuples, optional
@@ -86,7 +86,8 @@ def get_impulse_noise_mask(
     Returns
     -------
     xr.DataArray
-        A DataArray consisting of a mask for the Sv data, wherein True values signify samples that are free of noise.
+        A DataArray consisting of a mask for the Sv data, wherein True values signify
+        samples that are free of noise.
     """
 
     def ryan(
@@ -253,7 +254,9 @@ def get_impulse_noise_mask(
         # compute median convolution in Sv corrected array
         Sv_median = Sv_corrected1.copy()
         for m in median:
-            Sv_median = mask_transformation.log(medianf(mask_transformation.lin(Sv_median), footprint=np.ones(m)))
+            Sv_median = mask_transformation.log(
+                medianf(mask_transformation.lin(Sv_median), footprint=np.ones(m))
+            )
 
         # any vacant sample inside biological features will be corrected with
         # the median of corresponding neighbouring samples
@@ -288,7 +291,8 @@ def get_impulse_noise_mask(
             thr    : 2-element tuple with bottom/top Sv thresholds (dB).
             erode  : List of 2-element tuples indicating the window's size for each erosion cycle.
             dilate : List of 2-element tuples indicating the window's size for each dilation cycle.
-            median : List of 2-element tuples indicating the window's size for each median filter cycle.
+            median : List of 2-element tuples indicating the window's
+                    size for each median filter cycle.
 
         Returns
         -------
@@ -297,14 +301,16 @@ def get_impulse_noise_mask(
         Warning
         -------
         Input Sv data shouldn't contain NaN values.
-        These values are not processed correctly by the impulse noise removal algorithm and 
+        These values are not processed correctly by the impulse noise removal algorithm and
         will be marked as noise in the output mask.
-        Please ensure that Sv data is cleaned or appropriately preprocessed before using this function.
+        Please ensure that Sv data is cleaned or appropriately preprocessed
+        before using this function.
 
-        This method identifies the locations of noise in the Sv data but does not follow
-        the exact same process as the wang function from echopy, which replaces the identified noise values
-        with -999. The visual representation in echograms produced from the output of this method
-        may therefore differ from those generated using the wang from echopy function. Users should take into
+        This method identifies the locations of noise in the Sv data but
+        does not follow the exact same process as the wang function from echopy,
+        which replaces the identified noise values with -999. The visual representation in echograms
+        produced from the output of this method may therefore differ from those generated using
+        the wang from echopy function. Users should take into
         account that regions marked as True in the returned mask have been identified as noise.
 
 
@@ -321,27 +327,40 @@ def get_impulse_noise_mask(
             warnings.warn(
                 "Input Sv data contains NaN values."
                 "These values are not processed correctly by the impulse noise removal algorithm"
-                "and will be marked as noise in the output mask." 
-                "Please ensure that Sv data is cleaned or appropriately preprocessed before using this function."
+                "and will be marked as noise in the output mask."
+                "Please ensure that Sv data is cleaned or appropriately "
+                "preprocessed before using this function."
             )
 
         # Transpose the Sv data so that the vertical dimension is the first dimension (axis 0)
         Sv = np.transpose(Sv)
 
-        # Call the wang function to get the cleaned Sv data and the mask indicating edges, where swarms analysis couldn't be performed
-        # The variable mask_ is a boolean mask where True represents edges where cleaning wasn't applied, and False represents areas where cleaning was applied.
+        """
+        Call the wang function to get the cleaned Sv data and the mask indicating edges,
+        where swarms analysis couldn't be performed
+        The variable mask_ is a boolean mask where
+        True represents edges where cleaning wasn't applied,
+        and False represents areas where cleaning was applied
+        """
         Sv_cleaned, mask_ = wang(Sv, thr, erode, dilate, median)
 
-        # Create a boolean mask comparing the original and cleaned Sv data
-        # Creates a boolean mask where True denotes locations where the original Sv values are different from the cleaned Sv values.
+        """
+        Create a boolean mask comparing the original and cleaned Sv data
+        Creates a boolean mask where True denotes locations where the original Sv values
+        are different from the cleaned Sv values.
+        """
+
         noise_mask = Sv != Sv_cleaned
 
         # Combined mask
-        # The bitwise negation ~ operator is applied to mask_. So, ~mask_ is True where cleaning was applied and False where cleaning wasn't applied (the edges).
+        # The bitwise negation ~ operator is applied to mask_.
+        # So, ~mask_ is True where cleaning was applied and
+        # False where cleaning wasn't applied (the edges).
         combined_mask = np.logical_and(~mask_, noise_mask)
 
         # Transpose the mask back to its original shape
-        # Combined_mask is a mask that marks valid (non-edge) locations where noise has been identified and cleaned.
+        # Combined_mask is a mask that marks valid (non-edge) locations where
+        # noise has been identified and cleaned.
         combined_mask = np.transpose(noise_mask)
 
         # Create a new xarray for the mask with the correct dimensions and coordinates
@@ -354,11 +373,11 @@ def get_impulse_noise_mask(
             },
         )
 
-        # Warning about the difference in color representation due to non-replacement of noise values
         warnings.warn(
             "The output mask from this function identifies regions of noise in the Sv data, "
-            "but does not modify these noise values in the same way as the `wang` function from echopy. "
-            "Visualizations using this mask may therefore differ from those generated using the `wang` function from echopy. "
+            "but does not modify them in the same way as the `wang` function from echopy."
+            "Visualizations using this mask may therefore differ from"
+            "those generated using the `wang` function from echopy. "
             "Be aware that regions marked as True in the mask are identified as noise."
         )
 
@@ -394,7 +413,7 @@ def get_impulse_noise_mask(
             - 'mask', where True values represent likely impulse noise, and
             - 'mask_', where True values represent valid samples for side comparison.
 
-        When adapting for echopype, we must ensure the mask aligns with our data orientation. 
+        When adapting for echopype, we must ensure the mask aligns with our data orientation.
         Hence, we transpose 'mask' and 'mask_' to match the shape of the data in 'Sv_ds'.
 
         Then, we create a combined mask using a bitwise AND operation between 'mask' and '~mask_'.
@@ -407,7 +426,7 @@ def get_impulse_noise_mask(
         # Extract Sv and iax for the desired frequency channel
         Sv = selected_channel_ds["Sv"].values
 
-        # But first, transpose the Sv data so that the vertical dimension is the first dimension (axis 0)
+        # But first, transpose the Sv data so that the vertical dimension is axis 0
         Sv = np.transpose(Sv)
 
         iax = selected_channel_ds.range_sample.values
@@ -465,7 +484,7 @@ def get_impulse_noise_mask(
             - 'mask', where True values represent likely impulse noise, and
             - 'mask_', where True values represent valid samples for side comparison.
 
-        When adapting for echopype, we must ensure the mask aligns with our data orientation. 
+        When adapting for echopype, we must ensure the mask aligns with our data orientation.
         Hence, we transpose 'mask' and 'mask_' to match the shape of the data in 'Sv_ds'.
 
         Then, we create a combined mask using a bitwise AND operation between 'mask' and '~mask_'.
@@ -478,7 +497,7 @@ def get_impulse_noise_mask(
         # Extract Sv and iax for the desired frequency channel
         Sv = selected_channel_ds["Sv"].values
 
-        # But first, transpose the Sv data so that the vertical dimension is the first dimension (axis 0)
+        # But first, transpose the Sv data so that the vertical dimension is axis 0
         Sv = np.transpose(Sv)
 
         iax = selected_channel_ds.range_sample.values
@@ -503,7 +522,8 @@ def get_impulse_noise_mask(
 
         return mask_xr
 
-    # Our goal is to have a mask where True represents samples that are NOT impulse noise. So, we negate the obtained mask.
+    # Our goal is to have a mask where True represents samples that are NOT impulse noise.
+    # So, we negate the obtained mask.
 
     if method == "ryan":
         impulse_mask_ryan = find_impulse_mask_ryan(source_Sv, desired_channel, m, n, thr)
