@@ -74,7 +74,7 @@ def log(variable):
         else:
             variable = np.array([variable])
             back2single = True
-    if variable.dtype == 'int64':
+    if variable.dtype == "int64":
         variable = variable * 1.0
         back2int = True
 
@@ -94,7 +94,7 @@ def log(variable):
     return log
 
 
-def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
+def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation="mean"):
     """
     Resample down an array along the two dimensions, i and j.
 
@@ -118,18 +118,18 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
 
     # check for appropriate inputs
     if len(irvals) < 2:
-        raise Exception('length of i resampling intervals must be  >2')
+        raise Exception("length of i resampling intervals must be  >2")
     if len(jrvals) < 2:
-        raise Exception('length of j resampling intervals must be >2')
+        raise Exception("length of j resampling intervals must be >2")
     if len(data) != len(idim):
-        raise Exception('data height and idim length must be the same')
+        raise Exception("data height and idim length must be the same")
     if len(data[0]) != len(jdim):
-        raise Exception('data width and jdim length must be the same')
+        raise Exception("data width and jdim length must be the same")
     for irval, jrval in zip(irvals, jrvals):
         if (irval < idim[0]) | (idim[-1] < irval):
-            raise Exception('i resampling intervals must be within idim range')
+            raise Exception("i resampling intervals must be within idim range")
         if (jrval < jdim[0]) | (jdim[-1] < jrval):
-            raise Exception('j resampling intervals must be within jdim range')
+            raise Exception("j resampling intervals must be within jdim range")
 
     # convert data to linear, if logarithmic
     if log_var is True:
@@ -148,7 +148,6 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
 
     # iterate along-range
     for i in range(len(iaxrs) - 1):
-
         # get i indexes to locate the samples for the binning operation
         idx0 = np.where(iax - iaxrs[i + 0] <= 0)[0][-1]
         idx1 = np.where(iaxrs[i + 1] - iax > 0)[0][-1]
@@ -164,7 +163,6 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
 
         # iterate along-pings
         for j in range(len(jaxrs) - 1):
-
             # get j indexes to locate the samples for the binning operation
             jdx0 = np.where(jax - jaxrs[j + 0] <= 0)[0][-1]
             jdx1 = np.where(jaxrs[j + 1] - jax > 0)[0][-1]
@@ -179,7 +177,7 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
                 jweights = np.array([jweight0 - 1 + jweight1])
 
             # get data and weight 2D matrices for the binning operation
-            d = data[idx[0]:idx[-1] + 1, jdx[0]:jdx[-1] + 1]
+            d = data[idx[0] : idx[-1] + 1, jdx[0] : jdx[-1] + 1]
             w = np.multiply.outer(iweights, jweights)
 
             # if d is an all-NAN array, return NAN as the weighted operation
@@ -192,12 +190,12 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
             else:
                 w_ = w.copy()
                 w_[np.isnan(d)] = np.nan
-                if operation == 'mean':
+                if operation == "mean":
                     datar[i, j] = np.nansum(d * w_) / np.nansum(w_)
-                elif operation == 'sum':
+                elif operation == "sum":
                     datar[i, j] = np.nansum(d * w_)
                 else:
-                    raise Exception('Operation not recognised')
+                    raise Exception("Operation not recognised")
                 percentage[i, j] = np.nansum(w_) / np.nansum(w) * 100
 
                 # convert back to logarithmic, if data was logarithmic
@@ -212,7 +210,7 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation='mean'):
     return datar, idimr, jdimr, percentage
 
 
-def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
+def oned(data, dim, rvals, axis, log_var=False, operation="mean"):
     """
     Resample down an array along i or j dimension.
 
@@ -234,16 +232,16 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
 
     # check if appropiate axis input
     if axis > 1:
-        raise Exception('axis must be 0 or 1')
+        raise Exception("axis must be 0 or 1")
 
     # check if appropiate resampled dimension
     if len(rvals) < 2:
-        raise Exception('length of resampling intervals must be >2')
+        raise Exception("length of resampling intervals must be >2")
 
     # check if intervals are within the dimension range of values
     for rval in rvals:
         if (rval < dim[0]) | (dim[-1] < rval):
-            raise Exception('resampling intervals must be within dim range')
+            raise Exception("resampling intervals must be within dim range")
 
     # convert data to linear, if logarithmic
     if log_var is True:
@@ -260,7 +258,7 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
 
         # check data and axis match
         if len(data) != len(iax):
-            raise Exception('data height and i dimension length must be equal')
+            raise Exception("data height and i dimension length must be equal")
 
         # declare new array to allocate resampled values, and new array to
         # alllocate the percentage of values used for resampling
@@ -269,7 +267,6 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
 
         # iterate along i dimension
         for i in range(len(iaxrs) - 1):
-
             # get i indexes to locate the samples for the resampling operation
             idx0 = np.where(iax - iaxrs[i + 0] <= 0)[0][-1]
             idx1 = np.where(iaxrs[i + 1] - iax > 0)[0][-1]
@@ -284,7 +281,7 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
                 iweights = np.array([iweight0 - 1 + iweight1])
 
             # get data and weight 2D matrices for the resampling operation
-            d = data[idx[0]:idx[-1] + 1, :]
+            d = data[idx[0] : idx[-1] + 1, :]
             w = np.multiply.outer(iweights, np.ones(len(data[0])))
 
             # if d is an all-NAN array, return NAN as the weighted operation
@@ -297,12 +294,12 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
             else:
                 w_ = w.copy()
                 w_[np.isnan(d)] = np.nan
-                if operation == 'mean':
+                if operation == "mean":
                     datar[i, :] = np.nansum(d * w_, axis=0) / np.nansum(w_, axis=0)
-                elif operation == 'sum':
+                elif operation == "sum":
                     datar[i, :] = np.nansum(d * w_, axis=0)
                 else:
-                    raise Exception('Operation not recognised')
+                    raise Exception("Operation not recognised")
                 percentage[i, :] = np.nansum(w_, axis=0) / np.nansum(w, axis=0) * 100
 
                 # convert back to logarithmic, if data was logarithmic
@@ -322,7 +319,7 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
 
         # check data and axis match
         if len(data[0]) != len(jax):
-            raise Exception('data width and j dimension lenght must be equal')
+            raise Exception("data width and j dimension lenght must be equal")
 
         # declare new array to allocate resampled values, and new array to
         # alllocate the percentage of values used for resampling
@@ -331,7 +328,6 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
 
         # iterate along j dimension
         for j in range(len(jaxrs) - 1):
-
             # get j indexes to locate the samples for the resampling operation
             jdx0 = np.where(jax - jaxrs[j + 0] <= 0)[0][-1]
             jdx1 = np.where(jaxrs[j + 1] - jax > 0)[0][-1]
@@ -346,7 +342,7 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
                 jweights = np.array([jweight0 - 1 + jweight1])
 
             # get data and weight 2D matrices for the resampling operation
-            d = data[:, jdx[0]:jdx[-1] + 1]
+            d = data[:, jdx[0] : jdx[-1] + 1]
             w = np.multiply.outer(np.ones(len(data)), jweights)
 
             # if d is an all-NAN array, return NAN as the weighted operation
@@ -359,12 +355,12 @@ def oned(data, dim, rvals, axis, log_var=False, operation='mean'):
             else:
                 w_ = w.copy()
                 w_[np.isnan(d)] = np.nan
-                if operation == 'mean':
+                if operation == "mean":
                     datar[:, j] = np.nansum(d * w_, axis=1) / np.nansum(w_, axis=1)
-                elif operation == 'sum':
+                elif operation == "sum":
                     datar[:, j] = np.nansum(d * w_, axis=1)
                 else:
-                    raise Exception('Operation not recognised')
+                    raise Exception("Operation not recognised")
                 percentage[:, j] = np.nansum(w_, axis=1) / np.nansum(w, axis=1) * 100
 
                 # convert back to logarithmic, if data was logarithmic
@@ -398,13 +394,13 @@ def full(datar, irvals, jrvals, idim, jdim):
 
     # check for appropiate inputs
     if len(irvals) < 2:
-        raise Exception('i resampling interval length must be >2')
+        raise Exception("i resampling interval length must be >2")
     if len(jrvals) < 2:
-        raise Exception('j resampling interval length must be >2')
+        raise Exception("j resampling interval length must be >2")
     if len(datar) + 1 < len(irvals):
-        raise Exception('i resampling intervals length can\'t exceed data height + 1')
+        raise Exception("i resampling intervals length can't exceed data height + 1")
     if len(datar[0]) + 1 < len(jrvals):
-        raise Exception('j resampling intervals length can\'t exceed data width + 1')
+        raise Exception("j resampling intervals length can't exceed data width + 1")
 
         # get i/j axes from i/j dimensions and i/j intervals
     iax = np.arange(len(idim))
@@ -432,21 +428,21 @@ def full(datar, irvals, jrvals, idim, jdim):
             for j in range(len(jaxrs) - 1):
                 jdx = np.where((jaxrs[j] <= jax) & (jax < jaxrs[j + 1]))[0]
                 if idx.size * jdx.size > 0:
-                    data[idx[0]:idx[-1] + 1, jdx[0]:jdx[-1] + 1] = datar[i, j]
+                    data[idx[0] : idx[-1] + 1, jdx[0] : jdx[-1] + 1] = datar[i, j]
 
     # if only i axis is different, resample back to full along i dimension
     elif idiff & (not jdiff):
         for i in range(len(iaxrs) - 1):
             idx = np.where((iaxrs[i] <= iax) & (iax < iaxrs[i + 1]))[0]
             if idx.size > 0:
-                data[idx[0]:idx[-1] + 1, :] = datar[i, :]
+                data[idx[0] : idx[-1] + 1, :] = datar[i, :]
 
     # if only j axis is different, resample back to full along j dimension
     elif (not idiff) & jdiff:
         for j in range(len(jaxrs) - 1):
             jdx = np.where((jaxrs[j] <= jax) & (jax < jaxrs[j + 1]))[0]
             if jdx.size > 0:
-                data[:, jdx[0]:jdx[-1] + 1] = datar[:, j].reshape(-1, 1)
+                data[:, jdx[0] : jdx[-1] + 1] = datar[:, j].reshape(-1, 1)
 
     # if i/j resampled & i/j full are the same, data resampled & data are equal
     else:
@@ -497,14 +493,13 @@ def dim2ax(dim, ax, dimrs):
     # check that resampled dimension doesn't exceed the limits
     # of the original one
     if (dimrs[0] < dim[0]) | (dimrs[-1] > dim[-1]):
-        raise Exception('resampling dimension can not exceed ' +
-                        'the original dimension limits')
+        raise Exception("resampling dimension can not exceed " + "the original dimension limits")
 
         # convert variables to float64 if they are in datetime64 format
-    epoch = np.datetime64('1970-01-01T00:00:00')
-    if 'datetime64' in str(dim[0].dtype):
+    epoch = np.datetime64("1970-01-01T00:00:00")
+    if "datetime64" in str(dim[0].dtype):
         dim = np.float64(dim - epoch)
-    if 'datetime64' in str(dimrs[0].dtype):
+    if "datetime64" in str(dimrs[0].dtype):
         dimrs = np.float64(dimrs - epoch)
 
     # get interpolated new y variable
