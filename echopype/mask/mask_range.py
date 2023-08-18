@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -29,10 +29,10 @@ import xarray as xr
             SOFTWARE.
 
             __authors__ = ['Alejandro Ariza'   # wrote above(), below(), inside(), outside()]
-        
-    __authors__ = ['Raluca Simedroni' 
-                    # adapted the range masking algorithms from the Echopy library and implemented them 
-                    for use with the Echopype library.
+
+    __authors__ = ['Raluca Simedroni'
+                    # adapted the range masking algorithms from the Echopy library and
+                    implemented them for use with the Echopype library.
                     ]
 """
 
@@ -46,7 +46,8 @@ def get_range_mask(
 ):
     """
     Creates a mask for a given data set based on the range and method provided.
-    This function can mask data that's `above`, `below`, `inside` or `outside` a given range. The desired frequency channel
+    This function can mask data that's `above`, `below`, `inside`
+    or `outside` a given range. The desired frequency channel
     from the data set is selected, then the mask is created based on the method chosen.
 
     Parameters
@@ -60,7 +61,8 @@ def get_range_mask(
     r1: Optional[Union[int, float]]
         The upper limit of the range for masking. Defaults to NaN which signifies no upper limit.
     method: str
-        The method to create the mask. Can be 'above', 'below', 'inside', or 'outside'. Defaults to 'above'.
+        The method to create the mask. Can be 'above', 'below',
+        'inside', or 'outside'. Defaults to 'above'.
 
     Returns
     -------
@@ -74,7 +76,7 @@ def get_range_mask(
     # Extract Sv and iax for the desired frequency channel
     Sv = selected_channel_ds["Sv"].values
 
-    # But first, transpose the Sv data so that the vertical dimension is the first dimension (axis 0)
+    # But first, transpose the Sv data so that the vertical dimension is axis 0
     Sv = np.transpose(Sv)
 
     r = selected_channel_ds.range_sample.values
@@ -178,7 +180,6 @@ def get_range_mask(
 
     # Transpose the mask back to its original shape
     mask = np.transpose(mask)
-
 
     # Create a new xarray for the mask with the correct dimensions and coordinates
     mask_xr = xr.DataArray(
