@@ -74,7 +74,10 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
 
 
 def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: Literal["WBT", "PC"], param_type: Literal["coeff", "decimation"]
+    vend: xr.Dataset,
+    channel_id: str,
+    filter_name: Literal["WBT", "PC"],
+    param_type: Literal["coeff", "decimation"],
 ) -> Optional[Union[np.ndarray, int]]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
