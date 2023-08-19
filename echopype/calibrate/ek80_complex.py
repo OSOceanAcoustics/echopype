@@ -64,8 +64,6 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
     ytx_wbt_deci = ytx_wbt[0 :: coeff_ch["wbt_decifac"]]
 
     # PC filter and decimation
-    if len(coeff_ch["pc_fil"].squeeze().shape) == 0:  # in case it is a single element
-        coeff_ch["pc_fil"] = [coeff_ch["pc_fil"].squeeze()]
     ytx_pc = signal.convolve(ytx_wbt_deci, coeff_ch["pc_fil"])
     ytx_pc_deci = ytx_pc[0 :: coeff_ch["pc_decifac"]]
     ytx_pc_deci_time = (
@@ -76,7 +74,10 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
 
 
 def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: Literal["coeff", "decimation"]
+    vend: xr.Dataset,
+    channel_id: str,
+    filter_name: Literal["WBT", "PC"],
+    param_type: Literal["coeff", "decimation"],
 ) -> Optional[Union[np.ndarray, int]]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
@@ -113,8 +114,6 @@ def get_vend_filter_EK80(
         v_complex = sel_vend[var_real] + 1j * sel_vend[var_imag]
         # Drop nan fillers and get the values
         v = v_complex.dropna(dim=f"{filter_name}_filter_n").values
-        if v.size == 1:
-            v = np.expand_dims(v, axis=0)  # expand dims for convolution
         return v
     else:
         # Get the decimation value
@@ -281,10 +280,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         replica = np.flipud(np.conj(tx))
         pc = xr.apply_ufunc(
             lambda m: np.apply_along_axis(
-                lambda m: (
-                    signal.convolve(m, replica, mode="full")[tx.size - 1 :]
-                    / np.linalg.norm(tx) ** 2
-                ),
+                lambda m: (signal.convolve(m, replica, mode="full")[tx.size - 1 :]),
                 axis=2,
                 arr=m,
             ),
@@ -307,3 +303,25 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     )
 
     return pc_all
+
+
+def get_norm_fac(chirp: Dict) -> xr.DataArray:
+    """
+    Get normalization factor from the chirp dictionary.
+
+    Parameters
+    ----------
+    chirp : dict
+        transmit chirp replica indexed by ``channel``
+
+    Returns
+    -------
+    xr.DataArray
+        A data array containing the normalization factor, with channel coordinate
+    """
+    norm_fac = []
+    ch_all = []
+    for ch, tx in chirp.items():
+        norm_fac.append(np.linalg.norm(tx) ** 2)
+        ch_all.append(ch)
+    return xr.DataArray(norm_fac, coords={"channel": ch_all})
