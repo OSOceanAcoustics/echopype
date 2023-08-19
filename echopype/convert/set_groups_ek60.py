@@ -6,7 +6,6 @@ import xarray as xr
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
-from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
 from .set_groups_base import SetGroupsBase
@@ -59,8 +58,6 @@ class SetGroupsEK60(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.old_ping_time = None
-
         # obtain sorted channel dict in ascending order
         channels = list(self.parser_obj.config_datagram["transceivers"].keys())
         channel_ids = {
@@ -80,70 +77,6 @@ class SetGroupsEK60(SetGroupsBase):
             self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
             for ch in self.sorted_channel.keys()
         ]
-
-        # correct duplicate ping_time
-        for ch in self.sorted_channel.keys():
-            ping_time = self.parser_obj.ping_time[ch]
-            _, unique_idx = np.unique(ping_time, return_index=True)
-            duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
-            if duplicates.any():
-                if self.old_ping_time is None:
-                    if (
-                        len({arr.shape for arr in self.parser_obj.ping_time.values()}) == 1
-                        and np.unique(np.stack(self.parser_obj.ping_time.values()), axis=0).shape[0]
-                        == 1
-                    ):
-                        self.old_ping_time = self.parser_obj.ping_time[ch]
-                    else:
-                        ping_times = [
-                            xr.DataArray(arr, dims="ping_time")
-                            for arr in self.parser_obj.ping_time.values()
-                        ]
-                        self.old_ping_time = xr.concat(ping_times, dim="ping_time")
-
-                backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
-                # indexes of duplicates including the originals
-                # (if there are 2 times that are the same, both will be included)
-                (all_duplicates_idx,) = np.where(np.isin(ping_time, ping_time[duplicates][0]))
-                if np.array_equal(
-                    backscatter_r[all_duplicates_idx[0]],
-                    backscatter_r[all_duplicates_idx[1]],
-                ):
-                    logger.warning(
-                        "duplicate pings with identical values detected; the duplicate pings will be removed"  # noqa
-                    )
-                    for v in self.parser_obj.ping_data_dict.values():
-                        if v[ch] is None or len(v[ch]) == 0:
-                            continue
-                        if isinstance(v[ch], np.ndarray):
-                            v[ch] = v[ch][unique_idx]
-                        else:
-                            v[ch] = [v[ch][i] for i in unique_idx]
-                    self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][unique_idx]
-                else:
-                    logger.warning(
-                        "duplicate ping times detected; the duplicate times will be incremented by 1 nanosecond and remain in the ping_time coordinate. The original ping times will be preserved in the Provenance group"  # noqa
-                    )
-
-                    deltas = duplicates * np.timedelta64(1, "ns")
-                    new_ping_time = ping_time + deltas
-                    self.parser_obj.ping_time[ch] = new_ping_time
-
-    def set_provenance(self) -> xr.Dataset:
-        """Set the Provenance group."""
-        prov_dict = echopype_prov_attrs(process_type="conversion")
-        prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
-        files_vars = source_files_vars(self.input_file)
-        if self.old_ping_time is not None:
-            source_vars = {"old_ping_time": self.old_ping_time, **files_vars["source_files_var"]}
-        else:
-            source_vars = files_vars["source_files_var"]
-
-        ds = xr.Dataset(
-            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
-        )
-
-        return ds
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
