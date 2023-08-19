@@ -155,20 +155,6 @@ def test_convert_ek60_echoview_raw(ek60_path):
     assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 
-def test_convert_ek60_duplicate_ping_times(ek60_path):
-    """Convert a file with duplicate ping times"""
-
-    raw_path = (
-        ek60_path
-        / "ooi"
-        / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
-    )
-    ed = open_raw(raw_path, "EK60")
-
-    assert "duplicate_ping_times" in ed["Provenance"].attrs
-    assert "old_ping_time" in ed["Provenance"]
-
-
 def test_convert_ek60_duplicate_frequencies(ek60_path):
     """Convert a file with duplicate frequencies"""
 

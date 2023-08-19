@@ -461,6 +461,17 @@ class SetGroupsEK80(SetGroupsBase):
                 self.parser_obj.config_datagram["configuration"][ch].get(param, np.nan)
                 for ch in self.sorted_channel[data_type]
             ]
+
+        for i, ch in enumerate(self.sorted_channel[data_type]):
+            if (
+                np.isclose(beam_params["transducer_alpha_x"][i], 0.00)
+                and np.isclose(beam_params["transducer_alpha_y"][i], 0.00)
+                and np.isclose(beam_params["transducer_alpha_z"][i], 0.00)
+            ):
+                beam_params["transducer_alpha_x"][i] = np.nan
+                beam_params["transducer_alpha_y"][i] = np.nan
+                beam_params["transducer_alpha_z"][i] = np.nan
+
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
