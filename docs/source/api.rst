@@ -93,6 +93,14 @@ mask
    :no-inheritance-diagram:
    :no-heading:
 
+metrics
+^^^^^^^
+
+.. automodapi:: echopype.metrics
+   :no-inheritance-diagram:
+   :no-heading:
+
+
 Utilities
 ---------
 

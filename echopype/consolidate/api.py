@@ -29,8 +29,8 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
     -------
     The input dataset with the dimension swapped
 
-    Note
-    ----
+    Notes
+    -----
     This operation is only possible when there are no duplicated frequencies present in the file.
     """
     # Only possible if no duplicated frequencies
