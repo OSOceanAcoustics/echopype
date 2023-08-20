@@ -12,7 +12,6 @@ parts:
   chapters:
   - file: convert
   - file: open-converted
-  - file: data-proc
   - file: data-format
     title: Data formats
     sections:
@@ -20,6 +19,7 @@ parts:
     - file: data-format-raw
     - file: data-format-processed
     - file: data-format-5to6
+  - file: data-proc
   - file: viz
   - file: processing-levels
     title: Processing levels
