@@ -325,7 +325,10 @@ def add_splitbeam_angle(
     ]
     angle_params = {}
     for p_name in angle_param_list:
-        angle_params[p_name] = source_Sv[p_name]
+        if p_name in source_Sv:
+            angle_params[p_name] = source_Sv[p_name]
+        else:
+            raise ValueError(f"source_Sv does not contain the necessary parameter {p_name}!")
 
     # fail if source_Sv and ds_beam do not have the same lengths
     # for ping_time, range_sample, and channel

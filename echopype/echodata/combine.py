@@ -1,6 +1,6 @@
-import datetime
 import itertools
 import re
+from collections import ChainMap
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from warnings import warn
@@ -13,6 +13,7 @@ from datatree import DataTree
 
 from ..utils.io import validate_output_path
 from ..utils.log import _init_logger
+from ..utils.prov import echopype_prov_attrs
 from .echodata import EchoData
 
 logger = _init_logger(__name__)
@@ -643,6 +644,50 @@ def _capture_prov_attrs(
     return prov_ds
 
 
+def _get_prov_attrs(
+    ds: xr.Dataset, is_combined: bool = True
+) -> Optional[Dict[str, List[Dict[str, str]]]]:
+    """
+    Get the provenance attributes from the dataset.
+    This function is meant to be used on an already combined dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The Provenance group dataset to get attributes from
+    is_combined: bool
+        The flag to indicate if it's combined
+
+    Returns
+    -------
+    Dict[str, List[Dict[str, str]]]
+        The provenance attributes
+    """
+
+    if is_combined:
+        attrs_dict = {}
+        for k, v in ds.data_vars.items():
+            # Go through each data variable and extract the attribute values
+            # based on the echodata group as stored in the variable attribute
+            if ED_GROUP in v.attrs:
+                ed_group = v.attrs[ED_GROUP]
+                if ed_group not in attrs_dict:
+                    attrs_dict[ed_group] = []
+                # Store the values as a list of dictionary for each group
+                attrs_dict[ed_group].append([{k: i} for i in v.values])
+
+        # Merge the attributes for each group so it matches the
+        # attributes dict for later merging
+        return {
+            ed_group: [
+                dict(ChainMap(*v))
+                for _, v in pd.DataFrame.from_dict(attrs).to_dict(orient="list").items()
+            ]
+            for ed_group, attrs in attrs_dict.items()
+        }
+    return None
+
+
 def _combine(
     sonar_model: str,
     eds: List[EchoData] = [],
@@ -680,7 +725,27 @@ def _combine(
     attrs_dict = {}
 
     # Check if input data are combined datasets
-    all_combined = all(ed["Provenance"].attrs.get("is_combined", False) for ed in eds)
+    # Create combined mapping for later use
+    combined_mapping = []
+    for idx, ed in enumerate(eds):
+        is_combined = ed["Provenance"].attrs.get("is_combined", False)
+        combined_mapping.append(
+            {
+                "is_combined": is_combined,
+                "attrs_dict": _get_prov_attrs(ed["Provenance"], is_combined),
+                "echodata_filename": [str(s) for s in ed["Provenance"][ED_FILENAME].values]
+                if is_combined
+                else [echodata_filenames[idx]],
+            }
+        )
+    # Get single boolean value to see if there's any combined files
+    any_combined = any(d["is_combined"] for d in combined_mapping)
+
+    if any_combined:
+        # Fetches the true echodata filenames if there are any combined files
+        echodata_filenames = list(
+            itertools.chain.from_iterable([d[ED_FILENAME] for d in combined_mapping])
+        )
 
     # Create Echodata tree dict
     tree_dict = {}
@@ -697,8 +762,28 @@ def _combine(
         ]
 
         if ds_list:
-            # Get all of the keys and attributes
-            ds_attrs = [ds.attrs for ds in ds_list]
+            if not any_combined:
+                # Get all of the keys and attributes
+                # for regular non combined echodata object
+                ds_attrs = [ds.attrs for ds in ds_list]
+            else:
+                # If there are any combined files,
+                # iterate through from mapping above
+                ds_attrs = []
+                for idx, ds in enumerate(ds_list):
+                    # Retrieve the echodata attrs dict
+                    # parsed from provenance group above
+                    ed_attrs_dict = combined_mapping[idx]["attrs_dict"]
+                    if ed_attrs_dict is not None:
+                        # Set attributes to the appropriate group
+                        # from echodata attrs provenance,
+                        # set default empty dict for missing group
+                        attrs = ed_attrs_dict.get(ed_group, {})
+                    else:
+                        # This is for non combined echodata object
+                        attrs = [ds.attrs]
+                    ds_attrs += attrs
+
             # Attribute holding
             attrs_dict[ed_group] = ds_attrs
 
@@ -742,24 +827,27 @@ def _combine(
                 combined_ds.attrs.update(
                     {
                         "is_combined": True,
-                        "conversion_time": datetime.datetime.utcnow().strftime(
-                            "%Y-%m-%dT%H:%M:%SZ"
-                        ),
+                        "conversion_software_name": group_attrs["conversion_software_name"],
+                        "conversion_software_version": group_attrs["conversion_software_version"],
+                        "conversion_time": group_attrs["conversion_time"],
                     }
                 )
+                prov_dict = echopype_prov_attrs(process_type="combination")
+                combined_ds = combined_ds.assign_attrs(prov_dict)
 
             # Data holding
             tree_dict[ed_group] = combined_ds
 
-    if not all_combined:
-        # Capture provenance for all the attributes
-        prov_ds = _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model)
+    # Capture provenance for all the attributes
+    prov_ds = _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model)
+    if not any_combined:
         # Update the provenance dataset with the captured data
         prov_ds = tree_dict["Provenance"].assign(prov_ds)
     else:
-        prov_ds = tree_dict["Provenance"]
+        prov_ds = tree_dict["Provenance"].drop_dims(ED_FILENAME).assign(prov_ds)
+
     # Update filenames to iter integers
-    prov_ds[FILENAMES] = prov_ds[FILENAMES].copy(data=np.arange(*prov_ds[FILENAMES].shape))
+    prov_ds[FILENAMES] = prov_ds[FILENAMES].copy(data=np.arange(*prov_ds[FILENAMES].shape))  # noqa
     tree_dict["Provenance"] = prov_ds
 
     return tree_dict

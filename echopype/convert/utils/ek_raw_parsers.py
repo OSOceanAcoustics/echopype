@@ -413,7 +413,7 @@ class SimradNMEAParser(_SimradDatagramParser):
         """
         Parses the NMEA string provided in raw_string
 
-        :param raw_string:  Raw NMEA strin (i.e. '$GPZDA,160012.71,11,03,2004,-1,00*7D')
+        :param raw_string:  Raw NMEA string (i.e. '$GPZDA,160012.71,11,03,2004,-1,00*7D')
         :type raw_string: str
 
         :returns: None
@@ -700,7 +700,7 @@ class SimradXMLParser(_SimradDatagramParser):
         """
         Parses the NMEA string provided in raw_string
 
-        :param raw_string:  Raw NMEA strin (i.e. '$GPZDA,160012.71,11,03,2004,-1,00*7D')
+        :param raw_string:  Raw NMEA string (i.e. '$GPZDA,160012.71,11,03,2004,-1,00*7D')
         :type raw_string: str
 
         :returns: None
