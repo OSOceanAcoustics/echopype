@@ -4,7 +4,7 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
-# v0.8.0 (2023 August 6)
+# v0.8.0 (2023 August 24)
 
 ## Overview
 
