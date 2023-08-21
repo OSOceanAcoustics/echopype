@@ -11,7 +11,7 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 This release includes important updates to the raw-converted data format based on adaptation of convention, an efficiency boost for combining multiple `EchoData` objects, packaging and infrastructure upgrades, and other updates necessitated by these changes.
 
 ## Enhancement
-- Overhaul the `combine_echodata` function (#1042)
+- Overhaul the `combine_echodata` function (#1042, #1116)
   - No longer require spinning up dask client under the hood during combine
   - Use `xr.concat` directly compatible with delayed computation
   - No longer require destination path as input argument
@@ -31,11 +31,14 @@ This release includes important updates to the raw-converted data format based o
 - Add new `Provenance` group `combination_*` attributes to combined `EchoData` object, mirroring the `conversion_*` attributes (#1113)
 - Bring more consistency in the `Platform` group across sensors on conversion (#1058, #1061)
 - Add missing mandatory variables and other data format changes (#1094, #1099, #1101, #1102, #1103, #1104, #1107, #1114)
+- Set time arrays explicitly to datetime64[ns] in parsers and remove duplicated timestamp stuff (#1117)
 
 ## Packaging and infrastructure
 - Remove Pandas<2 pinning (#1080)
 - Pin netcdf to >1.6 and add explicit encoding (#1112)
 - Update CI to prepare for python 3.11 (#1108)
+- Switch github action for get-changed-files (#1118)
+- Fix discrepancy on test log output (#1119)
 
 ## Others
 - Set and fix encoding for variable encoding (#1072)
@@ -47,6 +50,14 @@ This release includes important updates to the raw-converted data format based o
 - Factor out a normalization factor from pulse compression function for flexible use (#1105)
 - Add existence checking for angle parameters in `consolidate.add_splitbeam_angle` (#1105)
 - Remove the deprecated `preprocess` subpackage (#1077, #1082)
+- Remove the `ZarrCombine` module since it is no longer used (#1117)
+
+## Documentation
+- Add rendering for example `EchoData` objects for all supported echosounders to show the updated format (#1089)
+- Restructure TOC to have separate Raw data formats and Data Processing sections, each with new subpages (#1093)
+
+
+
 
 
 
