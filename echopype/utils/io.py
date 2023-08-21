@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import fsspec
 import xarray as xr
+from dask.array import Array as DaskArray
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
-from dask.array import Array as DaskArray
 
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
