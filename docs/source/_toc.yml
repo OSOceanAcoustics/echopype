@@ -13,13 +13,16 @@ parts:
   - file: convert
   - file: open-converted
   - file: data-format
-    title: Data formats
+    title: Raw data formats
     sections:
     - file: data-format-sonarnetcdf4
     - file: data-format-raw
-    - file: data-format-processed
     - file: data-format-5to6
   - file: data-proc
+    title: Data processing
+    sections:
+    - file: data-proc-func
+    - file: data-proc-additional
   - file: viz
   - file: processing-levels
     title: Processing levels
