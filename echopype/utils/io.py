@@ -13,6 +13,7 @@ import fsspec
 import xarray as xr
 from fsspec import FSMap
 from fsspec.implementations.local import LocalFileSystem
+from dask.array import Array as DaskArray
 
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
@@ -61,7 +62,8 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
     elif engine == "zarr":
         # Ensure that encoding and chunks match
         for var, enc in encoding.items():
-            ds[var] = ds[var].chunk(enc.get("chunks", {}))
+            if isinstance(ds[var].data, DaskArray):
+                ds[var] = ds[var].chunk(enc.get("chunks", {}))
         ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding, **kwargs)
     else:
         raise ValueError(f"{engine} is not a supported save format")
