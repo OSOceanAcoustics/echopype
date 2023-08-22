@@ -2,7 +2,7 @@ import os
 import subprocess
 
 import echopype as ep
-import echopype.mask
+import echopype.mask.mask_shoal
 import numpy as np
 import pytest
 import xarray as xr
@@ -21,7 +21,7 @@ test_data_path: str = os.path.join(
 
 
 def set_up():
-    "Gets the test data if it doesn't already exist"
+    """Gets the test data if it doesn't already exist"""
     if not os.path.exists(TEST_DATA_FOLDER):
         os.mkdir(TEST_DATA_FOLDER)
     if not os.path.exists(test_data_path):
@@ -37,29 +37,19 @@ def get_sv_dataset(file_path: str) -> xr.DataArray:
 
 
 @pytest.mark.parametrize(
-    "mask_type,r0,r1,n,roff,thr,excludeabove,operation,expected_true_false_counts",
-    [
-        ("ryan", None, None, 20, None, 20, 250, 'percentile15', (1941916, 225015)),
-        ("fielding", 200, 1000, 20, 250, [2, 0], None, None, (1890033, 276898)),
-    ],
+    "expected_tf_counts,expected_tf_counts_,test_data_path",
+    [((186650, 1980281), (2166931, 0), test_data_path)],
 )
-def test_get_transient_mask(
-        mask_type, r0, r1, n, roff, thr, excludeabove, operation, expected_true_false_counts
-):
+def test_get_shoal_mask_weill(expected_tf_counts, expected_tf_counts_, test_data_path):
     source_Sv = get_sv_dataset(test_data_path)
-    mask = echopype.mask.get_transient_noise_mask(
-        source_Sv,
-        mask_type=mask_type,
-        r0=r0,
-        r1=r1,
-        n=n,
-        roff=roff,
-        thr=thr,
-        excludeabove=excludeabove,
-        operation=operation
-    )
+    mask, mask_ = echopype.mask.mask_shoal.weill(source_Sv)
+
     count_true = np.count_nonzero(mask)
     count_false = mask.size - count_true
     true_false_counts = (count_true, count_false)
+    assert true_false_counts == expected_tf_counts
 
-    assert true_false_counts == expected_true_false_counts
+    count_true_ = np.count_nonzero(mask_)
+    count_false_ = mask.size - count_true_
+    true_false_counts_ = (count_true_, count_false_)
+    assert true_false_counts_ == expected_tf_counts_
