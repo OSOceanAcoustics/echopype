@@ -4,8 +4,8 @@ from typing import Union
 import numpy as np
 import xarray as xr
 
-from ..utils.mask_transformation import log as _log
-from ..utils.mask_transformation import lin as _lin
+#from ..utils.mask_transformation import log as _log
+#from ..utils.mask_transformation import lin as _lin
 
 """
  Algorithms for masking transient noise.
