@@ -4,9 +4,9 @@ import subprocess
 import echopype as ep
 import echopype.mask.mask_shoal
 import numpy as np
-import pytest
 import xarray as xr
 
+import pytest
 from echopype.testing import TEST_DATA_FOLDER
 
 
@@ -31,9 +31,11 @@ def set_up():
 
 def get_sv_dataset(file_path: str) -> xr.DataArray:
     set_up()
-    ed = ep.open_raw(file_path, sonar_model="ek60")
+    ed = ep.open_raw(file_path, sonar_model="EK60")
     Sv = ep.calibrate.compute_Sv(ed).compute()
-    return Sv
+    Sv_loc = ep.consolidate.add_location(Sv, ed)
+    # Sv_depth = ep.consolidate.add_depth(Sv_loc)
+    return Sv_loc
 
 
 @pytest.mark.parametrize(

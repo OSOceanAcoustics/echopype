@@ -94,7 +94,6 @@ def weill(
         criteria are filled with ``True``, else the regions are filled with ``False``.
     """
     Sv = source_Sv["Sv"].values[0]
-    r = source_Sv["echo_range"].values[0, 0]
 
     # mask Sv above threshold
     mask = np.ma.masked_greater(Sv, thr).mask
