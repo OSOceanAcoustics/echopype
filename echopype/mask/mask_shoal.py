@@ -37,6 +37,57 @@ credits = ['Rob Blackwell'     # supervised the code and provided ideas
 """
 
 
+def get_shoal_mask(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "weill", **kwargs
+):
+    """
+    Wrapper function for (future) multiple shoal masking algorithms (currently, only MOVIES-B (Weill) is implemented)
+
+    Args:
+        source_Sv: xr.Dataset or str or pathlib.Path
+                    If a Dataset this value contains the Sv data to create a mask for,
+                    else it specifies the path to a zarr or netcdf file containing
+                    a Dataset. This input must correspond to a Dataset that has the
+                    coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+        mask_type: string specifying the algorithm to use - currently, 'weill' is the only one implemented
+
+    Returns
+    -------
+    mask: xr.DataArray
+        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
+        criteria are filled with ``True``, else the regions are filled with ``False``.
+    mask_: xr.DataArray
+        A DataArray containing the mask for areas in which shoals were searched.
+        Edge regions are filled with 'False', whereas the portion in which shoals could be detected is 'True'
+
+
+    Raises
+    ------
+    ValueError
+        If 'weill' is not given
+    """
+    assert mask_type in ["weill"]
+    if mask_type == "weill":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"thr", "maxvgap", "maxhgap", "minvlen", "minhlen"}
+        # Filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask, mask_ = weill(source_Sv, **filtered_kwargs)
+    else:
+        raise ValueError("The provided mask type must be Weill")
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return_mask_ = xr.DataArray(
+        mask_,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask, return_mask_
+
+
 def weill(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     thr=-70,
@@ -44,7 +95,7 @@ def weill(
     maxhgap=0,
     minvlen=0,
     minhlen=0,
-) -> xr.DataArray:
+):
     """
     Detects and masks shoals following the algorithm described in:
 
@@ -89,9 +140,12 @@ def weill(
 
     Returns
     -------
-    xr.DataArray
+    mask: xr.DataArray
         A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
         criteria are filled with ``True``, else the regions are filled with ``False``.
+    mask_: xr.DataArray
+        A DataArray containing the mask for areas in which shoals were searched.
+        Edge regions are filled with 'False', whereas the portion in which shoals could be detected is 'True'
     """
     Sv = source_Sv["Sv"].values[0]
 
