@@ -35,6 +35,7 @@ from scipy.interpolate import interp1d
 from geopy.distance import distance
 
 
+
 def lin(variable):
     """
     Turn variable into the linear domain.
