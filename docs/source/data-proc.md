@@ -5,3 +5,10 @@ Echopype data processing funcionalities are structured into different subpackage
 The section [**Data processing functionalities**](data-proc:functions) provides information for current processing functions and their usage.
 
 The section [**Additional information for processed data**](data-proc:additional) provides on some aspects of processed data that may require additional explanation to fully understand the representation and underlying operations.
+
+(data-proc:format)=
+## Format of processed data
+
+Once raw data (represented by the `EchoData` objects) are calibrated  (via [`compute_Sv`](echopype.calibrate.compute_Sv)), the calibrated data and the outputs of all subsequent [processing functions](data-process:funcionalities) are generic [xarray Datasets](https://docs.xarray.dev/en/stable/user-guide/data-structures.html#dataset).
+We currently do not follow any specific conventions for processed data, but we retain provenance information in the dataset, including the [data processing levels](./processing-levels.md).
+However, whether and how data variables used in the processing will be stored remain to be determined.
