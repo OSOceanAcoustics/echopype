@@ -833,3 +833,116 @@ def test_bin_and_mean_2d(bin_and_mean_2d_params) -> None:
 
     # compare known MVBS solution against its calculated counterpart
     assert np.allclose(calc_MVBS, known_MVBS, atol=1e-10, rtol=1e-10, equal_nan=True)
+
+
+def _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms=0):
+    ping_time = pd.date_range("2018-07-01", periods=ping_time_len, freq=ping_time_interval)
+    if ping_time_jitter_max_ms != 0:  # if to add jitter
+        jitter = np.random.randint(ping_time_jitter_max_ms, size=ping_time_len) / 1000  # convert to seconds
+        ping_time = pd.to_datetime(ping_time.astype(int)/1e9 + jitter, unit="s")
+    return ping_time
+
+
+def _gen_Sv_er_regular(
+    channel_len=2,
+    depth_len=100, depth_interval=0.5,
+    ping_time_len=600, ping_time_interval="0.3S", ping_time_jitter_max_ms=0,
+):
+    """
+    Generate a Sv dataset with uniform echo_range across all ping_time.
+
+    ping_time_jitter_max_ms controled jitter in milliseonds in ping_time.
+    """
+    # regular echo_range
+    echo_range = np.array([[np.arange(depth_len)] * ping_time_len] * channel_len) * depth_interval
+
+    # generate dataset
+    ds_Sv = xr.Dataset(
+        data_vars={
+            "Sv": (["channel", "ping_time", "range_sample"], np.random.rand(channel_len, ping_time_len, depth_len)),
+            "echo_range": (["channel", "ping_time", "range_sample"], echo_range),
+            "frequency_nominal": (["channel"], np.arange(channel_len)),
+        },
+        coords={
+            "channel": [f"ch_{ch}" for ch in range(channel_len)],
+            "ping_time": _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms),
+            "range_sample": np.arange(depth_len),
+        }
+    )
+
+    return ds_Sv
+
+
+def _gen_Sv_er_irregular(
+    channel_len=2,
+    depth_len=100, depth_interval=[0.5, 0.32, 0.13], depth_ping_time_len=[100, 300, 200],
+    ping_time_len=600, ping_time_interval="0.3S", ping_time_jitter_max_ms=0,
+):
+    """
+    Generate a Sv dataset with uniform echo_range across all ping_time.
+
+    ping_time_jitter_max_ms controled jitter in milliseonds in ping_time.
+    """
+    # check input
+    if len(depth_interval) != len(depth_ping_time_len):
+        raise ValueError("The number of depth_interval and depth_ping_time_len must be equal!")
+
+    if ping_time_len != np.array(depth_ping_time_len).sum():
+        raise ValueError("The number of total pings does not match!")
+    
+    # irregular echo_range
+    echo_range_list = []
+    for d, dp in zip(depth_interval, depth_ping_time_len):
+        echo_range_list.append(np.array([[np.arange(depth_len)] * dp] * channel_len) * d)
+    echo_range = np.hstack(echo_range_list)
+
+    # generate dataset
+    ds_Sv = xr.Dataset(
+        data_vars={
+            "Sv": (["channel", "ping_time", "range_sample"], np.random.rand(channel_len, ping_time_len, depth_len)),
+            "echo_range": (["channel", "ping_time", "range_sample"], echo_range),
+            "frequency_nominal": (["channel"], np.arange(channel_len)),
+        },
+        coords={
+            "channel": [f"ch_{ch}" for ch in range(channel_len)],
+            "ping_time": _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms),
+            "range_sample": np.arange(depth_len),
+        }
+    )
+
+    return ds_Sv
+
+
+@pytest.mark.parametrize(
+    ("er_type"),
+    [
+        ("regular"),
+        ("irregular"),
+    ],
+)
+def test_compute_MVBS_er_output(er_type):
+    # set jitter=0 to get predictable number of ping within each echo_range groups
+    if er_type == "regular":
+        ds_Sv = _gen_Sv_er_regular(ping_time_jitter_max_ms=0)
+    else:
+        depth_interval=[0.5, 0.32, 0.13]
+        depth_ping_time_len=[100, 300, 200]
+        ping_time_len=600
+        ping_time_interval="0.3S"
+        ds_Sv = _gen_Sv_er_irregular(depth_interval=depth_interval, depth_ping_time_len=depth_ping_time_len,
+                                     ping_time_len=ping_time_len, ping_time_interval=ping_time_interval,
+                                     ping_time_jitter_max_ms=0)
+    
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_meter_bin=5, ping_time_bin="10S")
+
+    if er_type == "regular":
+        expected_len = (
+            ds_Sv["channel"].size,  # channel
+            np.ceil(np.diff(ds_Sv["ping_time"][[0, -1]].astype(int))/1e9 / 10),  # ping_time
+            np.ceil(ds_Sv["echo_range"].max()/5),  # depth
+        )
+        assert ds_MVBS["Sv"].shape == expected_len
+    else:
+        assert ds_MVBS["Sv"].isel(ping_time=slice(None, 3)).dropna(dim="echo_range").shape == (2, 3, 10)  # full array, no NaN
+        assert ds_MVBS["Sv"].isel(ping_time=slice(3, 12)).dropna(dim="echo_range").shape == (2, 9, 7)  # bottom bins contain NaN
+        assert ds_MVBS["Sv"].isel(ping_time=slice(12, None)).dropna(dim="echo_range").shape == (2, 6, 3)  # bottom bins contain NaN

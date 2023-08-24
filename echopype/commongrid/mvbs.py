@@ -463,7 +463,7 @@ def get_MVBS_along_channels(
         sv["channel"],
         ds_Sv["ping_time"],
         ds_Sv["echo_range"],
-        func="mean",
+        func="nanmean",
         expected_groups=(None, ping_interval, echo_range_interval),
         isbin=[False, True, True],
         method="map-reduce",
