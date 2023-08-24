@@ -851,7 +851,7 @@ def _gen_Sv_er_regular(
     """
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
-    ping_time_jitter_max_ms controled jitter in milliseonds in ping_time.
+    ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
     """
     # regular echo_range
     echo_range = np.array([[np.arange(depth_len)] * ping_time_len] * channel_len) * depth_interval
@@ -881,7 +881,7 @@ def _gen_Sv_er_irregular(
     """
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
-    ping_time_jitter_max_ms controled jitter in milliseonds in ping_time.
+    ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
     """
     # check input
     if len(depth_interval) != len(depth_ping_time_len):
