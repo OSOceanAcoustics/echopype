@@ -424,7 +424,7 @@ def _linear_transform(
         The transformed data
     """
     if inverse:
-        return 10 * dask.array.log10(data)
+        return 10 * np.log10(data)
     return 10 ** (data / 10)
 
 
