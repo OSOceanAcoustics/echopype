@@ -201,7 +201,7 @@ def _get_transient_noise_mask_fielding(
         r     (float): 1D numpy array with range data (m).
         r0    (int  ): range below which transient noise is evaluated (m).
         r1    (int  ): range above which transient noise is evaluated (m).
-        n     (int  ): n of preceeding & subsequent pings defining the block.
+        n     (int  ): n of preceding & subsequent pings defining the block.
         thr   (int  ): user-defined threshold for side-comparisons (dB).
         roff  (int  ): range above which masking is excluded (m).
         maxts (int  ): max transient noise permited, prevents to interpret
