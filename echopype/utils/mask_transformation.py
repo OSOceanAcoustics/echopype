@@ -29,9 +29,9 @@ Algorithms for resampling data arrays. Algorithms for transformation of acoustic
 """
 
 # import modules
+import warnings
 import numpy as np
 from scipy.interpolate import interp1d
-import warnings
 
 
 
