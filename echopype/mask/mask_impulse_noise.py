@@ -200,7 +200,7 @@ def get_impulse_noise_mask(
         median: List[Tuple[int, int]],
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Clean impulse noise from Sv data following the method decribed by:
+        Clean impulse noise from Sv data following the method described by:
 
             Wang et al. (2015) ’A noise removal algorithm for acoustic data with
             strong interference based on post-processing techniques’, CCAMLR
@@ -214,12 +214,12 @@ def get_impulse_noise_mask(
         Parameters
         ----------
             Sv     (float)    : 2D numpy array with Sv data (dB).
-            thr    (int/float): 2-element tupple with bottom/top Sv thresholds (dB)
-            erode  (int)      : list of 2-element tupples indicating the window's
+            thr    (int/float): 2-element tuple with bottom/top Sv thresholds (dB)
+            erode  (int)      : list of 2-element tuples indicating the window's
                                 size for each erosion cycle.
-            dilate (int)      : list of 2-element tupples indicating the window's
+            dilate (int)      : list of 2-element tuples indicating the window's
                                 size for each dilation cycle.
-            median (int)      : list of 2-element tupples indicating the window's
+            median (int)      : list of 2-element tuples indicating the window's
                                 size for each median filter cycle.
 
         Returns
