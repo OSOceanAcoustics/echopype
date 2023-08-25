@@ -429,7 +429,11 @@ def _linear_transform(
 
 
 def get_MVBS_along_channels(
-    ds_Sv: xr.Dataset, echo_range_interval: np.ndarray, ping_interval: np.ndarray
+    ds_Sv: xr.Dataset,
+    echo_range_interval: np.ndarray,
+    ping_interval: np.ndarray,
+    method: str = "map-reduce",
+    **kwargs
 ) -> xr.Dataset:
     """
     Computes the MVBS of ``ds_Sv`` along each channel for the given
@@ -446,6 +450,13 @@ def get_MVBS_along_channels(
     ping_interval: np.ndarray
         1D array (used by np.digitize) representing
         the binning required for ``ping_time``
+    method: str
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    **kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function
 
     Returns
     -------
@@ -466,8 +477,9 @@ def get_MVBS_along_channels(
         func="nanmean",
         expected_groups=(None, ping_interval, echo_range_interval),
         isbin=[False, True, True],
-        method="map-reduce",
         engine="flox",
+        method=method,
+        **kwargs
     )
 
     # apply inverse mapping to get back to the original domain and store values
