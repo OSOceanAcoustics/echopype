@@ -40,8 +40,6 @@ import xarray as xr
 from ..utils.mask_transformation import lin as _lin, log as _log
 
 
-
-
 def get_transient_noise_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "ryan", **kwargs
 ) -> xr.DataArray:
