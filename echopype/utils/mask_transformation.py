@@ -230,11 +230,11 @@ def oned(data, dim, rvals, axis, log_var=False, operation="mean"):
                resampled cell.
     """
 
-    # check if appropiate axis input
+    # check if appropriate axis input
     if axis > 1:
         raise Exception("axis must be 0 or 1")
 
-    # check if appropiate resampled dimension
+    # check if appropriate resampled dimension
     if len(rvals) < 2:
         raise Exception("length of resampling intervals must be >2")
 
@@ -261,7 +261,7 @@ def oned(data, dim, rvals, axis, log_var=False, operation="mean"):
             raise Exception("data height and i dimension length must be equal")
 
         # declare new array to allocate resampled values, and new array to
-        # alllocate the percentage of values used for resampling
+        # allocate the percentage of values used for resampling
         datar = np.zeros((len(iaxrs) - 1, len(data[0]))) * np.nan
         percentage = np.zeros((len(iaxrs) - 1, len(data[0]))) * np.nan
 
@@ -319,10 +319,10 @@ def oned(data, dim, rvals, axis, log_var=False, operation="mean"):
 
         # check data and axis match
         if len(data[0]) != len(jax):
-            raise Exception("data width and j dimension lenght must be equal")
+            raise Exception("data width and j dimension length must be equal")
 
         # declare new array to allocate resampled values, and new array to
-        # alllocate the percentage of values used for resampling
+        # allocate the percentage of values used for resampling
         datar = np.zeros((len(data), len(jaxrs) - 1)) * np.nan
         percentage = np.zeros((len(data), len(jaxrs) - 1)) * np.nan
 
@@ -392,7 +392,7 @@ def full(datar, irvals, jrvals, idim, jdim):
                at full resolution.
     """
 
-    # check for appropiate inputs
+    # check for appropriate inputs
     if len(irvals) < 2:
         raise Exception("i resampling interval length must be >2")
     if len(jrvals) < 2:
