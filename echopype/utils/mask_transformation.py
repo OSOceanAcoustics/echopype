@@ -32,7 +32,6 @@ Algorithms for resampling data arrays. Algorithms for transformation of acoustic
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d
-from geopy.distance import distance
 
 
 
