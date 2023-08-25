@@ -32,8 +32,8 @@
                    ]
 """
 
-from typing import List, Optional, Tuple, Union
 import warnings
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -41,7 +41,6 @@ from scipy.ndimage.filters import median_filter as medianf
 from skimage.morphology import dilation, erosion
 
 from ..utils import mask_transformation
-
 
 
 def get_impulse_noise_mask(
