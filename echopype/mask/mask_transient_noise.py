@@ -1,12 +1,3 @@
-import pathlib
-from typing import Union
-
-import numpy as np
-import xarray as xr
-
-from ..utils.mask_transformation import log as _log
-from ..utils.mask_transformation import lin as _lin
-
 """
  Algorithms for masking transient noise.
 
@@ -40,6 +31,16 @@ from ..utils.mask_transformation import lin as _lin
                   and implemented them for use with the Echopype library.
                 ]
 """
+import pathlib
+from typing import Union
+
+import numpy as np
+import xarray as xr
+
+from ..utils.mask_transformation import log as _log
+from ..utils.mask_transformation import lin as _lin
+
+
 
 
 def get_transient_noise_mask(
