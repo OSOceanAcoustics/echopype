@@ -178,7 +178,7 @@ def _get_transient_noise_mask_fielding(
     A comparison is made ping by ping with respect to a block in a reference
     layer set at far range, where transient noise mostly occurs. If the ping
     median is greater than the block median by a user-defined threshold, the
-    ping will be masked all the way up, until transient noise disapears, or
+    ping will be masked all the way up, until transient noise disappears, or
     until it gets the minimum range allowed by the user.
 
        transient                 transient             ping
@@ -244,7 +244,7 @@ def _get_transient_noise_mask_fielding(
             blockmedian = _log(np.nanmedian(_lin(Sv[j - n : j + n, up:lw])))
 
             # if ping median below 'maxts' permitted, and above enough from the
-            # block median, mask all the way up until noise disapears
+            # block median, mask all the way up until noise disappears
             if (pingp75 < maxts) & ((pingmedian - blockmedian) > thr[0]):
                 r0, r1 = lw - sf, lw
                 while r0 > rmin:
