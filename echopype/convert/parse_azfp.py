@@ -1,5 +1,5 @@
 import os
-import xml.dom.minidom
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime as dt
 from struct import unpack
@@ -129,10 +129,10 @@ class ParseAZFP(ParseBase):
 
         def get_value_by_tag_name(tag_name, element=0):
             """Returns the value in an XML tag given the tag name and the number of occurrences."""
-            return px.getElementsByTagName(tag_name)[element].childNodes[0].data
+            return root.iter(tag_name).__next__().text
 
-        xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
-        px = xml.dom.minidom.parse(xmlmap.fs.open(xmlmap.root))
+        et = ET.parse(self.xml_path)
+        root = et.getroot()
 
         # Retrieve integer parameters from the xml file
         for old_name, new_name in XML_INT_PARAMS.items():
