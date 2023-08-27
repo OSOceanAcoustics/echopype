@@ -57,6 +57,7 @@ This release includes important updates to the raw-converted data format based o
 - Add rendering for example `EchoData` objects for all supported echosounders to show the updated format (#1089)
 - Restructure TOC to have separate Raw data formats and Data Processing sections, each with new subpages (#1093, #1132, #1134)
 - Add discussion on z-axis vertical coordinate system and variables (#1133)
+- Add bibliography page linked from inline citations (#1137)
 
 
 
