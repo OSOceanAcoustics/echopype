@@ -26,10 +26,11 @@ parts:
   - file: viz
   - file: processing-levels
     title: Processing levels
-- caption: Help & reference
+- caption: Help & references
   chapters:
-  - file: api
   - file: whats-new
-  - file: roadmap
   - file: contributing
+  - file: api
+  - file: zbibliography
+  - file: roadmap
   - file: resources
