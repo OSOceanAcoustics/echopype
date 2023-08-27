@@ -1,4 +1,9 @@
 """
+An overhaul is required for the below compute_NASC implementation, to:
+- increase the computational efficiency
+- debug the current code of any discrepancy against Echoview implementation
+- potentially provide an alternative based on ping-by-ping Sv
+
 This script contains functions used by commongrid.compute_NASC,
 but a subset of these overlap with operations needed
 for commongrid.compute_MVBS and clean.estimate_noise.
