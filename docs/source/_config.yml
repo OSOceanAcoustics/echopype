@@ -47,7 +47,7 @@ sphinx:
     'sphinxcontrib.mermaid'
   ]
   config:
-    bibtex_reference_style: author_year
+    bibtex_reference_style: label
   #   # https://github.com/executablebooks/jupyter-book/issues/1186
   #   # https://sphinx-book-theme.readthedocs.io/en/latest/customize/sidebar-secondary.html
   #   html_theme_options:
