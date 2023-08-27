@@ -4,7 +4,7 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
-# v0.8.0 (2023 August 24)
+# v0.8.0 (2023 August 27)
 
 ## Overview
 
@@ -18,9 +18,6 @@ This release includes important updates to the raw-converted data format based o
 - Overhaul `EchoData.update_platform` (#1060)
   - Allow adding external variables with arbitrary number of time dimensions, with new time dimensions following an increasing order (e.g., `time3`, `time4`, etc)
   - Only allow updating standardized, sonar model-dependent Platform group variables
-- Remove outdated `ui_param` (#1071)
-- Revise qc function to clean up reversed time (#1065)
-- Update matplotlib call to register EK500 colormap (#1068)
 
 ## Raw-converted data format changes
 - Drop the `beam` and `ping_time` dimensions for some parameters (#1056, #1083)
@@ -49,12 +46,17 @@ This release includes important updates to the raw-converted data format based o
 - use `pulse_form` for EK80 transmit type checks (#1091)
 - Factor out a normalization factor from pulse compression function for flexible use (#1105)
 - Add existence checking for angle parameters in `consolidate.add_splitbeam_angle` (#1105)
+- Revise qc function to clean up reversed time (#1065)
+- Update matplotlib call to register EK500 colormap (#1068)
+- Temporarily remove `compute_NASC` for debugging and overhaul (#1136)
 - Remove the deprecated `preprocess` subpackage (#1077, #1082)
 - Remove the `ZarrCombine` module since it is no longer used (#1117)
+- Remove outdated `ui_param` (#1071)
 
 ## Documentation
 - Add rendering for example `EchoData` objects for all supported echosounders to show the updated format (#1089)
-- Restructure TOC to have separate Raw data formats and Data Processing sections, each with new subpages (#1093)
+- Restructure TOC to have separate Raw data formats and Data Processing sections, each with new subpages (#1093, #1132, #1134)
+- Add discussion on z-axis vertical coordinate system and variables (#1133)
 
 
 
