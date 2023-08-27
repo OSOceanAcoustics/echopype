@@ -1,10 +1,11 @@
 from re import search
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import xarray as xr
 import zarr
 from dask.array.core import auto_chunks
+from dask.utils import parse_bytes
 from xarray import coding
 
 DEFAULT_TIME_ENCODING = {
@@ -32,10 +33,21 @@ DEFAULT_ENCODINGS = {
     "time1": DEFAULT_TIME_ENCODING,
     "time2": DEFAULT_TIME_ENCODING,
     "time3": DEFAULT_TIME_ENCODING,
+    "time4": DEFAULT_TIME_ENCODING,
+    "time5": DEFAULT_TIME_ENCODING,
 }
 
 
-EXPECTED_VAR_DTYPE = {"channel": np.str_, "beam": np.str_}  # channel name  # beam name
+EXPECTED_VAR_DTYPE = {
+    "channel": np.str_,
+    "cal_channel_id": np.str_,
+    "beam": np.str_,
+    "channel_mode": np.byte,
+    "beam_stabilisation": np.byte,
+    "non_quantitative_processing": np.int16,
+}  # channel name  # beam name
+
+PREFERRED_CHUNKS = "preferred_chunks"
 
 
 def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
@@ -47,8 +59,15 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
         for name, var in ds.variables.items():
             if name in EXPECTED_VAR_DTYPE:
                 expected_dtype = EXPECTED_VAR_DTYPE[name]
-                if not np.issubdtype(var.dtype, expected_dtype):
-                    ds[name] = var.astype(expected_dtype)
+            elif np.issubdtype(var.dtype, np.object_):
+                # Defaulting to strings dtype for object data types
+                expected_dtype = np.str_
+            else:
+                # For everything else, this should be the same
+                expected_dtype = var.dtype
+
+            if not np.issubdtype(var.dtype, expected_dtype):
+                ds[name] = var.astype(expected_dtype)
     return ds
 
 
@@ -134,40 +153,97 @@ def get_zarr_compression(var: xr.Variable, compression_settings: dict) -> dict:
         raise NotImplementedError(f"Zarr Encoding for dtype = {var.dtype} has not been set!")
 
 
-def set_zarr_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
+def set_zarr_encodings(
+    ds: xr.Dataset, compression_settings: dict, chunk_size: str = "100MB", ctol: str = "10MB"
+) -> dict:
     """
     Obtains all variable encodings based on zarr default values
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The dataset object to generate encoding for
+    compression_settings : dict
+        The compression settings dictionary
+    chunk_size : dict
+        The desired chunk size
+    ctol : dict
+        The chunk size tolerance before rechunking
+
+    Returns
+    -------
+    dict
+        The encoding dictionary
     """
 
     # create zarr specific encoding
     encoding = dict()
     for name, val in ds.variables.items():
-        val_encoding = val.encoding
-        val_encoding.update(get_zarr_compression(val, compression_settings))
+        encoding[name] = {**val.encoding}
+        encoding[name].update(get_zarr_compression(val, compression_settings))
 
-        # If data array is not a dask array yet,
-        # create a custom chunking encoding
-        # currently defaults to 100MB
-        if not ds.chunks and len(val.shape) > 0:
-            chunks = _get_auto_chunk(val)
-            val_encoding.update({"chunks": chunks})
-        encoding[name] = val_encoding
+        # Always optimize chunk if not specified already
+        # user can specify desired chunk in encoding
+        existing_chunks = encoding[name].get("chunks", None)
+        optimal_chunk_size = parse_bytes(chunk_size)
+        chunk_size_tolerance = parse_bytes(ctol)
+
+        if len(val.shape) > 0:
+            rechunk = True
+            if existing_chunks is not None:
+                # Perform chunk optimization
+                # 1. Get the chunk total from existing chunks
+                chunk_total = np.prod(existing_chunks) * val.dtype.itemsize
+                # 2. Get chunk size difference from the optimal chunk size
+                chunk_diff = optimal_chunk_size - chunk_total
+                # 3. Check difference from tolerance, if diff is less than
+                #    tolerance then no need to rechunk
+                if chunk_diff < chunk_size_tolerance:
+                    rechunk = False
+                    chunks = existing_chunks
+
+            if rechunk:
+                # Use dask auto chunk to determine the optimal chunk
+                # spread for optimal chunk size
+                chunks = _get_auto_chunk(val, chunk_size=chunk_size)
+
+            encoding[name]["chunks"] = chunks
 
     return encoding
 
 
-def set_netcdf_encodings(ds: xr.Dataset, compression_settings: dict) -> dict:
+def set_netcdf_encodings(
+    ds: xr.Dataset,
+    compression_settings: Dict[str, Any] = {},
+) -> Dict[str, Dict[str, Any]]:
     """
-    Obtains all variable encodings based on netcdf default values
-    """
+    Obtains all variables encodings based on netcdf default values
 
-    # TODO: below is the encoding we were using for netcdf, we need to make
-    #  sure that the encoding is appropriate for all data variables
-    encoding = (
-        {var: compression_settings for var in ds.data_vars}
-        if compression_settings is not None
-        else {}
-    )
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The dataset object to generate encoding for
+    compression_settings : dict
+        The compression settings dictionary
+
+    Returns
+    -------
+    dict
+        The final encoding values for dataset variables
+    """
+    encoding = dict()
+    for name, val in ds.variables.items():
+        encoding[name] = {**val.encoding}
+        if np.issubdtype(val.dtype, np.str_):
+            encoding[name].update(
+                {
+                    "zlib": False,
+                }
+            )
+        elif compression_settings:
+            encoding[name].update(compression_settings)
+        else:
+            encoding[name].update(COMPRESSION_SETTINGS["netcdf4"])
 
     return encoding
 

@@ -18,8 +18,8 @@ execute:
 #     targetname: book.tex
 
 # Add a bibtex file so that we can create citations
-# bibtex_bibfiles:
-#   - references.bib
+bibtex_bibfiles:
+  - references.bib
 
 # Information about where the book exists on the web
 repository:
@@ -39,13 +39,15 @@ sphinx:
     'sphinx_automodapi.automodapi',
     'numpydoc',
     # 'sphinx.ext.autodoc',
+    'sphinxcontrib.bibtex',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
     'sphinxcontrib.mermaid'
   ]
-  # config:
+  config:
+    bibtex_reference_style: label
   #   # https://github.com/executablebooks/jupyter-book/issues/1186
   #   # https://sphinx-book-theme.readthedocs.io/en/latest/customize/sidebar-secondary.html
   #   html_theme_options:

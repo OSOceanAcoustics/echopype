@@ -19,7 +19,7 @@ The `echopype` team is developing a clearly defined progression of data processi
   - as sets of individual converted files as originally segmented into arbitrary time ranges during sensor file creation, or
   - compiled into larger granules corresponding to logical deployment intervals.
 
-- **L1A**: Raw L0 data converted to a standardized, open format with geographic coordinates (latitude & longitude) included. Includes other ancillary information extracted from sensor-generated L0 data or other external sources. May include environmental information such as temperature, salinity and pressure. Use of the SONAR-netcDF4 v1 convention is strongly recommended.
+- **L1A**: Raw L0 data converted to a standardized, open format with geographic coordinates (latitude & longitude) included. Includes other ancillary information extracted from sensor-generated L0 data or other external sources. May include environmental information such as temperature, salinity and pressure. Use of the SONAR-netcDF4 version 1 convention is strongly recommended.
 - **L1B**: L1A data with quality-control steps applied, such as time-coordinate corrections that enforce strictly increasing, non-duplicate timestamps.
 
 ### Level 2 (L2)

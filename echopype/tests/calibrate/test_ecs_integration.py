@@ -153,8 +153,8 @@ def test_ecs_intake_ek80_BB_complex(ek80_path, ecs_path):
     beam = ed["Sonar/Beam_group1"]
     chan_w_BB_param = "WBT 549762-15 ES70-7C_ES"
     freq_center = (
-        (beam["frequency_start"] + beam["frequency_end"]) / 2
-    ).sel(channel=chan_w_BB_param).isel(beam=0).drop_vars(["beam", "channel"])
+        (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]) / 2
+    ).sel(channel=chan_w_BB_param).drop_vars(["channel"])
 
     for p_name in [
         "gain_correction", "angle_offset_alongship", "angle_offset_athwartship",
