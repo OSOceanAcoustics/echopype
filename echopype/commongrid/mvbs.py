@@ -479,7 +479,6 @@ def get_MVBS_along_channels(
             func="nanmean",
             expected_groups=(ping_interval),
             isbin=True,
-            engine="flox",
             method=method,
         )
         ds_Pos.attrs["has_positions"] = True
@@ -494,7 +493,6 @@ def get_MVBS_along_channels(
         func="nanmean",
         expected_groups=(None, ping_interval, echo_range_interval),
         isbin=[False, True, True],
-        engine="flox",
         method=method,
         **kwargs
     )

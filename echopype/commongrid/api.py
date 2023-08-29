@@ -73,7 +73,11 @@ def _set_MVBS_attrs(ds):
 
 @add_processing_level("L3*")
 def compute_MVBS(
-    ds_Sv, range_meter_bin=20, ping_time_bin="20S", method="map-reduce", **flox_kwargs
+    ds_Sv: xr.Dataset,
+    range_meter_bin: int = 20,
+    ping_time_bin: str = "20S",
+    method="map-reduce",
+    **flox_kwargs,
 ):
     """
     Compute Mean Volume Backscattering Strength (MVBS)
@@ -110,7 +114,10 @@ def compute_MVBS(
         ds_Sv = ds_Sv.drop_dims("filenames")
 
     # create bin information for echo_range
-    range_interval = np.arange(0, ds_Sv["echo_range"].max() + range_meter_bin, range_meter_bin)
+    # get the max echo range value
+    # assuming that it's a grid so just take the last value
+    echo_range_max = ds_Sv["echo_range"].isel(range_sample=-1, ping_time=0, channel=0).to_numpy()
+    range_interval = np.arange(0, echo_range_max + range_meter_bin, range_meter_bin)
 
     # create bin information needed for ping_time
     d_index = (
@@ -122,6 +129,9 @@ def compute_MVBS(
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
 
     # calculate the MVBS along each channel
+    if method == "map-reduce":
+        # set to the faster compute if not specified
+        flox_kwargs.setdefault("reindex", True)
     raw_MVBS = get_MVBS_along_channels(
         ds_Sv, range_interval, ping_interval, method=method, **flox_kwargs
     )
