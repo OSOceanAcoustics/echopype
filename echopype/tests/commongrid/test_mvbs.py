@@ -9,6 +9,11 @@ import xarray as xr
 import echopype as ep
 from echopype.commongrid.mvbs import bin_and_mean_2d
 
+@pytest.fixture
+def random_number_generator():
+    """Random number generator for tests"""
+    return default_rng()
+
 
 @pytest.fixture(
     params=[
@@ -846,20 +851,29 @@ def _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms=0)
 def _gen_Sv_er_regular(
     channel_len=2,
     depth_len=100, depth_interval=0.5,
-    ping_time_len=600, ping_time_interval="0.3S", ping_time_jitter_max_ms=0,
+    ping_time_len=600, ping_time_interval="0.3S",
+    ping_time_jitter_max_ms=0,
+    random_number_generator=None,
 ):
     """
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
     ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
     """
+    
+    if random_number_generator is None:
+        random_number_generator = default_rng()
+    
     # regular echo_range
     echo_range = np.array([[np.arange(depth_len)] * ping_time_len] * channel_len) * depth_interval
 
     # generate dataset
     ds_Sv = xr.Dataset(
         data_vars={
-            "Sv": (["channel", "ping_time", "range_sample"], np.random.rand(channel_len, ping_time_len, depth_len)),
+            "Sv": (
+                ["channel", "ping_time", "range_sample"],
+                random_number_generator.random(size=(channel_len, ping_time_len, depth_len))
+            ),
             "echo_range": (["channel", "ping_time", "range_sample"], echo_range),
             "frequency_nominal": (["channel"], np.arange(channel_len)),
         },
@@ -876,13 +890,16 @@ def _gen_Sv_er_regular(
 def _gen_Sv_er_irregular(
     channel_len=2,
     depth_len=100, depth_interval=[0.5, 0.32, 0.13], depth_ping_time_len=[100, 300, 200],
-    ping_time_len=600, ping_time_interval="0.3S", ping_time_jitter_max_ms=0,
+    ping_time_len=600, ping_time_interval="0.3S", ping_time_jitter_max_ms=0, random_number_generator=None,
 ):
     """
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
     ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
     """
+    if random_number_generator is None:
+        random_number_generator = default_rng()
+
     # check input
     if len(depth_interval) != len(depth_ping_time_len):
         raise ValueError("The number of depth_interval and depth_ping_time_len must be equal!")
@@ -899,7 +916,10 @@ def _gen_Sv_er_irregular(
     # generate dataset
     ds_Sv = xr.Dataset(
         data_vars={
-            "Sv": (["channel", "ping_time", "range_sample"], np.random.rand(channel_len, ping_time_len, depth_len)),
+            "Sv": (
+                ["channel", "ping_time", "range_sample"],
+                random_number_generator.random(size=(channel_len, ping_time_len, depth_len))
+            ),
             "echo_range": (["channel", "ping_time", "range_sample"], echo_range),
             "frequency_nominal": (["channel"], np.arange(channel_len)),
         },
@@ -920,10 +940,10 @@ def _gen_Sv_er_irregular(
         ("irregular"),
     ],
 )
-def test_compute_MVBS_er_output(er_type):
+def test_compute_MVBS_er_output(er_type, random_number_generator):
     # set jitter=0 to get predictable number of ping within each echo_range groups
     if er_type == "regular":
-        ds_Sv = _gen_Sv_er_regular(ping_time_jitter_max_ms=0)
+        ds_Sv = _gen_Sv_er_regular(ping_time_jitter_max_ms=0, random_number_generator=random_number_generator)
     else:
         depth_interval=[0.5, 0.32, 0.13]
         depth_ping_time_len=[100, 300, 200]
@@ -931,7 +951,7 @@ def test_compute_MVBS_er_output(er_type):
         ping_time_interval="0.3S"
         ds_Sv = _gen_Sv_er_irregular(depth_interval=depth_interval, depth_ping_time_len=depth_ping_time_len,
                                      ping_time_len=ping_time_len, ping_time_interval=ping_time_interval,
-                                     ping_time_jitter_max_ms=0)
+                                     ping_time_jitter_max_ms=0, random_number_generator=random_number_generator)
     
     ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_meter_bin=5, ping_time_bin="10S")
 
