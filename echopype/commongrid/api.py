@@ -162,8 +162,8 @@ def compute_MVBS(
         for var in POSITION_VARIABLES:
             ds_MVBS[var] = (["ping_time"], raw_MVBS[var].data, ds_Sv[var].attrs)
 
-    # Add water level if uses echo_range
-    if range_var == "echo_range":
+    # Add water level if uses echo_range and it exists in Sv dataset
+    if range_var == "echo_range" and "water_level" in ds_Sv.data_vars:
         ds_MVBS["water_level"] = ds_Sv["water_level"]
 
     # ping_time_bin parsing and conversions
