@@ -1,7 +1,7 @@
 """
 Functions for enhancing the spatial and temporal coherence of data.
 """
-from typing import Union
+from typing import Literal, Union
 
 import numpy as np
 import pandas as pd
@@ -74,6 +74,7 @@ def _set_MVBS_attrs(ds):
 @add_processing_level("L3*")
 def compute_MVBS(
     ds_Sv: xr.Dataset,
+    range_var: Literal["echo_range", "depth"] = "echo_range",
     range_meter_bin: int = 20,
     ping_time_bin: str = "20S",
     method="map-reduce",
@@ -81,7 +82,8 @@ def compute_MVBS(
 ):
     """
     Compute Mean Volume Backscattering Strength (MVBS)
-    based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
+    based on intervals of range (``echo_range``) or depth (``depth``)
+    and ``ping_time`` specified in physical units.
 
     Output of this function differs from that of ``compute_MVBS_index_binning``, which computes
     bin-averaged Sv according to intervals of ``echo_range`` and ``ping_time`` specified as
@@ -91,8 +93,14 @@ def compute_MVBS(
     ----------
     ds_Sv : xr.Dataset
         dataset containing Sv and ``echo_range`` [m]
+    range_var: str
+        The variable to use for range binning.
+        Must be one of ``echo_range`` or ``depth``.
+        Note that ``depth`` is only available if the input dataset contains
+        ``depth`` as a data variable.
     range_meter_bin : Union[int, float]
-        bin size along ``echo_range`` in meters, default to ``20``
+        bin size along ``echo_range`` or ``depth`` in meters,
+        default to ``20``
     ping_time_bin : str
         bin size along ``ping_time``, default to ``20S``
     method: str
@@ -113,10 +121,18 @@ def compute_MVBS(
     if "filenames" in ds_Sv.dims:
         ds_Sv = ds_Sv.drop_dims("filenames")
 
+    # Check if range_var is valid
+    if range_var not in ["echo_range", "depth"]:
+        raise ValueError("range_var must be one of 'echo_range' or 'depth'.")
+
+    # Check if range_var exists in ds_Sv
+    if range_var not in ds_Sv.data_vars:
+        raise ValueError(f"range_var '{range_var}' does not exist in the input dataset.")
+
     # create bin information for echo_range
     # get the max echo range value
     # assuming that it's a grid so just take the last value
-    echo_range_max = ds_Sv["echo_range"].isel(range_sample=-1, ping_time=0, channel=0).to_numpy()
+    echo_range_max = ds_Sv[range_var].isel(range_sample=-1, ping_time=0, channel=0).to_numpy()
     range_interval = np.arange(0, echo_range_max + range_meter_bin, range_meter_bin)
 
     # create bin information needed for ping_time
@@ -133,17 +149,17 @@ def compute_MVBS(
         # set to the faster compute if not specified
         flox_kwargs.setdefault("reindex", True)
     raw_MVBS = get_MVBS_along_channels(
-        ds_Sv, range_interval, ping_interval, method=method, **flox_kwargs
+        ds_Sv, range_interval, ping_interval, range_var=range_var, method=method, **flox_kwargs
     )
 
     # create MVBS dataset
     # by transforming the binned dimensions to regular coords
     ds_MVBS = xr.Dataset(
-        data_vars={"Sv": (["channel", "ping_time", "echo_range"], raw_MVBS["Sv"].data)},
+        data_vars={"Sv": (["channel", "ping_time", range_var], raw_MVBS["Sv"].data)},
         coords={
             "ping_time": np.array([v.left for v in raw_MVBS.ping_time_bins.values]),
             "channel": raw_MVBS.channel.values,
-            "echo_range": np.array([v.left for v in raw_MVBS.echo_range_bins.values]),
+            range_var: np.array([v.left for v in raw_MVBS[f"{range_var}_bins"].values]),
         },
     )
 
@@ -151,6 +167,10 @@ def compute_MVBS(
     if raw_MVBS.attrs.get("has_positions", False):
         for var in POSITION_VARIABLES:
             ds_MVBS[var] = (["ping_time"], raw_MVBS[var].data)
+
+    # Add water level if uses echo_range
+    if range_var == "echo_range":
+        ds_MVBS["water_level"] = ds_Sv["water_level"]
 
     # ping_time_bin parsing and conversions
     # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
@@ -183,14 +203,14 @@ def compute_MVBS(
 
     # Attach attributes
     _set_MVBS_attrs(ds_MVBS)
-    ds_MVBS["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
+    ds_MVBS[range_var].attrs = {"long_name": "Range distance", "units": "m"}
     ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
         {
             "cell_methods": (
                 f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "  # noqa
                 "comment: ping_time is the interval start) "
-                f"echo_range: mean (interval: {range_meter_bin} meter "
-                "comment: echo_range is the interval start)"
+                f"{range_var}: mean (interval: {range_meter_bin} meter "
+                f"comment: {range_var} is the interval start)"
             ),
             "binning_mode": "physical units",
             "range_meter_interval": str(range_meter_bin) + "m",

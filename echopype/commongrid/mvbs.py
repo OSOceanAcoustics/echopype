@@ -3,7 +3,7 @@ Contains core functions needed to compute the MVBS of an input dataset.
 """
 
 import warnings
-from typing import Tuple, Union
+from typing import Literal, Tuple, Union
 
 import dask.array
 import numpy as np
@@ -434,6 +434,7 @@ def get_MVBS_along_channels(
     ds_Sv: xr.Dataset,
     echo_range_interval: np.ndarray,
     ping_interval: np.ndarray,
+    range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
     **kwargs
 ) -> xr.Dataset:
@@ -452,6 +453,9 @@ def get_MVBS_along_channels(
     ping_interval: np.ndarray
         1D array (used by np.digitize) representing
         the binning required for ``ping_time``
+    range_var: str
+        The variable to use for range binning.
+        Either ``echo_range`` or ``depth``.
     method: str
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
@@ -483,13 +487,13 @@ def get_MVBS_along_channels(
         )
         ds_Pos.attrs["has_positions"] = True
 
-    # reduce along ping_time and echo_range
+    # reduce along ping_time and echo_range or depth
     # by binning and averaging
     mvbs = xarray_reduce(
         sv,
         sv["channel"],
         ds_Sv["ping_time"],
-        ds_Sv["echo_range"],
+        ds_Sv[range_var],
         func="nanmean",
         expected_groups=(None, ping_interval, echo_range_interval),
         isbin=[False, True, True],
