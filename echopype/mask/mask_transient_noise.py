@@ -41,7 +41,9 @@ from ..utils.mask_transformation import lin as _lin, log as _log
 
 
 def get_transient_noise_mask(
-    source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "ryan", **kwargs
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    desired_channel: str,    
+    mask_type: str = "ryan", **kwargs
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
@@ -79,8 +81,8 @@ def get_transient_noise_mask(
 
     """
     assert mask_type in ["ryan", "fielding"], "mask_type must be either 'ryan' or 'fielding'"
-
-    Sv = source_Sv["Sv"].values[0]
+    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = selected_channel_Sv["Sv"].values
     r = source_Sv["echo_range"].values[0, 0]
     if mask_type == "ryan":
         # Define a list of the keyword arguments your function can handle

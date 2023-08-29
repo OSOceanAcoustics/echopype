@@ -47,8 +47,10 @@ def test_get_transient_mask(
         mask_type, r0, r1, n, roff, thr, excludeabove, operation, expected_true_false_counts
 ):
     source_Sv = get_sv_dataset(test_data_path)
+    desired_channel = "GPT  38 kHz 009072033fa5 1 ES38"
     mask = echopype.mask.get_transient_noise_mask(
         source_Sv,
+        desired_channel,
         mask_type=mask_type,
         r0=r0,
         r1=r1,
