@@ -166,7 +166,7 @@ def compute_MVBS(
     # Add the position variables
     if raw_MVBS.attrs.get("has_positions", False):
         for var in POSITION_VARIABLES:
-            ds_MVBS[var] = (["ping_time"], raw_MVBS[var].data)
+            ds_MVBS[var] = (["ping_time"], raw_MVBS[var].data, ds_Sv[var].attrs)
 
     # Add water level if uses echo_range
     if range_var == "echo_range":
