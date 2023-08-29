@@ -10,6 +10,8 @@ import numpy as np
 import xarray as xr
 from flox.xarray import xarray_reduce
 
+from ..consolidate.api import POSITION_VARIABLES
+
 
 def get_bin_indices(
     echo_range: np.ndarray, bins_er: np.ndarray, times: np.ndarray, bins_time: np.ndarray
@@ -467,6 +469,21 @@ def get_MVBS_along_channels(
     # average should be done in linear domain
     sv = ds_Sv["Sv"].pipe(_linear_transform)
 
+    # Get positions if exists
+    # otherwise just use an empty dataset
+    ds_Pos = xr.Dataset(attrs={"has_positions": False})
+    if all(v in ds_Sv for v in POSITION_VARIABLES):
+        ds_Pos = xarray_reduce(
+            ds_Sv[POSITION_VARIABLES],
+            ds_Sv["ping_time"],
+            func="nanmean",
+            expected_groups=(ping_interval),
+            isbin=True,
+            engine="flox",
+            method=method,
+        )
+        ds_Pos.attrs["has_positions"] = True
+
     # reduce along ping_time and echo_range
     # by binning and averaging
     mvbs = xarray_reduce(
@@ -483,4 +500,5 @@ def get_MVBS_along_channels(
     )
 
     # apply inverse mapping to get back to the original domain and store values
-    return mvbs.pipe(_linear_transform, inverse=True)
+    da_MVBS = mvbs.pipe(_linear_transform, inverse=True)
+    return xr.merge([ds_Pos, da_MVBS])

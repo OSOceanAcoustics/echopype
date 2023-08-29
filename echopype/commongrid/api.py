@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from ..consolidate.api import POSITION_VARIABLES
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .mvbs import get_MVBS_along_channels
 from .nasc import (
@@ -71,7 +72,9 @@ def _set_MVBS_attrs(ds):
 
 
 @add_processing_level("L3*")
-def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
+def compute_MVBS(
+    ds_Sv, range_meter_bin=20, ping_time_bin="20S", method="map-reduce", **flox_kwargs
+):
     """
     Compute Mean Volume Backscattering Strength (MVBS)
     based on intervals of range (``echo_range``) and ``ping_time`` specified in physical units.
@@ -88,6 +91,13 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
         bin size along ``echo_range`` in meters, default to ``20``
     ping_time_bin : str
         bin size along ``ping_time``, default to ``20S``
+    method: str
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    **kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function.
 
     Returns
     -------
@@ -112,18 +122,25 @@ def compute_MVBS(ds_Sv, range_meter_bin=20, ping_time_bin="20S"):
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
 
     # calculate the MVBS along each channel
-    raw_MVBS = get_MVBS_along_channels(ds_Sv, range_interval, ping_interval)
+    raw_MVBS = get_MVBS_along_channels(
+        ds_Sv, range_interval, ping_interval, method=method, **flox_kwargs
+    )
 
     # create MVBS dataset
     # by transforming the binned dimensions to regular coords
     ds_MVBS = xr.Dataset(
-        data_vars={"Sv": (["channel", "ping_time", "echo_range"], raw_MVBS.data)},
+        data_vars={"Sv": (["channel", "ping_time", "echo_range"], raw_MVBS["Sv"].data)},
         coords={
             "ping_time": np.array([v.left for v in raw_MVBS.ping_time_bins.values]),
             "channel": raw_MVBS.channel.values,
             "echo_range": np.array([v.left for v in raw_MVBS.echo_range_bins.values]),
         },
     )
+
+    # Add the position variables
+    if raw_MVBS.attrs.get("has_positions", False):
+        for var in POSITION_VARIABLES:
+            ds_MVBS[var] = (["ping_time"], raw_MVBS[var].data)
 
     # ping_time_bin parsing and conversions
     # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
