@@ -42,8 +42,9 @@ from ..utils.mask_transformation import lin as _lin, log as _log
 
 def get_transient_noise_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    desired_channel: str,    
-    mask_type: str = "ryan", **kwargs
+    desired_channel: str,
+    mask_type: str = "ryan",
+    **kwargs
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
