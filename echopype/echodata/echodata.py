@@ -161,9 +161,6 @@ class EchoData:
 
         echodata._set_tree(tree)
 
-        # convert to newest echopype version structure, if necessary
-        ep_version_mapper.map_ep_version(echodata)
-
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
             # for retrieving the path strings
