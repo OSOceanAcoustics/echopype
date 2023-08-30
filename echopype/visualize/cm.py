@@ -68,7 +68,7 @@ for cmapname in cmapnames:
 
     if 'over' in colors_d:
         reg_map.set_over(colors_d['over'])
-    mpl.cm.register_cmap(cmap=reg_map)
+    mpl.colormaps.register(cmap=reg_map)
 
     # Register the reversed map
     reg_map_r = mpl.colors.ListedColormap(
@@ -79,7 +79,7 @@ for cmapname in cmapnames:
 
     if 'over' in colors_d:
         reg_map_r.set_under(colors_d['over'])
-    mpl.cm.register_cmap(cmap=reg_map_r)
+    mpl.colormaps.register(cmap=reg_map_r)
 
 # make colormaps available to call
 locals().update(cmap_d)

@@ -39,11 +39,11 @@ def beam_AZFP():
     """
     beam = xr.Dataset()
     beam["equivalent_beam_angle"] = xr.DataArray(
-        [[[10, 20]]],
-        dims=["ping_time", "beam", "channel"],
-        coords={"channel": ["chA", "chB"], "ping_time": [1], "beam": [1]},
+        [[10, 20]],
+        dims=["ping_time", "channel"],
+        coords={"channel": ["chA", "chB"], "ping_time": [1]},
     )
-    return beam.transpose("channel", "ping_time", "beam")
+    return beam.transpose("channel", "ping_time")
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def vend_EK():
             np.array([[64, 128, 256, 512], [128, 256, 512, 1024]]),
             coords={"channel": vend["channel"], "pulse_length_bin": vend["pulse_length_bin"]}
     )
-    vend["impedance_receive"] = xr.DataArray(
+    vend["impedance_transceiver"] = xr.DataArray(
         [1000, 2000], coords={"channel": vend["channel"]}
     )
     vend["transceiver_type"] = xr.DataArray(
@@ -84,12 +84,12 @@ def beam_EK():
         "beamwidth_twoway_alongship", "beamwidth_twoway_athwartship"
     ]:
         beam[p_name] = xr.DataArray(
-            np.array([[[123, 123, 123, 123], [456, 456, 456, 456]]]),
-            dims=["ping_time", "channel", "beam"],
-            coords={"channel": ["chA", "chB"], "ping_time": [1], "beam": [1, 2, 3, 4]},
+            np.array([[123], [456]]),
+            dims=["channel", "ping_time"],
+            coords={"channel": ["chA", "chB"], "ping_time": [1]},
         )
     beam["frequency_nominal"] = xr.DataArray([25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]})
-    return beam.transpose("channel", "ping_time", "beam")
+    return beam.transpose("channel", "ping_time")
 
 
 @pytest.mark.parametrize(
@@ -262,25 +262,6 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
                 coords={"ping_time": [1], "channel": ["chA", "chB"]}
             ),
         ),
-        #       - xr.DataArray with coordinates channel, ping_time, beam
-        (
-            xr.DataArray(
-                np.array([[np.nan, np.nan, np.nan, 4, 5, 6]]),
-                dims=["cal_channel_id", "cal_frequency"],
-                coords={"cal_channel_id": ["chB"],
-                        "cal_frequency": [10, 20, 30, 40, 50, 60]},
-            ),
-            xr.DataArray(
-                np.array([[[100, 200]]] * 4),
-                dims=["beam", "ping_time", "channel"],
-                coords={"beam": [0, 1, 2, 3], "ping_time": [1], "channel": ["chA", "chB"]},
-            ),
-            xr.DataArray(
-                [[100], [5.5]],
-                dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]}
-            ),
-        ),
         #       - xr.DataArray with coordinates channel, ping_time
         (
             xr.DataArray(
@@ -313,7 +294,6 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
         "in_None_alt_da",
         "in_da_all_channel_out_interp",
         "in_da_some_channel_alt_scalar",
-        "in_da_some_channel_alt_da3coords",  # channel, ping_time, beam
         "in_da_some_channel_alt_da2coords",  # channel, ping_time
     ]
 )
@@ -435,11 +415,11 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                         np.array([111, 222]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
-                    "impedance_transmit": xr.DataArray(
+                    "impedance_transducer": xr.DataArray(
                         np.array([[75], [75]]), dims=["channel", "ping_time"],
                         coords={"channel": ["chA", "chB"], "ping_time": [1]}
                     ),
-                    "impedance_receive": xr.DataArray(
+                    "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
@@ -485,11 +465,11 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                         np.array([111, 222]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
-                    "impedance_transmit": xr.DataArray(
+                    "impedance_transducer": xr.DataArray(
                         np.array([[75], [75]]), dims=["channel", "ping_time"],
                         coords={"channel": ["chA", "chB"], "ping_time": [1]}
                     ),
-                    "impedance_receive": xr.DataArray(
+                    "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"],
                         coords={"channel": ["chA", "chB"]}
                     ),
@@ -553,7 +533,7 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
     ("user_dict", "out_dict"),
     [
         # cal_params should not contain:
-        #   impedance_transmit, impedance_receive, receiver_sampling_frequency
+        #   impedance_transducer, impedance_transceiver, receiver_sampling_frequency
         (
             {
                 # add sa_correction here to bypass things going into get_vend_cal_params_power
@@ -596,7 +576,7 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
 )
 def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict):
     # Remove some variables from Vendor group to mimic EK60 data
-    vend_EK = vend_EK.drop("impedance_receive").drop("transceiver_type")
+    vend_EK = vend_EK.drop("impedance_transceiver").drop("transceiver_type")
     cal_dict = get_cal_params_EK(
         waveform_mode="CW", freq_center=freq_center,
         beam=beam_EK, vend=vend_EK,
@@ -627,7 +607,7 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
                 dims=["ping_time", "channel"],
                 coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
                 name="sa_correction",
-            ),
+            ).astype(np.float64),
         ),
         # with NaN entry in transmit_duration_nominal
         (

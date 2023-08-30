@@ -118,8 +118,8 @@ def test_ecs_intake_ek80_CW_power(ek80_path, ecs_path):
     assert np.all(ds_Sv["sound_absorption"].values == assimilated_env_params["sound_absorption"].values)
 
     # TODO: remove params that are only relevant to EK80 complex sample cals
-    #       `impedance_transmit`, `impedance_receive`, `receiver_sampling_frequency`
-    # for p_name in ["impedance_transmit", "impedance_receive", "receiver_sampling_frequency"]:
+    #       `impedance_transducer`, `impedance_transceiver`, `receiver_sampling_frequency`
+    # for p_name in ["impedance_transducer", "impedance_transceiver", "receiver_sampling_frequency"]:
     #     assert p_name not in ds_Sv
 
 
@@ -146,7 +146,6 @@ def test_ecs_intake_ek80_BB_complex(ek80_path, ecs_path):
     for p_name in ["sound_speed", "temperature", "salinity", "pressure", "pH"]:
         assert ds_Sv[p_name].identical(ecs_env[p_name])
 
-    # TODO: add back "impedance_receive" but will need to rename to "impedance_transceiver"
     for p_name in ["sa_correction", "receiver_sampling_frequency"]:
         assert ds_Sv[p_name].identical(ecs_cal_NB[p_name])
 
@@ -154,8 +153,8 @@ def test_ecs_intake_ek80_BB_complex(ek80_path, ecs_path):
     beam = ed["Sonar/Beam_group1"]
     chan_w_BB_param = "WBT 549762-15 ES70-7C_ES"
     freq_center = (
-        (beam["frequency_start"] + beam["frequency_end"]) / 2
-    ).sel(channel=chan_w_BB_param).isel(beam=0).drop_vars(["beam", "channel"])
+        (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]) / 2
+    ).sel(channel=chan_w_BB_param).drop_vars(["channel"])
 
     for p_name in [
         "gain_correction", "angle_offset_alongship", "angle_offset_athwartship",

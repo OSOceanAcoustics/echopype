@@ -4,6 +4,94 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.8.0 (2023 August 27)
+
+## Overview
+
+This release includes important updates to the raw-converted data format based on adaptation of convention, an efficiency boost for combining multiple `EchoData` objects, packaging and infrastructure upgrades, and other updates necessitated by these changes.
+
+## Enhancement
+- Overhaul the `combine_echodata` function (#1042, #1116)
+  - No longer require spinning up dask client under the hood during combine
+  - Use `xr.concat` directly compatible with delayed computation
+  - No longer require destination path as input argument
+- Overhaul `EchoData.update_platform` (#1060)
+  - Allow adding external variables with arbitrary number of time dimensions, with new time dimensions following an increasing order (e.g., `time3`, `time4`, etc)
+  - Only allow updating standardized, sonar model-dependent Platform group variables
+
+## Raw-converted data format changes
+- Drop the `beam` and `ping_time` dimensions for some parameters (#1056, #1083)
+  - The dimensions of these parameters were previously expanded to conform with convention requirements, but this inflated the data volume, especially for in memory operations, and made the calibration code confusing
+- Standardize `backscatter_r/i` long_name in the `Sonar/Beam_groupX` group, and correct units (#1047)
+- Standardize use of `transmit_frequency_start/stop` for all echosounder models (#1091)
+- Move filter coefficients and decimation factor to variables in EK80 `Vendor_specific` group (#1044, #1046, #1105)
+- Add new `Provenance` group `combination_*` attributes to combined `EchoData` object, mirroring the `conversion_*` attributes (#1113)
+- Bring more consistency in the `Platform` group across sensors on conversion (#1058, #1061)
+- Add missing mandatory variables and other data format changes (#1094, #1099, #1101, #1102, #1103, #1104, #1107, #1114)
+- Set time arrays explicitly to datetime64[ns] in parsers and remove duplicated timestamp stuff (#1117)
+
+## Packaging and infrastructure
+- Remove Pandas<2 pinning (#1080)
+- Pin netcdf to >1.6 and add explicit encoding (#1112)
+- Update CI to prepare for python 3.11 (#1108)
+- Switch github action for get-changed-files (#1118)
+- Fix discrepancy on test log output (#1119)
+
+## Others
+- Set and fix encoding for variable encoding (#1072)
+  - Specify handling for expected string type
+  - Sanitize and set encoding as part of EchoData
+- Handling problematic NMEA messages when setting lat/lon in Platform group (#1067)
+- Update permission check filename to be UUID to make it thread safe (#1110)
+- use `pulse_form` for EK80 transmit type checks (#1091)
+- Factor out a normalization factor from pulse compression function for flexible use (#1105)
+- Add existence checking for angle parameters in `consolidate.add_splitbeam_angle` (#1105)
+- Revise qc function to clean up reversed time (#1065)
+- Update matplotlib call to register EK500 colormap (#1068)
+- Temporarily remove `compute_NASC` for debugging and overhaul (#1136)
+- Remove the deprecated `preprocess` subpackage (#1077, #1082)
+- Remove the `ZarrCombine` module since it is no longer used (#1117)
+- Remove outdated `ui_param` (#1071)
+
+## Documentation
+- Add rendering for example `EchoData` objects for all supported echosounders to show the updated format (#1089)
+- Restructure TOC to have separate Raw data formats and Data Processing sections, each with new subpages (#1093, #1132, #1134)
+- Add discussion on z-axis vertical coordinate system and variables (#1133)
+- Add bibliography page linked from inline citations (#1137)
+
+
+
+
+
+
+# v0.7.1 (2023 May 1)
+
+## Overview
+
+This release includes important updates to the requirements, small bug fixes, and refactoring of AZFP parser code to handle files from glider deployment and improve code coherence.
+
+## Enhancement and bug fixes
+- AZFP conversion enhancements
+  - Add error catch to handle AZFP files with no temperature or tilt, such as those from glider deployments (#1020)
+  - Refactor AZFP parser code to improve code coherence (#1024)
+  - Correct and add missing SONAR-netCDF4 variable attributes for AZFP (#1023)
+- Improve impedance parameter handling for EK80 files (#1019)
+  - allow impedance data type to be float
+  - unify naming of impedance parameters
+- Allow only one chirp generation option for EK80 broadband processing (#1019)
+  - previously there was an option to use the implementation from Matlab echolab
+  - starting from this version only the implementation identical to those from Lars Andersen ([repo](https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf))
+- Remove unneeded return self in processing level decorator wrapper-inner function for class method (#1037)
+
+## Tests and infrastructure
+- Unpin xarray version and pin pandas < 2 (#981)
+- allow v0.7.x in `map_ep_version` checks
+
+
+
+
+
+
 # v0.7.0 (2023 March 25)
 
 ## Overview

@@ -12,7 +12,7 @@ from typing_extensions import Literal
 
 from .log import _init_logger
 
-ProcessType = Literal["conversion", "processing", "mask"]
+ProcessType = Literal["conversion", "combination", "processing", "mask"]
 # Note that this PathHint is defined differently from the one in ..core
 PathHint = Union[str, Path]
 PathSequenceHint = Union[List[PathHint], Tuple[PathHint], NDArray[PathHint]]
@@ -148,6 +148,19 @@ def source_files_vars(
     return files_vars
 
 
+def _check_valid_latlon(ds):
+    """Verify that the dataset contains valid latitude and longitude variables"""
+    if (
+        "longitude" in ds
+        and not ds["longitude"].isnull().all()
+        and "latitude" in ds
+        and not ds["latitude"].isnull().all()
+    ):
+        return True
+    else:
+        return False
+
+
 # L0 is not actually used by echopype but is included for completeness
 PROCESSING_LEVELS = dict(
     L0="Level 0",
@@ -204,9 +217,17 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
             @functools.wraps(func)
             def inner(self, *args, **kwargs):
                 func(self, *args, **kwargs)
-                processing_level = PROCESSING_LEVELS[processing_level_code]
-                self["Top-level"] = self["Top-level"].assign_attrs(_attrs_dict(processing_level))
-                return self
+                if _check_valid_latlon(self["Platform"]):
+                    processing_level = PROCESSING_LEVELS[processing_level_code]
+                    self["Top-level"] = self["Top-level"].assign_attrs(
+                        _attrs_dict(processing_level)
+                    )
+                else:
+                    logger.info(
+                        "EchoData object (converted raw file) does not contain "
+                        "valid Platform location data. Processing level attributes "
+                        "will not be added."
+                    )
 
             return inner
         else:
@@ -216,10 +237,7 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                 dataobj = func(*args, **kwargs)
                 if is_echodata:
                     ed = dataobj
-                    if (
-                        "longitude" in ed["Platform"]
-                        and not ed["Platform"]["longitude"].isnull().all()
-                    ):
+                    if _check_valid_latlon(ed["Platform"]):
                         # The decorator is passed the exact, final level code, with sublevel
                         processing_level = PROCESSING_LEVELS[processing_level_code]
                         ed["Top-level"] = ed["Top-level"].assign_attrs(
@@ -235,7 +253,7 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                     return ed
                 elif isinstance(dataobj, xr.Dataset):
                     ds = dataobj
-                    if "longitude" in ds and not ds["longitude"].isnull().all():
+                    if _check_valid_latlon(ds):
                         if processing_level_code in PROCESSING_LEVELS:
                             # The decorator is passed the exact, final level code, with sublevel
                             processing_level = PROCESSING_LEVELS[processing_level_code]

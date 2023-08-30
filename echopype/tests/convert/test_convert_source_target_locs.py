@@ -12,15 +12,16 @@ import os
 import fsspec
 import xarray as xr
 import pytest
+from datatree import open_datatree
 from tempfile import TemporaryDirectory
 from echopype import open_raw
 from echopype.utils.coding import DEFAULT_ENCODINGS
 
 
 def _check_file_group(data_file, engine, groups):
-    for g in groups:
-        ds = xr.open_dataset(data_file, engine=engine, group=g)
-
+    tree = open_datatree(data_file, engine=engine)
+    for group in groups:
+        ds = tree[f"/{group}"].ds
         assert isinstance(ds, xr.Dataset) is True
 
 

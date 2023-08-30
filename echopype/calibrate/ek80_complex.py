@@ -1,77 +1,48 @@
 from collections import defaultdict
-from typing import Dict, Literal, Union
+from typing import Dict, Literal, Optional, Union
 
 import numpy as np
 import xarray as xr
 from scipy import signal
+
+from ..convert.set_groups_ek80 import DECIMATION, FILTER_IMAG, FILTER_REAL
 
 
 def tapered_chirp(
     fs,
     transmit_duration_nominal,
     slope,
-    transmit_power,
-    implementation="Anderson",
-    z_et=None,
-    frequency_nominal=None,
-    frequency_start=None,
-    frequency_end=None,
+    transmit_frequency_start,
+    transmit_frequency_stop,
 ):
-    """Create a baseline chirp template."""
-    if frequency_start is None and frequency_end is None:  # CW waveform
-        frequency_start = frequency_nominal
-        frequency_end = frequency_nominal
+    """
+    Create the chirp replica following implementation from Lars Anderson.
 
-    if implementation == "Macaulay":
-        # z_et is required for Macaulay implementation
-        if z_et is None:
-            raise ValueError("z_et is needed for Macaulay implementation of transmit chirp!")
+    Ref source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/main/Core/Calculation.py  # noqa
+    """
 
-        t = np.arange(0, transmit_duration_nominal, 1 / fs)
-        nwtx = int(2 * np.floor(slope * t.size))  # length of tapering window
-        wtx_tmp = np.hanning(nwtx)  # hanning window
-        nwtxh = int(np.round(nwtx / 2))  # half length of the hanning window
-        wtx = np.concatenate(
-            [wtx_tmp[0:nwtxh], np.ones((t.size - nwtx)), wtx_tmp[nwtxh:]]
-        )  # assemble full tapering window
-        chirp_fac = (
-            (frequency_end - frequency_start) / transmit_duration_nominal
-        ) * t / 2 + frequency_start
-        y_tmp = (
-            np.sqrt((transmit_power / 4) * (2 * z_et))  # amplitude
-            * np.cos(2 * np.pi * chirp_fac * t)  # chirp
-            * wtx  # tapering
-        )  # taper and scale linear chirp
-        return y_tmp / np.max(np.abs(y_tmp)), t  # amplitude needs to be normalized
+    tau = transmit_duration_nominal
+    f0 = transmit_frequency_start
+    f1 = transmit_frequency_stop
 
-    elif implementation == "Anderson":
-        # Substitute to keep original form in Anderson implementation
-        # source: https://github.com/CRIMAC-WP4-Machine-learning/CRIMAC-Raw-To-Svf-TSf/blob/main/Core/Calculation.py  # noqa
-        tau = transmit_duration_nominal
-        f0 = frequency_start
-        f1 = frequency_end
+    nsamples = int(np.floor(tau * fs))
+    t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
+    a = np.pi * (f1 - f0) / tau
+    b = 2 * np.pi * f0
+    y = np.cos(a * t * t + b * t)
+    L = int(np.round(tau * fs * slope * 2.0))  # Length of hanning window
+    w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
+    N = len(y)
+    w1 = w[0 : int(len(w) / 2)]
+    w2 = w[int(len(w) / 2) : -1]
+    i0 = 0
+    i1 = len(w1)
+    i2 = N - len(w2)
+    i3 = N
+    y[i0:i1] = y[i0:i1] * w1
+    y[i2:i3] = y[i2:i3] * w2
 
-        nsamples = int(np.floor(tau * fs))
-        t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
-        a = np.pi * (f1 - f0) / tau
-        b = 2 * np.pi * f0
-        y = np.cos(a * t * t + b * t)
-        L = int(np.round(tau * fs * slope * 2.0))  # Length of hanning window
-        w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
-        N = len(y)
-        w1 = w[0 : int(len(w) / 2)]
-        w2 = w[int(len(w) / 2) : -1]
-        i0 = 0
-        i1 = len(w1)
-        i2 = N - len(w2)
-        i3 = N
-        y[i0:i1] = y[i0:i1] * w1
-        y[i2:i3] = y[i2:i3] * w2
-
-        return y / np.max(y), t  # amplitude needs to be normalized
-
-    else:
-        raise ValueError("Input implementation type not recognized!")
+    return y / np.max(y), t  # amplitude needs to be normalized
 
 
 def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
@@ -93,8 +64,6 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
     ytx_wbt_deci = ytx_wbt[0 :: coeff_ch["wbt_decifac"]]
 
     # PC filter and decimation
-    if len(coeff_ch["pc_fil"].squeeze().shape) == 0:  # in case it is a single element
-        coeff_ch["pc_fil"] = [coeff_ch["pc_fil"].squeeze()]
     ytx_pc = signal.convolve(ytx_wbt_deci, coeff_ch["pc_fil"])
     ytx_pc_deci = ytx_pc[0 :: coeff_ch["pc_decifac"]]
     ytx_pc_deci_time = (
@@ -105,8 +74,11 @@ def filter_decimate_chirp(coeff_ch: Dict, y_ch: np.array, fs: float):
 
 
 def get_vend_filter_EK80(
-    vend: xr.Dataset, channel_id: str, filter_name: str, param_type: Literal["coeff", "decimation"]
-) -> Union[np.ndarray, int]:
+    vend: xr.Dataset,
+    channel_id: str,
+    filter_name: Literal["WBT", "PC"],
+    param_type: Literal["coeff", "decimation"],
+) -> Optional[Union[np.ndarray, int]]:
     """
     Get filter coefficients stored in the Vendor_specific group attributes.
 
@@ -123,18 +95,29 @@ def get_vend_filter_EK80(
 
     Returns
     -------
-    np.ndarray or int
+    np.ndarray or int or None
         The filter coefficient or the decimation factor
     """
+    var_imag = f"{filter_name}_{FILTER_IMAG}"
+    var_real = f"{filter_name}_{FILTER_REAL}"
+    var_df = f"{filter_name}_{DECIMATION}"
+
+    # if the variables are not in the dataset, simply return None
+    if not all([var in vend for var in [var_imag, var_real, var_df]]):
+        return None
+
+    # Select the channel requested
+    sel_vend = vend.sel(channel=channel_id)
+
     if param_type == "coeff":
-        v = vend.attrs[f"{channel_id} {filter_name} filter_r"] + 1j * np.array(
-            vend.attrs[f"{channel_id} {filter_name} filter_i"]
-        )
-        if v.size == 1:
-            v = np.expand_dims(v, axis=0)  # expand dims for convolution
+        # Compute complex number from imaginary and real parts
+        v_complex = sel_vend[var_real] + 1j * sel_vend[var_imag]
+        # Drop nan fillers and get the values
+        v = v_complex.dropna(dim=f"{filter_name}_filter_n").values
         return v
     else:
-        return vend.attrs[f"{channel_id} {filter_name} decimation"]
+        # Get the decimation value
+        return sel_vend[var_df].values
 
 
 def get_filter_coeff(vend: xr.Dataset) -> Dict:
@@ -241,29 +224,20 @@ def get_transmit_signal(
     # Make sure it is BB mode data
     # This is already checked in calibrate_ek
     # but keeping this here for use as standalone function
-    if waveform_mode == "BB" and (("frequency_start" not in beam) or ("frequency_end" not in beam)):
+    if waveform_mode == "BB" and np.all(beam["transmit_type"] == "CW"):
         raise TypeError("File does not contain BB mode complex samples!")
 
     # Generate all transmit replica
     y_all = {}
     y_time_all = {}
+    # TODO: expand to deal with the case with varying tx param across ping_time
+    tx_param_names = [
+        "transmit_duration_nominal",
+        "slope",
+        "transmit_frequency_start",
+        "transmit_frequency_stop",
+    ]
     for ch in beam["channel"].values:
-        # TODO: expand to deal with the case with varying tx param across ping_time
-        if waveform_mode == "BB":
-            tx_param_names = [
-                "transmit_duration_nominal",
-                "slope",
-                "transmit_power",
-                "frequency_start",
-                "frequency_end",
-            ]
-        else:
-            tx_param_names = [
-                "transmit_duration_nominal",
-                "slope",
-                "transmit_power",
-                "frequency_nominal",
-            ]
         tx_params = {}
         for p in tx_param_names:
             tx_params[p] = np.unique(beam[p].sel(channel=ch))
@@ -300,21 +274,13 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     """
     pc_all = []
     for chan in backscatter["channel"]:
-        backscatter_chan = (
-            backscatter.sel(channel=chan)
-            # .dropna(dim="range_sample", how="all")
-            .dropna(dim="beam", how="all")
-            # .dropna(dim="ping_time")
-        )
+        backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
 
         tx = chirp[str(chan.values)]
         replica = np.flipud(np.conj(tx))
         pc = xr.apply_ufunc(
             lambda m: np.apply_along_axis(
-                lambda m: (
-                    signal.convolve(m, replica, mode="full")[tx.size - 1 :]
-                    / np.linalg.norm(tx) ** 2
-                ),
+                lambda m: (signal.convolve(m, replica, mode="full")[tx.size - 1 :]),
                 axis=2,
                 arr=m,
             ),
@@ -337,3 +303,25 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     )
 
     return pc_all
+
+
+def get_norm_fac(chirp: Dict) -> xr.DataArray:
+    """
+    Get normalization factor from the chirp dictionary.
+
+    Parameters
+    ----------
+    chirp : dict
+        transmit chirp replica indexed by ``channel``
+
+    Returns
+    -------
+    xr.DataArray
+        A data array containing the normalization factor, with channel coordinate
+    """
+    norm_fac = []
+    ch_all = []
+    for ch, tx in chirp.items():
+        norm_fac.append(np.linalg.norm(tx) ** 2)
+        ch_all.append(ch)
+    return xr.DataArray(norm_fac, coords={"channel": ch_all})

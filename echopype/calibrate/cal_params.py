@@ -25,16 +25,16 @@ CAL_PARAMS = {
         "angle_sensitivity_athwartship",
         "beamwidth_alongship",
         "beamwidth_athwartship",
-        "impedance_transmit",  # z_et
-        "impedance_receive",  # z_er
+        "impedance_transducer",  # z_et
+        "impedance_transceiver",  # z_er
         "receiver_sampling_frequency",
     ),
     "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
 }
 
 EK80_DEFAULT_PARAMS = {
-    "impedance_transmit": 75,
-    "impedance_receive": 1000,
+    "impedance_transducer": 75,
+    "impedance_transceiver": 1000,
     "receiver_sampling_frequency": {  # default full sampling frequency [Hz]
         "default": 1500000,
         "GPT": 500000,
@@ -203,7 +203,7 @@ def _get_interp_da(
 
     ``alternative`` can be one of the following:
 
-    - scalar (int or float): this is the case for impedance_transmit
+    - scalar (int or float): this is the case for impedance_transducer
     - xr.DataArray with coordinates channel, ping_time, and beam:
         this is the case for parameters angle_offset_alongship, angle_offset_athwartship,
                                         beamwidth_alongship, beamwidth_athwartship
@@ -223,7 +223,7 @@ def _get_interp_da(
             param.append(
                 da_param.sel(cal_channel_id=ch_id)
                 .interp(cal_frequency=freq_center.sel(channel=ch_id))
-                .data.squeeze()
+                .data
             )
         # if no frequency-dependent param exists, use alternative
         else:
@@ -231,26 +231,23 @@ def _get_interp_da(
                 BB_factor.sel(channel=ch_id) if isinstance(BB_factor, xr.DataArray) else BB_factor
             )
             if isinstance(alternative, xr.DataArray):
-                # drop the redundant beam dimension if exist
-                if "beam" in alternative.coords:
-                    param.append(
-                        (alternative.sel(channel=ch_id).isel(beam=0) * BB_factor_ch).data.squeeze()
-                    )
-                else:
-                    param.append((alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze())
+                alt = (alternative.sel(channel=ch_id) * BB_factor_ch).data.squeeze()
             elif isinstance(alternative, (int, float)):
-                # expand to have ping_time dimension
-                param.append(
+                alt = (
                     np.array([alternative] * freq_center.sel(channel=ch_id).size).squeeze()
                     * BB_factor_ch
                 )
             else:
                 raise ValueError("'alternative' has to be of the type int, float, or xr.DataArray")
+            if alt.size == 1 and "ping_time" in freq_center.coords:
+                # expand to size of ping_time coordinate
+                alt = np.array([alt] * freq_center.sel(channel=ch_id).size)
+            param.append(alt)
 
     param = np.array(param)
 
     if "ping_time" in freq_center.coords:
-        if len(param.shape) == 1:  # this means ping_time has length=1
+        if len(param.shape) == 1:  # this means param has only the channel but not the ping_time dim
             param = np.expand_dims(param, axis=1)
         return xr.DataArray(
             param,
@@ -308,7 +305,19 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
 
     # Select corresponding index and clean up the original nan elements
     da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
-    return da_param.where(~transmit_isnull, np.nan)  # set the nan elements back to nan
+
+    # Set the nan elements back to nan.
+    # Doing the `.where` will result in float64,
+    # which is fine since we're dealing with nan
+    da_param = da_param.where(~transmit_isnull, np.nan)
+
+    # Clean up for leftover plb variable
+    # if exists
+    plb_var = "pulse_length_bin"
+    if plb_var in da_param.coords:
+        da_param = da_param.drop(plb_var)
+
+    return da_param
 
 
 def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict) -> dict:
@@ -340,8 +349,7 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
         if v is None:
             # Params from Sonar/Beam_group1
             if p == "equivalent_beam_angle":
-                # equivalent_beam_angle has dims: channel, ping_time, beam --> only need channel
-                out_dict[p] = beam[p].isel(ping_time=0, beam=0).drop(["ping_time", "beam"])
+                out_dict[p] = beam[p]  # has only channel dim
 
             # Params from Vendor_specific group
             elif p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
@@ -387,9 +395,11 @@ def get_cal_params_EK(
 
     # Private function to get fs
     def _get_fs():
-        if "fs_receiver" in vend:
-            return vend["fs_receiver"]
+        # If receiver_sampling_frequency recorded, use it
+        if "receiver_sampling_frequency" in vend:
+            return vend["receiver_sampling_frequency"]
         else:
+            # If receiver_sampling_frequency not recorded, use default value
             # loop through channel since transceiver can vary
             fs = []
             for ch in vend["channel"]:
@@ -431,24 +441,20 @@ def get_cal_params_EK(
             # Those without CW or BB complications
             if p == "sa_correction":  # pull from data file
                 out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-            elif p == "impedance_receive":  # from data file or default dict
-                out_dict[p] = default_params[p] if p not in vend else vend["impedance_receive"]
+            elif p == "impedance_transceiver":  # from data file or default dict
+                out_dict[p] = default_params[p] if p not in vend else vend["impedance_transceiver"]
             elif p == "receiver_sampling_frequency":  # from data file or default_params
                 out_dict[p] = _get_fs()
             else:
-                # CW: params do not require interpolation, except for impedance_transmit
+                # CW: params do not require interpolation, except for impedance_transducer
                 if waveform_mode == "CW":
                     if p in PARAM_BEAM_NAME_MAP.keys():
-                        p_beam = PARAM_BEAM_NAME_MAP[p]
                         # pull from data file, these should always exist
-                        if "beam" in beam[p_beam].coords:
-                            out_dict[p] = beam[p_beam].isel(beam=0).drop("beam")
-                        else:
-                            out_dict[p] = beam[p_beam]
+                        out_dict[p] = beam[PARAM_BEAM_NAME_MAP[p]]
                     elif p == "gain_correction":
                         # pull from data file narrowband table
                         out_dict[p] = get_vend_cal_params_power(beam=beam, vend=vend, param=p)
-                    elif p == "impedance_transmit":
+                    elif p == "impedance_transducer":
                         # assemble each channel from data file or default dict
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
@@ -485,7 +491,7 @@ def get_cal_params_EK(
                         )
                     elif p == "equivalent_beam_angle":
                         # scaled according to frequency ratio
-                        out_dict[p] = beam[p].isel(beam=0).drop("beam") + 20 * np.log10(
+                        out_dict[p] = beam[p] + 20 * np.log10(
                             beam["frequency_nominal"] / freq_center
                         )
                     elif p == "gain_correction":
@@ -497,7 +503,7 @@ def get_cal_params_EK(
                             freq_center=freq_center,
                             alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
                         )
-                    elif p == "impedance_transmit":
+                    elif p == "impedance_transducer":
                         out_dict[p] = _get_interp_da(
                             da_param=None if p not in vend else vend[p],
                             freq_center=freq_center,
