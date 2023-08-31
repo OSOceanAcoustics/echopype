@@ -20,11 +20,10 @@ jobs:
         python-version: ["3.9", "3.10"]
         runs-on: [ubuntu-latest]
         experimental: [false]
-        # TODO: Uncomment when netcdf is unpinned
-        # include:
-        # - runs-on: ubuntu-latest
-        #   python-version: "3.11"
-        #   experimental: true
+        include:
+        - runs-on: ubuntu-latest
+          python-version: "3.11"
+          experimental: true
     defaults:
       run:
         shell: bash -l {0}
