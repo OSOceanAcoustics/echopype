@@ -1,9 +1,10 @@
 import dask.array
 import numpy as np
+import pandas as pd
 from numpy.random import default_rng
 import pytest
 from typing import Tuple, Iterable, Union
-from echopype.commongrid.mvbs import bin_and_mean_2d
+from echopype.commongrid.mvbs import bin_and_mean_2d, get_MVBS_along_channels
 
 
 def create_bins(csum_array: np.ndarray) -> Iterable:
@@ -420,3 +421,51 @@ def test_bin_and_mean_2d(bin_and_mean_2d_params) -> None:
 
     # compare known MVBS solution against its calculated counterpart
     assert np.allclose(calc_MVBS, known_MVBS, atol=1e-10, rtol=1e-10, equal_nan=True)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(["range_var", "lat_lon"], [("depth", False), ("echo_range", True)])
+def test_get_MVBS_along_channels(request, range_var, lat_lon):
+    """Testing the underlying function of compute_MVBS"""
+    range_meter_bin = 20
+    ping_time_bin = "20S"
+    method = "map-reduce"
+    
+    flox_kwargs = {
+        "reindex": True
+    }
+    
+    # Retrieve the correct dataset
+    if range_var == "depth":
+        ds_Sv = request.getfixturevalue("ds_Sv_er_regular_w_depth")
+    elif range_var == "echo_range" and lat_lon is True:
+        ds_Sv = request.getfixturevalue("ds_Sv_er_regular_w_latlon")
+    else:
+        ds_Sv = request.getfixturevalue("ds_Sv_er_regular")
+    
+    # compute range interval
+    echo_range_max = ds_Sv[range_var].max()
+    range_interval = np.arange(0, echo_range_max + range_meter_bin, range_meter_bin)
+    
+    # create bin information needed for ping_time
+    d_index = (
+        ds_Sv["ping_time"]
+        .resample(ping_time=ping_time_bin, skipna=True)
+        .asfreq()
+        .indexes["ping_time"]
+    )
+    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
+    
+    raw_MVBS = get_MVBS_along_channels(
+        ds_Sv, range_interval, ping_interval,
+        range_var=range_var, method=method, **flox_kwargs
+    )
+    
+    # Check that the range_var is in the dimension
+    assert f"{range_var}_bins" in raw_MVBS.dims
+    
+    # When it's echo_range and lat_lon, the dataset should have positions
+    if range_var == "echo_range" and lat_lon is True:
+        assert raw_MVBS.attrs["has_positions"] is True
+    else:
+        assert raw_MVBS.attrs["has_positions"] is False

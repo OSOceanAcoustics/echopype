@@ -4,6 +4,8 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
+from echopype.consolidate import add_depth
+
 
 @pytest.fixture
 def random_number_generator():
@@ -123,6 +125,11 @@ def lon_attrs(latlon_history_attr):
         'history': latlon_history_attr
     }
     
+@pytest.fixture
+def depth_offset():
+    """Depth offset for calculating depth"""
+    return 2.5
+    
 
 @pytest.fixture
 def ds_Sv_er_regular_w_latlon(ds_Sv_er_regular, lat_attrs, lon_attrs):
@@ -137,6 +144,11 @@ def ds_Sv_er_regular_w_latlon(ds_Sv_er_regular, lat_attrs, lon_attrs):
     # Need processing level code for compute MVBS to work!
     ds_Sv_er_regular.attrs["processing_level"] = "Level 2A"
     return ds_Sv_er_regular
+
+@pytest.fixture
+def ds_Sv_er_regular_w_depth(ds_Sv_er_regular, depth_offset):
+    """Sv dataset with depth"""
+    return ds_Sv_er_regular.pipe(add_depth, depth_offset=depth_offset)
 
 
 @pytest.fixture
