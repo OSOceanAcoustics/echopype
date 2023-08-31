@@ -5,7 +5,7 @@ Installation and Examples
 Installation
 ------------
 
-Echopype is available and tested for Python>=3.8. The latest release
+Echopype is available and tested for Python>=3.9. The latest release
 can be installed from `PyPI <https://pypi.org/project/echopype/>`_:
 
 .. code-block:: console
