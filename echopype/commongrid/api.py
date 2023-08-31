@@ -313,38 +313,57 @@ def compute_NASC(
     bin_num_depth, depth_bin_idx = get_depth_bin_info(ds_Sv, cell_depth)  # depth_bin_idx is 1-based
 
     # Compute mean sv (volume backscattering coefficient, linear scale)
-    # This is essentially to compute MVBS over a the cell defined here,
+    # This is essentially to compute MVBS over the cell defined here,
     # which are typically larger than those used for MVBS.
     # The implementation below is brute force looping, but can be optimized
     # by experimenting with different delayed schemes.
     # The optimized routines can then be used here and
     # in commongrid.compute_MVBS and clean.estimate_noise
-    sv_mean = []
+    sv_mean_2nasc = []
     for ch_seq in np.arange(ds_Sv["channel"].size):
         # TODO: .compute each channel sequentially?
         #       dask.delay within each channel?
         ds_Sv_ch = ds_Sv["Sv"].isel(channel=ch_seq).data  # preserve the underlying type
+        ds_Sv_depth = ds_Sv["depth"].isel(channel=ch_seq).data
 
-        sv_mean_dist_depth = []
+        sv_mean_dist_depth_2nasc = []
         for dist_idx in np.arange(bin_num_dist) + 1:  # along ping_time
-            sv_mean_depth = []
+            sv_mean_depth_2nasc = []
             for depth_idx in np.arange(bin_num_depth) + 1:  # along depth
                 # Sv dim: ping_time x depth
                 Sv_cut = ds_Sv_ch[dist_idx == dist_bin_idx, :][
                     :, depth_idx == depth_bin_idx[ch_seq]
                 ]
-                sv_mean_depth.append(np.nanmean(10 ** (Sv_cut / 10)))
-            sv_mean_dist_depth.append(sv_mean_depth)
+                num_pings_in_cut_cell, num_depth_vals_in_cut_cell = Sv_cut.shape
+                r = ds_Sv_depth[:, depth_idx == depth_bin_idx[ch_seq]][0]
+                # t -> height in [m] between two consecutive samples
+                # derived from the difference between the corresponding consecutive depths
+                t = np.r_[np.diff(r), np.nan]
+                t = np.vstack([t] * num_pings_in_cut_cell)
+                sv = 10 ** (Sv_cut / 10)
+                # per -> the percentage of not nan samples
+                per = np.mean(np.logical_not(np.isnan(sv))) * 100
+                # num_pings_in_cut_cell * num_depth_vals_in_cut_cell = number of samples in cut cell
+                sv_mean_depth_2nasc.append(
+                    (
+                        np.nanmean(sv * t)
+                        * (
+                            (num_pings_in_cut_cell * num_depth_vals_in_cut_cell)
+                            / num_pings_in_cut_cell
+                        )
+                        * 4
+                        * np.pi
+                        * 1852**2
+                    )
+                    / (per / 100)
+                )
 
-        sv_mean.append(sv_mean_dist_depth)
+            sv_mean_dist_depth_2nasc.append(sv_mean_depth_2nasc)
 
-    # Compute mean height
-    # For data with uniform depth step size, mean height = vertical size of cell
-    height_mean = cell_depth
-    # TODO: generalize to variable depth step size
+        sv_mean_2nasc.append(sv_mean_dist_depth_2nasc)
 
     ds_NASC = xr.DataArray(
-        np.array(sv_mean) * height_mean,
+        np.array(sv_mean_2nasc),
         dims=["channel", "distance", "depth"],
         coords={
             "channel": ds_Sv["channel"].values,
