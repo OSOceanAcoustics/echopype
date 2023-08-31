@@ -111,7 +111,7 @@ def test_raw_to_mvbs(
         else:
             out_ds = test_ds
         freqAB = list(out_ds.frequency_nominal.values[:2])
-        freqABEq = str(freqAB[0]) + "Hz" + str(freqAB[1]) + "Hz" + ">" + str(5) + "dB"
+        freqABEq = str(freqAB[0]) + "Hz" + "-" + str(freqAB[1]) + "Hz" + ">" + str(5) + "dB"
         freqdiff_da = ep.mask.frequency_differencing(source_Sv=out_ds, freqABEq=freqABEq)
 
         # Apply mask to multi-channel Sv
