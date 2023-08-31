@@ -253,7 +253,7 @@ def create_input_mask(
         pytest.param(5, 4, True, True, None, ['chan1', 'chan9'],
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because not all selected channels"
-                                                    "are in the channel coordinate.")),
+                                                    "are in the channel coordinate."))
     ],
     ids=["dataset_input_freqAB_provided", "dataset_input_chanAB_provided", "dataset_no_channel",
          "dataset_no_frequency_nominal", "dataset_missing_freqAB_in_freq_nom",
@@ -343,8 +343,19 @@ def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
         The frequency differencing criteria in terms of channel names where channel names
         in the criteria are enclosed in double quotes.
     """
-
-    _parse_freq_diff_eq(freqABEq=freqABEq, chanABEq=chanABEq)
+    freq_vals = [1.0, 2.0, 1e3, 2e3, 1e6, 2e6]
+    chan_vals = ['chan1', 'chan3', "chan2-12 89", "chan4 89-12"]
+    operator_vals = [">=", "=="]
+    diff_val = 1.0
+    freqAB, chanAB, operator, diff = _parse_freq_diff_eq(freqABEq=freqABEq, chanABEq=chanABEq)
+    if freqAB is not None:
+        for freq in freqAB:
+            assert freq in freq_vals
+    if chanAB is not None:
+        for chan in chanAB:
+            assert chan in chan_vals
+    assert operator in operator_vals
+    assert diff == diff_val
 
 @pytest.mark.parametrize(
     ("n", "n_chan_freq", "freqABEq", "chanABEq", "mask_truth"),

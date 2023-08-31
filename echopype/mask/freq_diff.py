@@ -119,30 +119,31 @@ def _check_freq_diff_source_Sv(
             "The Dataset defined by source_Sv must have frequency_nominal as a variable!"
         )
 
-    # make sure that the channel and frequency_nominal values are not repeated in source_Sv
-    if (chanAB is not None) and (len(set(source_Sv.channel.values)) < source_Sv.channel.size):
-        raise ValueError(
-            "The provided source_Sv contains repeated channel values, this is not allowed!"
-        )
+    # make sure that the channel values are not repeated in source_Sv and
+    # elements of chanAB are in channel
+    if chanAB is not None:
+        if len(set(source_Sv.channel.values)) < source_Sv.channel.size:
+            raise ValueError(
+                "The provided source_Sv contains repeated channel values, this is not allowed!"
+            )
+        if not all([chan in source_Sv.channel for chan in chanAB]):
+            raise ValueError(
+                "The provided list input chanAB contains values that are "
+                "not in the channel coordinate!"
+            )
 
-    if (freqAB is not None) and len(
-        set(source_Sv.frequency_nominal.values)
-    ) < source_Sv.frequency_nominal.size:
-        raise ValueError(
-            "The provided source_Sv contains repeated frequency_nominal "
-            "values, this is not allowed!"
-        )
+    # make sure that the frequency_nominal values are not repeated in source_Sv and
+    # elements of freqAB are in frequency_nominal
+    if freqAB is not None:
+        print(source_Sv.frequency_nominal.values)
+        if len(set(source_Sv.frequency_nominal.values)) < source_Sv.frequency_nominal.size:
+            raise ValueError(
+                "The provided source_Sv contains repeated "
+                "frequency_nominal values, this is not allowed!"
+            )
 
-    # check that the elements of freqAB are in frequency_nominal
-    if (freqAB is not None) and (not all([freq in source_Sv.frequency_nominal for freq in freqAB])):
-        raise ValueError(
-            "The provided list input freqAB contains values that "
-            "are not in the frequency_nominal variable!"
-        )
-
-    # check that the elements of chanAB are in channel
-    if (chanAB is not None) and (not all([chan in source_Sv.channel for chan in chanAB])):
-        raise ValueError(
-            "The provided list input chanAB contains values that are "
-            "not in the channel coordinate!"
-        )
+        if not all([freq in source_Sv.frequency_nominal for freq in freqAB]):
+            raise ValueError(
+                "The provided list input freqAB contains values that "
+                "are not in the frequency_nominal variable!"
+            )
