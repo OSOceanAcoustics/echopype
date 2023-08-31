@@ -1,3 +1,16 @@
+"""
+Note 2023-08-30:
+None of the test in this module is actually run,
+and since we removed automatic version conversion in open_converted in #1143,
+the tests actually cannot run.
+However, since we kept the previous data format conversion mechanisms
+(under echodata/sensor_ep_version_mapping) intact in case we are able to
+reinstate this capability in the future, here we also keep these tests here.
+
+See https://github.com/OSOceanAcoustics/echopype/pull/1143 for associated discussions.
+"""
+
+
 from typing import Any, Dict, Optional
 from datatree import open_datatree
 import pytest
