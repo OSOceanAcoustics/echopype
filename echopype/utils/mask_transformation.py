@@ -53,7 +53,7 @@ def log(variable):
     # convert variable to float array
     back2single = False
     back2list = False
-    back2int = False
+    # back2int = False
     if not isinstance(variable, np.ndarray):
         if isinstance(variable, list):
             variable = np.array(variable)
@@ -61,9 +61,9 @@ def log(variable):
         else:
             variable = np.array([variable])
             back2single = True
-    if variable.dtype == "int64":
-        # Convert to float type
-        back2int = True
+    # if variable.dtype == "int64":
+    #    # Convert to float type
+    #    back2int = True
     variable = variable.astype(float)
     # compute logarithmic value except for zeros values, which will be -999 dB
     mask = np.ma.masked_less_equal(variable, 0).mask
@@ -72,8 +72,8 @@ def log(variable):
     log[mask] = -999
 
     # convert back to original data format and return
-    if back2int:
-        log = np.int64(log)
+    # if back2int:
+    #    log = np.int64(log)
     if back2list:
         log = log.tolist()
     if back2single:
