@@ -95,6 +95,48 @@ def ds_Sv_er_regular(regular_data_params, random_number_generator):
         **regular_data_params,
         random_number_generator=random_number_generator,
     )
+    
+@pytest.fixture
+def latlon_history_attr():
+    return (
+        "2023-08-31 12:00:00.000000 +00:00. "
+        "Interpolated or propagated from Platform latitude/longitude."  # noqa
+    )
+    
+@pytest.fixture
+def lat_attrs(latlon_history_attr):
+    """Latitude attributes"""
+    return {'long_name': 'Platform latitude',
+        'standard_name': 'latitude',
+        'units': 'degrees_north',
+        'valid_range': '(-90.0, 90.0)',
+        'history': latlon_history_attr
+    }
+    
+@pytest.fixture
+def lon_attrs(latlon_history_attr):
+    """Longitude attributes"""
+    return {'long_name': 'Platform longitude',
+        'standard_name': 'longitude',
+        'units': 'degrees_east',
+        'valid_range': '(-180.0, 180.0)',
+        'history': latlon_history_attr
+    }
+    
+
+@pytest.fixture
+def ds_Sv_er_regular_w_latlon(ds_Sv_er_regular, lat_attrs, lon_attrs):
+    """Sv dataset with latitude and longitude"""
+    n_pings = ds_Sv_er_regular.ping_time.shape[0]
+    latitude = np.linspace(42, 43, num=n_pings)
+    longitude = np.linspace(-124, -125, num=n_pings)
+    
+    ds_Sv_er_regular['latitude'] = (["ping_time"], latitude, lat_attrs)
+    ds_Sv_er_regular['longitude'] = (["ping_time"], longitude, lon_attrs)
+    
+    # Need processing level code for compute MVBS to work!
+    ds_Sv_er_regular.attrs["processing_level"] = "Level 2A"
+    return ds_Sv_er_regular
 
 
 @pytest.fixture

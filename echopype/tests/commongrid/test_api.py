@@ -44,6 +44,28 @@ def test_compute_MVBS_index_binning(ds_Sv_er_regular, regular_data_params):
     assert np.array_equal(ds_MVBS.Sv.data, expected.data)
     
 @pytest.mark.unit
+def test_compute_MVBS_w_latlon(ds_Sv_er_regular_w_latlon, lat_attrs, lon_attrs):
+    """Testing for compute_MVBS with latitude and longitude"""
+    from echopype.consolidate.api import POSITION_VARIABLES
+    ds_MVBS = ep.commongrid.compute_MVBS(
+        ds_Sv_er_regular_w_latlon,
+        range_meter_bin=5,
+        ping_time_bin="10S"
+    )
+    for var in POSITION_VARIABLES:
+        # Check to ensure variable is in dataset
+        assert var in ds_MVBS.data_vars
+        # Check for correct shape, which is just ping time
+        assert ds_MVBS[var].shape == ds_MVBS.ping_time.shape
+        
+        # Check if attributes match
+        if var == "latitude":
+            assert ds_MVBS[var].attrs == lat_attrs
+        elif var == "longitude":
+            assert ds_MVBS[var].attrs == lon_attrs
+        
+    
+@pytest.mark.unit
 @pytest.mark.parametrize("range_var", ["my_range", "echo_range", "depth"])
 def test_compute_MVBS_invalid_range_var(ds_Sv_er_regular, range_var):
     """Test compute MVBS range_var on mock data"""
