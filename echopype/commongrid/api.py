@@ -124,9 +124,8 @@ def compute_MVBS(
         raise ValueError(f"range_var '{range_var}' does not exist in the input dataset.")
 
     # create bin information for echo_range
-    # get the max echo range value
-    # assuming that it's a grid so just take the last value
-    echo_range_max = ds_Sv[range_var].isel(range_sample=-1, ping_time=0, channel=0).to_numpy()
+    # this computes the echo range max since there might be missing values
+    echo_range_max = ds_Sv[range_var].max()
     range_interval = np.arange(0, echo_range_max + range_meter_bin, range_meter_bin)
 
     # create bin information needed for ping_time
