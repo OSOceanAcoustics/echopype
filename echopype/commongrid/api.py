@@ -336,14 +336,14 @@ def compute_NASC(
                 ]
                 num_pings_in_cut_cell, num_depth_vals_in_cut_cell = Sv_cut.shape
                 r = ds_Sv_depth[:, depth_idx == depth_bin_idx[ch_seq]][0]
-                # t -> height in [m] between two consecutive samples
+                # get height of samples -> t
                 # derived from the difference between the corresponding consecutive depths
                 t = np.r_[np.diff(r), np.nan]
                 t = np.vstack([t] * num_pings_in_cut_cell)
                 sv = 10 ** (Sv_cut / 10)
                 # per -> the percentage of not nan samples
                 per = np.mean(np.logical_not(np.isnan(sv))) * 100
-                # num_pings_in_cut_cell * num_depth_vals_in_cut_cell = number of samples in cut cell
+                # num_pings_in_cut_cell * num_depth_vals_in_cut_cell = no. of samples in cut cell
                 sv_mean_depth_2nasc.append(
                     (
                         np.nanmean(sv * t)
