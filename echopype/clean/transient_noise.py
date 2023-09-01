@@ -23,78 +23,7 @@ import xarray as xr
 from ..utils.mask_transformation import lin as _lin, log as _log
 
 
-def get_transient_noise_mask(
-    source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    desired_channel: str,
-    mask_type: str = "ryan",
-    **kwargs
-) -> xr.DataArray:
-    """
-    Create a mask based on the identified signal attenuations of Sv values at 38KHz.
-    This method is based on:
-    Ryan et al. (2015) ‘Reducing bias due to noise and attenuation in
-        open-ocean echo integration data’, ICES Journal of Marine Science,
-        72: 2482–2493.
-
-    Parameters
-    ----------
-    source_Sv: xr.Dataset or str or pathlib.Path
-        If a Dataset this value contains the Sv data to create a mask for,
-        else it specifies the path to a zarr or netcdf file containing
-        a Dataset. This input must correspond to a Dataset that has the
-        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
-    mask_type: str with either "ryan" or "fielding" based on
-        the preferred method for signal attenuation mask generation
-    Returns
-    -------
-    xr.DataArray
-        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
-        criteria are filled with ``True``, else the regions are filled with ``False``.
-
-    Raises
-    ------
-    ValueError
-        If neither ``ryan`` or ``fielding`` are given
-
-    Notes
-    -----
-
-
-    Examples
-    --------
-
-    """
-    assert mask_type in ["ryan", "fielding"], "mask_type must be either 'ryan' or 'fielding'"
-    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
-    Sv = selected_channel_Sv["Sv"].values
-    r = source_Sv["echo_range"].values[0, 0]
-    if mask_type == "ryan":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"m", "n", "thr", "excludeabove", "operation"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_transient_noise_mask_ryan(Sv, r, m=5, **filtered_kwargs)
-    elif mask_type == "fielding":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "roff", "n", "thr"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_transient_noise_mask_fielding(Sv, r, **filtered_kwargs)
-    else:
-        raise ValueError("The provided mask_type must be ryan or fielding!")
-
-    mask = np.logical_not(mask)
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask
-
-
-def _get_transient_noise_mask_ryan(
-    Sv, r, m=50, n=20, thr=20, excludeabove=250, operation="percentile15"
-):
+def _ryan(Sv, r, m=50, n=20, thr=20, excludeabove=250, operation="percentile15"):
     """
     Mask transient noise as in:
 
@@ -155,9 +84,7 @@ def _get_transient_noise_mask_ryan(
     return mask
 
 
-def _get_transient_noise_mask_fielding(
-    Sv, r, r0=200, r1=1000, n=20, thr=[2, 0], roff=250, jumps=5, maxts=-35, start=0
-):
+def _fielding(Sv, r, r0=200, r1=1000, n=20, thr=[2, 0], roff=250, jumps=5, maxts=-35, start=0):
     """
     Mask transient noise with method proposed by Fielding et al (unpub.).
 
