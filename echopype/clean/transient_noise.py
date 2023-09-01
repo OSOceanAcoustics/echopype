@@ -14,11 +14,8 @@ __authors__ = [
     "Mihai Boldeanu",  # adapted the mask transient noise algorithms to echopype
 ]
 
-import pathlib
-from typing import Union
 
 import numpy as np
-import xarray as xr
 
 from ..utils.mask_transformation import lin as _lin, log as _log
 
