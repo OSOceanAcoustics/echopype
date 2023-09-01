@@ -1,6 +1,7 @@
 """``pytest`` configuration."""
 
 import os
+import subprocess
 import pytest
 
 import fsspec

@@ -1,10 +1,10 @@
 import os
-import subprocess
+import pytest
+
+import numpy as np
+import xarray as xr
 
 import echopype.clean
-import numpy as np
-import pytest
-import xarray as xr
 
 
 # Note: We've removed all the setup and utility functions since they are now in conftest.py
