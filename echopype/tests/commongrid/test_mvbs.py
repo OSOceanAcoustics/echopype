@@ -5,6 +5,8 @@ from numpy.random import default_rng
 import pytest
 from typing import Tuple, Iterable, Union
 from echopype.commongrid.mvbs import bin_and_mean_2d, get_MVBS_along_channels
+from echopype.consolidate.api import POSITION_VARIABLES
+from flox.xarray import xarray_reduce
 
 
 def create_bins(csum_array: np.ndarray) -> Iterable:
@@ -469,3 +471,19 @@ def test_get_MVBS_along_channels(request, range_var, lat_lon):
         assert raw_MVBS.attrs["has_positions"] is True
     else:
         assert raw_MVBS.attrs["has_positions"] is False
+    
+    if range_var == "echo_range":
+        assert all(v in raw_MVBS for v in POSITION_VARIABLES)
+
+        # Compute xarray reduce manually for this
+        expected_Pos = xarray_reduce(
+            ds_Sv[POSITION_VARIABLES],
+            ds_Sv["ping_time"],
+            func="nanmean",
+            expected_groups=(ping_interval),
+            isbin=True,
+            method=method,
+        )
+        
+        for v in POSITION_VARIABLES:
+            assert np.array_equal(raw_MVBS[v].data, expected_Pos[v].data)
