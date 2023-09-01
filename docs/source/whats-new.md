@@ -12,14 +12,14 @@ This release includes a number of infrastructure upgrades, a bug fix, a function
 
 ## Enhancement and bug fix
 - More intuitive input syntax for `frequency_differencing`` operation (#1106)
-- Remove automatic version conversion in `open_converted` (#1143) 
+- Remove automatic version conversion in `open_converted` (#1143)
 
 
 ## Infrastructure
 - Bump testing minimum Python version to 3.9 (#1146)
-- Add Python 3.11 in testing (#1148) 
-- Remove logging during testing (#1141) 
-- Remove NASC import causing failure (#1145) 
+- Add Python 3.11 in testing (#1148)
+- Remove logging during testing (#1141)
+- Remove NASC import causing failure (#1145)
 
 
 
