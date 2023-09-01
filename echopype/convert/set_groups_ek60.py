@@ -179,6 +179,10 @@ class SetGroupsEK60(SetGroupsBase):
         # Values for the variables below having a channel (ch) dependence
         # are identical across channels
         ch = list(self.sorted_channel.keys())[0]
+        # If time1 is a single-value np.nan array, set it to the first ping_time value
+        if len(time1) == 1 and np.isnan(time1[0]):
+            time1 = [self.parser_obj.ping_time[ch][0]]
+
         ds = xr.Dataset(
             {
                 "latitude": (
