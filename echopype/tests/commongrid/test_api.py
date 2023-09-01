@@ -73,7 +73,7 @@ def test_compute_MVBS_w_latlon(ds_Sv_er_regular_w_latlon, lat_attrs, lon_attrs):
     from echopype.consolidate.api import POSITION_VARIABLES
     ds_MVBS = ep.commongrid.compute_MVBS(
         ds_Sv_er_regular_w_latlon,
-        range_meter_bin=5,
+        range_meter_bin="5m",
         ping_time_bin="10S"
     )
     for var in POSITION_VARIABLES:
@@ -161,7 +161,7 @@ def test_compute_MVBS_range_output(request, er_type):
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_er_irregular")
     
-    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_meter_bin=5, ping_time_bin="10S")
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_meter_bin="5m", ping_time_bin="10S")
 
     if er_type == "regular":
         expected_len = (
