@@ -69,7 +69,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
             ds_matlab['rawData'][0]['pings'][0]['power'][0][fidx]
             for fidx in range(5)
         ],
-        echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).transpose(
+        echodata["Sonar/Beam_group1"].backscatter_r.transpose(
             'channel', 'range_sample', 'ping_time'
         ),
         rtol=0,
@@ -82,7 +82,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
                 ds_matlab['rawData'][0]['pings'][0][angle][0][fidx]
                 for fidx in range(5)
             ],
-            echodata["Sonar/Beam_group1"]['angle_' + angle].isel(beam=0).transpose(
+            echodata["Sonar/Beam_group1"]['angle_' + angle].transpose(
                 'channel', 'range_sample', 'ping_time'
             ),
         )
@@ -121,8 +121,7 @@ def test_convert_ek60_echoview_raw(ek60_path):
             echodata["Sonar/Beam_group1"].backscatter_r.isel(
                 channel=sorted_freq_ind[fidx],
                 ping_time=slice(None, 10),
-                range_sample=slice(1, None),
-                beam=0
+                range_sample=slice(1, None)
             ),
             atol=9e-6,
             rtol=atol,
@@ -154,20 +153,6 @@ def test_convert_ek60_echoview_raw(ek60_path):
 
     # check water_level
     assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
-
-
-def test_convert_ek60_duplicate_ping_times(ek60_path):
-    """Convert a file with duplicate ping times"""
-
-    raw_path = (
-        ek60_path
-        / "ooi"
-        / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
-    )
-    ed = open_raw(raw_path, "EK60")
-
-    assert "duplicate_ping_times" in ed["Provenance"].attrs
-    assert "old_ping_time" in ed["Provenance"]
 
 
 def test_convert_ek60_duplicate_frequencies(ek60_path):

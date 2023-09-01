@@ -18,14 +18,31 @@ class SetGroupsAZFP(SetGroupsBase):
     # in converting from v0.5.x to v0.6.0. The values within
     # these sets are applied to all Sonar/Beam_groupX groups.
 
+    # 2023-07-24:
+    #   PRs:
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1056
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1083
+    #   Most of the artificially added beam and ping_time dimensions at v0.6.0
+    #   were reverted at v0.8.0, due to concerns with efficiency and code clarity
+    #   (see https://github.com/OSOceanAcoustics/echopype/issues/684 and
+    #        https://github.com/OSOceanAcoustics/echopype/issues/978).
+    #   However, the mechanisms to expand these dimensions were preserved for
+    #   flexibility and potential later use.
+    #   Note such expansion is still applied on AZFP data for 2 variables (see below).
+
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {"backscatter_r"}
+    beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {"sample_interval", "transmit_duration_nominal"}
+    # These variables do not change with ping_time in typical AZFP use cases,
+    # but we keep them here for consistency with EK60/EK80 EchoData formats
+    ping_time_only_names = {
+        "sample_interval",
+        "transmit_duration_nominal",
+    }
 
     # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {"equivalent_beam_angle", "gain_correction"}
+    beam_ping_time_names = set()
 
     beamgroups_possible = [
         {
@@ -139,32 +156,78 @@ class SetGroupsAZFP(SetGroupsBase):
 
     def set_platform(self) -> xr.Dataset:
         """Set the Platform group."""
-        platform_dict = {
-            "platform_name": self.ui_param["platform_name"],
-            "platform_type": self.ui_param["platform_type"],
-            "platform_code_ICES": self.ui_param["platform_code_ICES"],
-        }
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
         time2 = self.parser_obj.ping_time
+        time1 = [time2[0]]
+
+        # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
+        # and single-value (np.nan) tilt_x and tilt_y
+        tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
+        tilt_y = [np.nan] if np.isnan(unpacked_data["tilt_y"]).all() else unpacked_data["tilt_y"]
+        if (len(tilt_x) == 1 and np.isnan(tilt_x)) and (len(tilt_y) == 1 and np.isnan(tilt_y)):
+            time2 = [time2[0]]
 
         ds = xr.Dataset(
             {
+                "latitude": (
+                    ["time1"],
+                    [np.nan],
+                    self._varattrs["platform_var_default"]["latitude"],
+                ),
+                "longitude": (
+                    ["time1"],
+                    [np.nan],
+                    self._varattrs["platform_var_default"]["longitude"],
+                ),
+                "pitch": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["pitch"],
+                ),
+                "roll": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["roll"],
+                ),
+                "vertical_offset": (
+                    ["time2"],
+                    [np.nan] * len(time2),
+                    self._varattrs["platform_var_default"]["vertical_offset"],
+                ),
+                "water_level": (
+                    [],
+                    np.nan,
+                    self._varattrs["platform_var_default"]["water_level"],
+                ),
                 "tilt_x": (
                     ["time2"],
-                    unpacked_data["tilt_x"],
+                    tilt_x,
                     {
                         "long_name": "Tilt X",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
                 "tilt_y": (
                     ["time2"],
-                    unpacked_data["tilt_y"],
+                    tilt_y,
                     {
                         "long_name": "Tilt Y",
-                        "units": "degree",
+                        "units": "arc_degree",
                     },
                 ),
+                **{
+                    var: (
+                        ["channel"],
+                        [np.nan] * len(self.channel_ids_sorted),
+                        self._varattrs["platform_var_default"][var],
+                    )
+                    for var in [
+                        "transducer_offset_x",
+                        "transducer_offset_y",
+                        "transducer_offset_z",
+                    ]
+                },
                 **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
                     for var in [
@@ -177,15 +240,34 @@ class SetGroupsAZFP(SetGroupsBase):
                         "position_offset_x",
                         "position_offset_y",
                         "position_offset_z",
-                        "transducer_offset_x",
-                        "transducer_offset_y",
-                        "transducer_offset_z",
-                        "vertical_offset",
-                        "water_level",
                     ]
                 },
+                "frequency_nominal": (
+                    ["channel"],
+                    self.freq_sorted,
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
+                ),
             },
             coords={
+                "channel": (
+                    ["channel"],
+                    self.channel_ids_sorted,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "time1": (
+                    ["time1"],
+                    # xarray and probably CF don't accept time coordinate variable with Nan values
+                    time1,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA position data.",
+                    },
+                ),
                 "time2": (
                     ["time2"],
                     time2,
@@ -258,10 +340,41 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
+                "beam_type": (
+                    ["channel"],
+                    [0] * len(self.channel_ids_sorted),
+                    {
+                        "long_name": "Beam type",
+                        "flag_values": [0, 1],
+                        "flag_meanings": [
+                            "Single beam",
+                            "Split aperture beam",
+                        ],
+                    },
+                ),
+                **{
+                    f"beam_direction_{var}": (
+                        ["channel"],
+                        [np.nan] * len(self.channel_ids_sorted),
+                        {
+                            "long_name": f"{var}-component of the vector that gives the pointing "
+                            "direction of the beam, in sonar beam coordinate "
+                            "system",
+                            "units": "1",
+                            "valid_range": (-1.0, 1.0),
+                        },
+                    )
+                    for var in ["x", "y", "z"]
+                },
                 "backscatter_r": (
                     ["channel", "ping_time", "range_sample"],
-                    N,
-                    {"long_name": "Backscatter power", "units": "dB"},
+                    np.array(N, dtype=np.float32),
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],
+                        "units": "count",
+                    },
                 ),
                 "equivalent_beam_angle": (
                     ["channel"],
@@ -274,7 +387,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "gain_correction": (
                     ["channel"],
-                    unpacked_data["gain"][self.freq_ind_sorted],
+                    np.array(unpacked_data["gain"][self.freq_ind_sorted], dtype=np.float64),
                     {"long_name": "Gain correction", "units": "dB"},
                 ),
                 "sample_interval": (
@@ -293,6 +406,55 @@ class SetGroupsAZFP(SetGroupsBase):
                         "long_name": "Nominal bandwidth of transmitted pulse",
                         "units": "s",
                         "valid_min": 0.0,
+                    },
+                ),
+                "transmit_frequency_start": (
+                    ["channel"],
+                    self.freq_sorted,
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["channel"],
+                    self.freq_sorted,
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
+                "transmit_type": (
+                    [],
+                    "CW",
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW"],
+                        "flag_meanings": [
+                            "Continuous Wave – a pulse nominally of one frequency",
+                        ],
+                    },
+                ),
+                "beam_stabilisation": (
+                    [],
+                    np.array(0, np.byte),
+                    {
+                        "long_name": "Beam stabilisation applied (or not)",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["not stabilised", "stabilised"],
+                    },
+                ),
+                "non_quantitative_processing": (
+                    [],
+                    np.array(0, np.int16),
+                    {
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
+                        "flag_values": [0],
+                        "flag_meanings": ["None"],
+                    },
+                ),
+                "sample_time_offset": (
+                    [],
+                    0.0,
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
                     },
                 ),
             },
@@ -354,55 +516,168 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
-                "XML_transmit_duration_nominal": (["channel"], tdn),
-                "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
-                "XML_digitization_rate": (
+                # unpacked ping by ping data from 01A file
+                "digitization_rate": (
                     ["channel"],
-                    parameters["dig_rate"][self.freq_ind_sorted],
+                    unpacked_data["dig_rate"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Number of samples per second in kHz that is processed by the "
+                        "A/D converter when digitizing the returned acoustic signal"
+                    },
                 ),
-                "XML_lockout_index": (
-                    ["channel"],
-                    parameters["lockout_index"][self.freq_ind_sorted],
-                ),
-                "digitization_rate": (["channel"], unpacked_data["dig_rate"][self.freq_ind_sorted]),
                 "lockout_index": (
                     ["channel"],
                     unpacked_data["lockout_index"][self.freq_ind_sorted],
+                    {
+                        "long_name": "The distance, rounded to the nearest Bin Size after the "
+                        "pulse is transmitted that over which AZFP will ignore echoes"
+                    },
                 ),
                 "number_of_bins_per_channel": (
                     ["channel"],
                     unpacked_data["num_bins"][self.freq_ind_sorted],
+                    {"long_name": "Number of bins per channel"},
                 ),
                 "number_of_samples_per_average_bin": (
                     ["channel"],
                     unpacked_data["range_samples_per_bin"][self.freq_ind_sorted],
+                    {"long_name": "Range samples per bin for each channel"},
                 ),
-                "board_number": (["channel"], unpacked_data["board_num"][self.freq_ind_sorted]),
-                "data_type": (["channel"], unpacked_data["data_type"][self.freq_ind_sorted]),
+                "board_number": (
+                    ["channel"],
+                    unpacked_data["board_num"][self.freq_ind_sorted],
+                    {"long_name": "The board the data came from channel 1-4"},
+                ),
+                "data_type": (
+                    ["channel"],
+                    unpacked_data["data_type"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Datatype for each channel 1=Avg unpacked_data (5bytes), "
+                        "0=raw (2bytes)"
+                    },
+                ),
                 "ping_status": (["ping_time"], unpacked_data["ping_status"]),
                 "number_of_acquired_pings": (
                     ["ping_time"],
                     unpacked_data["num_acq_pings"],
+                    {"long_name": "Pings acquired in the burst"},
                 ),
                 "first_ping": (["ping_time"], unpacked_data["first_ping"]),
                 "last_ping": (["ping_time"], unpacked_data["last_ping"]),
-                "data_error": (["ping_time"], unpacked_data["data_error"]),
+                "data_error": (
+                    ["ping_time"],
+                    unpacked_data["data_error"],
+                    {"long_name": "Error number if an error occurred"},
+                ),
                 "sensors_flag": (["ping_time"], unpacked_data["sensor_flag"]),
                 "ancillary": (
                     ["ping_time", "ancillary_len"],
                     unpacked_data["ancillary"],
+                    {"long_name": "Tilt-X, Y, Battery, Pressure, Temperature"},
                 ),
-                "ad_channels": (["ping_time", "ad_len"], unpacked_data["ad"]),
+                "ad_channels": (
+                    ["ping_time", "ad_len"],
+                    unpacked_data["ad"],
+                    {"long_name": "AD channel 6 and 7"},
+                ),
                 "battery_main": (["ping_time"], unpacked_data["battery_main"]),
                 "battery_tx": (["ping_time"], unpacked_data["battery_tx"]),
                 "profile_number": (["ping_time"], unpacked_data["profile_number"]),
-                "temperature_counts": (["ping_time"], anc[:, 4]),
-                "tilt_x_count": (["ping_time"], anc[:, 0]),
-                "tilt_y_count": (["ping_time"], anc[:, 1]),
+                # unpacked ping by ping ancillary data from 01A file
+                "temperature_counts": (
+                    ["ping_time"],
+                    anc[:, 4],
+                    {"long_name": "Raw counts for temperature"},
+                ),
+                "tilt_x_count": (["ping_time"], anc[:, 0], {"long_name": "Raw counts for Tilt-X"}),
+                "tilt_y_count": (["ping_time"], anc[:, 1], {"long_name": "Raw counts for Tilt-Y"}),
+                # unpacked data with dim len=0 from 01A file
+                "profile_flag": unpacked_data["profile_flag"],
+                "burst_interval": (
+                    [],
+                    unpacked_data["burst_int"],
+                    {
+                        "long_name": "Time in seconds between bursts or between pings if the burst"
+                        " interval has been set equal to the ping period"
+                    },
+                ),
+                "ping_per_profile": (
+                    [],
+                    unpacked_data["ping_per_profile"],
+                    {
+                        "long_name": "Number of pings in a profile if ping averaging has been "
+                        "selected"
+                    },  # noqa
+                ),
+                "average_pings_flag": (
+                    [],
+                    unpacked_data["avg_pings"],
+                    {"long_name": "Flag indicating whether the pings average in time"},
+                ),
+                "spare_channel": ([], unpacked_data["spare_chan"], {"long_name": "Spare channel"}),
+                "ping_period": (
+                    [],
+                    unpacked_data["ping_period"],
+                    {"long_name": "Time between pings in a profile set"},
+                ),
+                "phase": (
+                    [],
+                    unpacked_data["phase"],
+                    {"long_name": "Phase number used to acquire the profile"},
+                ),
+                "number_of_channels": (
+                    [],
+                    unpacked_data["num_chan"],
+                    {"long_name": "Number of channels (1, 2, 3, or 4)"},
+                ),
+                # parameters with channel dimension from XML file
+                "XML_transmit_duration_nominal": (
+                    ["channel"],
+                    tdn,
+                    {"long_name": "(From XML file) Nominal bandwidth of transmitted pulse"},
+                ),  # tdn comes from parameters
+                "XML_gain_correction": (
+                    ["channel"],
+                    parameters["gain"][self.freq_ind_sorted],
+                    {"long_name": "(From XML file) Gain correction"},
+                ),
+                "XML_digitization_rate": (
+                    ["channel"],
+                    parameters["dig_rate"][self.freq_ind_sorted],
+                    {
+                        "long_name": "(From XML file) Number of samples per second in kHz that is "
+                        "processed by the A/D converter when digitizing the returned acoustic "
+                        "signal"
+                    },
+                ),
+                "XML_lockout_index": (
+                    ["channel"],
+                    parameters["lockout_index"][self.freq_ind_sorted],
+                    {
+                        "long_name": "(From XML file) The distance, rounded to the nearest "
+                        "Bin Size after the pulse is transmitted that over which AZFP will "
+                        "ignore echoes"
+                    },
+                ),
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
-                "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
-                "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
-                "VTX": (["channel"], parameters["VTX"][self.freq_ind_sorted]),
+                "EL": (
+                    ["channel"],
+                    parameters["EL"][self.freq_ind_sorted],
+                    {"long_name": "Sound pressure at the transducer", "units": "dB"},
+                ),
+                "TVR": (
+                    ["channel"],
+                    parameters["TVR"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Transmit voltage response of the transducer",
+                        "units": "dB re 1uPa/V at 1m",
+                    },
+                ),
+                "VTX": (
+                    ["channel"],
+                    parameters["VTX"][self.freq_ind_sorted],
+                    {"long_name": "Amplified voltage sent to the transducer"},
+                ),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["channel"],
@@ -412,6 +687,54 @@ class SetGroupsAZFP(SetGroupsBase):
                     ["channel"],
                     parameters["range_averaging_samples"][self.freq_ind_sorted],
                 ),
+                # parameters with dim len=0 from XML file
+                "XML_sensors_flag": parameters["sensors_flag"],
+                "XML_burst_interval": (
+                    [],
+                    parameters["burst_interval"],
+                    {
+                        "long_name": "Time in seconds between bursts or between pings if the burst "
+                        "interval has been set equal to the ping period"
+                    },
+                ),
+                "XML_sonar_serial_number": parameters["serial_number"],
+                "number_of_frequency": parameters["num_freq"],
+                "number_of_pings_per_burst": parameters["pings_per_burst"],
+                "average_burst_pings_flag": parameters["average_burst_pings"],
+                # temperature coefficients from XML file
+                **{
+                    f"temperature_k{var}": (
+                        [],
+                        parameters[f"k{var}"],
+                        {"long_name": f"Thermistor bridge coefficient {var}"},
+                    )
+                    for var in ["a", "b", "c"]
+                },
+                **{
+                    f"temperature_{var}": (
+                        [],
+                        parameters[var],
+                        {"long_name": f"Thermistor calibration coefficient {var}"},
+                    )
+                    for var in ["A", "B", "C"]
+                },
+                # tilt coefficients from XML file
+                **{
+                    f"tilt_X_{var}": (
+                        [],
+                        parameters[f"X_{var}"],
+                        {"long_name": f"Calibration coefficient {var} for Tilt-X"},
+                    )
+                    for var in ["a", "b", "c", "d"]
+                },
+                **{
+                    f"tilt_Y_{var}": (
+                        [],
+                        parameters[f"Y_{var}"],
+                        {"long_name": f"Calibration coefficient {var} for Tilt-Y"},
+                    )
+                    for var in ["a", "b", "c", "d"]
+                },
             },
             coords={
                 "channel": (
@@ -433,38 +756,6 @@ class SetGroupsAZFP(SetGroupsBase):
                     list(range(len(unpacked_data["ancillary"][0]))),
                 ),
                 "ad_len": (["ad_len"], list(range(len(unpacked_data["ad"][0])))),
-            },
-            attrs={
-                "XML_sensors_flag": parameters["sensors_flag"],
-                "XML_burst_interval": parameters["burst_interval"],
-                "XML_sonar_serial_number": parameters["serial_number"],
-                "profile_flag": unpacked_data["profile_flag"],
-                "burst_interval": unpacked_data["burst_int"],
-                "ping_per_profile": unpacked_data["ping_per_profile"],
-                "average_pings_flag": unpacked_data["avg_pings"],
-                "spare_channel": unpacked_data["spare_chan"],
-                "ping_period": unpacked_data["ping_period"],
-                "phase": unpacked_data["phase"],
-                "number_of_channels": unpacked_data["num_chan"],
-                "number_of_frequency": parameters["num_freq"],
-                "number_of_pings_per_burst": parameters["pings_per_burst"],
-                "average_burst_pings_flag": parameters["average_burst_pings"],
-                # Temperature coefficients
-                "temperature_ka": parameters["ka"],
-                "temperature_kb": parameters["kb"],
-                "temperature_kc": parameters["kc"],
-                "temperature_A": parameters["A"],
-                "temperature_B": parameters["B"],
-                "temperature_C": parameters["C"],
-                # Tilt coefficients
-                "tilt_X_a": parameters["X_a"],
-                "tilt_X_b": parameters["X_b"],
-                "tilt_X_c": parameters["X_c"],
-                "tilt_X_d": parameters["X_d"],
-                "tilt_Y_a": parameters["Y_a"],
-                "tilt_Y_b": parameters["Y_b"],
-                "tilt_Y_c": parameters["Y_c"],
-                "tilt_Y_d": parameters["Y_d"],
             },
         )
         return set_time_encodings(ds)

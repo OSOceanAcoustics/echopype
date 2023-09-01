@@ -60,7 +60,9 @@ class ParseEK(ParseBase):
         self.dgram_zarr_vars = dgram_zarr_vars
 
     def _print_status(self):
-        time = self.config_datagram["timestamp"].astype(dt).strftime("%Y-%b-%d %H:%M:%S")
+        time = dt.utcfromtimestamp(self.config_datagram["timestamp"].tolist() / 1e9).strftime(
+            "%Y-%b-%d %H:%M:%S"
+        )
         logger.info(
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
@@ -115,7 +117,7 @@ class ParseEK(ParseBase):
         with RawSimradFile(self.source_file, "r", storage_options=self.storage_options) as fid:
             self.config_datagram = fid.read(1)
             self.config_datagram["timestamp"] = np.datetime64(
-                self.config_datagram["timestamp"].replace(tzinfo=None), "[ms]"
+                self.config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
             if "configuration" in self.config_datagram:
                 for v in self.config_datagram["configuration"].values():
@@ -155,7 +157,7 @@ class ParseEK(ParseBase):
             # Convert ping time to 1D numpy array, stored in dict indexed by channel,
             #  this will help merge data from all channels into a cube
             for ch, val in self.ping_time.items():
-                self.ping_time[ch] = np.array(val)
+                self.ping_time[ch] = np.array(val, dtype="datetime64[ns]")
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -242,7 +244,7 @@ class ParseEK(ParseBase):
 
             # Convert the timestamp to a datetime64 object.
             new_datagram["timestamp"] = np.datetime64(
-                new_datagram["timestamp"].replace(tzinfo=None), "[ms]"
+                new_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
 
             num_datagrams_parsed += 1
