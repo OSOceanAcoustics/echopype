@@ -5,11 +5,16 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
+import pint
 import xarray as xr
 
 from ..consolidate.api import POSITION_VARIABLES
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .mvbs import get_MVBS_along_channels
+
+# Setup pint unit registry
+ureg = pint.UnitRegistry()
+Q_ = ureg.Quantity
 
 
 def _set_var_attrs(da, long_name, units, round_digits, standard_name=None):
@@ -69,7 +74,7 @@ def _set_MVBS_attrs(ds):
 def compute_MVBS(
     ds_Sv: xr.Dataset,
     range_var: Literal["echo_range", "depth"] = "echo_range",
-    range_meter_bin: int = 20,
+    range_meter_bin: str = "20m",
     ping_time_bin: str = "20S",
     method="map-reduce",
     **flox_kwargs,
@@ -92,9 +97,9 @@ def compute_MVBS(
         Must be one of ``echo_range`` or ``depth``.
         Note that ``depth`` is only available if the input dataset contains
         ``depth`` as a data variable.
-    range_meter_bin : Union[int, float]
+    range_meter_bin : str
         bin size along ``echo_range`` or ``depth`` in meters,
-        default to ``20``
+        default to ``20m``
     ping_time_bin : str
         bin size along ``ping_time``, default to ``20S``
     method: str
@@ -110,6 +115,31 @@ def compute_MVBS(
     A dataset containing bin-averaged Sv
     """
 
+    # First check for bin types
+    if not isinstance(range_meter_bin, str):
+        raise TypeError("range_meter_bin must be a string")
+
+    if not isinstance(ping_time_bin, str):
+        raise TypeError("ping_time_bin must be a string")
+
+    # Parse range_meter sizes w/units
+    range_meter_bin = Q_(range_meter_bin)
+    max_range_meter = Q_("1km")
+
+    # Do some checks on range meter inputs
+    if not range_meter_bin.is_compatible_with("meter"):
+        # This shouldn't be other units
+        raise ValueError(
+            f"Found incompatible units ({range_meter_bin.units}) "
+            "for 'range_meter_bin'. Must be in meters."
+        )
+    elif range_meter_bin >= max_range_meter:
+        # Raise error if above 1km bin
+        raise ValueError(f"range_meter_bin must be less than {max_range_meter}.")
+
+    # Convert back to int or float
+    range_meter_bin = range_meter_bin.to("meter").magnitude
+
     # Clean up filenames dimension if it exists
     # not needed here
     if "filenames" in ds_Sv.dims:
@@ -124,7 +154,7 @@ def compute_MVBS(
         raise ValueError(f"range_var '{range_var}' does not exist in the input dataset.")
 
     # create bin information for echo_range
-    # this computes the echo range max since there might be missing values
+    # this computes the echo range max since there might NaNs in the data
     echo_range_max = ds_Sv[range_var].max()
     range_interval = np.arange(0, echo_range_max + range_meter_bin, range_meter_bin)
 
@@ -132,15 +162,11 @@ def compute_MVBS(
     d_index = (
         ds_Sv["ping_time"]
         .resample(ping_time=ping_time_bin, skipna=True)
-        .asfreq()
+        .first()  # Not actually being used, but needed to get the bin groups
         .indexes["ping_time"]
     )
-    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
+    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)]).values
 
-    # calculate the MVBS along each channel
-    if method == "map-reduce":
-        # set to the faster compute if not specified
-        flox_kwargs.setdefault("reindex", True)
     raw_MVBS = get_MVBS_along_channels(
         ds_Sv, range_interval, ping_interval, range_var=range_var, method=method, **flox_kwargs
     )
@@ -156,7 +182,9 @@ def compute_MVBS(
         },
     )
 
-    # Add the position variables
+    # "has_positions" attribute is inserted in get_MVBS_along_channels
+    # when the dataset has position information
+    # propagate this to the final MVBS dataset
     if raw_MVBS.attrs.get("has_positions", False):
         for var in POSITION_VARIABLES:
             ds_MVBS[var] = (["ping_time"], raw_MVBS[var].data, ds_Sv[var].attrs)

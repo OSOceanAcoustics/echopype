@@ -11,6 +11,7 @@ import xarray as xr
 from flox.xarray import xarray_reduce
 
 from ..consolidate.api import POSITION_VARIABLES
+from ..utils.compute import _lin2log, _log2lin
 
 
 def get_bin_indices(
@@ -407,32 +408,9 @@ def bin_and_mean_2d(
     return final
 
 
-def _linear_transform(
-    data: Union[dask.array.Array, np.ndarray], inverse: bool = False
-) -> Union[dask.array.Array, np.ndarray]:
-    """
-    Perform linear transform on data
-
-    Parameters
-    ----------
-    data : dask.array.Array or np.ndarray
-        The data to be transformed
-    inverse : bool
-        If True, perform inverse transform
-
-    Returns
-    -------
-    dask.array.Array or np.ndarray
-        The transformed data
-    """
-    if inverse:
-        return 10 * np.log10(data)
-    return 10 ** (data / 10)
-
-
 def get_MVBS_along_channels(
     ds_Sv: xr.Dataset,
-    echo_range_interval: np.ndarray,
+    range_interval: np.ndarray,
     ping_interval: np.ndarray,
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
@@ -447,12 +425,12 @@ def get_MVBS_along_channels(
     ds_Sv: xr.Dataset
         A Dataset containing ``Sv`` and ``echo_range`` data with coordinates
         ``channel``, ``ping_time``, and ``range_sample``
-    echo_range_interval: np.ndarray
-        1D array (used by np.digitize) representing
-        the binning required for ``echo_range``
+    range_interval: np.ndarray
+        1D array representing
+        the bins required for ``range_var``
     ping_interval: np.ndarray
-        1D array (used by np.digitize) representing
-        the binning required for ``ping_time``
+        1D array representing
+        the bins required for ``ping_time``
     range_var: str
         The variable to use for range binning.
         Either ``echo_range`` or ``depth``.
@@ -471,7 +449,7 @@ def get_MVBS_along_channels(
     """
 
     # average should be done in linear domain
-    sv = ds_Sv["Sv"].pipe(_linear_transform)
+    sv = ds_Sv["Sv"].pipe(_log2lin)
 
     # Get positions if exists
     # otherwise just use an empty dataset
@@ -495,12 +473,12 @@ def get_MVBS_along_channels(
         ds_Sv["ping_time"],
         ds_Sv[range_var],
         func="nanmean",
-        expected_groups=(None, ping_interval, echo_range_interval),
+        expected_groups=(None, ping_interval, range_interval),
         isbin=[False, True, True],
         method=method,
         **kwargs
     )
 
     # apply inverse mapping to get back to the original domain and store values
-    da_MVBS = mvbs.pipe(_linear_transform, inverse=True)
+    da_MVBS = mvbs.pipe(_lin2log)
     return xr.merge([ds_Pos, da_MVBS])

@@ -2,6 +2,7 @@ dask[array,distributed]
 jinja2
 netCDF4>1.6
 numpy
+pint
 pynmea2
 pytz
 scipy

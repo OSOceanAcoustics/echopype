@@ -44,6 +44,30 @@ def test_compute_MVBS_index_binning(ds_Sv_er_regular, regular_data_params):
     assert np.array_equal(ds_MVBS.Sv.data, expected.data)
     
 @pytest.mark.unit
+@pytest.mark.parametrize(["range_meter_bin", "ping_time_bin"], [
+    (5, "10S"),
+    ("10m", 10),
+    ("10km", "10S"),
+    ("10", "10S")
+])
+def test_compute_MVBS_bin_inputs_fail(ds_Sv_er_regular, range_meter_bin, ping_time_bin):
+    expected_error = ValueError
+    if isinstance(range_meter_bin, int) or isinstance(ping_time_bin, int):
+        expected_error = TypeError
+        match = r'\w+ must be a string'
+    elif "m" not in range_meter_bin:
+        match = r'Found incompatible units \(\w+\) *'
+    elif "km" in range_meter_bin:
+        match = "range_meter_bin must be less than 1 kilometer."
+    
+    with pytest.raises(expected_error, match=match):
+        ep.commongrid.compute_MVBS(
+            ds_Sv_er_regular,
+            range_meter_bin=range_meter_bin,
+            ping_time_bin=ping_time_bin
+        )
+    
+@pytest.mark.unit
 def test_compute_MVBS_w_latlon(ds_Sv_er_regular_w_latlon, lat_attrs, lon_attrs):
     """Testing for compute_MVBS with latitude and longitude"""
     from echopype.consolidate.api import POSITION_VARIABLES
@@ -129,7 +153,7 @@ def test_compute_MVBS(test_data_samples):
         ("irregular"),
     ],
 )
-def test_compute_MVBS_er_output(request, er_type):
+def test_compute_MVBS_range_output(request, er_type):
     """Tests the output of compute_MVBS on regular and irregular data."""
     # set jitter=0 to get predictable number of ping within each echo_range groups
     if er_type == "regular":
