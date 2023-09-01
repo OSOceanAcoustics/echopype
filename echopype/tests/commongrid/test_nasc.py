@@ -32,6 +32,7 @@ def test_compute_NASC(ek60_path):
     tolerance = 10 ** (-decimal_places)
     nasc_min = da_NASC.min()
     nasc_max = da_NASC.max()
+
     assert da_NASC.dims == ("channel", "distance", "depth")
     assert np.all(ds_NASC["channel"].values == ds_Sv["channel"].values)
     assert da_NASC["depth"].size == np.ceil(ds_Sv["depth"].max() / cell_depth)
