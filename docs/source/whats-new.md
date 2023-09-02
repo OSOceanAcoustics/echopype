@@ -19,7 +19,7 @@ This release includes a number of infrastructure upgrades, a bug fix, and a coup
 ## Infrastructure
 - Bump testing minimum Python version to 3.9 (#1146)
 - Add Python 3.11 in testing (#1148)
-  - Some tests related to `parsed2zarr` fail due to `more_itertools` in python 3.11. `parsed2zarr` is being overhauled in #1070 so these are defered to the next release.
+  - Some tests related to `parsed2zarr` fail due to `more_itertools` in python 3.11. `parsed2zarr` is being overhauled in #1070 so these are deferred to the next release.
 - Remove logging during testing (#1141)
 - Remove NASC import causing failure (#1145)
 
