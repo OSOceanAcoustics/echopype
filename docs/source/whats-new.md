@@ -18,9 +18,9 @@ This release includes a number of infrastructure upgrades, a bug fix, and a coup
 
 ## Infrastructure
 - Bump testing minimum Python version to 3.9 (#1146)
-- Add Python 3.11 in testing (#1148) 
-- Remove logging during testing (#1141) 
-- Remove NASC import causing failure (#1145) 
+- Add Python 3.11 in testing (#1148)
+- Remove logging during testing (#1141)
+- Remove NASC import causing failure (#1145)
 
 
 
