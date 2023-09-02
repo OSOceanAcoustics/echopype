@@ -182,7 +182,7 @@ class SetGroupsEK60(SetGroupsBase):
         ch = list(self.sorted_channel.keys())[0]
 
         # Handle potential NaT timestamp for time1 and time2
-        time1 = self._NaT_timestamp_handler(time1)
+        time1 = self._nan_timestamp_handler(time1)
 
         ds = xr.Dataset(
             {

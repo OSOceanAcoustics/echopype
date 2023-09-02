@@ -112,7 +112,7 @@ class SetGroupsBase(abc.ABC):
         """Set the Platform group."""
         raise NotImplementedError
 
-    def _NaT_timestamp_handler(self, time_val) -> List:
+    def _nan_timestamp_handler(self, time_val) -> List:
         """
         Replace NaT in time coordinate to avoid xarray warning.
         """
@@ -137,7 +137,7 @@ class SetGroupsBase(abc.ABC):
             raw_nmea = [np.nan]
 
         # Handle potential NaT timestamp for time
-        time = self._NaT_timestamp_handler(time)
+        time = self._nan_timestamp_handler(time)
 
         ds = xr.Dataset(
             {
