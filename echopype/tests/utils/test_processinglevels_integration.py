@@ -130,4 +130,4 @@ def test_raw_to_mvbs(
     # associated with the input Sv dataset
     # ds = ds.rename_vars(name_dict={"Sv": "Sv_unmasked", "Sv_ch0": "Sv"})
     mvbs_ds = ep.commongrid.compute_MVBS(ds, range_meter_bin="30m", ping_time_bin='1min')
-    _absence_test(mvbs_ds)
+    _presence_test(mvbs_ds, "Level 3B")
