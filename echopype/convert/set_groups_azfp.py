@@ -158,15 +158,22 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Platform group."""
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
-        time2 = self.parser_obj.ping_time
-        time1 = [time2[0]]
+
+        # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
+        time1 = [np.nan]
 
         # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
         # and single-value (np.nan) tilt_x and tilt_y
         tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
         tilt_y = [np.nan] if np.isnan(unpacked_data["tilt_y"]).all() else unpacked_data["tilt_y"]
         if (len(tilt_x) == 1 and np.isnan(tilt_x)) and (len(tilt_y) == 1 and np.isnan(tilt_y)):
-            time2 = [time2[0]]
+            time2 = [self.parser_obj.ping_time[0]]
+        else:
+            time2 = self.parser_obj.ping_time
+
+        # Handle potential nan timestamp for time1 and time2
+        time1 = self._nan_timestamp_handler(time1)
+        time2 = self._nan_timestamp_handler(time2)  # should not be nan; but add for completeness
 
         ds = xr.Dataset(
             {

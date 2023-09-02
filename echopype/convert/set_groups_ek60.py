@@ -181,7 +181,7 @@ class SetGroupsEK60(SetGroupsBase):
         # are identical across channels
         ch = list(self.sorted_channel.keys())[0]
 
-        # Handle potential NaT timestamp for time1 and time2
+        # Handle potential nan timestamp for time1 and time2
         time1 = self._nan_timestamp_handler(time1)
 
         ds = xr.Dataset(

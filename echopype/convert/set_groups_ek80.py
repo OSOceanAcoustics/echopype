@@ -310,7 +310,7 @@ class SetGroupsEK80(SetGroupsBase):
         time2 = self.parser_obj.mru.get("timestamp", None)
         time2 = np.array(time2) if time2 is not None else [np.nan]
 
-        # Handle potential NaT timestamp for time1 and time2
+        # Handle potential nan timestamp for time1 and time2
         time1 = self._nan_timestamp_handler(time1)
         time2 = self._nan_timestamp_handler(time2)
 
