@@ -8,10 +8,10 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This release includes a number of infrastructure upgrades, a bug fix, and a couple functionality enhancements.
+This release includes a bug fix and a few infrastructure upgrades and enhancements.
 
 ## Enhancements and bug fix
-- More intuitive input syntax for `frequency_differencing` operation (#1106)
+- More intuitive input syntax for `frequency_differencing` (#1106)
 - Set EK60/80 Platform and NMEA nan timestamp to first `ping_time` value (#1154)
   - This avoids warnings due to xarray's new behavior with nan timestamp in coordinate
 - Remove automatic version conversion in `open_converted` (#1143)
