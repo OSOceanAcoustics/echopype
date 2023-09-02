@@ -112,6 +112,16 @@ class SetGroupsBase(abc.ABC):
         """Set the Platform group."""
         raise NotImplementedError
 
+    def _NaT_timestamp_handler(self, time_val) -> List:
+        """
+        Replace NaT in time coordinate to avoid xarray warning.
+        """
+        if len(time_val) == 1 and np.isnan(time_val[0]):
+            # set time 1 to earliest ping_time among all channels
+            return [np.array([v[0] for v in self.parser_obj.ping_time.values()]).min()]
+        else:
+            return time_val
+
     def set_nmea(self) -> xr.Dataset:
         """Set the Platform/NMEA group."""
         # Save nan if nmea data is not encoded in the raw file
@@ -125,6 +135,9 @@ class SetGroupsBase(abc.ABC):
         else:
             time = [np.nan]
             raw_nmea = [np.nan]
+
+        # Handle potential NaT timestamp for time
+        time = self._NaT_timestamp_handler(time)
 
         ds = xr.Dataset(
             {

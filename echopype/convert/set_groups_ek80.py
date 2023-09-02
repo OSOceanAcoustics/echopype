@@ -310,10 +310,9 @@ class SetGroupsEK80(SetGroupsBase):
         time2 = self.parser_obj.mru.get("timestamp", None)
         time2 = np.array(time2) if time2 is not None else [np.nan]
 
-        # If time1 is a single-value np.nan array, set it to the first ping_time value
-        if len(time1) == 1 and np.isnan(time1[0]):
-            # set time 1 to earliest ping_time among all channels
-            time1 = [np.array([v[0] for v in self.parser_obj.ping_time.values()]).min()]
+        # Handle potential NaT timestamp for time1 and time2
+        time1 = self._NaT_timestamp_handler(time1)
+        time2 = self._NaT_timestamp_handler(time2)
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
