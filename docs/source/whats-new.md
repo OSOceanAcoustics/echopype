@@ -12,8 +12,8 @@ This release includes a number of infrastructure upgrades, a bug fix, and a coup
 
 ## Enhancements and bug fix
 - More intuitive input syntax for `frequency_differencing` operation (#1106)
-- Set EK60/80 `Platform.time1` to first `ping_time` value when it's a single-valued nan (#1154)
-  - This removes warning due to xarray's new behavior with NaT in coordinate
+- Set EK60/80 Platform and NMEA nan timestamp to first `ping_time` value (#1154)
+  - This avoids warnings due to xarray's new behavior with NaT in coordinate
 - Remove automatic version conversion in `open_converted` (#1143)
 
 ## Infrastructure
