@@ -8,12 +8,13 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 
 ## Overview
 
-This release includes a number of infrastructure upgrades, a bug fix, a functionality enhancement.
+This release includes a number of infrastructure upgrades, a bug fix, and a couple functionality enhancements.
 
-## Enhancement and bug fix
-- More intuitive input syntax for `frequency_differencing`` operation (#1106)
-- Remove automatic version conversion in `open_converted` (#1143) 
-
+## Enhancements and bug fix
+- More intuitive input syntax for `frequency_differencing` operation (#1106)
+- Set EK60/80 `Platform.time1` to first `ping_time` value when it's a single-valued nan (#1154)
+  - This removes warning due to xarray's new behavior with NaT in coordinate
+- Remove automatic version conversion in `open_converted` (#1143)
 
 ## Infrastructure
 - Bump testing minimum Python version to 3.9 (#1146)
