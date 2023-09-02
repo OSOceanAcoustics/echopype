@@ -19,7 +19,6 @@ from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
-from .sensor_ep_version_mapping import ep_version_mapper
 from .widgets.utils import tree_repr
 from .widgets.widgets import _load_static_files, get_template
 
@@ -160,9 +159,6 @@ class EchoData:
         tree.name = "root"
 
         echodata._set_tree(tree)
-
-        # convert to newest echopype version structure, if necessary
-        ep_version_mapper.map_ep_version(echodata)
 
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used

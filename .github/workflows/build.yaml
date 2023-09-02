@@ -21,14 +21,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.9", "3.10"]  # TODO: add back 3.11 once parsed2zarr is fixed
         runs-on: [ubuntu-latest]
         experimental: [false]
-        # TODO: Uncomment when netcdf is unpinned
-        # include:
-        # - runs-on: ubuntu-latest
-        #   python-version: "3.11"
-        #   experimental: true
+        include:
+        - runs-on: ubuntu-latest
+          python-version: "3.11"
+          experimental: true
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
@@ -81,13 +80,7 @@ jobs:
       - name: Running All Tests
         shell: bash -l {0}
         run: |
-          pytest -vv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
-      - name: Upload ci test log
-        if: ${{ success() || failure() }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ci_test_log
-          path: ci_${{ matrix.python-version }}_test_log.log
+          pytest -vv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
