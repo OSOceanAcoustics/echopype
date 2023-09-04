@@ -176,9 +176,14 @@ class SetGroupsEK60(SetGroupsBase):
 
         # NMEA dataset: variables filled with np.nan if they do not exist
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
-        # Values for the variables below having a channel (ch) dependence
+
+        # Values for the variables in ds below having a channel (ch) dependence
         # are identical across channels
         ch = list(self.sorted_channel.keys())[0]
+
+        # Handle potential nan timestamp for time1 and time2
+        time1 = self._nan_timestamp_handler(time1)
+
         ds = xr.Dataset(
             {
                 "latitude": (
