@@ -14,7 +14,7 @@ from .impulse_noise import (
     _find_impulse_mask_wang,
 )
 from .noise_est import NoiseEst
-from .transient_noise import _fielding, _ryan
+from . import transient_noise
 
 
 def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
@@ -130,13 +130,13 @@ def get_transient_noise_mask(
         valid_args = {"m", "n", "thr", "excludeabove", "operation"}
         # Use dictionary comprehension to filter out any kwargs not in your list
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _ryan(Sv, r, m=5, **filtered_kwargs)
+        mask = transient_noise._ryan(Sv, r, m=5, **filtered_kwargs)
     elif mask_type == "fielding":
         # Define a list of the keyword arguments your function can handle
         valid_args = {"r0", "r1", "roff", "n", "thr"}
         # Use dictionary comprehension to filter out any kwargs not in your list
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _fielding(Sv, r, **filtered_kwargs)
+        mask = transient_noise._fielding(Sv, r, **filtered_kwargs)
     else:
         raise ValueError("The provided mask_type must be ryan or fielding!")
 
