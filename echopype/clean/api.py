@@ -8,13 +8,13 @@ import numpy as np
 import xarray as xr
 
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from . import transient_noise
 from .impulse_noise import (
     _find_impulse_mask_ryan,
     _find_impulse_mask_ryan_iterable,
     _find_impulse_mask_wang,
 )
 from .noise_est import NoiseEst
-from . import transient_noise
 
 
 def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
