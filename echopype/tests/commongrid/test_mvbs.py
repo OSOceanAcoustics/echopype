@@ -429,7 +429,7 @@ def test_bin_and_mean_2d(bin_and_mean_2d_params) -> None:
 @pytest.mark.parametrize(["range_var", "lat_lon"], [("depth", False), ("echo_range", True)])
 def test_get_MVBS_along_channels(request, range_var, lat_lon):
     """Testing the underlying function of compute_MVBS"""
-    range_meter_bin = 20
+    range_bin = 20
     ping_time_bin = "20S"
     method = "map-reduce"
     
@@ -447,7 +447,7 @@ def test_get_MVBS_along_channels(request, range_var, lat_lon):
     
     # compute range interval
     echo_range_max = ds_Sv[range_var].max()
-    range_interval = np.arange(0, echo_range_max + range_meter_bin, range_meter_bin)
+    range_interval = np.arange(0, echo_range_max + range_bin, range_bin)
     
     # create bin information needed for ping_time
     d_index = (

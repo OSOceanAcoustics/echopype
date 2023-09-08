@@ -48,21 +48,19 @@ def test_compute_MVBS_index_binning(ds_Sv_er_regular, regular_data_params):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ["range_meter_bin", "ping_time_bin"], [(5, "10S"), ("10m", 10), ("10km", "10S"), ("10", "10S")]
+    ["range_bin", "ping_time_bin"], [(5, "10S"), ("10m", 10), ("10km", "10S"), ("10", "10S")]
 )
-def test_compute_MVBS_bin_inputs_fail(ds_Sv_er_regular, range_meter_bin, ping_time_bin):
+def test_compute_MVBS_bin_inputs_fail(ds_Sv_er_regular, range_bin, ping_time_bin):
     expected_error = ValueError
-    if isinstance(range_meter_bin, int) or isinstance(ping_time_bin, int):
+    if isinstance(range_bin, int) or isinstance(ping_time_bin, int):
         expected_error = TypeError
         match = r"\w+ must be a string"
-    elif "m" not in range_meter_bin:
-        match = r"Found incompatible units \(\w+\) *"
-    elif "km" in range_meter_bin:
-        match = "range_meter_bin must be less than 1 kilometer."
+    else:
+        match = r"Found incompatible units. Must be in meters."
 
     with pytest.raises(expected_error, match=match):
         ep.commongrid.compute_MVBS(
-            ds_Sv_er_regular, range_meter_bin=range_meter_bin, ping_time_bin=ping_time_bin
+            ds_Sv_er_regular, range_bin=range_bin, ping_time_bin=ping_time_bin
         )
 
 
@@ -72,7 +70,7 @@ def test_compute_MVBS_w_latlon(ds_Sv_er_regular_w_latlon, lat_attrs, lon_attrs):
     from echopype.consolidate.api import POSITION_VARIABLES
 
     ds_MVBS = ep.commongrid.compute_MVBS(
-        ds_Sv_er_regular_w_latlon, range_meter_bin="5m", ping_time_bin="10S"
+        ds_Sv_er_regular_w_latlon, range_bin="5m", ping_time_bin="10S"
     )
     for var in POSITION_VARIABLES:
         # Check to ensure variable is in dataset
@@ -154,7 +152,7 @@ def test_compute_MVBS_range_output(request, er_type):
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_er_irregular")
 
-    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_meter_bin="5m", ping_time_bin="10S")
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="5m", ping_time_bin="10S")
 
     if er_type == "regular":
         expected_len = (
@@ -231,7 +229,7 @@ def test_compute_MVBS_values(request, er_type):
             expected_outs.append(chan_expected)
         return np.array(expected_outs)
 
-    range_meter_bin = "2m"
+    range_bin = "2m"
     ping_time_bin = "1s"
 
     if er_type == "regular":
@@ -244,7 +242,7 @@ def test_compute_MVBS_values(request, er_type):
         expected_mvbs = request.getfixturevalue("mock_mvbs_array_irregular")
 
     ds_MVBS = ep.commongrid.compute_MVBS(
-        ds_Sv, range_meter_bin=range_meter_bin, ping_time_bin=ping_time_bin
+        ds_Sv, range_bin=range_bin, ping_time_bin=ping_time_bin
     )
     
     expected_outputs = _parse_nans(ds_MVBS, ds_Sv)

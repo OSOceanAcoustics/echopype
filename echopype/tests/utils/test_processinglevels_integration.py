@@ -129,5 +129,5 @@ def test_raw_to_mvbs(
     # No product level is assigned because at present compute_MVBS drops the lat/lon data
     # associated with the input Sv dataset
     # ds = ds.rename_vars(name_dict={"Sv": "Sv_unmasked", "Sv_ch0": "Sv"})
-    mvbs_ds = ep.commongrid.compute_MVBS(ds, range_meter_bin="30m", ping_time_bin='1min')
+    mvbs_ds = ep.commongrid.compute_MVBS(ds, range_bin="30m", ping_time_bin='1min')
     _presence_test(mvbs_ds, "Level 3B")
