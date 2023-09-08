@@ -313,10 +313,9 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         tx_datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_tx_datagrams)
         # remove power and angle to conserve memory
-        if "power" in tx_datagram_df.columns:
-            del tx_datagram_df["power"]
-        elif "angle" in tx_datagram_df.columns:
-            del tx_datagram_df["angle"]
+        for col in ["power", "angle"]:
+            if col in tx_datagram_df.columns:
+                del tx_datagram_df[col]
 
         self.tx_df = tx_datagram_df.dropna().copy()
 
