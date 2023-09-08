@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import dask.array
 import fsspec
-import more_itertools as miter
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -408,7 +407,7 @@ class Parsed2Zarr:
 
         # evenly chunk unique times so that the smallest and largest
         # chunk differ by at most 1 element
-        chunks = list(miter.chunked_even(unique_time_ind, max_num_times))
+        chunks = np.array_split(unique_time_ind, np.ceil(len(unique_time_ind) / max_num_times))
 
         self.write_chunks(pd_series, zarr_grp, is_array, chunks, chunk_shape)
 
