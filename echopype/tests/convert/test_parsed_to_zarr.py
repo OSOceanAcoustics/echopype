@@ -150,20 +150,20 @@ def test_direct_to_zarr_integration(path_model: str, raw_file: str,
 
     raw_file_path = test_path[path_model] / raw_file
 
-    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, max_mb=100)
-    # ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model, use_swap=False)
+    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, max_mb=100, destination_path="swap")
+    ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model)
 
     for grp in ed_zarr.group_paths:
 
         # remove conversion time so we can do a direct comparison
         if "conversion_time" in ed_zarr[grp].attrs:
             del ed_zarr[grp].attrs["conversion_time"]
-            # del ed_no_zarr[grp].attrs["conversion_time"]
+            del ed_no_zarr[grp].attrs["conversion_time"]
 
         # Compare angle, power, complex, if zarr drop the zarr variables and compare datasets
         if grp == "Sonar/Beam_group2":
             var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
-            # ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
+            ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
 
         if grp == "Sonar/Beam_group1":
 
@@ -172,7 +172,7 @@ def test_direct_to_zarr_integration(path_model: str, raw_file: str,
             else:
                 var_to_comp = ['angle_athwartship', 'angle_alongship', 'backscatter_r']
 
-            # ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
+            ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
 
         assert ed_zarr[grp] is not None
     
