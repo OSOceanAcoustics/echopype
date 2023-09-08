@@ -191,6 +191,46 @@ def test_compute_MVBS_range_output(request, er_type):
 )
 def test_compute_MVBS_values(request, er_type):
     """Tests for the values of compute_MVBS on regular and irregular data."""
+
+    def _parse_nans(mvbs, ds_Sv) -> np.ndarray:
+        """Go through and figure out nan values in result"""
+        echo_range_step = np.unique(np.diff(mvbs.Sv.echo_range.values))[0]
+        expected_outs = []
+        # Loop over channels
+        for chan in mvbs.Sv.channel.values:
+            # Get ping times for this channel
+            ping_times = mvbs.Sv.ping_time.values
+            # Compute the total number of pings
+            ping_len = len(ping_times)
+            # Variable to store the expected output for this channel
+            chan_expected = []
+            for idx in range(ping_len):
+                # Loop over pings and create slices
+                if idx < ping_len - 1:
+                    ping_slice = slice(ping_times[idx], ping_times[idx + 1])
+                else:
+                    ping_slice = slice(ping_times[idx], None)
+
+                # Get the original echo_range data for this channel and ping slice
+                da = ds_Sv.echo_range.sel(channel=chan, ping_time=ping_slice)
+                # Drop the nan values since this shouldn't be included in actual
+                # computation for compute_MVBS, a.k.a. 'nanmean'
+                mean_values = da.dropna(dim="ping_time", how="all").values
+                # Compute the histogram of the mean values to get distribution
+                hist, _ = np.histogram(
+                    mean_values[~np.isnan(mean_values)],
+                    bins=np.append(
+                        mvbs.Sv.echo_range.values,
+                        # Add one more bin to account for the last value
+                        mvbs.Sv.echo_range.values.max() + echo_range_step
+                    ),
+                )
+                # Convert any non-zero values to False, and zero values to True
+                # to imitate having nan values since there's no value for that bin
+                chan_expected.append([False if v > 0 else True for v in hist])
+            expected_outs.append(chan_expected)
+        return np.array(expected_outs)
+
     range_meter_bin = "2m"
     ping_time_bin = "1s"
 
@@ -206,7 +246,14 @@ def test_compute_MVBS_values(request, er_type):
     ds_MVBS = ep.commongrid.compute_MVBS(
         ds_Sv, range_meter_bin=range_meter_bin, ping_time_bin=ping_time_bin
     )
+    
+    expected_outputs = _parse_nans(ds_MVBS, ds_Sv)
 
     assert ds_MVBS.Sv.shape == expected_mvbs.shape
     # Floating digits need to check with all close not equal
+    # Compare the values of the MVBS array with the expected values
     assert np.allclose(ds_MVBS.Sv.values, expected_mvbs, atol=1e-8, equal_nan=True)
+    
+    # Ensures that the computation of MVBS takes doesn't take into account NaN values
+    # that are sporadically placed in the echo_range values
+    assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)

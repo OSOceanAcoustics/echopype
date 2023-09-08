@@ -14,6 +14,53 @@ def random_number_generator():
 
 
 @pytest.fixture
+def mock_nan_ilocs():
+    """NaN i locations for irregular Sv dataset
+
+    It's a list of tuples, each tuple contains
+    (channel, ping_time, range_sample)
+
+    Notes
+    -----
+    This was created with the following code:
+
+    ```
+    import numpy as np
+
+    random_positions = []
+    for i in range(20):
+        random_positions.append((
+            np.random.randint(0, 2),
+            np.random.randint(0, 5),
+            np.random.randint(0, 20))
+        )
+    ```
+    """
+    return [
+        (1, 1, 10),
+        (1, 0, 16),
+        (0, 3, 6),
+        (0, 2, 11),
+        (0, 2, 6),
+        (1, 1, 14),
+        (0, 1, 17),
+        (1, 4, 19),
+        (0, 3, 3),
+        (0, 0, 19),
+        (0, 1, 5),
+        (1, 2, 9),
+        (1, 4, 18),
+        (0, 1, 5),
+        (0, 4, 4),
+        (0, 1, 6),
+        (1, 2, 2),
+        (0, 1, 2),
+        (0, 4, 8),
+        (0, 1, 1),
+    ]
+
+
+@pytest.fixture
 def mock_parameters():
     """Small mock parameters"""
     return {
@@ -47,7 +94,7 @@ def mock_sv_dataset_regular(mock_parameters, mock_sv_sample):
 
 
 @pytest.fixture
-def mock_sv_dataset_irregular(mock_parameters, mock_sv_sample):
+def mock_sv_dataset_irregular(mock_parameters, mock_sv_sample, mock_nan_ilocs):
     depth_interval = [0.5, 0.32, np.nan]  # Added nans
     depth_ping_time_len = [2, 3, 5]
     ds_Sv = _gen_Sv_er_irregular(
@@ -57,6 +104,9 @@ def mock_sv_dataset_irregular(mock_parameters, mock_sv_sample):
         ping_time_jitter_max_ms=30,  # Added jitter to ping_time
     )
     ds_Sv["Sv"].data = mock_sv_sample
+    # Sprinkle nans around echo_range
+    for pos in mock_nan_ilocs:
+        ds_Sv["echo_range"][pos] = np.nan
     return ds_Sv
 
 
@@ -97,13 +147,13 @@ def mock_mvbs_array_irregular():
     return np.array(
         [
             [
-                [0.16395346, 0.43825143, 0.71315706, 0.81188627, 0.94758103],
-                [0.18514066, 0.50093013, 0.81671961, 1.0, np.nan],
+                [0.15495845, 0.44702859, 0.71315706, 0.81188627, 0.94752788],
+                [0.18004567, 0.51673084, 0.81671961, 1.0, np.nan],
                 [np.nan, np.nan, np.nan, np.nan, np.nan],
             ],
             [
-                [0.16395346, 0.43825143, 0.71315706, 0.81188627, 0.94758103],
-                [0.18514066, 0.50093013, 0.81671961, 1.0, np.nan],
+                [0.16702056, 0.43637851, 0.72277163, 0.81739217, 0.94758103],
+                [0.18514066, 0.50093013, 0.7901115, np.nan, np.nan],
                 [np.nan, np.nan, np.nan, np.nan, np.nan],
             ],
         ]
