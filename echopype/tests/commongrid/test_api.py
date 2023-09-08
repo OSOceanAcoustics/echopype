@@ -55,7 +55,7 @@ def test_compute_MVBS_bin_inputs_fail(ds_Sv_er_regular, range_bin, ping_time_bin
         expected_error = TypeError
         match = r"\w+ must be a string"
     else:
-        match = "range_bin must be in meters (e.g., '10m')."
+        match = r"range_bin must be in meters"
 
     with pytest.raises(expected_error, match=match):
         ep.commongrid.compute_MVBS(
