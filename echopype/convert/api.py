@@ -355,7 +355,8 @@ def open_raw(
         The path to a swap directory in a case of a large memory footprint.
         This path can be a remote path like s3://bucket/swap_dir.
         By default, it will create a temporary zarr store at
-        ``~/.echopype/temp_output/parsed2zarr_temp_files`` if needed.
+        ``~/.echopype/temp_output/parsed2zarr_temp_files`` if needed,
+        when set to "auto".
     destination_storage_options: dict, optional
         Options for remote storage for the swap directory ``destination_path``
         argument.
@@ -393,6 +394,10 @@ def open_raw(
 
     # Initially set use_swap False
     use_swap = False
+
+    # Set initial destination_path of "no_swap"
+    if destination_path is None:
+        destination_path = "no_swap"
 
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
@@ -450,7 +455,7 @@ def open_raw(
             "swap": True,
             "no_swap": False,
         }
-        if destination_path is None:
+        if destination_path == "auto":
             # Overwrite use_swap if it's True below
             # Use local swap directory
             use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
