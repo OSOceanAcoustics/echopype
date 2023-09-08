@@ -122,7 +122,7 @@ def compute_MVBS(
     # for range_bin
     range_bin = range_bin.strip().lower()
     # Only matches meters
-    match_obj = re.match(r"(\d+)(m)", range_bin)
+    match_obj = re.match(r"(\d+)(\s+)?(m)", range_bin)
 
     # Do some checks on range meter inputs
     if match_obj is None:

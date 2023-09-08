@@ -1,7 +1,6 @@
 import pytest
 import echopype as ep
 import numpy as np
-import pandas as pd
 
 
 # NASC Tests
