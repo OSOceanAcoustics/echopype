@@ -267,7 +267,7 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         - a single combined echodata object and another combined single echodata object
         """
         eds = [
-            echopype.open_raw(raw_file=file, sonar_model=sonar_model, destination_path="no_swap")
+            echopype.open_raw(raw_file=file, sonar_model=sonar_model)
             for file in ek60_multi_test_data
         ]
         # create temporary directory for zarr store
