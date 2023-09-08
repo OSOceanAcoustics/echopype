@@ -99,7 +99,8 @@ def compute_MVBS(
     ping_time_bin : str
         bin size along ``ping_time``, default to ``20S``
     method: str
-        The flox strategy for reduction of dask arrays only.
+        The flox strategy for reduction of dask arrays only, 
+        default to ``map-reduce``
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
     **kwargs
@@ -122,12 +123,12 @@ def compute_MVBS(
     # for range_bin
     range_bin = range_bin.strip().lower()
     # Only matches meters
-    match_obj = re.match(r"(\d+)(\s+)?(m)", range_bin)
+    match_obj = re.match(r"([\d+]*[.,]{0,1}[\d+]*)(\s+)?(m)", range_bin)
 
     # Do some checks on range meter inputs
     if match_obj is None:
         # This shouldn't be other units
-        raise ValueError("Found incompatible units. Must be in meters.")
+        raise ValueError("range_bin must be in meters (e.g., '10m').")
 
     # Convert back to float
     range_bin = float(match_obj.group(1))
