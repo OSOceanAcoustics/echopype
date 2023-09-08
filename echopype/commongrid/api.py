@@ -99,7 +99,7 @@ def compute_MVBS(
     ping_time_bin : str
         bin size along ``ping_time``, default to ``20S``
     method: str
-        The flox strategy for reduction of dask arrays only, 
+        The flox strategy for reduction of dask arrays only,
         default to ``map-reduce``
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
