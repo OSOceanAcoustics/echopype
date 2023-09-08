@@ -2,7 +2,7 @@ import datetime
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
 import fsspec
 import numpy as np
@@ -18,7 +18,6 @@ from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
-from .sensor_ep_version_mapping import ep_version_mapper
 from .widgets.utils import tree_repr
 from .widgets.widgets import _load_static_files, get_template
 
@@ -161,9 +160,6 @@ class EchoData:
 
         echodata._set_tree(tree)
 
-        # convert to newest echopype version structure, if necessary
-        ep_version_mapper.map_ep_version(echodata)
-
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
             # for retrieving the path strings
@@ -196,16 +192,28 @@ class EchoData:
                 setattr(self, group, node)
 
     @property
-    def version_info(self) -> Tuple[int]:
-        if self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
-            version_str = self["Provenance"].attrs.get("conversion_software_version", None)
+    def version_info(self) -> Union[Tuple[int], None]:
+        def _get_version_tuple(provenance_type):
+            """
+            Parameters
+            ----------
+            provenance_type : str
+                Either conversion or combination
+            """
+            version_str = self["Provenance"].attrs.get(f"{provenance_type}_software_version", None)
             if version_str is not None:
                 if version_str.startswith("v"):
                     # Removes v in case of v0.4.x or less
                     version_str = version_str.strip("v")
                 version_num = version_str.split(".")[:3]
                 return tuple([int(i) for i in version_num])
-        return None
+
+        if self["Provenance"].attrs.get("combination_software_name", None) == "echopype":
+            return _get_version_tuple("combination")
+        elif self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
+            return _get_version_tuple("conversion")
+        else:
+            return None
 
     @property
     def nbytes(self) -> float:

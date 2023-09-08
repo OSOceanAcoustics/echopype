@@ -12,7 +12,7 @@ from typing_extensions import Literal
 
 from .log import _init_logger
 
-ProcessType = Literal["conversion", "processing", "mask"]
+ProcessType = Literal["conversion", "combination", "processing", "mask"]
 # Note that this PathHint is defined differently from the one in ..core
 PathHint = Union[str, Path]
 PathSequenceHint = Union[List[PathHint], Tuple[PathHint], NDArray[PathHint]]

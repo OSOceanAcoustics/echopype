@@ -21,6 +21,7 @@ __all__ = [
     "commongrid",
     "consolidate",
     "mask",
+    "metrics",
     "open_converted",
     "open_raw",
     "utils",

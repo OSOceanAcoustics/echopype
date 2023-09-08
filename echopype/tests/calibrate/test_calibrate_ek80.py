@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 import echopype as ep
 
@@ -228,6 +229,7 @@ def test_ek80_BB_power_echoview(ek80_path):
 
     pc = ep.calibrate.ek80_complex.compress_pulse(
         backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"], chirp=chirp)
+    pc = pc / ep.calibrate.ek80_complex.get_norm_fac(chirp)  # normalization for each channel
     pc_mean = pc.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")
 
     # Read EchoView pc raw power output
