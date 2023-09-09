@@ -11,9 +11,12 @@ import os
 import echopype as ep
 import echopype.mask
 from echopype.mask.api import (
-    _check_source_Sv_freq_diff,
     _validate_and_collect_mask_input,
     _check_var_name_fill_value
+)
+from echopype.mask.freq_diff import (
+    _parse_freq_diff_eq,
+    _check_freq_diff_source_Sv,
 )
 
 from typing import List, Union, Optional
@@ -84,7 +87,8 @@ def get_mock_freq_diff_data(n: int, n_chan_freq: int, add_chan: bool,
 
     if add_freq_nom:
         # construct frequency_values
-        freq_vals = [float(i) for i in range(1, n_chan_freq + 1)]
+        freqs = [1, 1e3, 2, 2e3]
+        freq_vals = [float(i) for i in freqs]
 
         # create mock frequency_nominal and add it to the Dataset variables
         mock_freq_nom = xr.DataArray(data=freq_vals, coords={channel_coord_name: chan_vals})
@@ -232,34 +236,34 @@ def create_input_mask(
 @pytest.mark.parametrize(
     ("n", "n_chan_freq", "add_chan", "add_freq_nom", "freqAB", "chanAB"),
     [
-        (5, 3, True, True, [1.0, 3.0], None),
-        (5, 3, True, True, None, ['chan1', 'chan3']),
-        pytest.param(5, 3, False, True, [1.0, 3.0], None,
+        (5, 4, True, True, [1000.0, 2.0], None),
+        (5, 4, True, True, None, ['chan1', 'chan3']),
+        pytest.param(5, 4, False, True, [1.0, 2000000.0], None,
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because the Dataset "
                                                     "will not have the channel coordinate.")),
-        pytest.param(5, 3, True, False, [1.0, 3.0], None,
+        pytest.param(5, 4, True, False, [1.0, 2.0], None,
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because the Dataset "
                                                     "will not have the frequency_nominal variable.")),
-        pytest.param(5, 3, True, True, [1.0, 4.0], None,
+        pytest.param(5, 4, True, True, [1.0, 4.0], None,
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because not all selected frequencies"
                                                     "are in the frequency_nominal variable.")),
-        pytest.param(5, 3, True, True, None, ['chan1', 'chan4'],
+        pytest.param(5, 4, True, True, None, ['chan1', 'chan9'],
                      marks=pytest.mark.xfail(strict=True,
                                              reason="This should fail because not all selected channels"
-                                                    "are in the channel coordinate.")),
+                                                    "are in the channel coordinate."))
     ],
     ids=["dataset_input_freqAB_provided", "dataset_input_chanAB_provided", "dataset_no_channel",
          "dataset_no_frequency_nominal", "dataset_missing_freqAB_in_freq_nom",
          "dataset_missing_chanAB_in_channel"]
 )
-def test_check_source_Sv_freq_diff(n: int, n_chan_freq: int, add_chan: bool, add_freq_nom: bool,
+def test_check_freq_diff_source_Sv(n: int, n_chan_freq: int, add_chan: bool, add_freq_nom: bool,
                                    freqAB: List[float],
                                    chanAB: List[str]):
     """
-    Test the inputs ``source_Sv, freqAB, chanAB`` for ``_check_source_Sv_freq_diff``.
+    Test the inputs ``source_Sv, freqAB, chanAB`` for ``_check_freq_diff_source_Sv``.
 
     Parameters
     ----------
@@ -287,24 +291,87 @@ def test_check_source_Sv_freq_diff(n: int, n_chan_freq: int, add_chan: bool, add
 
     source_Sv = get_mock_freq_diff_data(n, n_chan_freq, add_chan, add_freq_nom)
 
-    _check_source_Sv_freq_diff(source_Sv, freqAB=freqAB, chanAB=chanAB)
+    _check_freq_diff_source_Sv(source_Sv, freqAB=freqAB, chanAB=chanAB)
 
 
 @pytest.mark.parametrize(
-    ("n", "n_chan_freq", "freqAB", "chanAB", "diff", "operator", "mask_truth"),
+    ("freqABEq", "chanABEq"),
     [
-        (5, 4, [1.0, 3.0], None, 1.0, "==", np.identity(5)),
-        (5, 4, None, ['chan1', 'chan3'], 1.0, "==", np.identity(5)),
-        (5, 4, [3.0, 1.0], None, 1.0, "==", np.zeros((5, 5))),
-        (5, 4, None, ['chan3', 'chan1'], 1.0, "==", np.zeros((5, 5))),
-        (5, 4, [1.0, 3.0], None, 1.0, ">=", np.identity(5)),
-        (5, 4, None, ['chan1', 'chan3'], 1.0, ">=", np.identity(5)),
-        (5, 4, [1.0, 3.0], None, 1.0, ">", np.zeros((5, 5))),
-        (5, 4, None, ['chan1', 'chan3'], 1.0, ">", np.zeros((5, 5))),
-        (5, 4, [1.0, 3.0], None, 1.0, "<=", np.ones((5, 5))),
-        (5, 4, None, ['chan1', 'chan3'], 1.0, "<=", np.ones((5, 5))),
-        (5, 4, [1.0, 3.0], None, 1.0, "<", np.ones((5, 5)) - np.identity(5)),
-        (5, 4, None, ['chan1', 'chan3'], 1.0, "<", np.ones((5, 5)) - np.identity(5)),
+        ("1.0Hz-2.0Hz==1.0dB", None),
+        (None, '"chan1"-"chan3"==1.0dB'),
+        ("1.0 kHz - 2.0 MHz>=1.0 dB", None),
+        (None, '"chan2-12 89" - "chan4 89-12" >= 1.0 dB'),
+        pytest.param("1.0kHz-2.0 kHz===1.0dB", None,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because "
+                                                    "the operator is incorrect.")),
+        pytest.param(None, '"chan1"-"chan3"===1.0 dB',
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because "
+                                                    "the operator is incorrect.")),
+        pytest.param("1.0 MHz-1.0MHz==1.0dB", None,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because the "
+                                                    "frequencies are the same.")),
+        pytest.param(None, '"chan1"-"chan1"==1.0 dB',
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because the "
+                                                    "channels are the same.")),
+        pytest.param("1.0 Hz-2.0==1.0dB", None,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because unit of one of "
+                                                    "the frequency is missing.")),
+        pytest.param(None, '"chan1"-"chan3"==1.0',
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because unit of the "
+                                                    "difference is missing.")),
+    ],
+    ids=["input_freqABEq_provided", "input_chanABEq_provided", "input_freqABEq_different_units",
+         "input_chanABEq_provided", "input_freqABEq_wrong_operator", "input_chanABEq_wrong_operator",
+         "input_freqABEq_duplicate_frequencies", "input_chanABEq_duplicate_channels",
+         "input_freqABEq_missing_unit", "input_chanABEq_missing_unit"]
+)
+def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
+    """
+    Tests the inputs ``freqABEq, chanABEq`` for ``_parse_freq_diff_eq``.
+
+    Parameters
+    ----------
+    freqABEq: string, optional
+        The frequency differencing criteria.
+    chanABEq: string, optional
+        The frequency differencing criteria in terms of channel names where channel names
+        in the criteria are enclosed in double quotes.
+    """
+    freq_vals = [1.0, 2.0, 1e3, 2e3, 1e6, 2e6]
+    chan_vals = ['chan1', 'chan3', "chan2-12 89", "chan4 89-12"]
+    operator_vals = [">=", "=="]
+    diff_val = 1.0
+    freqAB, chanAB, operator, diff = _parse_freq_diff_eq(freqABEq=freqABEq, chanABEq=chanABEq)
+    if freqAB is not None:
+        for freq in freqAB:
+            assert freq in freq_vals
+    if chanAB is not None:
+        for chan in chanAB:
+            assert chan in chan_vals
+    assert operator in operator_vals
+    assert diff == diff_val
+
+@pytest.mark.parametrize(
+    ("n", "n_chan_freq", "freqABEq", "chanABEq", "mask_truth"),
+    [
+        (5, 4, "1.0Hz-2.0Hz== 1.0dB", None, np.identity(5)),
+        (5, 4, None, '"chan1"-"chan3" == 1.0 dB', np.identity(5)),
+        (5, 4, "2.0 Hz - 1.0 Hz==1.0 dB", None, np.zeros((5, 5))),
+        (5, 4, None, '"chan3" - "chan1"==1.0 dB', np.zeros((5, 5))),
+        (5, 4, "1.0 Hz-2.0Hz>=1.0dB", None, np.identity(5)),
+        (5, 4, None, '"chan1" - "chan3" >= 1.0 dB', np.identity(5)),
+        (5, 4, "1.0 kHz - 2.0 kHz > 1.0dB", None, np.zeros((5, 5))),
+        (5, 4, None, '"chan1"-"chan3">1.0 dB', np.zeros((5, 5))),
+        (5, 4, "1.0kHz-2.0 kHz<=1.0dB", None, np.ones((5, 5))),
+        (5, 4, None, '"chan1" - "chan3" <= 1.0 dB', np.ones((5, 5))),
+        (5, 4, "1.0 Hz-2.0Hz<1.0dB", None, np.ones((5, 5)) - np.identity(5)),
+        (5, 4, None, '"chan1"-"chan3"< 1.0 dB', np.ones((5, 5)) - np.identity(5))
     ],
     ids=["freqAB_sel_op_equals", "chanAB_sel_op_equals", "reverse_freqAB_sel_op_equals",
          "reverse_chanAB_sel_op_equals", "freqAB_sel_op_ge", "chanAB_sel_op_ge",
@@ -312,8 +379,7 @@ def test_check_source_Sv_freq_diff(n: int, n_chan_freq: int, add_chan: bool, add
          "chanAB_sel_op_le", "freqAB_sel_op_less", "chanAB_sel_op_less"]
 )
 def test_frequency_differencing(n: int, n_chan_freq: int,
-                                freqAB: List[float], chanAB: List[str],
-                                diff: Union[float, int], operator: str,
+                                freqABEq: str, chanABEq: str,
                                 mask_truth: np.ndarray):
     """
     Tests that the output values of ``frequency_differencing`` are what we
@@ -328,18 +394,11 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
         Determines the size of the ``channel`` coordinate and ``frequency_nominal``
         variable. To create mock data with known outcomes for ``frequency_differencing``,
         this value must be greater than or equal to 3.
-    freqAB: list of float, optional
-        The pair of nominal frequencies to be used for frequency-differencing, where
-        the first element corresponds to ``freqA`` and the second element corresponds
-        to ``freqB``
-    chanAB: list of float, optional
-        The pair of channels that will be used to select the nominal frequencies to be
-        used for frequency-differencing, where the first element corresponds to ``freqA``
-        and the second element corresponds to ``freqB``
-    diff: float or int
-        The threshold of Sv difference between frequencies
-    operator: {">", "<", "<=", ">=", "=="}
-        The operator for the frequency-differencing
+    freqABEq: string, optional
+        The frequency differencing criteria.
+    chanABEq: string, optional
+        The frequency differencing criteria in terms of channel names where channel names
+        in the criteria are enclosed in double quotes.
     mask_truth: np.ndarray
         The truth value for the output mask, provided the given inputs
     """
@@ -348,9 +407,8 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
     mock_Sv_ds = get_mock_freq_diff_data(n, n_chan_freq, add_chan=True, add_freq_nom=True)
 
     # obtain the frequency-difference mask for mock_Sv_ds
-    out = ep.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={}, freqAB=freqAB,
-                                         chanAB=chanAB,
-                                         operator=operator, diff=diff)
+    out = ep.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={}, freqABEq=freqABEq,
+                                         chanABEq=chanABEq)
 
     # ensure that the output values are correct
     assert np.all(out == mask_truth)
@@ -656,6 +714,6 @@ def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
             [[1, np.nan], [np.nan, 1]],
             coords={"ping_time": np.arange(2), "range_sample": np.arange(2)},
             attrs=source_ds[var_name].attrs
-        )        
+        )
 
     assert masked_ds[var_name].equals(truth_da)
