@@ -81,13 +81,10 @@ of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 
-
-License
--------
+## License
 
 Echopype is licensed under the open source [Apache 2.0 license](https://opensource.org/licenses/Apache-2.0).
 
-
 ---------------
 
-Copyright (c) 2018-2023, echopype Developers.
+Copyright (c) 2018-2023, Echopype Developers.

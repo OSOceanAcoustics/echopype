@@ -12,10 +12,11 @@ interoperable data format and scalable analysis workflows that adapt well
 with increasing data volume - by providing open-source tools as entry points for
 scientists to make discovery using these new data.
 
-
 ## Contributors
 
-Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018. It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together with Brandon Reyes ([@b-reyes](https://github.com/b-reyes)), Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)), and previously Kavin Nguyen ([@ngkavin](https://github.com/ngkavin)) and Imran Majeed ([@imranmaj](https://github.com/imranmaj)). Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
+[![Contributors](https://contrib.rocks/image?repo=OSOceanAcoustics/echopype)](https://github.com/OSOceanAcoustics/echopype/graphs/contributors)
+
+Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018. It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together with Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)), and previously Brandon Reyes ([@b-reyes](https://github.com/b-reyes)), Kavin Nguyen ([@ngkavin](https://github.com/ngkavin)) and Imran Majeed ([@imranmaj](https://github.com/imranmaj)). Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
 
 Other contributors include:
 Frederic Cyr ([@cyrf0006](https://github.com/cyrf0006)),
@@ -25,7 +26,7 @@ Marian Peña ([@marianpena](https://github.com/marianpena)),
 Mark Langhirt ([@bnwkeys](https://github.com/bnwkeys)),
 Erin LaBrecque ([@erinann](https://github.com/erinann)),
 Emma Ozanich ([@emma-ozanich](https://github.com/emma-ozanich)),
-Aaron Marburg ([@amarburg](https://github.com/amarburg)). A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
+Aaron Marburg ([@amarburg](https://github.com/amarburg)).
 
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for our
