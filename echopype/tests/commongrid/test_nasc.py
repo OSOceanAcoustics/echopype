@@ -4,7 +4,7 @@ import numpy as np
 
 from echopype import open_raw
 from echopype.calibrate import compute_Sv
-from echopype.commongrid import compute_NASC
+# from echopype.commongrid import compute_NASC
 from echopype.commongrid.nasc import (
     get_distance_from_latlon,
     get_depth_bin_info,

@@ -4,6 +4,31 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.8.1 (2023 September 2)
+
+## Overview
+
+This release includes a bug fix and a few infrastructure upgrades and enhancements.
+
+## Enhancements and bug fix
+- More intuitive input syntax for `frequency_differencing` (#1106)
+- Set EK60/80 Platform and NMEA nan timestamp to first `ping_time` value (#1154)
+  - This avoids warnings due to xarray's new behavior with nan timestamp in coordinate
+- Remove automatic version conversion in `open_converted` (#1143)
+
+## Infrastructure
+- Bump testing minimum Python version to 3.9 (#1146)
+- Add Python 3.11 in testing (#1148)
+  - Some tests related to `parsed2zarr` fail due to `more_itertools` in python 3.11. `parsed2zarr` is being overhauled in #1070 so these are deferred to the next release.
+- Remove logging during testing (#1141)
+- Remove NASC import causing failure (#1145)
+
+
+
+
+
+
+
 # v0.8.0 (2023 August 27)
 
 ## Overview
