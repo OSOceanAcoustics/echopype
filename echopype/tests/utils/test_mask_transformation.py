@@ -214,27 +214,40 @@ def test_twod():
 
 
 def test_twod_exceptions():
-    data = np.array([[1, 2], [5, 6]])
-    idim = np.array([0, 4])
-    jdim = np.array([3, 6])
-    rvals = np.array([2])
+    data = np.array(
+        [
+            [1, 2, 3, 4, 5],
+            [6, 7, 8, 9, 10],
+            [11, 12, 13, 14, 15],
+            [16, 17, 18, 19, 20],
+            [21, 22, 23, 24, 25],
+        ]
+    )
+
+    # Example dimensions
+    idim = np.array([0.5, 1.5, 2.5, 3.5, 4.5])
+    jdim = np.array([0.5, 1.5, 2.5, 3.5, 4.5])
+    bad_idim = np.array([100, 200, 300, 400, 500])
+
+    # Resampling dimension intervals
+    irvals = np.array([0.5, 2.5, 4.5])
+    jrvals = np.array([0.5, 2.5, 4.5])
+    bad_irvals = np.array([2])
 
     # Testing invalid resampling intervals
-    with pytest.raises(Exception, match="length of resampling intervals must be >2"):
+    with pytest.raises(Exception, match="length of i resampling intervals must be  >2"):
         echopype.utils.mask_transformation.twod(
-            data, idim, jdim, rvals, log_var=False, operation="mean"
+            data, idim, jdim, bad_irvals, jrvals, log_var=False, operation="mean"
         )
 
     # Testing invalid dim range
-    rvals = np.array([0, 0.5, 2])
-    with pytest.raises(Exception, match="resampling intervals must be within dim range"):
+    with pytest.raises(Exception, match="i resampling intervals must be within idim range"):
         echopype.utils.mask_transformation.twod(
-            data, idim, jdim, rvals, log_var=False, operation="mean"
+            data, bad_idim, jdim, irvals, jrvals, log_var=False, operation="mean"
         )
 
     # Testing unrecognised operation
-    rvals = np.array([0, 0.5, 1])
     with pytest.raises(Exception, match="Operation not recognised"):
         echopype.utils.mask_transformation.twod(
-            data, idim, jdim, rvals, log_var=False, operation="kind"
+            data, idim, jdim, irvals, jrvals, log_var=False, operation="kind"
         )
