@@ -4,7 +4,6 @@ import os
 import subprocess
 import pytest
 
-import fsspec
 import xarray as xr
 
 import echopype as ep
@@ -19,18 +18,18 @@ def dump_output_dir():
 @pytest.fixture(scope="session")
 def test_path():
     return {
-        'ROOT': TEST_DATA_FOLDER,
-        'EA640': TEST_DATA_FOLDER / "ea640",
-        'EK60': TEST_DATA_FOLDER / "ek60",
-        'EK80': TEST_DATA_FOLDER / "ek80",
-        'EK80_NEW': TEST_DATA_FOLDER / "ek80_new",
-        'ES70': TEST_DATA_FOLDER / "es70",
-        'ES80': TEST_DATA_FOLDER / "es80",
-        'AZFP': TEST_DATA_FOLDER / "azfp",
-        'AD2CP': TEST_DATA_FOLDER / "ad2cp",
-        'EK80_CAL': TEST_DATA_FOLDER / "ek80_bb_with_calibration",
-        'EK80_EXT': TEST_DATA_FOLDER / "ek80_ext",
-        'ECS': TEST_DATA_FOLDER / "ecs",
+        "ROOT": TEST_DATA_FOLDER,
+        "EA640": TEST_DATA_FOLDER / "ea640",
+        "EK60": TEST_DATA_FOLDER / "ek60",
+        "EK80": TEST_DATA_FOLDER / "ek80",
+        "EK80_NEW": TEST_DATA_FOLDER / "ek80_new",
+        "ES70": TEST_DATA_FOLDER / "es70",
+        "ES80": TEST_DATA_FOLDER / "es80",
+        "AZFP": TEST_DATA_FOLDER / "azfp",
+        "AD2CP": TEST_DATA_FOLDER / "ad2cp",
+        "EK80_CAL": TEST_DATA_FOLDER / "ek80_bb_with_calibration",
+        "EK80_EXT": TEST_DATA_FOLDER / "ek80_ext",
+        "ECS": TEST_DATA_FOLDER / "ecs",
     }
 
 
@@ -41,6 +40,8 @@ def minio_bucket():
         key="minioadmin",
         secret="minioadmin",
     )
+
+
 @pytest.fixture(scope="session")
 def setup_test_data_jr230():
     file_name = "JR230-D20091215-T121917.raw"
