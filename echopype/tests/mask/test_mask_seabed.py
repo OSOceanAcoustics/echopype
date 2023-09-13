@@ -5,7 +5,7 @@ from typing import Optional
 from xarray import Dataset
 
 import echopype as ep
-import echopype.mask
+from echopype.mask.api import get_seabed_mask
 import numpy as np
 import pytest
 
@@ -52,7 +52,7 @@ def get_sv_dataset(file_path: str) -> tuple[Dataset, Optional[EchoData]]:
 )
 def test_mask_seabed(mask_type, expected_true_false_counts):
     source_Sv, ed = get_sv_dataset(test_data_path)
-    mask = echopype.mask.get_seabed_mask(
+    mask = get_seabed_mask(
         source_Sv,
         mask_type=mask_type,
         theta=ed["Sonar/Beam_group1"]["angle_alongship"].values[0, :, :, 0].T,

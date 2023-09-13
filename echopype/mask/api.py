@@ -6,6 +6,15 @@ from typing import List, Optional, Union
 import numpy as np
 import xarray as xr
 
+from echopype.mask.seabed import (
+    _get_seabed_mask_ariza,
+    _get_seabed_mask_blackwell,
+    _get_seabed_mask_blackwell_mod,
+    _get_seabed_mask_deltaSv,
+    _get_seabed_mask_experimental,
+    _get_seabed_mask_maxSv,
+)
+
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 
@@ -635,3 +644,114 @@ def frequency_differencing(
     da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
 
     return da
+
+
+def get_seabed_mask(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "ariza", **kwargs
+) -> xr.DataArray:
+    """
+    Create a mask based on the identified signal attenuations of Sv values at 38KHz.
+    Parameters
+    ----------
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a mask for,
+        else it specifies the path to a zarr or netcdf file containing
+        a Dataset. This input must correspond to a Dataset that has the
+        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    mask_type: str with either "ariza", "experimental", "blackwell_mod",
+                                "blackwell", "deltaSv", "maxSv"
+                                based on the preferred method for signal attenuation mask generation
+    Returns
+    -------
+    xr.DataArray
+        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
+        criteria are filled with ``True``, else the regions are filled with ``False``.
+
+    Raises
+    ------
+    ValueError
+        If neither "ariza", "experimental", "blackwell_mod",
+        "blackwell", "deltaSv", "maxSv" are given
+
+    Notes
+    -----
+
+
+    Examples
+    --------
+
+    """
+    assert mask_type in [
+        "ariza",
+        "experimental",
+        "blackwell_mod",
+        "blackwell",
+        "deltaSv",
+        "maxSv",
+    ], "mask_type must be either 'ariza', 'experimental', 'blackwell', 'maxSv', 'deltaSv'"
+
+    Sv = source_Sv["Sv"].values[0].T
+    r = source_Sv["echo_range"].values[0, 0]
+    if mask_type == "ariza":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"r0", "r1", "roff", "thr", "ec", "ek", "dc", "dk"}
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = _get_seabed_mask_ariza(Sv, r, **filtered_kwargs)
+    elif mask_type == "experimental":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"r0", "r1", "roff", "thr", "ns", "n_dil"}
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = _get_seabed_mask_experimental(Sv, r, **filtered_kwargs)
+    elif mask_type == "blackwell":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"theta", "phi", "r0", "r1", "tSv", "ttheta", "tphi", "wtheta", "wphi"}
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = _get_seabed_mask_blackwell(Sv, r, **filtered_kwargs)
+    elif mask_type == "blackwell_mod":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {
+            "theta",
+            "phi",
+            "r0",
+            "r1",
+            "tSv",
+            "ttheta",
+            "tphi",
+            "wtheta",
+            "wphi",
+            "rlog",
+            "tpi",
+            "freq",
+            "rank",
+        }
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = _get_seabed_mask_blackwell_mod(Sv, r, **filtered_kwargs)
+    elif mask_type == "deltaSv":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"r0", "r1", "roff", "thr"}
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = _get_seabed_mask_deltaSv(Sv, r, **filtered_kwargs)
+    elif mask_type == "maxSv":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"r0", "r1", "roff", "thr"}
+        # Use dictionary comprehension to filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask = _get_seabed_mask_maxSv(Sv, r, **filtered_kwargs)
+    else:
+        raise ValueError(
+            "The provided mask_type must be 'ariza', "
+            + "'experimental', 'blackwell', 'maxSv' or 'deltaSv'!"
+        )
+
+    mask = np.logical_not(mask.T)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask
