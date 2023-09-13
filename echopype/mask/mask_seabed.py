@@ -1,14 +1,3 @@
-import pathlib
-import numpy as np
-import xarray as xr
-from typing import Union
-import scipy.ndimage as nd
-from scipy.signal import convolve2d
-from skimage.morphology import remove_small_objects
-from skimage.morphology import erosion, dilation, square
-from skimage.measure import label
-from ..utils.mask_transformation import log, lin
-
 """
 Algorithms for masking seabed.
   These methods are based on:
@@ -41,6 +30,18 @@ Algorithms for masking seabed.
                   and implemented them for use with the Echopype library.
                 ]
 """
+
+import pathlib
+from typing import Union
+
+import numpy as np
+import scipy.ndimage as nd_img
+import xarray as xr
+from scipy.signal import convolve2d
+from skimage.measure import label
+from skimage.morphology import dilation, erosion, remove_small_objects, square
+
+from ..utils.mask_transformation import lin, log
 
 
 def get_seabed_mask(
@@ -97,7 +98,7 @@ def get_seabed_mask(
         mask = _get_seabed_mask_ariza(Sv, r, **filtered_kwargs)
     elif mask_type == "experimental":
         # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "roff", "thr", "ns", "nd"}
+        valid_args = {"r0", "r1", "roff", "thr", "ns", "n_dil"}
         # Use dictionary comprehension to filter out any kwargs not in your list
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
         mask = _get_seabed_mask_experimental(Sv, r, **filtered_kwargs)
@@ -157,7 +158,7 @@ def get_seabed_mask(
 def _get_seabed_mask_maxSv(Sv, r, r0=10, r1=1000, roff=0, thr=(-40, -60)):
     """
     Initially detects the seabed as the ping sample with the strongest Sv value,
-    as long as it exceeds a dB threshold. Then it searchs up along the ping
+    as long as it exceeds a dB threshold. Then it searches up along the ping
     until Sv falls below a secondary (lower) dB threshold, where the final
     seabed is set.
 
@@ -308,7 +309,7 @@ def _get_seabed_mask_blackwell(
         Svmaskchunk = Svchunk > Svmedian_anglemasked
 
         # label connected items in Sv mask
-        items = nd.label(Svmaskchunk, nd.generate_binary_structure(2, 2))[0]
+        items = nd_img.label(Svmaskchunk, nd_img.generate_binary_structure(2, 2))[0]
 
         # get items intercepted by angle mask (likely, the seabed)
         intercepted = list(set(items[anglemaskchunk]))
@@ -428,7 +429,7 @@ def _get_seabed_mask_blackwell_mod(
         Svmaskchunk = Svchunk > Svmedian_anglemasked
 
         # label connected items in Sv mask
-        items = nd.label(Svmaskchunk, nd.generate_binary_structure(2, 2))[0]
+        items = nd_img.label(Svmaskchunk, nd_img.generate_binary_structure(2, 2))[0]
 
         # get items intercepted by angle mask (likely, the seabed)
         intercepted = list(set(items[anglemaskchunk]))
@@ -471,7 +472,7 @@ def aliased2seabed(
                    to {18:7000, 38:2800, 70:1100, 120:850, 200:550}.
 
     Returns:
-        float: list with estimated seabed ranges, reflected from preceeding
+        float: list with estimated seabed ranges, reflected from preceding
         pings (ping -1, ping -2, ping -3, etc.).
 
     """
@@ -487,7 +488,7 @@ def aliased2seabed(
     return seabeds
 
 
-def seabed2aliased(
+def _seabed2aliased(
     seabed, rlog, tpi, f, c=1500, rmax={18: 7000, 38: 2800, 70: 1100, 120: 850, 200: 550}
 ):
     """
@@ -516,7 +517,7 @@ def seabed2aliased(
     return aliased
 
 
-def _get_seabed_mask_experimental(Sv, r, r0=10, r1=1000, roff=0, thr=(-30, -70), ns=150, nd=3):
+def _get_seabed_mask_experimental(Sv, r, r0=10, r1=1000, roff=0, thr=(-30, -70), ns=150, n_dil=3):
     """
     Mask Sv above a threshold to get a potential seabed mask. Then, the mask is
     dilated to fill seabed breaches, and small objects are removed to prevent
@@ -532,7 +533,7 @@ def _get_seabed_mask_experimental(Sv, r, r0=10, r1=1000, roff=0, thr=(-30, -70),
         roff (int): seabed range offset (m).
         thr (tuple): 2 integers with 1st and 2nd Sv threshold (dB).
         ns (int): maximum number of samples for an object to be removed.
-        nd (int): number of dilations performed to the seabed mask.
+        n_dil (int): number of dilations performed to the seabed mask.
 
     Returns:
         bool: 2D array with seabed mask.
@@ -555,7 +556,7 @@ def _get_seabed_mask_experimental(Sv, r, r0=10, r1=1000, roff=0, thr=(-30, -70),
 
     # dilate mask to fill seabed breaches
     # (e.g. attenuated pings or gaps from previous masking)
-    mask = dilation(np.uint8(mask), square(nd))
+    mask = dilation(np.uint8(mask), square(n_dil))
     mask = np.array(mask, dtype="bool")
 
     # proceed with the following only if seabed was detected
