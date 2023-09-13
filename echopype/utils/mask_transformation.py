@@ -1,32 +1,19 @@
 """
 Algorithms for resampling data arrays. Algorithms for transformation of acoustic units.
 
-    Algorithms based on:
-
     Copyright (c) 2020 Echopy
 
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
+    This code is licensed under the MIT License.
+    See https://opensource.org/license/mit/ for details.
+    Original code sourced from:
+    https://github.com/open-ocean-sounding/echopy/blob/master/echopy/utils/transform.py
 
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-    __authors__ = ['Alejandro Ariza'    # wrote oned(), twod(), full(), and dim2ax()
-                                        # wrote lin(), log()
-                ]
 """
+
+__authors__ = [
+    "Alejandro Ariza"  # wrote oned(), twod(), full(), and dim2ax()
+    # wrote lin(), log()
+]
 
 # import modules
 import warnings
@@ -66,7 +53,7 @@ def log(variable):
     # convert variable to float array
     back2single = False
     back2list = False
-    back2int = False
+    # back2int = False
     if not isinstance(variable, np.ndarray):
         if isinstance(variable, list):
             variable = np.array(variable)
@@ -74,10 +61,10 @@ def log(variable):
         else:
             variable = np.array([variable])
             back2single = True
-    if variable.dtype == "int64":
-        variable = variable * 1.0
-        back2int = True
-
+    # if variable.dtype == "int64":
+    #    # Convert to float type
+    #    back2int = True
+    variable = variable.astype(float)
     # compute logarithmic value except for zeros values, which will be -999 dB
     mask = np.ma.masked_less_equal(variable, 0).mask
     variable[mask] = np.nan
@@ -85,8 +72,8 @@ def log(variable):
     log[mask] = -999
 
     # convert back to original data format and return
-    if back2int:
-        log = np.int64(log)
+    # if back2int:
+    #    log = np.int64(log)
     if back2list:
         log = log.tolist()
     if back2single:
@@ -118,7 +105,7 @@ def twod(data, idim, jdim, irvals, jrvals, log_var=False, operation="mean"):
 
     # check for appropriate inputs
     if len(irvals) < 2:
-        raise Exception("length of i resampling intervals must be  >2")
+        raise Exception("length of i resampling intervals must be >2")
     if len(jrvals) < 2:
         raise Exception("length of j resampling intervals must be >2")
     if len(data) != len(idim):
