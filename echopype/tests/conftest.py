@@ -102,5 +102,4 @@ def _get_sv_dataset(file_path, enriched: bool = False, waveform: str = "CW", enc
     Sv = ep.calibrate.compute_Sv(ed).compute()
     if enriched is True:
         Sv = ep.consolidate.add_splitbeam_angle(Sv, ed, waveform, encode)
-        Sv = ep.consolidate.add_location(Sv, ed)
     return Sv
