@@ -647,7 +647,10 @@ def frequency_differencing(
 
 
 def get_seabed_mask(
-    source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "ariza", **kwargs
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    desired_channel: str,
+    mask_type: str = "ariza",
+    **kwargs,
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
@@ -658,6 +661,7 @@ def get_seabed_mask(
         else it specifies the path to a zarr or netcdf file containing
         a Dataset. This input must correspond to a Dataset that has the
         coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    desired_channel: str - channel to generate the mask for
     mask_type: str with either "ariza", "experimental", "blackwell_mod",
                                 "blackwell", "deltaSv", "maxSv"
                                 based on the preferred method for signal attenuation mask generation
@@ -690,7 +694,8 @@ def get_seabed_mask(
         "maxSv",
     ], "mask_type must be either 'ariza', 'experimental', 'blackwell', 'maxSv', 'deltaSv'"
 
-    Sv = source_Sv["Sv"].values[0].T
+    channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values.T
     r = source_Sv["echo_range"].values[0, 0]
     if mask_type == "ariza":
         # Define a list of the keyword arguments your function can handle

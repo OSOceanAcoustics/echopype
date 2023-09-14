@@ -11,55 +11,46 @@ import pytest
 
 from echopype.echodata import EchoData
 from echopype.testing import TEST_DATA_FOLDER
+from echopype.consolidate import add_splitbeam_angle
+from echopype.tests.conftest import complete_dataset_jr179
 
-file_name = "JR179-D20080410-T150637.raw"
-ftp_main = "ftp://ftp.bas.ac.uk"
-ftp_partial_path = "/rapidkrill/ek60/"
-
-test_data_path: str = os.path.join(
-    TEST_DATA_FOLDER,
-    file_name.upper(),
-)
-
-
-def set_up():
-    """Gets the test data if it doesn't already exist"""
-    if not os.path.exists(TEST_DATA_FOLDER):
-        os.mkdir(TEST_DATA_FOLDER)
-    if not os.path.exists(test_data_path):
-        ftp_file_path = ftp_main + ftp_partial_path + file_name
-        print(ftp_file_path)
-        print(test_data_path)
-        subprocess.run(["wget", ftp_file_path, "-O", test_data_path])
-
-
-def get_sv_dataset(file_path: str) -> tuple[Dataset, Optional[EchoData]]:
-    set_up()
-    ed = ep.open_raw(file_path, sonar_model="ek60")
-    Sv = ep.calibrate.compute_Sv(ed).compute()
-
-    return Sv, ed
+DESIRED_CHANNEL = "GPT  38 kHz 009072033fa5 1 ES38"
 
 
 @pytest.mark.parametrize(
-    "mask_type,expected_true_false_counts",
+    "desired_channel,mask_type,expected_true_false_counts",
     [
-        ("ariza", (1430880, 736051)),
-        ("experimental", (1514853, 652078)),
-        ("blackwell", (1748083, 418848)),
-        ("blackwell_mod", (1946168, 220763)),
+        (DESIRED_CHANNEL, "ariza", (1430880, 736051)),
+        (DESIRED_CHANNEL, "experimental", (1514853, 652078)),
+        # (DESIRED_CHANNEL, "blackwell", (1748083, 418848)),
+        # (DESIRED_CHANNEL, "blackwell_mod", (1946168, 220763)),
     ],
 )
-def test_mask_seabed(mask_type, expected_true_false_counts):
-    source_Sv, ed = get_sv_dataset(test_data_path)
-    mask = get_seabed_mask(
-        source_Sv,
-        mask_type=mask_type,
-        theta=ed["Sonar/Beam_group1"]["angle_alongship"].values[0, :, :, 0].T,
-        phi=ed["Sonar/Beam_group1"]["angle_athwartship"].values[0, :, :, 0].T,
-    )
+def test_mask_seabed(
+    complete_dataset_jr179, desired_channel, mask_type, expected_true_false_counts
+):
+    source_Sv = complete_dataset_jr179
+    theta = source_Sv["angle_alongship"].values[0, :, :].T
+    phi = source_Sv["angle_athwartship"].values[0, :, :].T
+
+    # mask = get_seabed_mask(source_Sv, desired_channel, mask_type=mask_type, theta=theta, phi=phi)
+    mask = get_seabed_mask(source_Sv, desired_channel=desired_channel, mask_type=mask_type)
     count_true = np.count_nonzero(mask)
     count_false = mask.size - count_true
     true_false_counts = (count_true, count_false)
 
     assert true_false_counts == expected_true_false_counts
+
+
+def test_scratch(complete_dataset_jr179):
+    source_Sv = complete_dataset_jr179
+    channel_Sv = source_Sv.sel(channel=DESIRED_CHANNEL)
+    Sv_old = source_Sv["Sv"].values[0].T
+    t1 = channel_Sv["angle_alongship"]
+    Sv = channel_Sv["Sv"].values.T
+    r = channel_Sv["echo_range"].values[0, 0]
+    # print(t1)
+    # print(channel_Sv)
+    print(Sv.shape)
+    print(Sv_old.shape)
+    print(r.shape)
