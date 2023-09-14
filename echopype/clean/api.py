@@ -3,10 +3,11 @@ Functions for reducing variabilities in backscatter data.
 """
 import pathlib
 from typing import Union
+
 import xarray as xr
 
-from . import signal_attenuation
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from . import signal_attenuation
 from .noise_est import NoiseEst
 
 
@@ -81,7 +82,10 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
 
 
 def get_attenuation_mask(
-    source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "ryan", **kwargs
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    desired_channel: str,
+    mask_type: str = "ryan",
+    **kwargs
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
@@ -101,6 +105,7 @@ def get_attenuation_mask(
         else it specifies the path to a zarr or netcdf file containing
         a Dataset. This input must correspond to a Dataset that has the
         coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    desired_channel: the Dataset channel to be used for identifying the signal attenuation.
     mask_type: str with either "ryan" or "ariza" based on the
                 preferred method for signal attenuation mask generation
     Returns
@@ -123,8 +128,8 @@ def get_attenuation_mask(
 
     """
     assert mask_type in ["ryan", "ariza"], "mask_type must be either 'ryan' or 'ariza'"
-
-    Sv = source_Sv["Sv"].values[0]
+    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = selected_channel_Sv["Sv"].values
     r = source_Sv["echo_range"].values[0, 0]
     if mask_type == "ryan":
         # Define a list of the keyword arguments your function can handle

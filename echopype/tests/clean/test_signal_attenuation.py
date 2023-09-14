@@ -13,8 +13,10 @@ def test_get_signal_attenuation_mask(
     sv_dataset_jr161, mask_type, r0, r1, n, m, thr, start, offset, expected_true_false_counts
 ):
     # source_Sv = get_sv_dataset(test_data_path)
+    desired_channel = "GPT  38 kHz 009072033fa5 1 ES38"
     mask = echopype.clean.api.get_attenuation_mask(
         sv_dataset_jr161,
+        desired_channel=desired_channel,
         mask_type=mask_type,
         r0=r0,
         r1=r1,
