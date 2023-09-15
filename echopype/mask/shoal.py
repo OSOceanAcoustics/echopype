@@ -1,13 +1,6 @@
-import pathlib
-from typing import Union
-
-import numpy as np
-import xarray as xr
-import scipy.ndimage as nd
-
 """
 Algorithms for masking shoals.
-    
+
 Copyright (c) 2020 Echopy
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,67 +22,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-authors = ['Alejandro Ariza'   # wrote weill(), echoview()
+authors = ['Alejandro Ariza'   # wrote will(), echoview()
             'Ruxandra Valcu'    # adapted the code for echopype]
 credits = ['Rob Blackwell'     # supervised the code and provided ideas
                'Sophie Fielding'   # supervised the code and provided ideas
-               'Nhan Vu'           # contributed to weill()]
+               'Nhan Vu'           # contributed to will()]
 """
+import pathlib
+from typing import Union
+
+import numpy as np
+import scipy.ndimage as nd_img
+import xarray as xr
 
 
-def get_shoal_mask(
-    source_Sv: Union[xr.Dataset, str, pathlib.Path], mask_type: str = "weill", **kwargs
-):
-    """
-    Wrapper function for (future) multiple shoal masking algorithms (currently, only MOVIES-B (Weill) is implemented)
-
-    Args:
-        source_Sv: xr.Dataset or str or pathlib.Path
-                    If a Dataset this value contains the Sv data to create a mask for,
-                    else it specifies the path to a zarr or netcdf file containing
-                    a Dataset. This input must correspond to a Dataset that has the
-                    coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
-        mask_type: string specifying the algorithm to use - currently, 'weill' is the only one implemented
-
-    Returns
-    -------
-    mask: xr.DataArray
-        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
-        criteria are filled with ``True``, else the regions are filled with ``False``.
-    mask_: xr.DataArray
-        A DataArray containing the mask for areas in which shoals were searched.
-        Edge regions are filled with 'False', whereas the portion in which shoals could be detected is 'True'
-
-
-    Raises
-    ------
-    ValueError
-        If 'weill' is not given
-    """
-    assert mask_type in ["weill"]
-    if mask_type == "weill":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"thr", "maxvgap", "maxhgap", "minvlen", "minhlen"}
-        # Filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask, mask_ = weill(source_Sv, **filtered_kwargs)
-    else:
-        raise ValueError("The provided mask type must be Weill")
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return_mask_ = xr.DataArray(
-        mask_,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask, return_mask_
-
-
-def weill(
+def _weill(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    desired_channel: str,
     thr=-70,
     maxvgap=5,
     maxhgap=0,
@@ -99,11 +48,11 @@ def weill(
     """
     Detects and masks shoals following the algorithm described in:
 
-        "Weill et al. (1993): MOVIES-B — an acoustic detection description
+        "Will et al. (1993): MOVIES-B — an acoustic detection description
         software . Application to shoal species' classification".
 
     Contiguous Sv samples above a given threshold will be considered as the
-    same shoal, as long as it meets the contiguity criteria described by Weill
+    same shoal, as long as it meets the contiguity criteria described by Will
     et al. (1993):
 
         * Vertical contiguity: along-ping gaps are allowed to some extent.
@@ -127,6 +76,7 @@ def weill(
                     else it specifies the path to a zarr or netcdf file containing
                     a Dataset. This input must correspond to a Dataset that has the
                     coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+        desired_channel (str): channel to generate the mask on
         thr (int): Sv threshold (dB).
         maxvgap (int): maximum vertical gap allowed (n samples).
         maxhgap (int): maximum horizontal gap allowed (n pings).
@@ -145,9 +95,12 @@ def weill(
         criteria are filled with ``True``, else the regions are filled with ``False``.
     mask_: xr.DataArray
         A DataArray containing the mask for areas in which shoals were searched.
-        Edge regions are filled with 'False', whereas the portion in which shoals could be detected is 'True'
+        Edge regions are filled with 'False', whereas the portion in which shoals
+        could be detected is 'True'
     """
-    Sv = source_Sv["Sv"].values[0]
+    # Sv = source_Sv["Sv"].values[0]
+    channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values
 
     # mask Sv above threshold
     mask = np.ma.masked_greater(Sv, thr).mask
@@ -155,7 +108,7 @@ def weill(
     # for each ping in the mask...
     for jdx, ping in enumerate(list(np.transpose(mask))):
         # find gaps between masked features, and give them a label number
-        pinglabelled = nd.label(np.invert(ping))[0]
+        pinglabelled = nd_img.label(np.invert(ping))[0]
 
         # proceed only if the ping presents gaps
         if (not (pinglabelled == 0).all()) & (not (pinglabelled == 1).all()):
@@ -167,13 +120,13 @@ def weill(
                 if np.sum(gap) <= maxvgap:
                     # get gap indexes and fill in with True values (masked)
                     idx = np.where(gap)[0]
-                    if (not 0 in idx) & (not len(mask) - 1 in idx):  # (exclude edges)
+                    if (0 not in idx) & (len(mask) - 1 not in idx):  # (exclude edges)
                         mask[idx, jdx] = True
 
     # for each depth in the mask...
     for idx, depth in enumerate(list(mask)):
         # find gaps between masked features, and give them a label number
-        depthlabelled = nd.label(np.invert(depth))[0]
+        depthlabelled = nd_img.label(np.invert(depth))[0]
 
         # proceed only if the ping presents gaps
         if (not (depthlabelled == 0).all()) & (not (depthlabelled == 1).all()):
@@ -185,11 +138,11 @@ def weill(
                 if np.sum(gap) <= maxhgap:
                     # get gap indexes and fill in with True values (masked)
                     jdx = np.where(gap)[0]
-                    if (not 0 in jdx) & (not len(mask) - 1 in jdx):  # (exclude edges)
+                    if (0 not in jdx) & (len(mask) - 1 not in jdx):  # (exclude edges)
                         mask[idx, jdx] = True
 
     # label connected features in the mask
-    masklabelled = nd.label(mask)[0]
+    masklabelled = nd_img.label(mask)[0]
 
     # get list of features labelled and iterate through them
     labels = np.arange(1, np.max(masklabelled) + 1)

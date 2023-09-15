@@ -8,6 +8,7 @@ import xarray as xr
 
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from .shoal import _weill as shoal_weill
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -635,3 +636,61 @@ def frequency_differencing(
     da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
 
     return da
+
+
+def get_shoal_mask(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    desired_channel: str,
+    mask_type: str = "will",
+    **kwargs,
+):
+    """
+    Wrapper function for (future) multiple shoal masking algorithms
+    (currently, only MOVIES-B (Will) is implemented)
+
+    Args:
+        source_Sv: xr.Dataset or str or pathlib.Path
+                    If a Dataset this value contains the Sv data to create a mask for,
+                    else it specifies the path to a zarr or netcdf file containing
+                    a Dataset. This input must correspond to a Dataset that has the
+                    coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+        desired_channel: str specifying the channel to generate the mask on
+        mask_type: string specifying the algorithm to use
+                    currently, 'weill' is the only one implemented
+
+    Returns
+    -------
+    mask: xr.DataArray
+        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
+        criteria are filled with ``True``, else the regions are filled with ``False``.
+    mask_: xr.DataArray
+        A DataArray containing the mask for areas in which shoals were searched.
+        Edge regions are filled with 'False', whereas the portion
+        in which shoals could be detected is 'True'
+
+
+    Raises
+    ------
+    ValueError
+        If 'weill' is not given
+    """
+    assert mask_type in ["will"]
+    if mask_type == "will":
+        # Define a list of the keyword arguments your function can handle
+        valid_args = {"thr", "maxvgap", "maxhgap", "minvlen", "minhlen"}
+        # Filter out any kwargs not in your list
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
+        mask, mask_ = shoal_weill(source_Sv, desired_channel, **filtered_kwargs)
+    else:
+        raise ValueError("The provided mask type must be Will")
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return_mask_ = xr.DataArray(
+        mask_,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask, return_mask_
