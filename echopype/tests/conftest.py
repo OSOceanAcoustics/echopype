@@ -103,3 +103,14 @@ def _get_sv_dataset(file_path, enriched: bool = False, waveform: str = "CW", enc
     if enriched is True:
         Sv = ep.consolidate.add_splitbeam_angle(Sv, ed, waveform, encode)
     return Sv
+
+
+def _get_raw_dataset(file_path):
+    ed = ep.open_raw(file_path, sonar_model="ek60")
+    return ed
+
+
+@pytest.fixture(scope="session")
+def raw_dataset_jr179(setup_test_data_jr179):
+    ed = _get_raw_dataset(setup_test_data_jr179)
+    return ed

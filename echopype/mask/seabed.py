@@ -144,7 +144,17 @@ def _get_seabed_mask_deltaSv(Sv, r, r0=10, r1=1000, roff=0, thr=20):
 
 
 def _get_seabed_mask_blackwell(
-    Sv, r, theta=None, phi=None, r0=10, r1=1000, tSv=-75, ttheta=702, tphi=282, wtheta=28, wphi=52
+    Sv,
+    r,
+    theta=None,
+    phi=None,
+    r0=10,
+    r1=1000,
+    tSv=-75,
+    ttheta=702,  # on raw EK60 data
+    tphi=282,  # on raw EK60 data
+    wtheta=28,
+    wphi=52,
 ):
     """
     Detects and mask seabed using the split-beam angle and Sv, based in
@@ -167,6 +177,9 @@ def _get_seabed_mask_blackwell(
     Returns:
         bool: 2D array with seabed mask
     """
+    # apply reverse correction on theta & phi to match Blackwell's constants
+    theta = theta * 22 * 128 / 180
+    phi = phi * 22 * 128 / 180
 
     # delimit the analysis within user-defined range limits
     r0 = np.nanargmin(abs(r - r0))
@@ -226,8 +239,8 @@ def _get_seabed_mask_blackwell_mod(
     r0=10,
     r1=1000,
     tSv=-75,
-    ttheta=702,
-    tphi=282,
+    ttheta=702,  # on raw EK60 data rather than physical angle
+    tphi=282,  # on raw EK60 data rather than physical angle
     wtheta=28,
     wphi=52,
     rlog=None,
@@ -265,6 +278,9 @@ def _get_seabed_mask_blackwell_mod(
     Returns:
         bool: 2D array with seabed mask
     """
+    # apply reverse correction on theta & phi to match Blackwell's constants
+    theta = theta * 22 * 128 / 180
+    phi = phi * 22 * 128 / 180
 
     # raise errors if wrong arguments
     if r0 > r1:

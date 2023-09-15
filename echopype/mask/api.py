@@ -697,6 +697,7 @@ def get_seabed_mask(
     channel_Sv = source_Sv.sel(channel=desired_channel)
     Sv = channel_Sv["Sv"].values.T
     r = source_Sv["echo_range"].values[0, 0]
+
     if mask_type == "ariza":
         # Define a list of the keyword arguments your function can handle
         valid_args = {"r0", "r1", "roff", "thr", "ec", "ek", "dc", "dk"}
@@ -711,15 +712,18 @@ def get_seabed_mask(
         mask = _get_seabed_mask_experimental(Sv, r, **filtered_kwargs)
     elif mask_type == "blackwell":
         # Define a list of the keyword arguments your function can handle
-        valid_args = {"theta", "phi", "r0", "r1", "tSv", "ttheta", "tphi", "wtheta", "wphi"}
+        # valid_args = {"theta", "phi", "r0", "r1", "tSv", "ttheta", "tphi", "wtheta", "wphi"}
+        valid_args = {"r0", "r1", "tSv", "ttheta", "tphi", "wtheta", "wphi"}
+        theta = channel_Sv["angle_alongship"].values.T
+        phi = channel_Sv["angle_athwartship"].values.T
         # Use dictionary comprehension to filter out any kwargs not in your list
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_seabed_mask_blackwell(Sv, r, **filtered_kwargs)
+        mask = _get_seabed_mask_blackwell(Sv, r, theta=theta, phi=phi, **filtered_kwargs)
     elif mask_type == "blackwell_mod":
         # Define a list of the keyword arguments your function can handle
         valid_args = {
-            "theta",
-            "phi",
+            # "theta",
+            # "phi",
             "r0",
             "r1",
             "tSv",
@@ -734,7 +738,9 @@ def get_seabed_mask(
         }
         # Use dictionary comprehension to filter out any kwargs not in your list
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_seabed_mask_blackwell_mod(Sv, r, **filtered_kwargs)
+        theta = channel_Sv["angle_alongship"].values.T
+        phi = channel_Sv["angle_athwartship"].values.T
+        mask = _get_seabed_mask_blackwell_mod(Sv, r, theta=theta, phi=phi, **filtered_kwargs)
     elif mask_type == "deltaSv":
         # Define a list of the keyword arguments your function can handle
         valid_args = {"r0", "r1", "roff", "thr"}
