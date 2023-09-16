@@ -81,13 +81,14 @@ class SetGroupsAZFP(SetGroupsBase):
         """
 
         serial_number = self.parser_obj.unpacked_data["serial_number"]
+        frequency_number = self.parser_obj.parameters["FrequencyNumber"]
 
         if serial_number.size == 1:
             freq_as_str = self.freq_sorted.astype(int).astype(str)
 
             # TODO: replace str(i+1) with Frequency Number from XML
             channel_id = [
-                str(serial_number) + "-" + freq + "-" + str(i + 1)
+                str(serial_number) + "-" + freq + "-" + frequency_number[i]
                 for i, freq in enumerate(freq_as_str)
             ]
 
@@ -146,8 +147,7 @@ class SetGroupsAZFP(SetGroupsBase):
             "sonar_model": self.sonar_model,
             "sonar_serial_number": int(self.parser_obj.unpacked_data["serial_number"]),
             "sonar_software_name": "AZFP",
-            # TODO: software version is hardwired. Read it from the XML file's AZFP_Version node
-            "sonar_software_version": "1.4",
+            "sonar_software_version": "based on AZFP Matlab version 1.4",
             "sonar_type": "echosounder",
         }
         ds = ds.assign_attrs(sonar_attr_dict)
@@ -418,7 +418,7 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
-        tdn = parameters["pulse_length"][self.freq_ind_sorted] / 1e6
+        tdn = parameters["pulse_len"][self.freq_ind_sorted] / 1e6
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         # Build variables in the output xarray Dataset
@@ -488,6 +488,17 @@ class SetGroupsAZFP(SetGroupsBase):
                 "phase": unpacked_data["phase"],
                 "number_of_channels": unpacked_data["num_chan"],
                 # parameters with channel dimension from XML file
+                "instrument_type": parameters["instrument_type"][0],
+                "minor": parameters["minor"],
+                "major": parameters["major"],
+                "date": parameters["date"],
+                "program": parameters["program"],
+                "cpu": parameters["cpu"],
+                "serial_number": parameters["serial_number"],
+                "board_version": parameters["board_version"],
+                "file_version": parameters["file_version"],
+                "parameter_version": parameters["parameter_version"],
+                "configuration_version": parameters["configuration_version"],
                 "XML_transmit_duration_nominal": (["channel"], tdn),  # tdn comes from parameters
                 "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
                 "XML_digitization_rate": (
@@ -496,12 +507,15 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "XML_lockout_index": (
                     ["channel"],
-                    parameters["lockout_index"][self.freq_ind_sorted],
+                    parameters["lock_out_index"][self.freq_ind_sorted],
                 ),
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
                 "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
                 "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
-                "VTX": (["channel"], parameters["VTX"][self.freq_ind_sorted]),
+                "VTX0": (["channel"], parameters["VTX0"][self.freq_ind_sorted]),
+                "VTX1": (["channel"], parameters["VTX1"][self.freq_ind_sorted]),
+                "VTX2": (["channel"], parameters["VTX2"][self.freq_ind_sorted]),
+                "VTX3": (["channel"], parameters["VTX3"][self.freq_ind_sorted]),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["channel"],

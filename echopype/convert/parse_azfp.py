@@ -1,4 +1,5 @@
 import os
+import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime as dt
@@ -11,45 +12,7 @@ from ..utils.log import _init_logger
 from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+.01A"
-XML_INT_PARAMS = {
-    "NumFreq": "num_freq",
-    "SerialNumber": "serial_number",
-    "BurstInterval": "burst_interval",
-    "PingsPerBurst": "pings_per_burst",
-    "AverageBurstPings": "average_burst_pings",
-    "SensorsFlag": "sensors_flag",
-}
-XML_FLOAT_PARAMS = [
-    # Temperature coeffs
-    "ka",
-    "kb",
-    "kc",
-    "A",
-    "B",
-    "C",
-    # Tilt coeffs
-    "X_a",
-    "X_b",
-    "X_c",
-    "X_d",
-    "Y_a",
-    "Y_b",
-    "Y_c",
-    "Y_d",
-]
-XML_FREQ_PARAMS = {
-    "RangeSamples": "range_samples",
-    "RangeAveragingSamples": "range_averaging_samples",
-    "DigRate": "dig_rate",
-    "LockOutIndex": "lockout_index",
-    "Gain": "gain",
-    "PulseLen": "pulse_length",
-    "DS": "DS",
-    "EL": "EL",
-    "TVR": "TVR",
-    "VTX0": "VTX",
-    "BP": "BP",
-}
+
 HEADER_FIELDS = (
     ("profile_flag", "u2"),
     ("profile_number", "u2"),
@@ -118,7 +81,7 @@ class ParseAZFP(ParseBase):
         self.xml_path = params
 
         # Class attributes
-        self.parameters = dict()
+        self.parameters = defaultdict(list)
         self.unpacked_data = defaultdict(list)
         self.sonar_type = "AZFP"
 
@@ -127,25 +90,36 @@ class ParseAZFP(ParseBase):
         """Parses the AZFP  XML file.
         """
 
-        def get_value_by_tag_name(tag_name, element=0):
-            """Returns the value in an XML tag given the tag name and the number of occurrences."""
-            return root.iter(tag_name).__next__().text
+        xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
+        root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
 
-        et = ET.parse(self.xml_path)
-        root = et.getroot()
+        for child in root.iter():
+            if len(child.attrib) > 0:
+                for key, val in child.attrib.items():
+                    self.parameters[child.tag + key].append(val)
 
-        # Retrieve integer parameters from the xml file
-        for old_name, new_name in XML_INT_PARAMS.items():
-            self.parameters[new_name] = int(get_value_by_tag_name(old_name))
-        # Retrieve floating point parameters from the xml file
-        for param in XML_FLOAT_PARAMS:
-            self.parameters[param] = float(get_value_by_tag_name(param))
-        # Retrieve frequency dependent parameters from the xml file
-        for old_name, new_name in XML_FREQ_PARAMS.items():
-            self.parameters[new_name] = [
-                float(get_value_by_tag_name(old_name, ch))
-                for ch in range(self.parameters["num_freq"])
-            ]
+            if all(char == "\n" for char in child.text):
+                continue
+            else:
+                try:
+                    val = int(child.text)
+                except ValueError:
+                    val = float(child.text)
+
+            if len(child.tag) > 3 and not child.tag.startswith("VTX"):
+                words = re.findall("[A-Z]+[a-z]*", child.tag)
+                words_lower = [word.lower() for word in words]
+                if len(words) > 1:
+                    self.parameters["_".join(words_lower)].append(val)
+                elif len(words) == 1:
+                    self.parameters[words_lower[0]].append(val)
+            else:
+                self.parameters[child.tag].append(val)
+
+        # Handling the case where there is only one value for each parameter
+        for key, val in self.parameters.items():
+            if len(val) == 1:
+                self.parameters[key] = val[0]
 
     def _compute_temperature(self, ping_num, is_valid):
         """
@@ -245,7 +219,6 @@ class ParseAZFP(ParseBase):
                 header_chunk = file.read(self.HEADER_SIZE)
                 if header_chunk:
                     header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
-
                     # Reading will stop if the file contains an unexpected flag
                     if self._split_header(file, header_unpacked):
                         # Appends the actual 'data values' to unpacked_data

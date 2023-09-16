@@ -10,11 +10,13 @@ import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
 import pytest
+from echopype.convert.parse_azfp import ParseAZFP
 
 
 @pytest.fixture
 def azfp_path(test_path):
     return test_path["AZFP"]
+
 
 def check_platform_required_scalar_vars(echodata):
     # check convention-required variables in the Platform group
@@ -172,3 +174,38 @@ def test_convert_azfp_01a_notemperature_notilt(azfp_path):
     assert "tilt_y" in echodata["Platform"]
     assert echodata["Platform"]["tilt_x"].isnull().all()
     assert echodata["Platform"]["tilt_y"].isnull().all()
+
+
+def test_load_parse_azfp_xml(azfp_path):
+
+    azfp_01a_path = azfp_path / '17082117.01A'
+    azfp_xml_path = azfp_path / '17030815.XML'
+    parseAZFP = ParseAZFP(str(azfp_01a_path), str(azfp_xml_path))
+    parseAZFP.load_AZFP_xml()
+    expected_params = ['InstrumentTypestring', 'instrument_type', 'major', 'minor', 'date',
+                       'Programname', 'program', 'CPU', 'serial_number', 'board_version',
+                       'file_version', 'parameter_version', 'configuration_version', 'eclock',
+                       'digital_board_version', 'SensorsFlagPressureSensorInstalled',
+                       'SensorsFlagParosInstalled', 'sensors_flag', 'U0', 'Y1', 'Y2', 'Y3', 'C1',
+                       'C2', 'C3', 'D1', 'D2', 'T1', 'T2', 'T3', 'T4', 'T5', 'X_a', 'X_b', 'X_c',
+                       'X_d', 'Y_a', 'Y_b', 'Y_c', 'Y_d', 'period', 'ppm_offset', 'calibration',
+                       'a0', 'a1', 'a2', 'a3', 'ka', 'kb', 'kc', 'A', 'B', 'C', 'num_freq',
+                       'kHzunits', 'kHz', 'TVR', 'num_vtx', 'VTX0', 'VTX1', 'VTX2', 'VTX3', 'BP',
+                       'EL', 'DS', 'min_pulse_len', 'sound_speed', 'StartDatesvalue', 'start_date',
+                       'num_frequencies', 'num_phases', 'DataOutputsvalue', 'data_output',
+                       'Frequencyunits', 'frequency', 'PhaseNumber', 'PhaseTypesvalue', 'phase_type',
+                       'Durationsvalue', 'duration', 'PingPeriodunits', 'ping_period',
+                       'BurstIntervalunits', 'burst_interval', 'PingsPerBurstunits',
+                       'pings_per_burst', 'AverageBurstPingsunits', 'average_burst_pings',
+                       'FrequencyNumber', 'AcquireFrequencyunits', 'acquire_frequency',
+                       'PulseLenunits', 'pulse_len', 'DigRateunits', 'dig_rate', 'RangeSamplesunits',
+                       'range_samples', 'RangeAveragingSamplesunits', 'range_averaging_samples',
+                       'LockOutIndexunits', 'lock_out_index', 'Gainunits', 'gain',
+                       'StorageFormatunits', 'storage_format']
+
+    assert set(parseAZFP.parameters.keys()) == set(expected_params)
+    assert list(set(parseAZFP.parameters['InstrumentTypestring']))[0] == 'AZFP'
+    assert isinstance(parseAZFP.parameters['num_freq'], int)
+    assert isinstance(parseAZFP.parameters['pulse_len'], list)
+    assert parseAZFP.parameters['num_freq'] == 4
+    assert parseAZFP.parameters['pulse_len'] == [300, 300, 300, 300]
