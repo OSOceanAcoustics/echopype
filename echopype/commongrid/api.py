@@ -10,7 +10,7 @@ import xarray as xr
 from flox.xarray import xarray_reduce
 
 from ..consolidate.api import POSITION_VARIABLES
-from ..utils.compute import _lin2log, _log2lin
+from ..utils.compute import _log2lin
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .mvbs import get_MVBS_along_channels
 from .nasc import get_distance_from_latlon
