@@ -272,37 +272,53 @@ def compute_NASC(
 
     Notes
     -----
-    The NASC computation implemented here corresponds to the Echoview algorithm PRC_NASC
+    The NASC computation implemented here generally corresponds to the Echoview algorithm PRC_NASC
     https://support.echoview.com/WebHelp/Reference/Algorithms/Analysis_Variables/PRC_ABC_and_PRC_NASC.htm#PRC_NASC  # noqa
     The difference is that since in echopype masking of the Sv dataset is done explicitly using
-    functions in the ``mask`` subpackage so the computation only involves computing the
+    functions in the ``mask`` subpackage, the computation only involves computing the
     mean Sv and the mean height within each cell.
 
-    In addition, here the binning of pings into individual cells is based on the actual horizontal
+    In addition, in echopype the binning of pings into individual cells is based on the actual horizontal
     distance computed from the latitude and longitude coordinates of each ping in the Sv dataset.
     Therefore, both regular and irregular horizontal distance in the Sv dataset are allowed.
     This is different from Echoview's assumption of constant ping rate, vessel speed, and sample
-    thickness when computing mean Sv.
+    thickness when computing mean Sv
+    (see https://support.echoview.com/WebHelp/Reference/Algorithms/Analysis_Variables/Sv_mean.htm#Conversions).  # noqa
     """
     # Check Sv contains lat/lon
     if "latitude" not in ds_Sv or "longitude" not in ds_Sv:
         raise ValueError("Both 'latitude' and 'longitude' must exist in the input Sv dataset.")
 
-    # Check if depth vectors are identical within each channel
-    if not ds_Sv["depth"].groupby("channel").map(check_identical_depth).all():
-        raise ValueError(
-            "Only Sv data with identical depth vectors across all pings "
-            "are allowed in the current compute_NASC implementation."
-        )
-
     # Get distance from lat/lon in nautical miles
+    # TODO: set distance to be a variable in ds_Sv
     dist_nmi = get_distance_from_latlon(ds_Sv)
 
+    # TODO: the two calls below can be removed since we'll use flox for the binning
     # Find binning indices along distance
     bin_num_dist, dist_bin_idx = get_dist_bin_info(dist_nmi, cell_dist)  # dist_bin_idx is 1-based
 
     # Find binning indices along depth: channel-dependent
-    bin_num_depth, depth_bin_idx = get_depth_bin_info(ds_Sv, cell_depth)  # depth_bin_idx is 1-based  # noqa
+    bin_num_depth, depth_bin_idx = get_depth_bin_info(ds_Sv, cell_depth)  # depth_bin_idx is 1-based
+
+    # TODO: change to use flox, similar to get_MVBS_along_channels
+    # Mean sv (volume backscattering coefficient, linear scale):
+    # do the equivalent of get_MVBS_along_channels
+    # but reduce along ping_time and echo_range or depth by binning and averaging
+    # for each channel
+
+    # TODO: Mean height: approach to use flox
+    # Denominator (D):
+    #   - create a dataarray filled with the first difference of sample height 
+    #     with 2D coordinate (distance, depth)
+    #   - flox xarray_reduce along both distance and depth, summing over each 2D bin
+    # Numerator (N):
+    #   - create a datararray filled with 1, with 1D coordinate (distance)
+    #   - flox xarray_reduce along distance, summing over each 1D bin
+    # h_mean = D/N
+
+
+    # Combine to compute NASC
+    # ds_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
 
     # Compute mean sv (volume backscattering coefficient, linear scale)
     # This is essentially to compute MVBS over a the cell defined here,
@@ -347,6 +363,11 @@ def compute_NASC(
     ).to_dataset()
 
     ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
+
+
+    # Reattach the lat/lon mean:
+    #   - use the same procedure as in compute_MVBS
+
 
     # Attach attributes
     _set_var_attrs(
