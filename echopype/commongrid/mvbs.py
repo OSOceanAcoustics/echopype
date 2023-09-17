@@ -3,11 +3,15 @@ Contains core functions needed to compute the MVBS of an input dataset.
 """
 
 import warnings
-from typing import Tuple, Union
+from typing import Literal, Tuple, Union
 
 import dask.array
 import numpy as np
 import xarray as xr
+from flox.xarray import xarray_reduce
+
+from ..consolidate.api import POSITION_VARIABLES
+from ..utils.compute import _lin2log, _log2lin
 
 
 def get_bin_indices(
@@ -405,8 +409,13 @@ def bin_and_mean_2d(
 
 
 def get_MVBS_along_channels(
-    ds_Sv: xr.Dataset, echo_range_interval: np.ndarray, ping_interval: np.ndarray
-) -> np.ndarray:
+    ds_Sv: xr.Dataset,
+    range_interval: np.ndarray,
+    ping_interval: np.ndarray,
+    range_var: Literal["echo_range", "depth"] = "echo_range",
+    method: str = "map-reduce",
+    **kwargs
+) -> xr.Dataset:
     """
     Computes the MVBS of ``ds_Sv`` along each channel for the given
     intervals.
@@ -416,46 +425,60 @@ def get_MVBS_along_channels(
     ds_Sv: xr.Dataset
         A Dataset containing ``Sv`` and ``echo_range`` data with coordinates
         ``channel``, ``ping_time``, and ``range_sample``
-    echo_range_interval: np.ndarray
-        1D array (used by np.digitize) representing the binning required for ``echo_range``
+    range_interval: np.ndarray
+        1D array representing
+        the bins required for ``range_var``
     ping_interval: np.ndarray
-        1D array (used by np.digitize) representing the binning required for ``ping_time``
+        1D array representing
+        the bins required for ``ping_time``
+    range_var: str
+        The variable to use for range binning.
+        Either ``echo_range`` or ``depth``.
+    method: str
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    **kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function
 
     Returns
     -------
-    np.ndarray
-        The MVBS value of the input ``ds_Sv`` for all channels
-
-    Notes
-    -----
-    If the values in ``ds_Sv`` are delayed then the binning and mean of ``Sv`` with
-    respect to ``echo_range`` will take place, then the delayed result will be computed,
-    and lastly the binning and mean with respect to ``ping_time`` will be completed. It
-    is necessary to apply a compute midway through this method because Dask graph layers
-    get too large and this makes downstream operations very inefficient.
+    xr.Dataset
+        The MVBS dataset of the input ``ds_Sv`` for all channels
     """
 
-    all_MVBS = []
-    for chan in ds_Sv.channel:
-        # squeeze to remove "channel" dim if present
-        # TODO: not sure why not already removed for the AZFP case. Investigate.
-        ds = ds_Sv.sel(channel=chan).squeeze()
+    # average should be done in linear domain
+    sv = ds_Sv["Sv"].pipe(_log2lin)
 
-        # average should be done in linear domain
-        sv = 10 ** (ds["Sv"] / 10)
-
-        # get MVBS for channel in linear domain
-        chan_MVBS = bin_and_mean_2d(
-            sv.data,
-            bins_time=ping_interval,
-            bins_er=echo_range_interval,
-            times=sv.ping_time.data,
-            echo_range=ds["echo_range"],
-            comprehensive_er_check=True,
+    # Get positions if exists
+    # otherwise just use an empty dataset
+    ds_Pos = xr.Dataset(attrs={"has_positions": False})
+    if all(v in ds_Sv for v in POSITION_VARIABLES):
+        ds_Pos = xarray_reduce(
+            ds_Sv[POSITION_VARIABLES],
+            ds_Sv["ping_time"],
+            func="nanmean",
+            expected_groups=(ping_interval),
+            isbin=True,
+            method=method,
         )
+        ds_Pos.attrs["has_positions"] = True
 
-        # apply inverse mapping to get back to the original domain and store values
-        all_MVBS.append(10 * np.log10(chan_MVBS))
+    # reduce along ping_time and echo_range or depth
+    # by binning and averaging
+    mvbs = xarray_reduce(
+        sv,
+        sv["channel"],
+        ds_Sv["ping_time"],
+        ds_Sv[range_var],
+        func="nanmean",
+        expected_groups=(None, ping_interval, range_interval),
+        isbin=[False, True, True],
+        method=method,
+        **kwargs
+    )
 
-    # collect the MVBS values for each channel
-    return np.stack(all_MVBS, axis=0)
+    # apply inverse mapping to get back to the original domain and store values
+    da_MVBS = mvbs.pipe(_lin2log)
+    return xr.merge([ds_Pos, da_MVBS])
