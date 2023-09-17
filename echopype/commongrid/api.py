@@ -4,9 +4,12 @@ Functions for enhancing the spatial and temporal coherence of data.
 import numpy as np
 import pandas as pd
 import xarray as xr
+from flox.xarray import xarray_reduce
 
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .mvbs import get_MVBS_along_channels
+from .nasc import get_distance_from_latlon
+from ..utils.compute import _lin2log, _log2lin
 
 
 def _set_var_attrs(da, long_name, units, round_digits, standard_name=None):
@@ -249,8 +252,9 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
 
 def compute_NASC(
     ds_Sv: xr.Dataset,
-    cell_dist: Union[int, float],  # TODO: allow xr.DataArray
-    cell_depth: Union[int, float],  # TODO: allow xr.DataArray
+    range_var: str="depth",
+    range_bin=20,  # TODO: accept "20m" like in compute_MVBS
+    dist_bin=0.5,  # TODO: accept "0.5nmi"
 ) -> xr.Dataset:
     """
     Compute Nautical Areal Scattering Coefficient (NASC) from an Sv dataset.
@@ -290,83 +294,88 @@ def compute_NASC(
         raise ValueError("Both 'latitude' and 'longitude' must exist in the input Sv dataset.")
 
     # Get distance from lat/lon in nautical miles
-    # TODO: set distance to be a variable in ds_Sv
     dist_nmi = get_distance_from_latlon(ds_Sv)
+    ds_Sv = (
+        ds_Sv
+        .assign_coords({"distance_nmi": ("ping_time", dist_nmi)})
+        .swap_dims({"ping_time": "distance_nmi"})
+    )
 
-    # TODO: the two calls below can be removed since we'll use flox for the binning
-    # Find binning indices along distance
-    bin_num_dist, dist_bin_idx = get_dist_bin_info(dist_nmi, cell_dist)  # dist_bin_idx is 1-based
+    # create bin information along range_var
+    # this computes the range_var max since there might NaNs in the data
+    range_var_max = ds_Sv[range_var].max()
+    range_interval = np.arange(0, range_var_max + range_bin, range_bin)
 
-    # Find binning indices along depth: channel-dependent
-    bin_num_depth, depth_bin_idx = get_depth_bin_info(ds_Sv, cell_depth)  # depth_bin_idx is 1-based
+    # create bin information along distance_nmi
+    # this computes the distance max since there might NaNs in the data
+    dist_max = ds_Sv["distance_nmi"].max()
+    dist_interval = np.arange(0, dist_max + dist_bin, dist_bin)
 
-    # TODO: change to use flox, similar to get_MVBS_along_channels
+    # TODO: move the below to a function equivalent to get_MVBS_along_channels
     # Mean sv (volume backscattering coefficient, linear scale):
-    # do the equivalent of get_MVBS_along_channels
-    # but reduce along ping_time and echo_range or depth by binning and averaging
-    # for each channel
+    #   do the equivalent of get_MVBS_along_channels
+    #   but reduce along ping_time and echo_range or depth by binning and averaging
+    #   for each channel
 
-    # TODO: Mean height: approach to use flox
-    # Denominator (D):
+    # average should be done in linear domain
+    sv = ds_Sv["Sv"].pipe(_log2lin)
+
+    sv_mean = xarray_reduce(
+        sv,
+        ds_Sv["distance_nmi"],
+        ds_Sv[range_var],
+        func="nanmean",
+        expected_groups=(dist_interval, range_interval),
+        isbin=[True, True],
+        method="map-reduce"
+    )
+
+    # Mean height: approach to use flox
+    # Numerator (h_mean_num):
     #   - create a dataarray filled with the first difference of sample height 
     #     with 2D coordinate (distance, depth)
     #   - flox xarray_reduce along both distance and depth, summing over each 2D bin
-    # Numerator (N):
+    # Denominator (h_mean_denom):
     #   - create a datararray filled with 1, with 1D coordinate (distance)
     #   - flox xarray_reduce along distance, summing over each 1D bin
-    # h_mean = D/N
-
+    # h_mean = N/D
+    da_denom = xr.ones_like(ds_Sv["distance_nmi"])
+    h_mean_denom = xarray_reduce(
+        da_denom,
+        ds_Sv["distance_nmi"],
+        func="sum",
+        expected_groups=(dist_interval),
+        isbin=[True],
+        method="map-reduce"
+    )
+    h_mean_num = xarray_reduce(
+        ds_Sv["depth"].diff(dim="range_sample", label="lower"),  # use lower end label after diff
+        ds_Sv[range_var],
+        ds_Sv["depth"][:-1],
+        func="sum",
+        expected_groups=(range_interval, range_interval),
+        isbin=[True, True],
+        method="map-reduce"
+    )
+    h_mean = h_mean_num / h_mean_denom
 
     # Combine to compute NASC
-    # ds_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
+    raw_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
 
-    # Compute mean sv (volume backscattering coefficient, linear scale)
-    # This is essentially to compute MVBS over a the cell defined here,
-    # which are typically larger than those used for MVBS.
-    # The implementation below is brute force looping, but can be optimized
-    # by experimenting with different delayed schemes.
-    # The optimized routines can then be used here and
-    # in commongrid.compute_MVBS and clean.estimate_noise
-    sv_mean = []
-    for ch_seq in np.arange(ds_Sv["channel"].size):
-        # TODO: .compute each channel sequentially?
-        #       dask.delay within each channel?
-        ds_Sv_ch = ds_Sv["Sv"].isel(channel=ch_seq).data  # preserve the underlying type
+    # TODO: add mean lat/lon, as in ds_Pos in get_MVBS_along_channels
+    # TODO: add mean ping_time, similar to mean lat/lon
 
-        sv_mean_dist_depth = []
-        for dist_idx in np.arange(bin_num_dist) + 1:  # along ping_time
-            sv_mean_depth = []
-            for depth_idx in np.arange(bin_num_depth) + 1:  # along depth
-                # Sv dim: ping_time x depth
-                Sv_cut = ds_Sv_ch[dist_idx == dist_bin_idx, :][
-                    :, depth_idx == depth_bin_idx[ch_seq]
-                ]
-                sv_mean_depth.append(np.nanmean(10 ** (Sv_cut / 10)))
-            sv_mean_dist_depth.append(sv_mean_depth)
-
-        sv_mean.append(sv_mean_dist_depth)
-
-    # Compute mean height
-    # For data with uniform depth step size, mean height = vertical size of cell
-    height_mean = cell_depth
-    # TODO: generalize to variable depth step size
-
-    ds_NASC = xr.DataArray(
-        np.array(sv_mean) * height_mean,
-        dims=["channel", "distance", "depth"],
+    # create MVBS dataset
+    # by transforming the binned dimensions to regular coords
+    ds_NASC = xr.Dataset(
+        data_vars={"NASC": (["channel", "ping_time", range_var], raw_NASC["Sv"].data)},
         coords={
-            "channel": ds_Sv["channel"].values,
-            "distance": np.arange(bin_num_dist) * cell_dist,
-            "depth": np.arange(bin_num_depth) * cell_depth,
+            "distance_nmi": np.array([v.left for v in raw_NASC.distance_nmi_bins.values]),
+            "channel": raw_NASC.channel.values,
+            range_var: np.array([v.left for v in raw_NASC[f"{range_var}_bins"].values]),
         },
-        name="NASC",
-    ).to_dataset()
-
+    )    
     ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
-
-
-    # Reattach the lat/lon mean:
-    #   - use the same procedure as in compute_MVBS
 
 
     # Attach attributes
