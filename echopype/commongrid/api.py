@@ -10,10 +10,10 @@ import xarray as xr
 from flox.xarray import xarray_reduce
 
 from ..consolidate.api import POSITION_VARIABLES
+from ..utils.compute import _lin2log, _log2lin
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .mvbs import get_MVBS_along_channels
 from .nasc import get_distance_from_latlon
-from ..utils.compute import _lin2log, _log2lin
 
 
 def _set_var_attrs(da, long_name, units, round_digits, standard_name=None):
@@ -326,7 +326,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
 
 def compute_NASC(
     ds_Sv: xr.Dataset,
-    range_var: str="depth",
+    range_var: str = "depth",
     range_bin=20,  # TODO: accept "20m" like in compute_MVBS
     dist_bin=0.5,  # TODO: accept "0.5nmi"
 ) -> xr.Dataset:
@@ -369,10 +369,8 @@ def compute_NASC(
 
     # Get distance from lat/lon in nautical miles
     dist_nmi = get_distance_from_latlon(ds_Sv)
-    ds_Sv = (
-        ds_Sv
-        .assign_coords({"distance_nmi": ("ping_time", dist_nmi)})
-        .swap_dims({"ping_time": "distance_nmi"})
+    ds_Sv = ds_Sv.assign_coords({"distance_nmi": ("ping_time", dist_nmi)}).swap_dims(
+        {"ping_time": "distance_nmi"}
     )
 
     # create bin information along range_var
@@ -401,12 +399,12 @@ def compute_NASC(
         func="nanmean",
         expected_groups=(dist_interval, range_interval),
         isbin=[True, True],
-        method="map-reduce"
+        method="map-reduce",
     )
 
     # Mean height: approach to use flox
     # Numerator (h_mean_num):
-    #   - create a dataarray filled with the first difference of sample height 
+    #   - create a dataarray filled with the first difference of sample height
     #     with 2D coordinate (distance, depth)
     #   - flox xarray_reduce along both distance and depth, summing over each 2D bin
     # Denominator (h_mean_denom):
@@ -420,7 +418,7 @@ def compute_NASC(
         func="sum",
         expected_groups=(dist_interval),
         isbin=[True],
-        method="map-reduce"
+        method="map-reduce",
     )
     h_mean_num = xarray_reduce(
         ds_Sv["depth"].diff(dim="range_sample", label="lower"),  # use lower end label after diff
@@ -429,7 +427,7 @@ def compute_NASC(
         func="sum",
         expected_groups=(range_interval, range_interval),
         isbin=[True, True],
-        method="map-reduce"
+        method="map-reduce",
     )
     h_mean = h_mean_num / h_mean_denom
 
@@ -448,9 +446,8 @@ def compute_NASC(
             "channel": raw_NASC.channel.values,
             range_var: np.array([v.left for v in raw_NASC[f"{range_var}_bins"].values]),
         },
-    )    
+    )
     ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
-
 
     # Attach attributes
     _set_var_attrs(
