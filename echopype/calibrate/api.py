@@ -153,7 +153,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         - for EK60 echosounder, allowed parameters include:
           `"sa_correction"`, `"gain_correction"`, `"equivalent_beam_angle"`
         - for AZFP echosounder, allowed parameters include:
-          `"EL"`, `"DS"`, `"TVR"`, `"VTX"`, `"equivalent_beam_angle"`, `"Sv_offset"`
+          `"EL"`, `"DS"`, `"TVR"`, `"VTX0"`, `"equivalent_beam_angle"`, `"Sv_offset"`
 
         Passing in calibration parameters for other echosounders
         are not currently supported.
@@ -242,7 +242,7 @@ def compute_TS(echodata: EchoData, **kwargs):
         - for EK60 echosounder, allowed parameters include:
           `"sa_correction"`, `"gain_correction"`, `"equivalent_beam_angle"`
         - for AZFP echosounder, allowed parameters include:
-          `"EL"`, `"DS"`, `"TVR"`, `"VTX"`, `"equivalent_beam_angle"`, `"Sv_offset"`
+          `"EL"`, `"DS"`, `"TVR"`, `"VTX0"`, `"equivalent_beam_angle"`, `"Sv_offset"`
 
         Passing in calibration parameters for other echosounders
         are not currently supported.
