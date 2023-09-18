@@ -190,7 +190,7 @@ def test_load_parse_azfp_xml(azfp_path):
                        'C1', 'C2', 'C3', 'D1', 'D2', 'T1', 'T2', 'T3', 'T4', 'T5', 'X_a', 'X_b',
                        'X_c', 'X_d', 'Y_a', 'Y_b', 'Y_c', 'Y_d', 'period', 'ppm_offset',
                        'calibration', 'a0', 'a1', 'a2', 'a3', 'ka', 'kb', 'kc', 'A', 'B', 'C',
-                       'num_freq', 'hz_units', 'kHz', 'TVR', 'num_vtx', 'VTX0', 'VTX1', 'VTX2',
+                       'num_freq', 'kHz_units', 'kHz', 'TVR', 'num_vtx', 'VTX0', 'VTX1', 'VTX2',
                        'VTX3', 'BP', 'EL', 'DS', 'min_pulse_len', 'sound_speed',
                        'start_date_svalue', 'start_date', 'num_frequencies', 'num_phases',
                        'data_output_svalue', 'data_output', 'frequency_units', 'frequency',
