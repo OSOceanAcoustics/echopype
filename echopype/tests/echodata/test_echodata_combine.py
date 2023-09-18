@@ -1,3 +1,4 @@
+from datetime import datetime
 from textwrap import dedent
 from pathlib import Path
 import tempfile
@@ -160,6 +161,18 @@ def test_combine_echodata(raw_datasets):
 
     combined = echopype.combine_echodata(eds)
 
+    # Test Provenance conversion and combination attributes
+    for attr_token in ["software_name", "software_version", "time"]:
+        assert f"conversion_{attr_token}" in combined['Provenance'].attrs
+        assert f"combination_{attr_token}" in combined['Provenance'].attrs
+
+    def attr_time_to_dt(time_str):
+        return datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%SZ')
+    assert (
+            attr_time_to_dt(combined['Provenance'].attrs['conversion_time']) <=
+            attr_time_to_dt(combined['Provenance'].attrs['combination_time'])
+    )
+
     # get all possible dimensions that should be dropped
     # these correspond to the attribute arrays created
     all_drop_dims = []
@@ -174,7 +187,6 @@ def test_combine_echodata(raw_datasets):
     all_drop_dims.append("echodata_filename")
 
     for group_name in combined.group_paths:
-
         # get all Datasets to be combined
         combined_group: xr.Dataset = combined[group_name]
         eds_groups = [
@@ -221,6 +233,26 @@ def test_combine_echodata(raw_datasets):
                 assert test_ds.identical(combined_group.drop_dims(grp_drop_dims))
 
 
+def _check_prov_ds(prov_ds, eds):
+    """Checks the Provenance dataset against source_filenames variable
+    and global attributes in the original echodata object"""
+    for i in range(prov_ds.dims["echodata_filename"]):
+        ed_ds = eds[i]
+        one_ds = prov_ds.isel(echodata_filename=i, filenames=i)
+        for key, value in one_ds.data_vars.items():
+            if key == "source_filenames":
+                ed_group = "Provenance"
+                assert np.array_equal(
+                    ed_ds[ed_group][key].isel(filenames=0).values, value.values
+                )
+            else:
+                ed_group = value.attrs.get("echodata_group")
+                expected_val = ed_ds[ed_group].attrs[key]
+                if not isinstance(expected_val, str):
+                    expected_val = str(expected_val)
+                assert str(value.values) == expected_val
+
+
 @pytest.mark.parametrize("test_param", [
         "single",
         "multi",
@@ -251,6 +283,17 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         # First combined file
         combined_ed = echopype.combine_echodata(eds[:2])
         combined_ed.to_zarr(first_zarr, overwrite=True)
+        
+        def _check_prov_ds_and_dims(sel_comb_ed, n_val_expected):
+            prov_ds = sel_comb_ed["Provenance"]
+            for _, n_val in prov_ds.dims.items():
+                assert n_val == n_val_expected
+            _check_prov_ds(prov_ds, eds)
+
+        # Checks for Provenance group
+        # Both dims of filenames and echodata filename should be 2
+        expected_n_vals = 2
+        _check_prov_ds_and_dims(combined_ed, expected_n_vals)
 
         # Second combined file
         combined_ed_other = echopype.combine_echodata(eds[2:])
@@ -259,48 +302,47 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         combined_ed = echopype.open_converted(first_zarr)
         combined_ed_other = echopype.open_converted(second_zarr)
 
+        # Set expected values for Provenance
         if test_param == "single":
             data_inputs = [combined_ed, eds[2]]
+            expected_n_vals = 3
         elif test_param == "multi":
             data_inputs = [combined_ed, eds[2], eds[3]]
+            expected_n_vals = 4
         else:
             data_inputs = [combined_ed, combined_ed_other]
-        combined_ed2 = echopype.combine_echodata(
-            data_inputs
-        )
+            expected_n_vals = 4
 
+        combined_ed2 = echopype.combine_echodata(data_inputs)
+
+        # Verify that combined objects are all EchoData objects
         assert isinstance(combined_ed, EchoData)
         assert isinstance(combined_ed_other, EchoData)
         assert isinstance(combined_ed2, EchoData)
 
         # Ensure that they're from the same file source
-        assert eds[0]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[0].values
-        assert eds[1]['Provenance'].source_filenames[0].values == combined_ed['Provenance'].source_filenames[1].values
-        assert eds[2]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[2].values
-        if test_param != "single":
-            assert eds[3]['Provenance'].source_filenames[0].values == combined_ed2['Provenance'].source_filenames[3].values
+        group_path = "Provenance"
+        for i in range(4):
+            ds_i = eds[i][group_path]
+            select_comb_ds = combined_ed[group_path] if i < 2 else combined_ed2[group_path]
+            if i < 3 or (i == 3 and test_param != "single"):
+                assert ds_i.source_filenames[0].values == select_comb_ds.source_filenames[i].values
 
         # Check beam_group1. Should be exactly same xr dataset
         group_path = "Sonar/Beam_group1"
-        ds0 = eds[0][group_path]
-        filt_ds0 = combined_ed[group_path].sel(ping_time=ds0.ping_time)
-        assert filt_ds0.identical(ds0) is True
-
-        ds1 = eds[1][group_path]
-        filt_ds1 = combined_ed[group_path].sel(ping_time=ds1.ping_time)
-        assert filt_ds1.identical(ds1) is True
-
-        ds2 = eds[2][group_path]
-        filt_ds2 = combined_ed2[group_path].sel(ping_time=ds2.ping_time)
-        assert filt_ds2.identical(ds2) is True
-
-        if test_param != "single":
-            ds3 = eds[3][group_path]
-            filt_ds3 = combined_ed2[group_path].sel(ping_time=ds3.ping_time)
-            assert filt_ds3.identical(ds3) is True
+        for i in range(4):
+            ds_i = eds[i][group_path]
+            select_comb_ds = combined_ed[group_path] if i < 2 else combined_ed2[group_path]
+            if i < 3 or (i == 3 and test_param != "single"):
+                filt_ds_i = select_comb_ds.sel(ping_time=ds_i.ping_time)
+                assert filt_ds_i.identical(ds_i) is True
 
         filt_combined = combined_ed2[group_path].sel(ping_time=combined_ed[group_path].ping_time)
-        assert filt_combined.identical(combined_ed[group_path])
+        assert filt_combined.identical(combined_ed[group_path]) is True
+        
+        # Checks for Provenance group
+        # Both dims of filenames and echodata filename should be expected_n_vals
+        _check_prov_ds_and_dims(combined_ed2, expected_n_vals)
 
 
 def test_combine_echodata_channel_selection():

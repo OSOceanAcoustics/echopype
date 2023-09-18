@@ -112,6 +112,23 @@ class SetGroupsBase(abc.ABC):
         """Set the Platform group."""
         raise NotImplementedError
 
+    def _nan_timestamp_handler(self, time_val) -> List:
+        """
+        Replace nan in time coordinate to avoid xarray warning.
+        """
+        if len(time_val) == 1 and np.isnan(time_val[0]):
+            # set time_val to earliest ping_time among all channels
+            if self.sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+                return [np.array([v[0] for v in self.parser_obj.ping_time.values()]).min()]
+            elif self.sonar_model == "AZFP":
+                return [self.parser_obj.ping_time[0]]
+            else:
+                return NotImplementedError(
+                    f"Nan timestamp handling has not been implemented for {self.sonar_model}!"
+                )
+        else:
+            return time_val
+
     def set_nmea(self) -> xr.Dataset:
         """Set the Platform/NMEA group."""
         # Save nan if nmea data is not encoded in the raw file
@@ -125,6 +142,9 @@ class SetGroupsBase(abc.ABC):
         else:
             time = [np.nan]
             raw_nmea = [np.nan]
+
+        # Handle potential nan timestamp for time
+        time = self._nan_timestamp_handler(time)
 
         ds = xr.Dataset(
             {

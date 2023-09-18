@@ -451,7 +451,7 @@ class ParseAZFP(ParseBase):
                             + self.unpacked_data["hundredths"][ping_num] / 100
                         ),
                     ).replace(tzinfo=None),
-                    "[ms]",
+                    "[ns]",
                 )
             )
         self.ping_time = ping_time

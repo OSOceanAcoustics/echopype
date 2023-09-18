@@ -6,7 +6,6 @@ import xarray as xr
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
-from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
 from .set_groups_base import SetGroupsBase
@@ -59,8 +58,6 @@ class SetGroupsEK60(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.old_ping_time = None
-
         # obtain sorted channel dict in ascending order
         channels = list(self.parser_obj.config_datagram["transceivers"].keys())
         channel_ids = {
@@ -80,70 +77,6 @@ class SetGroupsEK60(SetGroupsBase):
             self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
             for ch in self.sorted_channel.keys()
         ]
-
-        # correct duplicate ping_time
-        for ch in self.sorted_channel.keys():
-            ping_time = self.parser_obj.ping_time[ch]
-            _, unique_idx = np.unique(ping_time, return_index=True)
-            duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
-            if duplicates.any():
-                if self.old_ping_time is None:
-                    if (
-                        len({arr.shape for arr in self.parser_obj.ping_time.values()}) == 1
-                        and np.unique(np.stack(self.parser_obj.ping_time.values()), axis=0).shape[0]
-                        == 1
-                    ):
-                        self.old_ping_time = self.parser_obj.ping_time[ch]
-                    else:
-                        ping_times = [
-                            xr.DataArray(arr, dims="ping_time")
-                            for arr in self.parser_obj.ping_time.values()
-                        ]
-                        self.old_ping_time = xr.concat(ping_times, dim="ping_time")
-
-                backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
-                # indexes of duplicates including the originals
-                # (if there are 2 times that are the same, both will be included)
-                (all_duplicates_idx,) = np.where(np.isin(ping_time, ping_time[duplicates][0]))
-                if np.array_equal(
-                    backscatter_r[all_duplicates_idx[0]],
-                    backscatter_r[all_duplicates_idx[1]],
-                ):
-                    logger.warning(
-                        "duplicate pings with identical values detected; the duplicate pings will be removed"  # noqa
-                    )
-                    for v in self.parser_obj.ping_data_dict.values():
-                        if v[ch] is None or len(v[ch]) == 0:
-                            continue
-                        if isinstance(v[ch], np.ndarray):
-                            v[ch] = v[ch][unique_idx]
-                        else:
-                            v[ch] = [v[ch][i] for i in unique_idx]
-                    self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][unique_idx]
-                else:
-                    logger.warning(
-                        "duplicate ping times detected; the duplicate times will be incremented by 1 nanosecond and remain in the ping_time coordinate. The original ping times will be preserved in the Provenance group"  # noqa
-                    )
-
-                    deltas = duplicates * np.timedelta64(1, "ns")
-                    new_ping_time = ping_time + deltas
-                    self.parser_obj.ping_time[ch] = new_ping_time
-
-    def set_provenance(self) -> xr.Dataset:
-        """Set the Provenance group."""
-        prov_dict = echopype_prov_attrs(process_type="conversion")
-        prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
-        files_vars = source_files_vars(self.input_file)
-        if self.old_ping_time is not None:
-            source_vars = {"old_ping_time": self.old_ping_time, **files_vars["source_files_var"]}
-        else:
-            source_vars = files_vars["source_files_var"]
-
-        ds = xr.Dataset(
-            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
-        )
-
-        return ds
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
@@ -243,9 +176,14 @@ class SetGroupsEK60(SetGroupsBase):
 
         # NMEA dataset: variables filled with np.nan if they do not exist
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
-        # Values for the variables below having a channel (ch) dependence
+
+        # Values for the variables in ds below having a channel (ch) dependence
         # are identical across channels
         ch = list(self.sorted_channel.keys())[0]
+
+        # Handle potential nan timestamp for time1 and time2
+        time1 = self._nan_timestamp_handler(time1)
+
         ds = xr.Dataset(
             {
                 "latitude": (
@@ -439,6 +377,16 @@ class SetGroupsEK60(SetGroupsBase):
                 for ch_seq in self.sorted_channel.keys()
             ]
 
+        for i, ch in enumerate(self.sorted_channel.keys()):
+            if (
+                np.isclose(beam_params["dir_x"][i], 0.00)
+                and np.isclose(beam_params["dir_y"][i], 0.00)
+                and np.isclose(beam_params["dir_z"][i], 0.00)
+            ):
+                beam_params["dir_x"][i] = np.nan
+                beam_params["dir_y"][i] = np.nan
+                beam_params["dir_z"][i] = np.nan
+
         # TODO: Need to discuss if to remove INDEX2POWER factor from the backscatter_r
         #  currently this factor is multiplied to the raw data before backscatter_r is saved.
         #  This is if we are encoding only raw data to the .nc/zarr file.
@@ -585,6 +533,46 @@ class SetGroupsEK60(SetGroupsBase):
                     ["channel"],
                     beam_params["gpt_software_version"],
                 ),
+                "transmit_frequency_start": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
+                "transmit_type": (
+                    [],
+                    "CW",
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW"],
+                        "flag_meanings": [
+                            "Continuous Wave – a pulse nominally of one frequency",
+                        ],
+                    },
+                ),
+                "beam_stabilisation": (
+                    [],
+                    np.array(0, np.byte),
+                    {
+                        "long_name": "Beam stabilisation applied (or not)",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["not stabilised", "stabilised"],
+                    },
+                ),
+                "non_quantitative_processing": (
+                    [],
+                    np.array(0, np.int16),
+                    {
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
+                        "flag_values": [0],
+                        "flag_meanings": ["None"],
+                    },
+                ),
             },
             coords={
                 "channel": (
@@ -638,25 +626,34 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
                 "data_type": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["mode"][ch],
+                    np.array(self.parser_obj.ping_data_dict["mode"][ch], dtype=np.byte),
                     {
-                        "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
+                        "long_name": "recorded data type (1=power only, 2=angle only, 3=power and angle)",  # noqa
+                        "flag_values": [1, 2, 3],
+                        "flag_meanings": ["power only", "angle only", "power and angle"],
                     },
                 ),
-                "count": (
+                "sample_time_offset": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["count"][ch],
-                    {"long_name": "Number of samples "},
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
-                "offset": (
+                "channel_mode": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["offset"][ch],
-                    {"long_name": "Offset of first sample"},
-                ),
-                "transmit_mode": (
-                    ["ping_time"],
-                    self.parser_obj.ping_data_dict["transmit_mode"][ch],
-                    {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
+                    np.array(self.parser_obj.ping_data_dict["transmit_mode"][ch], dtype=np.byte),
+                    {
+                        "long_name": "Transceiver mode",
+                        "flag_values": [-1, 0, 1, 2],
+                        "flag_meanings": ["Unknown", "Active", "Passive", "Test"],
+                        "comment": "From transmit_mode in the EK60 datagram",
+                    },
                 ),
             }
 
