@@ -208,21 +208,19 @@ def test_load_parse_azfp_xml(azfp_path):
     assert isinstance(parseAZFP.parameters['num_freq'], int)
     assert isinstance(parseAZFP.parameters['pulse_len'], list)
     assert parseAZFP.parameters['num_freq'] == 4
-    expected_frequency_numbers = ['1', '2', '3', '4']
     assert len(parseAZFP.parameters['frequency_number']) == 4
-    assert all(x == y for x, y in zip(parseAZFP.parameters['frequency_number'],
-                                      expected_frequency_numbers))
+    assert parseAZFP.parameters['frequency_number'] == ['1', '2', '3', '4']
+    assert parseAZFP.parameters['kHz'] == [125, 200, 455, 769]
+
     expected_len_params = ['acquire_frequency', 'pulse_len', 'dig_rate', 'range_samples',
                            'range_averaging_samples', 'lock_out_index', 'gain', 'storage_format']
     assert all(len(parseAZFP.parameters[x]) == 4 for x in expected_len_params)
-    assert all(x == 1 for x in parseAZFP.parameters['acquire_frequency'])
-    assert all(x == 300 for x in parseAZFP.parameters['pulse_len'])
-    assert all(x == 20000 for x in parseAZFP.parameters['dig_rate'])
-    expected_range_samples = [1752, 1752, 1764, 540]
-    assert all(x == y for x, y in zip(parseAZFP.parameters['range_samples'],
-                                      expected_range_samples))
-    assert all(x == 4 for x in parseAZFP.parameters['range_averaging_samples'])
-    assert all(x == 0 for x in parseAZFP.parameters['lock_out_index'])
-    assert all(x == 1 for x in parseAZFP.parameters['gain'])
-    assert all(x == 1 for x in parseAZFP.parameters['storage_format'])
+    assert parseAZFP.parameters['acquire_frequency'] == [1, 1, 1, 1]
+    assert parseAZFP.parameters['pulse_len'] == [300, 300, 300, 300]
+    assert parseAZFP.parameters['dig_rate'] == [20000, 20000, 20000, 20000]
+    assert parseAZFP.parameters['range_samples'] == [1752, 1752, 1764, 540]
+    assert parseAZFP.parameters['range_averaging_samples'] == [4, 4, 4, 4]
+    assert parseAZFP.parameters['lock_out_index'] == [0, 0, 0, 0]
+    assert parseAZFP.parameters['gain'] == [1, 1, 1, 1]
+    assert parseAZFP.parameters['storage_format'] == [1, 1, 1, 1]
 

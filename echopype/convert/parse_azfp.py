@@ -85,19 +85,32 @@ class ParseAZFP(ParseBase):
         self.unpacked_data = defaultdict(list)
         self.sonar_type = "AZFP"
 
+    def _camel_to_snake(self, tag):
+        """
+        Convert CamelCase to snake_case
+        """
+        words = re.findall("[A-Z]+[a-z]*", tag)
+        words_lower = [word.lower() for word in words]
+        if len(words) > 1:
+            return "_".join(words_lower)
+        elif len(words) == 1:
+            return words_lower[0]
+        else:
+            return tag
+
     def load_AZFP_xml(self):
-        """Parse XML file to get params for reading AZFP data."""
-        """Parses the AZFP  XML file.
+        """
+        Parses the AZFP XML file.
         """
 
         xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
         root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
 
         for child in root.iter():
-            camel_case_tag = self._to_camelCase(child.tag)
+            camel_case_tag = self._camel_to_snake(child.tag)
             if len(child.attrib) > 0:
                 for key, val in child.attrib.items():
-                    self.parameters[camel_case_tag + "_" + self._to_camelCase(key)].append(val)
+                    self.parameters[camel_case_tag + "_" + self._camel_to_snake(key)].append(val)
 
             if all(char == "\n" for char in child.text):
                 continue
@@ -116,16 +129,6 @@ class ParseAZFP(ParseBase):
         for key, val in self.parameters.items():
             if len(val) == 1:
                 self.parameters[key] = val[0]
-
-    def _to_camelCase(self, tag):
-        words = re.findall("[A-Z]+[a-z]*", tag)
-        words_lower = [word.lower() for word in words]
-        if len(words) > 1:
-            return "_".join(words_lower)
-        elif len(words) == 1:
-            return words_lower[0]
-        else:
-            return tag
 
     def _compute_temperature(self, ping_num, is_valid):
         """
