@@ -1,5 +1,4 @@
 import os
-import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime as dt
@@ -9,6 +8,7 @@ import fsspec
 import numpy as np
 
 from ..utils.log import _init_logger
+from ..utils.misc import camelcase2snakecase
 from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+.01A"
@@ -85,19 +85,6 @@ class ParseAZFP(ParseBase):
         self.unpacked_data = defaultdict(list)
         self.sonar_type = "AZFP"
 
-    def _camel_to_snake(self, tag):
-        """
-        Convert CamelCase to snake_case
-        """
-        words = re.findall("[A-Z]+[a-z]*", tag)
-        words_lower = [word.lower() for word in words]
-        if len(words) > 1:
-            return "_".join(words_lower)
-        elif len(words) == 1:
-            return words_lower[0]
-        else:
-            return tag
-
     def load_AZFP_xml(self):
         """
         Parses the AZFP XML file.
@@ -107,10 +94,10 @@ class ParseAZFP(ParseBase):
         root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
 
         for child in root.iter():
-            camel_case_tag = self._camel_to_snake(child.tag)
+            camel_case_tag = camelcase2snakecase(child.tag)
             if len(child.attrib) > 0:
                 for key, val in child.attrib.items():
-                    self.parameters[camel_case_tag + "_" + self._camel_to_snake(key)].append(val)
+                    self.parameters[camel_case_tag + "_" + camelcase2snakecase(key)].append(val)
 
             if all(char == "\n" for char in child.text):
                 continue
