@@ -81,7 +81,7 @@ class SetGroupsAZFP(SetGroupsBase):
         """
 
         serial_number = self.parser_obj.unpacked_data["serial_number"]
-        frequency_number = self.parser_obj.parameters["FrequencyNumber"]
+        frequency_number = self.parser_obj.parameters["frequency_number"]
 
         if serial_number.size == 1:
             freq_as_str = self.freq_sorted.astype(int).astype(str)
@@ -488,6 +488,16 @@ class SetGroupsAZFP(SetGroupsBase):
                 "phase": unpacked_data["phase"],
                 "number_of_channels": unpacked_data["num_chan"],
                 # parameters with channel dimension from XML file
+                "XML_transmit_duration_nominal": (
+                    ["channel"],
+                    tdn,
+                    {"long_name": "(From XML file) Nominal bandwidth of transmitted pulse"},
+                ),  # tdn comes from parameters
+                "XML_gain_correction": (
+                    ["channel"],
+                    parameters["gain"][self.freq_ind_sorted],
+                    {"long_name": "(From XML file) Gain correction"},
+                ),
                 "instrument_type": parameters["instrument_type"][0],
                 "minor": parameters["minor"],
                 "major": parameters["major"],
@@ -499,8 +509,6 @@ class SetGroupsAZFP(SetGroupsBase):
                 "file_version": parameters["file_version"],
                 "parameter_version": parameters["parameter_version"],
                 "configuration_version": parameters["configuration_version"],
-                "XML_transmit_duration_nominal": (["channel"], tdn),  # tdn comes from parameters
-                "XML_gain_correction": (["channel"], parameters["gain"][self.freq_ind_sorted]),
                 "XML_digitization_rate": (
                     ["channel"],
                     parameters["dig_rate"][self.freq_ind_sorted],
@@ -508,14 +516,46 @@ class SetGroupsAZFP(SetGroupsBase):
                 "XML_lockout_index": (
                     ["channel"],
                     parameters["lock_out_index"][self.freq_ind_sorted],
+                    {
+                        "long_name": "(From XML file) The distance, rounded to the nearest "
+                        "Bin Size after the pulse is transmitted that over which AZFP will "
+                        "ignore echoes"
+                    },
                 ),
                 "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
-                "EL": (["channel"], parameters["EL"][self.freq_ind_sorted]),
-                "TVR": (["channel"], parameters["TVR"][self.freq_ind_sorted]),
-                "VTX0": (["channel"], parameters["VTX0"][self.freq_ind_sorted]),
-                "VTX1": (["channel"], parameters["VTX1"][self.freq_ind_sorted]),
-                "VTX2": (["channel"], parameters["VTX2"][self.freq_ind_sorted]),
-                "VTX3": (["channel"], parameters["VTX3"][self.freq_ind_sorted]),
+                "EL": (
+                    ["channel"],
+                    parameters["EL"][self.freq_ind_sorted],
+                    {"long_name": "Sound pressure at the transducer", "units": "dB"},
+                ),
+                "TVR": (
+                    ["channel"],
+                    parameters["TVR"][self.freq_ind_sorted],
+                    {
+                        "long_name": "Transmit voltage response of the transducer",
+                        "units": "dB re 1uPa/V at 1m",
+                    },
+                ),
+                "VTX0": (
+                    ["channel"],
+                    parameters["VTX0"][self.freq_ind_sorted],
+                    {"long_name": "Amplified voltage 0 sent to the transducer"},
+                ),
+                "VTX1": (
+                    ["channel"],
+                    parameters["VTX1"][self.freq_ind_sorted],
+                    {"long_name": "Amplified voltage 1 sent to the transducer"},
+                ),
+                "VTX2": (
+                    ["channel"],
+                    parameters["VTX2"][self.freq_ind_sorted],
+                    {"long_name": "Amplified voltage 2 sent to the transducer"},
+                ),
+                "VTX3": (
+                    ["channel"],
+                    parameters["VTX3"][self.freq_ind_sorted],
+                    {"long_name": "Amplified voltage 3 sent to the transducer"},
+                ),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["channel"],

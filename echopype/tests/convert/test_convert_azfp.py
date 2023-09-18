@@ -182,30 +182,47 @@ def test_load_parse_azfp_xml(azfp_path):
     azfp_xml_path = azfp_path / '17030815.XML'
     parseAZFP = ParseAZFP(str(azfp_01a_path), str(azfp_xml_path))
     parseAZFP.load_AZFP_xml()
-    expected_params = ['InstrumentTypestring', 'instrument_type', 'major', 'minor', 'date',
-                       'Programname', 'program', 'CPU', 'serial_number', 'board_version',
+    expected_params = ['instrument_type_string', 'instrument_type', 'major', 'minor', 'date',
+                       'program_name', 'program', 'CPU', 'serial_number', 'board_version',
                        'file_version', 'parameter_version', 'configuration_version', 'eclock',
-                       'digital_board_version', 'SensorsFlagPressureSensorInstalled',
-                       'SensorsFlagParosInstalled', 'sensors_flag', 'U0', 'Y1', 'Y2', 'Y3', 'C1',
-                       'C2', 'C3', 'D1', 'D2', 'T1', 'T2', 'T3', 'T4', 'T5', 'X_a', 'X_b', 'X_c',
-                       'X_d', 'Y_a', 'Y_b', 'Y_c', 'Y_d', 'period', 'ppm_offset', 'calibration',
-                       'a0', 'a1', 'a2', 'a3', 'ka', 'kb', 'kc', 'A', 'B', 'C', 'num_freq',
-                       'kHzunits', 'kHz', 'TVR', 'num_vtx', 'VTX0', 'VTX1', 'VTX2', 'VTX3', 'BP',
-                       'EL', 'DS', 'min_pulse_len', 'sound_speed', 'StartDatesvalue', 'start_date',
-                       'num_frequencies', 'num_phases', 'DataOutputsvalue', 'data_output',
-                       'Frequencyunits', 'frequency', 'PhaseNumber', 'PhaseTypesvalue', 'phase_type',
-                       'Durationsvalue', 'duration', 'PingPeriodunits', 'ping_period',
-                       'BurstIntervalunits', 'burst_interval', 'PingsPerBurstunits',
-                       'pings_per_burst', 'AverageBurstPingsunits', 'average_burst_pings',
-                       'FrequencyNumber', 'AcquireFrequencyunits', 'acquire_frequency',
-                       'PulseLenunits', 'pulse_len', 'DigRateunits', 'dig_rate', 'RangeSamplesunits',
-                       'range_samples', 'RangeAveragingSamplesunits', 'range_averaging_samples',
-                       'LockOutIndexunits', 'lock_out_index', 'Gainunits', 'gain',
-                       'StorageFormatunits', 'storage_format']
-
+                       'digital_board_version', 'sensors_flag_pressure_sensor_installed',
+                       'sensors_flag_paros_installed', 'sensors_flag', 'U0', 'Y1', 'Y2', 'Y3',
+                       'C1', 'C2', 'C3', 'D1', 'D2', 'T1', 'T2', 'T3', 'T4', 'T5', 'X_a', 'X_b',
+                       'X_c', 'X_d', 'Y_a', 'Y_b', 'Y_c', 'Y_d', 'period', 'ppm_offset',
+                       'calibration', 'a0', 'a1', 'a2', 'a3', 'ka', 'kb', 'kc', 'A', 'B', 'C',
+                       'num_freq', 'hz_units', 'kHz', 'TVR', 'num_vtx', 'VTX0', 'VTX1', 'VTX2',
+                       'VTX3', 'BP', 'EL', 'DS', 'min_pulse_len', 'sound_speed',
+                       'start_date_svalue', 'start_date', 'num_frequencies', 'num_phases',
+                       'data_output_svalue', 'data_output', 'frequency_units', 'frequency',
+                       'phase_number', 'phase_type_svalue', 'phase_type', 'duration_svalue',
+                       'duration', 'ping_period_units', 'ping_period', 'burst_interval_units',
+                       'burst_interval', 'pings_per_burst_units', 'pings_per_burst',
+                       'average_burst_pings_units', 'average_burst_pings', 'frequency_number',
+                       'acquire_frequency_units', 'acquire_frequency', 'pulse_len_units',
+                       'pulse_len', 'dig_rate_units', 'dig_rate', 'range_samples_units',
+                       'range_samples', 'range_averaging_samples_units', 'range_averaging_samples',
+                       'lock_out_index_units', 'lock_out_index', 'gain_units', 'gain',
+                       'storage_format_units', 'storage_format']
     assert set(parseAZFP.parameters.keys()) == set(expected_params)
-    assert list(set(parseAZFP.parameters['InstrumentTypestring']))[0] == 'AZFP'
+    assert list(set(parseAZFP.parameters['instrument_type_string']))[0] == 'AZFP'
     assert isinstance(parseAZFP.parameters['num_freq'], int)
     assert isinstance(parseAZFP.parameters['pulse_len'], list)
     assert parseAZFP.parameters['num_freq'] == 4
-    assert parseAZFP.parameters['pulse_len'] == [300, 300, 300, 300]
+    expected_frequency_numbers = ['1', '2', '3', '4']
+    assert len(parseAZFP.parameters['frequency_number']) == 4
+    assert all(x == y for x, y in zip(parseAZFP.parameters['frequency_number'],
+                                      expected_frequency_numbers))
+    expected_len_params = ['acquire_frequency', 'pulse_len', 'dig_rate', 'range_samples',
+                           'range_averaging_samples', 'lock_out_index', 'gain', 'storage_format']
+    assert all(len(parseAZFP.parameters[x]) == 4 for x in expected_len_params)
+    assert all(x == 1 for x in parseAZFP.parameters['acquire_frequency'])
+    assert all(x == 300 for x in parseAZFP.parameters['pulse_len'])
+    assert all(x == 20000 for x in parseAZFP.parameters['dig_rate'])
+    expected_range_samples = [1752, 1752, 1764, 540]
+    assert all(x == y for x, y in zip(parseAZFP.parameters['range_samples'],
+                                      expected_range_samples))
+    assert all(x == 4 for x in parseAZFP.parameters['range_averaging_samples'])
+    assert all(x == 0 for x in parseAZFP.parameters['lock_out_index'])
+    assert all(x == 1 for x in parseAZFP.parameters['gain'])
+    assert all(x == 1 for x in parseAZFP.parameters['storage_format'])
+

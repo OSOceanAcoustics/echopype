@@ -94,9 +94,10 @@ class ParseAZFP(ParseBase):
         root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
 
         for child in root.iter():
+            camel_case_tag = self._to_camelCase(child.tag)
             if len(child.attrib) > 0:
                 for key, val in child.attrib.items():
-                    self.parameters[child.tag + key].append(val)
+                    self.parameters[camel_case_tag + "_" + self._to_camelCase(key)].append(val)
 
             if all(char == "\n" for char in child.text):
                 continue
@@ -107,12 +108,7 @@ class ParseAZFP(ParseBase):
                     val = float(child.text)
 
             if len(child.tag) > 3 and not child.tag.startswith("VTX"):
-                words = re.findall("[A-Z]+[a-z]*", child.tag)
-                words_lower = [word.lower() for word in words]
-                if len(words) > 1:
-                    self.parameters["_".join(words_lower)].append(val)
-                elif len(words) == 1:
-                    self.parameters[words_lower[0]].append(val)
+                self.parameters[camel_case_tag].append(val)
             else:
                 self.parameters[child.tag].append(val)
 
@@ -120,6 +116,16 @@ class ParseAZFP(ParseBase):
         for key, val in self.parameters.items():
             if len(val) == 1:
                 self.parameters[key] = val[0]
+
+    def _to_camelCase(self, tag):
+        words = re.findall("[A-Z]+[a-z]*", tag)
+        words_lower = [word.lower() for word in words]
+        if len(words) > 1:
+            return "_".join(words_lower)
+        elif len(words) == 1:
+            return words_lower[0]
+        else:
+            return tag
 
     def _compute_temperature(self, ping_num, is_valid):
         """
