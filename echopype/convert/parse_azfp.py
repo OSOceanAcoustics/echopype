@@ -94,7 +94,10 @@ class ParseAZFP(ParseBase):
         root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
 
         for child in root.iter():
-            camel_case_tag = camelcase2snakecase(child.tag)
+            if len(child.tag) > 3 and not child.tag.startswith("VTX"):
+                camel_case_tag = camelcase2snakecase(child.tag)
+            else:
+                camel_case_tag = child.tag
             if len(child.attrib) > 0:
                 for key, val in child.attrib.items():
                     self.parameters[camel_case_tag + "_" + camelcase2snakecase(key)].append(val)
@@ -107,10 +110,7 @@ class ParseAZFP(ParseBase):
                 except ValueError:
                     val = float(child.text)
 
-            if len(child.tag) > 3 and not child.tag.startswith("VTX"):
-                self.parameters[camel_case_tag].append(val)
-            else:
-                self.parameters[child.tag].append(val)
+            self.parameters[camel_case_tag].append(val)
 
         # Handling the case where there is only one value for each parameter
         for key, val in self.parameters.items():
