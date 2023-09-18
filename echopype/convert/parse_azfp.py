@@ -27,7 +27,7 @@ HEADER_FIELDS = (
     ("second", "u2"),  # Second
     ("hundredths", "u2"),  # Hundredths of a second
     ("dig_rate", "u2", 4),  # Digitalization rate for each channel
-    ("lockout_index", "u2", 4),  # Lockout index for each channel
+    ("lock_out_index", "u2", 4),  # Lockout index for each channel
     ("num_bins", "u2", 4),  # Number of bins for each channel
     (
         "range_samples_per_bin",
@@ -51,7 +51,7 @@ HEADER_FIELDS = (
     ("num_chan", "u1"),  # 1, 2, 3, or 4
     ("gain", "u1", 4),  # gain channel 1-4
     ("spare_chan", "u1"),  # spare channel
-    ("pulse_length", "u2", 4),  # Pulse length chan 1-4 uS
+    ("pulse_len", "u2", 4),  # Pulse length chan 1-4 uS
     ("board_num", "u2", 4),  # The board the data came from channel 1-4
     ("frequency", "u2", 4),  # frequency for channel 1-4 in kHz
     (
@@ -336,12 +336,12 @@ class ParseAZFP(ParseBase):
 
         field_w_freq = (
             "dig_rate",
-            "lockout_index",
+            "lock_out_index",
             "num_bins",
             "range_samples_per_bin",  # fields with num_freq data
             "data_type",
             "gain",
-            "pulse_length",
+            "pulse_len",
             "board_num",
             "frequency",
         )
@@ -399,12 +399,12 @@ class ParseAZFP(ParseBase):
             # fields with num_freq data
             field_w_freq = (
                 "dig_rate",
-                "lockout_index",
+                "lock_out_index",
                 "num_bins",
                 "range_samples_per_bin",
                 "data_type",
                 "gain",
-                "pulse_length",
+                "pulse_len",
                 "board_num",
                 "frequency",
             )
@@ -460,22 +460,22 @@ class ParseAZFP(ParseBase):
         self.ping_time = ping_time
 
     @staticmethod
-    def _calc_Sv_offset(f, pulse_length):
+    def _calc_Sv_offset(f, pulse_len):
         """Calculate the compensation factor for Sv calculation."""
         # TODO: this method seems should be in echopype.process
         if f > 38000:
-            if pulse_length == 300:
+            if pulse_len == 300:
                 return 1.1
-            elif pulse_length == 500:
+            elif pulse_len == 500:
                 return 0.8
-            elif pulse_length == 700:
+            elif pulse_len == 700:
                 return 0.5
-            elif pulse_length == 900:
+            elif pulse_len == 900:
                 return 0.3
-            elif pulse_length == 1000:
+            elif pulse_len == 1000:
                 return 0.3
         else:
-            if pulse_length == 500:
+            if pulse_len == 500:
                 return 1.1
-            elif pulse_length == 1000:
+            elif pulse_len == 1000:
                 return 0.7

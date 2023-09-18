@@ -320,7 +320,7 @@ class SetGroupsAZFP(SetGroupsBase):
             del N_tmp
 
         tdn = (
-            unpacked_data["pulse_length"][self.freq_ind_sorted] / 1e6
+            unpacked_data["pulse_len"][self.freq_ind_sorted] / 1e6
         )  # Convert microseconds to seconds
         range_samples_per_bin = unpacked_data["range_samples_per_bin"][
             self.freq_ind_sorted
@@ -508,7 +508,7 @@ class SetGroupsAZFP(SetGroupsBase):
         for ind, ich in enumerate(self.freq_ind_sorted):
             # TODO: should not access the private function, better to compute Sv_offset in parser
             Sv_offset[ind] = self.parser_obj._calc_Sv_offset(
-                self.freq_sorted[ind], unpacked_data["pulse_length"][ich]
+                self.freq_sorted[ind], unpacked_data["pulse_len"][ich]
             )
 
         ds = xr.Dataset(
@@ -532,9 +532,9 @@ class SetGroupsAZFP(SetGroupsBase):
                         "A/D converter when digitizing the returned acoustic signal"
                     },
                 ),
-                "lockout_index": (
+                "lock_out_index": (
                     ["channel"],
-                    unpacked_data["lockout_index"][self.freq_ind_sorted],
+                    unpacked_data["lock_out_index"][self.freq_ind_sorted],
                     {
                         "long_name": "The distance, rounded to the nearest Bin Size after the "
                         "pulse is transmitted that over which AZFP will ignore echoes"
