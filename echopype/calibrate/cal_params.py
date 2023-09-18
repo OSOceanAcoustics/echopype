@@ -29,7 +29,7 @@ CAL_PARAMS = {
         "impedance_transceiver",  # z_er
         "receiver_sampling_frequency",
     ),
-    "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
+    "AZFP": ("EL", "DS", "TVR", "VTX0", "equivalent_beam_angle", "Sv_offset"),
 }
 
 EK80_DEFAULT_PARAMS = {
