@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 from echopype.mask.api import get_seabed_mask
-from echopype.tests.conftest import complete_dataset_jr179
 
 DESIRED_CHANNEL = "GPT  38 kHz 009072033fa5 1 ES38"
 
