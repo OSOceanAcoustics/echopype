@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 from echopype.mask.api import shoal_weill
-from echopype.tests.conftest import sv_dataset_jr161
 
 DESIRED_CHANNEL = "GPT  38 kHz 009072033fa5 1 ES38"
 
