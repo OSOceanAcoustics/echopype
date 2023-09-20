@@ -69,6 +69,69 @@ def _set_MVBS_attrs(ds):
     )
 
 
+def _convert_bins_to_interval_index(
+    bins: list, closed: Literal["left", "right"] = "left"
+) -> pd.IntervalIndex:
+    """
+    Convert bins to sorted pandas IntervalIndex
+    with specified closed end
+
+    Parameters
+    ----------
+    bins : list
+        The bin edges
+    closed : {'left', 'right'}, default 'left'
+        Which side of bin interval is closed
+
+    Returns
+    -------
+    pd.IntervalIndex
+        The resulting IntervalIndex
+    """
+    return pd.IntervalIndex.from_breaks(bins, closed=closed).sort_values()
+
+
+def _parse_range_bin(range_bin: str) -> float:
+    """
+    Parses range bin string, check unit,
+    and returns range bin in meters.
+
+    Parameters
+    ----------
+    range_bin : str
+        Range bin string, e.g., "10m"
+
+    Returns
+    -------
+    float
+        The resulting range bin value in meters.
+
+    Raises
+    ------
+    ValueError
+        If the range bin string doesn't include 'm' for meters.
+    TypeError
+        If the range bin is not a type string.
+    """
+    # First check for bin types
+    if not isinstance(range_bin, str):
+        raise TypeError("range_bin must be a string")
+    # normalize to lower case
+    # for range_bin
+    range_bin = range_bin.strip().lower()
+    # Only matches meters
+    match_obj = re.match(r"([\d+]*[.,]{0,1}[\d+]*)(\s+)?(m)", range_bin)
+
+    # Do some checks on range meter inputs
+    if match_obj is None:
+        # This shouldn't be other units
+        raise ValueError("range_bin must be in meters (e.g., '10m').")
+
+    # Convert back to float
+    range_bin = float(match_obj.group(1))
+    return range_bin
+
+
 @add_processing_level("L3*")
 def compute_MVBS(
     ds_Sv: xr.Dataset,
@@ -76,6 +139,7 @@ def compute_MVBS(
     range_bin: str = "20m",
     ping_time_bin: str = "20S",
     method="map-reduce",
+    closed: Literal["left", "right"] = "left",
     **flox_kwargs,
 ):
     """
@@ -91,21 +155,21 @@ def compute_MVBS(
     ----------
     ds_Sv : xr.Dataset
         dataset containing Sv and ``echo_range`` [m]
-    range_var: str
+    range_var: {'echo_range', 'depth'}, default 'echo_range'
         The variable to use for range binning.
         Must be one of ``echo_range`` or ``depth``.
         Note that ``depth`` is only available if the input dataset contains
         ``depth`` as a data variable.
-    range_bin : str
-        bin size along ``echo_range`` or ``depth`` in meters,
-        default to ``20m``
-    ping_time_bin : str
-        bin size along ``ping_time``, default to ``20S``
-    method: str
-        The flox strategy for reduction of dask arrays only,
-        default to ``map-reduce``
+    range_bin : str, default '20m'
+        bin size along ``echo_range`` or ``depth`` in meters.
+    ping_time_bin : str, default '20S'
+        bin size along ``ping_time``
+    method: str, default 'map-reduce'
+        The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    closed: {'left', 'right'}, default 'left'
+        Which side of bin interval is closed.
     **kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -115,26 +179,10 @@ def compute_MVBS(
     A dataset containing bin-averaged Sv
     """
 
-    # First check for bin types
-    if not isinstance(range_bin, str):
-        raise TypeError("range_bin must be a string")
-
     if not isinstance(ping_time_bin, str):
         raise TypeError("ping_time_bin must be a string")
 
-    # normalize to lower case
-    # for range_bin
-    range_bin = range_bin.strip().lower()
-    # Only matches meters
-    match_obj = re.match(r"([\d+]*[.,]{0,1}[\d+]*)(\s+)?(m)", range_bin)
-
-    # Do some checks on range meter inputs
-    if match_obj is None:
-        # This shouldn't be other units
-        raise ValueError("range_bin must be in meters (e.g., '10m').")
-
-    # Convert back to float
-    range_bin = float(match_obj.group(1))
+    range_bin = _parse_range_bin(range_bin)
 
     # Clean up filenames dimension if it exists
     # not needed here
@@ -148,6 +196,10 @@ def compute_MVBS(
     # Check if range_var exists in ds_Sv
     if range_var not in ds_Sv.data_vars:
         raise ValueError(f"range_var '{range_var}' does not exist in the input dataset.")
+
+    # Check for closed values
+    if closed not in ["right", "left"]:
+        raise ValueError(f"{closed} is not a valid option. Options are 'left' or 'right'.")
 
     # create bin information for echo_range
     # this computes the echo range max since there might NaNs in the data
@@ -163,8 +215,16 @@ def compute_MVBS(
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)]).values
 
+    # Set interval index for groups
+    ping_interval = _convert_bins_to_interval_index(ping_interval, closed=closed)
+    range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
     raw_MVBS = get_MVBS_along_channels(
-        ds_Sv, range_interval, ping_interval, range_var=range_var, method=method, **flox_kwargs
+        ds_Sv,
+        range_interval,
+        ping_interval,
+        range_var=range_var,
+        method=method,
+        **flox_kwargs,
     )
 
     # create MVBS dataset

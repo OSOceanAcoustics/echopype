@@ -60,7 +60,7 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
     # Notation below follows p.86 of user manual
     N = vend["number_of_samples_per_average_bin"]  # samples per bin
     f = vend["digitization_rate"]  # digitization rate
-    L = vend["lockout_index"]  # number of lockout samples
+    L = vend["lock_out_index"]  # number of lockout samples
 
     # keep this in ref of AZFP matlab code,
     # set to 1 since we want to calculate from raw data

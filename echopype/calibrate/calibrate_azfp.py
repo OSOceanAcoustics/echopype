@@ -63,7 +63,7 @@ class CalibrateAZFP(CalibrateBase):
         # TODO: take care of dividing by zero encountered in log10
         spreading_loss = 20 * np.log10(self.range_meter)
         absorption_loss = 2 * self.env_params["sound_absorption"] * self.range_meter
-        SL = self.cal_params["TVR"] + 20 * np.log10(self.cal_params["VTX"])  # eq.(2)
+        SL = self.cal_params["TVR"] + 20 * np.log10(self.cal_params["VTX0"])  # eq.(2)
 
         # scaling factor (slope) in Fig.G-1, units Volts/dB], see p.84
         a = self.cal_params["DS"]
