@@ -152,19 +152,17 @@ def compute_MVBS(
     ----------
     ds_Sv : xr.Dataset
         dataset containing Sv and ``echo_range`` [m]
-    range_var: str
+    range_var: {'echo_range', 'depth'}, default 'echo_range'
         The variable to use for range binning.
         Must be one of ``echo_range`` or ``depth``.
         Note that ``depth`` is only available if the input dataset contains
         ``depth`` as a data variable.
-    range_bin : str
-        bin size along ``echo_range`` or ``depth`` in meters,
-        default to ``20m``
-    ping_time_bin : str
-        bin size along ``ping_time``, default to ``20S``
-    method: str
-        The flox strategy for reduction of dask arrays only,
-        default to ``map-reduce``
+    range_bin : str, default '20m'
+        bin size along ``echo_range`` or ``depth`` in meters.
+    ping_time_bin : str, default '20S'
+        bin size along ``ping_time``
+    method: str, default 'map-reduce'
+        The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
     closed: {'left', 'right'}, default 'left'
