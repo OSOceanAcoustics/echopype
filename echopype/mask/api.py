@@ -176,10 +176,9 @@ def _check_var_name_fill_value(
     if isinstance(fill_value, (np.ndarray, xr.DataArray)):
         if isinstance(fill_value, xr.DataArray):
             fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
-            fill_has_channel = "channel" in fill_value.coords
         elif isinstance(fill_value, np.ndarray):
             fill_value = fill_value.squeeze()  # squeeze out length=1 channel dimension
-            fill_has_channel = fill_value.ndim == 3
+        fill_has_channel = fill_value.ndim == 3
         # here we either have a fill_value with multiple channels or a no-channel one
 
         source_ds_shape = (

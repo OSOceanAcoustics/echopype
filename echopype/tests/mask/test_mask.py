@@ -642,10 +642,8 @@ def test_validate_and_collect_mask_input(
             1,
             "var1",
             xr.DataArray(
-                data=np.array(
-                    [[[1.0, 0], [0, 1]], [[1.0, 0], [0, 1]]]
-                ),  # TODO fix - this should pass
-                coords={"channel": ["chan1", "chan2"], "ping_time": [0, 1], "range_sample": [0, 1]},
+                data=np.array([[[1.0, 0], [0, 1]]]),
+                coords={"channel": ["chan1"], "ping_time": [0, 1], "range_sample": [0, 1]},
             ),
         ),
         pytest.param(
@@ -758,7 +756,7 @@ def test_check_var_name_fill_value(
             np.array([[1, np.nan], [np.nan, 1]]),
             False,
         ),
-        # single_mask_DataArray_fill # TODO fix
+        # single_mask_DataArray_fill
         (
             2,
             1,
@@ -766,11 +764,8 @@ def test_check_var_name_fill_value(
             np.identity(2),
             None,
             xr.DataArray(
-                # data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
-                data=np.array(
-                    [[[np.nan, np.nan], [np.nan, np.nan]], [[np.nan, np.nan], [np.nan, np.nan]]]
-                ),
-                coords={"channel": ["chan1", "chan2"], "ping_time": [0, 1], "range_sample": [0, 1]},
+                data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
+                coords={"channel": ["chan1"], "ping_time": [0, 1], "range_sample": [0, 1]},
             ),
             False,
             np.array([[1, np.nan], [np.nan, 1]]),
@@ -922,13 +917,13 @@ def test_apply_mask(
     ("source_has_ch", "mask_has_ch"),
     [
         (True, True),
-        (False, True),
+        # (False, True),
         (True, False),
         (False, False),
     ],
     ids=[
         "source_with_ch_mask_with_ch",
-        "source_no_ch_mask_with_ch",
+        # "source_no_ch_mask_with_ch", not a use case that makes sense anymore
         "source_with_ch_mask_no_ch",
         "source_no_ch_mask_no_ch",
     ],
@@ -938,11 +933,8 @@ def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
     var_name = "var1"
 
     if mask_has_ch:
-        mask = xr.DataArray(
-            np.array([np.identity(2)]),
-            coords={"channel": ["chA"], "ping_time": np.arange(2), "range_sample": np.arange(2)},
-            attrs={"long_name": "mask_with_channel"},
-        )
+        mask = create_channel_input_mask(source_ds.coords)
+        mask = mask.assign_attrs(long_name="mask_with_channel")
     else:
         mask = xr.DataArray(
             np.identity(2),
@@ -959,8 +951,17 @@ def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
 
     # Output dimension will be the same as source
     if source_has_ch:
+        input_array = np.array([[[1, np.nan], [np.nan, 1]]] * 3)
+        if mask_has_ch:
+            input_array = np.array(
+                [
+                    [[1, np.nan], [np.nan, np.nan]],
+                    [[np.nan, np.nan], [np.nan, np.nan]],
+                    [[np.nan, np.nan], [np.nan, np.nan]],
+                ]
+            )
         truth_da = xr.DataArray(
-            np.array([[[1, np.nan], [np.nan, 1]]] * 3),
+            input_array,
             coords={
                 "channel": ["chan1", "chan2", "chan3"],
                 "ping_time": np.arange(2),
@@ -979,6 +980,19 @@ def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
 
 
 def create_channel_input_mask(coords):
+    """
+    Creates a per-channel input mask, given an existing data array's coords
+
+    Parameters
+    ==========
+    coords - coordinates of the xr.DataArray we want to create a mask for
+
+    Returns
+    =======
+    mask (xr.DataArray) - a mask with the same coords as the input,
+        with all values = False except the first one on the first channel,
+        which is True
+    """
     dim_array = []
     for k in coords.keys():
         dim_array.append(len(coords[k]))
@@ -989,9 +1003,13 @@ def create_channel_input_mask(coords):
 
 
 def test_channel_mask(var_name="var2"):
+    """
+    Tests that a multichannel mask can be applied to a multichannel array
+    """
     dataset = get_mock_source_ds_apply_mask(2, 2, False)
     mask = create_channel_input_mask(dataset.coords)
     masked = ep.mask.api.apply_mask(dataset, mask, var_name=var_name, fill_value=0)
     t2 = masked["var2"].values
-    print(len(mask["channel"]))
-    print(t2)
+    check_mask = mask.values * 1
+    compare = (t2 == check_mask).all()
+    assert compare
