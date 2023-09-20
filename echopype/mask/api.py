@@ -266,7 +266,9 @@ def apply_mask(
         The mask(s) to be applied.
         Can be a single input or list that corresponds to a DataArray or a path.
         Each entry in the list must have dimensions ``('ping_time', 'range_sample')``.
-        Multi-channel masks are not currently supported.
+        If these are single-channel masks, the same mask will be applied to all
+        the channels in the dataset, whereas if they are multi-channel masks,
+        they will be applied to the matched channel
         If a path is provided this should point to a zarr or netcdf file with only
         one data variable in it.
         If the input ``mask`` is a list, a logical AND will be used to produce the final
