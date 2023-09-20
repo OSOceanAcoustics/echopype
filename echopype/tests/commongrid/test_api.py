@@ -3,7 +3,7 @@ import echopype as ep
 import numpy as np
 
 
-# Utilties Tests
+# Utilities Tests
 @pytest.mark.parametrize(
     ["range_bin", "expected_result"],
     [
