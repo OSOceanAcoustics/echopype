@@ -8,9 +8,8 @@ import xarray as xr
 
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
-from .shoal import _weill as shoal_weill
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
-
+from .shoal import _weill as shoal_weill
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
