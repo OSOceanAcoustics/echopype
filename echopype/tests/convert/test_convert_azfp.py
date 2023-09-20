@@ -10,11 +10,13 @@ import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
 import pytest
+from echopype.convert.parse_azfp import ParseAZFP
 
 
 @pytest.fixture
 def azfp_path(test_path):
     return test_path["AZFP"]
+
 
 def check_platform_required_scalar_vars(echodata):
     # check convention-required variables in the Platform group
@@ -172,3 +174,53 @@ def test_convert_azfp_01a_notemperature_notilt(azfp_path):
     assert "tilt_y" in echodata["Platform"]
     assert echodata["Platform"]["tilt_x"].isnull().all()
     assert echodata["Platform"]["tilt_y"].isnull().all()
+
+
+def test_load_parse_azfp_xml(azfp_path):
+
+    azfp_01a_path = azfp_path / '17082117.01A'
+    azfp_xml_path = azfp_path / '17030815.XML'
+    parseAZFP = ParseAZFP(str(azfp_01a_path), str(azfp_xml_path))
+    parseAZFP.load_AZFP_xml()
+    expected_params = ['instrument_type_string', 'instrument_type', 'major', 'minor', 'date',
+                       'program_name', 'program', 'CPU', 'serial_number', 'board_version',
+                       'file_version', 'parameter_version', 'configuration_version', 'eclock',
+                       'digital_board_version', 'sensors_flag_pressure_sensor_installed',
+                       'sensors_flag_paros_installed', 'sensors_flag', 'U0', 'Y1', 'Y2', 'Y3',
+                       'C1', 'C2', 'C3', 'D1', 'D2', 'T1', 'T2', 'T3', 'T4', 'T5', 'X_a', 'X_b',
+                       'X_c', 'X_d', 'Y_a', 'Y_b', 'Y_c', 'Y_d', 'period', 'ppm_offset',
+                       'calibration', 'a0', 'a1', 'a2', 'a3', 'ka', 'kb', 'kc', 'A', 'B', 'C',
+                       'num_freq', 'kHz_units', 'kHz', 'TVR', 'num_vtx', 'VTX0', 'VTX1', 'VTX2',
+                       'VTX3', 'BP', 'EL', 'DS', 'min_pulse_len', 'sound_speed',
+                       'start_date_svalue', 'start_date', 'num_frequencies', 'num_phases',
+                       'data_output_svalue', 'data_output', 'frequency_units', 'frequency',
+                       'phase_number', 'phase_type_svalue', 'phase_type', 'duration_svalue',
+                       'duration', 'ping_period_units', 'ping_period', 'burst_interval_units',
+                       'burst_interval', 'pings_per_burst_units', 'pings_per_burst',
+                       'average_burst_pings_units', 'average_burst_pings', 'frequency_number',
+                       'acquire_frequency_units', 'acquire_frequency', 'pulse_len_units',
+                       'pulse_len', 'dig_rate_units', 'dig_rate', 'range_samples_units',
+                       'range_samples', 'range_averaging_samples_units', 'range_averaging_samples',
+                       'lock_out_index_units', 'lock_out_index', 'gain_units', 'gain',
+                       'storage_format_units', 'storage_format']
+    assert set(parseAZFP.parameters.keys()) == set(expected_params)
+    assert list(set(parseAZFP.parameters['instrument_type_string']))[0] == 'AZFP'
+    assert isinstance(parseAZFP.parameters['num_freq'], int)
+    assert isinstance(parseAZFP.parameters['pulse_len'], list)
+    assert parseAZFP.parameters['num_freq'] == 4
+    assert len(parseAZFP.parameters['frequency_number']) == 4
+    assert parseAZFP.parameters['frequency_number'] == ['1', '2', '3', '4']
+    assert parseAZFP.parameters['kHz'] == [125, 200, 455, 769]
+
+    expected_len_params = ['acquire_frequency', 'pulse_len', 'dig_rate', 'range_samples',
+                           'range_averaging_samples', 'lock_out_index', 'gain', 'storage_format']
+    assert all(len(parseAZFP.parameters[x]) == 4 for x in expected_len_params)
+    assert parseAZFP.parameters['acquire_frequency'] == [1, 1, 1, 1]
+    assert parseAZFP.parameters['pulse_len'] == [300, 300, 300, 300]
+    assert parseAZFP.parameters['dig_rate'] == [20000, 20000, 20000, 20000]
+    assert parseAZFP.parameters['range_samples'] == [1752, 1752, 1764, 540]
+    assert parseAZFP.parameters['range_averaging_samples'] == [4, 4, 4, 4]
+    assert parseAZFP.parameters['lock_out_index'] == [0, 0, 0, 0]
+    assert parseAZFP.parameters['gain'] == [1, 1, 1, 1]
+    assert parseAZFP.parameters['storage_format'] == [1, 1, 1, 1]
+
