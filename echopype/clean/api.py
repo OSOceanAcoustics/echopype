@@ -8,13 +8,12 @@ import numpy as np
 import xarray as xr
 
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
-from . import transient_noise
+from . import signal_attenuation, transient_noise
 from .impulse_noise import (
     _find_impulse_mask_ryan,
     _find_impulse_mask_ryan_iterable,
     _find_impulse_mask_wang,
 )
-from . import signal_attenuation
 from .noise_est import NoiseEst
 
 
@@ -216,13 +215,13 @@ def get_impulse_noise_mask(
         raise ValueError(f"Unsupported method: {method}")
 
     return noise_free_mask
-  
-  
+
+
 def get_attenuation_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     desired_channel: str,
     mask_type: str = "ryan",
-    **kwargs
+    **kwargs,
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
