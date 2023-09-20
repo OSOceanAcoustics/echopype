@@ -7,6 +7,7 @@ from typing import Literal, Tuple, Union
 
 import dask.array
 import numpy as np
+import pandas as pd
 import xarray as xr
 from flox.xarray import xarray_reduce
 
@@ -410,8 +411,8 @@ def bin_and_mean_2d(
 
 def get_MVBS_along_channels(
     ds_Sv: xr.Dataset,
-    range_interval: np.ndarray,
-    ping_interval: np.ndarray,
+    range_interval: Union[pd.IntervalIndex, np.ndarray],
+    ping_interval: Union[pd.IntervalIndex, np.ndarray],
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
     **kwargs
@@ -425,11 +426,11 @@ def get_MVBS_along_channels(
     ds_Sv: xr.Dataset
         A Dataset containing ``Sv`` and ``echo_range`` data with coordinates
         ``channel``, ``ping_time``, and ``range_sample``
-    range_interval: np.ndarray
-        1D array representing
+    range_interval: pd.IntervalIndex or np.ndarray
+        1D array or interval index representing
         the bins required for ``range_var``
-    ping_interval: np.ndarray
-        1D array representing
+    ping_interval: pd.IntervalIndex or np.ndarray
+        1D array or interval index representing
         the bins required for ``ping_time``
     range_var: str
         The variable to use for range binning.
