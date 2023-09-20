@@ -1,4 +1,5 @@
 import abc
+import warnings
 from typing import List, Set, Tuple
 
 import dask.array
@@ -41,7 +42,6 @@ class SetGroupsBase(abc.ABC):
         self.engine = engine
         self.compress = compress
         self.overwrite = overwrite
-        self.ui_param = params
 
         # parsed data written directly to zarr object
         self.parsed2zarr_obj = parsed2zarr_obj
@@ -71,7 +71,6 @@ class SetGroupsBase(abc.ABC):
             "summary": "",
             "title": "",
             "date_created": np.datetime_as_string(date_created, "s") + "Z",
-            "survey_name": self.ui_param["survey_name"],
         }
         # Save
         ds = xr.Dataset()
@@ -113,6 +112,23 @@ class SetGroupsBase(abc.ABC):
         """Set the Platform group."""
         raise NotImplementedError
 
+    def _nan_timestamp_handler(self, time_val) -> List:
+        """
+        Replace nan in time coordinate to avoid xarray warning.
+        """
+        if len(time_val) == 1 and np.isnan(time_val[0]):
+            # set time_val to earliest ping_time among all channels
+            if self.sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+                return [np.array([v[0] for v in self.parser_obj.ping_time.values()]).min()]
+            elif self.sonar_model == "AZFP":
+                return [self.parser_obj.ping_time[0]]
+            else:
+                return NotImplementedError(
+                    f"Nan timestamp handling has not been implemented for {self.sonar_model}!"
+                )
+        else:
+            return time_val
+
     def set_nmea(self) -> xr.Dataset:
         """Set the Platform/NMEA group."""
         # Save nan if nmea data is not encoded in the raw file
@@ -126,6 +142,9 @@ class SetGroupsBase(abc.ABC):
         else:
             time = [np.nan]
             raw_nmea = [np.nan]
+
+        # Handle potential nan timestamp for time
+        time = self._nan_timestamp_handler(time)
 
         ds = xr.Dataset(
             {
@@ -175,18 +194,29 @@ class SetGroupsBase(abc.ABC):
                 pynmea2.ParseError,
             ):
                 nmea_msg.append(None)
-        lat = (
-            np.array([x.latitude if hasattr(x, "latitude") else np.nan for x in nmea_msg])
-            if nmea_msg
-            else [np.nan]
-        )
-        lon = (
-            np.array([x.longitude if hasattr(x, "longitude") else np.nan for x in nmea_msg])
-            if nmea_msg
-            else [np.nan]
-        )
+        if nmea_msg:
+            lat, lon = [], []
+            for x in nmea_msg:
+                try:
+                    lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
+                except ValueError as ve:
+                    lat.append(np.nan)
+                    warnings.warn(
+                        "At least one latitude entry is problematic and "
+                        f"are assigned None in the converted data: {str(ve)}"
+                    )
+                try:
+                    lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
+                except ValueError as ve:
+                    lon.append(np.nan)
+                    warnings.warn(
+                        f"At least one longitude entry is problematic and "
+                        f"are assigned None in the converted data: {str(ve)}"
+                    )
+        else:
+            lat, lon = [np.nan], [np.nan]
         msg_type = (
-            np.array([x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg])
+            [x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg]
             if nmea_msg
             else [np.nan]
         )
@@ -403,7 +433,10 @@ class SetGroupsBase(abc.ABC):
                 ),
             },
             name="backscatter_r",
-            attrs={"long_name": "Backscatter power", "units": "dB"},
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
+                "units": "dB",
+            },
         )
 
         return backscatter_r
@@ -537,14 +570,20 @@ class SetGroupsBase(abc.ABC):
             data=complex_r,
             coords=array_coords,
             name="backscatter_r",
-            attrs={"long_name": "Real part of backscatter power", "units": "V"},
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
+                "units": "dB",
+            },
         )
 
         backscatter_i = xr.DataArray(
             data=complex_i,
             coords=array_coords,
             name="backscatter_i",
-            attrs={"long_name": "Imaginary part of backscatter power", "units": "V"},
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_i"]["long_name"],
+                "units": "dB",
+            },
         )
 
         return backscatter_r, backscatter_i

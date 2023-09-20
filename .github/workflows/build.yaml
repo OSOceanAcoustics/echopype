@@ -16,17 +16,17 @@ jobs:
   test:
     name: ${{ matrix.python-version }}-build
     runs-on: ubuntu-20.04
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
+        python-version: ["3.9", "3.10"]  # TODO: add back 3.11 once parsed2zarr is fixed
+        runs-on: [ubuntu-latest]
+        experimental: [false]
         include:
-        - python-version: 3.8
-          experimental: false
-        - python-version: 3.9
-          experimental: false
-        - python-version: "3.10"
+        - runs-on: ubuntu-latest
+          python-version: "3.11"
           experimental: true
     services:
       # TODO: figure out how to update tag when there's a new one
@@ -40,26 +40,26 @@ jobs:
           - 8080:80
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags.
       - name: Set environment variables
         run: |
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
       - name: Setup micromamba
-        uses: mamba-org/provision-with-micromamba@v16
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
           environment-name: ${{ env.CONDA_ENV }}
-          cache-env: true
-          cache-env-key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
-      - name: Print conda env
+          cache-environment: true
+          post-cleanup: 'all'
+      - name: Print conda environment
         shell: bash -l {0}
         run: |
-          conda info
-          conda list
+          micromamba info
+          micromamba list
       - name: Remove docker-compose python
-        if: ${{ matrix.python-version == '3.10' }}
+        if: ${{ matrix.python-version == '3.10' || matrix.python-version == '3.11' }}
         shell: bash -l {0}
         run: sed -i "/docker-compose/d" requirements-dev.txt
       - name: Install dev tools
@@ -80,13 +80,7 @@ jobs:
       - name: Running All Tests
         shell: bash -l {0}
         run: |
-          pytest -vv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings |& tee ci_${{ matrix.python-version }}_test_log.log
-      - name: Upload ci test log
-        if: ${{ success() || failure() }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ci_test_log
-          path: ci_test_log.log
+          pytest -vv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v3
         with:

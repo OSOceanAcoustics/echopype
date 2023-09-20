@@ -183,7 +183,7 @@ def compute_range_EK(
 
     # set entries with NaN backscatter data to NaN
     if "beam" in beam["backscatter_r"].dims:
-        # Drop beam because echo_range does not have beam dimension
+        # Drop beam because echo_range should not have a beam dimension
         valid_idx = ~beam["backscatter_r"].isel(beam=0).drop("beam").isnull()
     else:
         valid_idx = ~beam["backscatter_r"].isnull()

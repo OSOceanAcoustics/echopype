@@ -1,4 +1,4 @@
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Type
 
 import xarray as xr
 
@@ -17,7 +17,7 @@ def create_echogram(
     frequency: Union[str, List[str], None] = None,
     get_range: Optional[bool] = None,
     range_kwargs: dict = {},
-    water_level: Union[int, float, xr.DataArray, bool, None] = None,
+    vertical_offset: Union[int, float, xr.DataArray, bool, None] = None,
     **kwargs,
 ) -> List[Union[FacetGrid, QuadMesh]]:
     """Create an Echogram from an EchoData object or Sv and MVBS Dataset.
@@ -41,13 +41,13 @@ def create_echogram(
     range_kwargs : dict
         Keyword arguments dictionary for computing range (``echo_range``).
         Keys are `env_params`, `waveform_mode`, and `encode_mode`.
-    water_level : int, float, xr.DataArray, or bool, optional
+    vertical_offset : int, float, xr.DataArray, or bool, optional
         Water level data array for platform water level correction.
         Note that auto addition of water level can be performed
         when data is an EchoData object by setting this argument
         to `True`. Currently because the water level information
         is not available as part of the Sv dataset, a warning is issued
-        when `water_level=True` in this case and no correction is
+        when `vertical_offset=True` in this case and no correction is
         performed. This behavior will change in the future when the
         default content of Sv dataset is updated to include this information.
     **kwargs: optional
@@ -171,10 +171,10 @@ def create_echogram(
             range_in_meter = cal_obj.range_meter
 
             range_in_meter.attrs = range_attrs
-            if water_level is not None:
-                range_in_meter = _add_water_level(
+            if vertical_offset is not None:
+                range_in_meter = _add_vertical_offset(
                     range_in_meter=range_in_meter,
-                    water_level=water_level,
+                    vertical_offset=vertical_offset,
                     data_type=EchoData,
                     platform_data=data["Platform"],
                 )
@@ -193,10 +193,10 @@ def create_echogram(
 
         # If depth is available in ds, use it.
         ds = ds.set_coords('echo_range')
-        if water_level is not None:
-            ds['echo_range'] = _add_water_level(
+        if vertical_offset is not None:
+            ds['echo_range'] = _add_vertical_offset(
                 range_in_meter=ds.echo_range,
-                water_level=water_level,
+                vertical_offset=vertical_offset,
                 data_type=xr.Dataset,
             )
         ds.echo_range.attrs = range_attrs
@@ -219,45 +219,46 @@ def _check_ping_time(ping_time):
         raise ValueError("Ping time must have a length that is greater or equal to 2")
 
 
-def _add_water_level(
+def _add_vertical_offset(
     range_in_meter: xr.DataArray,
-    water_level: Union[int, float, xr.DataArray, bool],
-    data_type: str,
+    vertical_offset: Union[int, float, xr.DataArray, bool],
+    data_type: Union[Type[xr.Dataset], Type[EchoData]],
     platform_data: Optional[xr.Dataset] = None,
 ) -> xr.DataArray:
-    # Below, we rename time3 to ping_time because range_in_meter is in ping_time
-    if isinstance(water_level, bool):
-        if water_level is True:
+    # Below, we rename time2 to ping_time because range_in_meter is in ping_time
+    if isinstance(vertical_offset, bool):
+        if vertical_offset is True:
             if data_type == xr.Dataset:
                 logger.warning(
-                    "Boolean type found for water level. Ignored since data is an xarray dataset."
+                    "Boolean type found for vertical_offset. Ignored since data is an xarray dataset."
                 )
                 return range_in_meter
             elif data_type == EchoData:
                 if (
                     isinstance(platform_data, xr.Dataset)
-                    and 'water_level' in platform_data
+                    and 'vertical_offset' in platform_data
                 ):
-                    return range_in_meter + platform_data.water_level.rename({'time3': 'ping_time'})
+                    return range_in_meter + platform_data.vertical_offset.rename({'time2': 'ping_time'})
                 else:
                     logger.warning(
-                        "Boolean type found for water level. Please provide platform data with water level in it or provide a separate water level data."  # noqa
+                        "Boolean type found for vertical_offset. Please provide platform data with vertical_offset in it or provide a separate vertical_offset data."  # noqa
                     )
                     return range_in_meter
-        logger.warning(f"Water level value of {water_level} is ignored.")
+        logger.warning(f"vertical_offset value of {vertical_offset} is ignored.")
         return range_in_meter
-    if isinstance(water_level, xr.DataArray):
-        check_dims = range_in_meter.dims
-        if 'time3' in water_level:
-            water_level = water_level.rename({'time3': 'ping_time'})
+    if isinstance(vertical_offset, xr.DataArray):
+        check_dims = list(range_in_meter.dims)
+        check_dims.remove('channel')
+        if 'time2' in vertical_offset:
+            vertical_offset = vertical_offset.rename({'time2': 'ping_time'})
 
         if not any(
-            True if d in water_level.dims else False for d in check_dims
+            True if d in vertical_offset.dims else False for d in check_dims
         ):
             raise ValueError(
-                f"Water level must have any of these dimensions: {', '.join(check_dims)}"
+                f"vertical_offset must have any of these dimensions: {', '.join(check_dims)}"
             )
-        # Adds water level to range if it exists
-        return range_in_meter + water_level
-    elif isinstance(water_level, (int, float)):
-        return range_in_meter + water_level
+        # Adds vertical_offset to range if it exists
+        return range_in_meter + vertical_offset
+    elif isinstance(vertical_offset, (int, float)):
+        return range_in_meter + vertical_offset

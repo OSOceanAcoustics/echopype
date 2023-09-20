@@ -5,7 +5,7 @@ Installation and Examples
 Installation
 ------------
 
-Echopype is available and tested for Python>=3.8. The latest release
+Echopype is available and tested for Python>=3.9. The latest release
 can be installed from `PyPI <https://pypi.org/project/echopype/>`_:
 
 .. code-block:: console
@@ -17,6 +17,11 @@ or through conda from the `conda-forge Anaconda channel <https://anaconda.org/co
 .. code-block:: console
 
    $ conda install -c conda-forge echopype
+
+.. attention::
+   We recommend using the ``libmamba`` solver instead of the classic solver.
+   See instructions `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
+   for installation and usage.
 
 Previous releases are also available on PyPI and conda.
 

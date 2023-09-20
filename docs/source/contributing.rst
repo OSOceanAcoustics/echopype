@@ -72,12 +72,20 @@ then set the source repository as the ``upstream`` git remote:
     cd echopype
     git remote add upstream https://github.com/OSOceanAcoustics/echopype.git
 
-Create a `conda <https://docs.conda.io>`_ environment for echopype development
-(replace the Python version with your preferred version):
+Below shows the steps to create a `conda <https://docs.conda.io>`_
+environment for echopype development
+(replace the Python version with your preferred version).
+
+.. attention::
+    We recommend using the ``libmamba`` solver instead of the classic solver,
+    since the ``conda create`` and ``conda install`` step could take very long or fail.
+    See instructions `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
+    for installation and usage.
+
 
 .. code-block:: bash
 
-    # create conda environment using the supplied requirements files
+    # create a conda environment using the supplied requirements files
     # note the last one docs/requirements.txt is only required for building docs
     conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
 
@@ -92,13 +100,6 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
     # plot is an extra set of requirements that can be used for plotting.
     # the command will install all the dependencies along with plotting dependencies.
     pip install -e ".[plot]"
-
-.. note::
-
-    Try using `mamba <https://mamba.readthedocs.io>`_ instead of ``conda``
-    if the ``conda create`` and ``conda install`` step fail or take too long.
-    ``Mamba`` is a drop-in replacement for conda environment creation and package
-    installation that is typically faster than conda.
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 

@@ -3,7 +3,7 @@ import shutil
 import warnings
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
 import fsspec
 import numpy as np
@@ -14,12 +14,11 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..utils.coding import set_time_encodings
+from ..utils.coding import sanitize_dtypes, set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
-from .sensor_ep_version_mapping import ep_version_mapper
 from .widgets.utils import tree_repr
 from .widgets.widgets import _load_static_files, get_template
 
@@ -94,7 +93,10 @@ class EchoData:
         fpath = "Internal Memory"
         if self.converted_raw_path:
             fpath = self.converted_raw_path
-        return f"<EchoData: standardized raw data from {fpath}>\n{tree_repr(self._tree)}"
+        repr_str = "No data found."
+        if self._tree is not None:
+            repr_str = tree_repr(self._tree)
+        return f"<EchoData: standardized raw data from {fpath}>\n{repr_str}"
 
     def __repr__(self) -> str:
         return str(self)
@@ -158,9 +160,6 @@ class EchoData:
 
         echodata._set_tree(tree)
 
-        # convert to newest echopype version structure, if necessary
-        ep_version_mapper.map_ep_version(echodata)
-
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
             # for retrieving the path strings
@@ -193,16 +192,28 @@ class EchoData:
                 setattr(self, group, node)
 
     @property
-    def version_info(self) -> Tuple[int]:
-        if self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
-            version_str = self["Provenance"].attrs.get("conversion_software_version", None)
+    def version_info(self) -> Union[Tuple[int], None]:
+        def _get_version_tuple(provenance_type):
+            """
+            Parameters
+            ----------
+            provenance_type : str
+                Either conversion or combination
+            """
+            version_str = self["Provenance"].attrs.get(f"{provenance_type}_software_version", None)
             if version_str is not None:
                 if version_str.startswith("v"):
                     # Removes v in case of v0.4.x or less
                     version_str = version_str.strip("v")
                 version_num = version_str.split(".")[:3]
                 return tuple([int(i) for i in version_num])
-        return None
+
+        if self["Provenance"].attrs.get("combination_software_name", None) == "echopype":
+            return _get_version_tuple("combination")
+        elif self["Provenance"].attrs.get("conversion_software_name", None) == "echopype":
+            return _get_version_tuple("conversion")
+        else:
+            return None
 
     @property
     def nbytes(self) -> float:
@@ -210,12 +221,13 @@ class EchoData:
 
     @property
     def group_paths(self) -> Set[str]:
-        return {i[1:] if i != "/" else "Top-level" for i in self._tree.groups}
+        return tuple(i[1:] if i != "/" else "Top-level" for i in self._tree.groups)
 
     @staticmethod
     def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
-            return node.ds
+            # validate and clean dtypes
+            return sanitize_dtypes(node.ds)
         return None
 
     def __get_node(self, key: Optional[str]) -> DataTree:
@@ -265,43 +277,44 @@ class EchoData:
     def update_platform(
         self,
         extra_platform_data: xr.Dataset,
-        time_dim="time",
+        variable_mappings=Dict[str, str],
         extra_platform_data_file_name=None,
     ):
         """
         Updates the `EchoData["Platform"]` group with additional external platform data.
 
-        `extra_platform_data` must be an xarray Dataset.
-        The name of the time dimension in `extra_platform_data` is specified by the
-        `time_dim` parameter.
-        Data is extracted from `extra_platform_data` by variable name; only the data
-        in `extra_platform_data` with the following variable names will be used:
-            - `"pitch"`
-            - `"roll"`
-            - `"vertical_offset"`
-            - `"latitude"`
-            - `"longitude"`
-            - `"water_level"`
-        The data inserted into the Platform group will be indexed by a dimension named
-        `"time1"`.
+        `extra_platform_data` must be an xarray Dataset. Data is extracted from
+        `extra_platform_data` by variable name. Only data assigned to a pre-existing
+        (but possibly all-nan) variable name in Platform will be processed. These
+        Platform variables include latitude, longitude, pitch, roll, vertical_offset, etc.
+        See the variables present in the EchoData object's Platform group to obtain a
+        complete list of possible variables.
+        Different external variables may be dependent on different time dimensions, but
+        latitude and longitude (if specified) must share the same time dimension. New
+        time dimensions will be added as needed. For example, if variables to be added
+        from the external data use two time dimensions and the Platform group has time
+        dimensions time2 and time2, new dimensions time3 and time4 will be created.
 
         Parameters
         ----------
         extra_platform_data : xr.Dataset
             An `xr.Dataset` containing the additional platform data to be added
             to the `EchoData["Platform"]` group.
-        time_dim: str, default="time"
-            The name of the time dimension in `extra_platform_data`; used for extracting
-            data from `extra_platform_data`.
+        variable_mappings: Dict[str,str]
+            A dictionary mapping Platform variable names (dict key) to the
+            external-data variable name (dict value).
         extra_platform_data_file_name: str, default=None
             File name for source of extra platform data, if read from a file
 
         Examples
         --------
         >>> ed = echopype.open_raw(raw_file, "EK60")
-        >>> extra_platform_data = xr.open_dataset(extra_platform_data_file)
-        >>> ed.update_platform(extra_platform_data,
-        >>>         extra_platform_data_file_name=extra_platform_data_file)
+        >>> extra_platform_data = xr.open_dataset(extra_platform_data_file_name)
+        >>> ed.update_platform(
+        >>>     extra_platform_data,
+        >>>     variable_mappings={"longitude": "lon", "latitude": "lat", "roll": "ROLL"},
+        >>>     extra_platform_data_file_name=extra_platform_data_file_name
+        >>> )
         """
 
         # Handle data stored as a CF Trajectory Discrete Sampling Geometry
@@ -312,114 +325,212 @@ class EchoData:
             and extra_platform_data.attrs["featureType"].lower() == "trajectory"
         ):
             for coordvar in extra_platform_data.coords:
-                if (
-                    "cf_role" in extra_platform_data[coordvar].attrs
-                    and extra_platform_data[coordvar].attrs["cf_role"] == "trajectory_id"
-                ):
+                coordvar_attrs = extra_platform_data[coordvar].attrs
+                if "cf_role" in coordvar_attrs and coordvar_attrs["cf_role"] == "trajectory_id":
                     trajectory_var = coordvar
+
+                if "standard_name" in coordvar_attrs and coordvar_attrs["standard_name"] == "time":
+                    time_dim = coordvar
 
             # assumes there's only one trajectory in the dataset (index 0)
             extra_platform_data = extra_platform_data.sel(
                 {trajectory_var: extra_platform_data[trajectory_var][0]}
             )
             extra_platform_data = extra_platform_data.drop_vars(trajectory_var)
-            extra_platform_data = extra_platform_data.swap_dims({"obs": time_dim})
+            obs_dim = list(extra_platform_data[time_dim].dims)[0]
+            extra_platform_data = extra_platform_data.swap_dims({obs_dim: time_dim})
+
+        def _extvar_properties(ds, name):
+            """Test the external variable for presence and all-nan values,
+            and extract its time dimension name.
+            Returns <presence>, <valid values>, <time dim name>
+            """
+            if name in ds:
+                # Assumes the only dimension in the variable is a time dimension
+                time_dim_name = ds[name].dims[0] if len(ds[name].dims) > 0 else "scalar"
+                if not ds[name].isnull().all():
+                    return True, True, time_dim_name
+                else:
+                    return True, False, time_dim_name
+            else:
+                return False, False, None
 
         # clip incoming time to 1 less than min of EchoData["Sonar/Beam_group1"]["ping_time"] and
         #   1 greater than max of EchoData["Sonar/Beam_group1"]["ping_time"]
         # account for unsorted external time by checking whether each time value is between
         #   min and max ping_time instead of finding the 2 external times corresponding to the
         #   min and max ping_time and taking all the times between those indices
-        sorted_external_time = extra_platform_data[time_dim].data
-        sorted_external_time.sort()
-        # fmt: off
-        min_index = max(
-            np.searchsorted(
-                sorted_external_time, self["Sonar/Beam_group1"]["ping_time"].min(), side="left"
-            ) - 1,
-            0,
-        )
-        # fmt: on
-        max_index = min(
-            np.searchsorted(
-                sorted_external_time,
-                self["Sonar/Beam_group1"]["ping_time"].max(),
-                side="right",
-            ),
-            len(sorted_external_time) - 1,
-        )
-        extra_platform_data = extra_platform_data.sel(
-            {
-                time_dim: np.logical_and(
-                    sorted_external_time[min_index] <= extra_platform_data[time_dim],
-                    extra_platform_data[time_dim] <= sorted_external_time[max_index],
-                )
-            }
-        )
-
-        platform = self["Platform"]
-        platform = platform.drop_dims(["time1"], errors="ignore")
-        # drop_dims is also dropping latitude, longitude and sentence_type why?
-        platform = platform.assign_coords(time1=extra_platform_data[time_dim].values)
-        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
-        if extra_platform_data_file_name:
-            history_attr += ", from file " + extra_platform_data_file_name
-        time1_attrs = {
-            **self._varattrs["platform_coord_default"]["time1"],
-            **{"history": history_attr},
-        }
-        platform["time1"] = platform["time1"].assign_attrs(**time1_attrs)
-
-        platform_vars_sourcenames = {
-            "pitch": ["pitch", "PITCH"],
-            "roll": ["roll", "ROLL"],
-            "vertical_offset": ["heave", "HEAVE", "vertical_offset", "VERTICAL_OFFSET"],
-            "latitude": ["lat", "latitude", "LATITUDE"],
-            "longitude": ["lon", "longitude", "LONGITUDE"],
-            "water_level": ["water_level", "WATER_LEVEL"],
-        }
-
-        dropped_vars_target = platform_vars_sourcenames.keys()
-        dropped_vars = []
-        for var in dropped_vars_target:
-            if var in platform and (~platform[var].isnull()).all():
-                dropped_vars.append(var)
-        if len(dropped_vars) > 0:
-            logger.warning(
-                f"Some variables in the original Platform group will be overwritten: {', '.join(dropped_vars)}"  # noqa
+        def _clip_by_time_dim(external_ds, ext_time_dim_name):
+            # external_ds is extra_platform_data[vars-list-on-time_dim_name]
+            sorted_external_time = external_ds[ext_time_dim_name].data
+            sorted_external_time.sort()
+            # fmt: off
+            min_index = max(
+                np.searchsorted(
+                    sorted_external_time,
+                    self["Sonar/Beam_group1"]["ping_time"].min(),
+                    side="left"
+                ) - 1,
+                0,
             )
-        platform = platform.drop_vars(
-            dropped_vars_target,
-            errors="ignore",
-        )
-
-        def mapping_search_variable(mapping, keys, default=None):
-            for key in keys:
-                if key in mapping:
-                    return mapping[key].data
-            return default
-
-        num_obs = len(extra_platform_data[time_dim])
-        for platform_var, sourcenames in platform_vars_sourcenames.items():
-            platform = platform.update(
+            # fmt: on
+            max_index = min(
+                np.searchsorted(
+                    sorted_external_time,
+                    self["Sonar/Beam_group1"]["ping_time"].max(),
+                    side="right",
+                ),
+                len(sorted_external_time) - 1,
+            )
+            # TODO: this element-wise comparison is expensive and seems an ad-hoc patch
+            # to deal with potentially reversed timestamps in the external dataset.
+            # Review at workflow stage to see if to clean up timestamp reversals
+            # and just find start/end timestamp for slicing.
+            return external_ds.sel(
                 {
-                    platform_var: (
-                        "time1",
-                        mapping_search_variable(
-                            extra_platform_data,
-                            sourcenames,
-                            platform.get(platform_var, np.full(num_obs, np.nan)),
-                        ),
+                    ext_time_dim_name: np.logical_and(
+                        sorted_external_time[min_index] <= external_ds[ext_time_dim_name],
+                        external_ds[ext_time_dim_name] <= sorted_external_time[max_index],
                     )
                 }
             )
 
-        for var in dropped_vars_target:
-            var_attrs = self._varattrs["platform_var_default"][var]
-            # Insert history attr only if the variable was inserted with valid values
-            if not platform[var].isnull().all():
-                var_attrs["history"] = history_attr
-            platform[var] = platform[var].assign_attrs(**var_attrs)
+        # History attribute to be included in each updated variable
+        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
+        if extra_platform_data_file_name:
+            history_attr += ", from file " + extra_platform_data_file_name
+
+        platform = self["Platform"]
+
+        # Retain only variable_mappings items where
+        # either the Platform group or extra_platform_data
+        # contain the corresponding variables or contain valid (not all nan) data
+        mappings_expanded = {}
+        for platform_var, external_var in variable_mappings.items():
+            # TODO: instead of using existing Platform group variables, a better practice is to
+            # define a set of allowable Platform variables (sonar_model dependent) for this check.
+            # This set can be dynamically generated from an external source like a CDL or yaml.
+            if platform_var in platform:
+                platform_validvalues = not platform[platform_var].isnull().all()
+                ext_present, ext_validvalues, ext_time_dim_name = _extvar_properties(
+                    extra_platform_data, external_var
+                )
+                if ext_present and ext_validvalues:
+                    mappings_expanded[platform_var] = dict(
+                        external_var=external_var,
+                        ext_time_dim_name=ext_time_dim_name,
+                        platform_validvalues=platform_validvalues,
+                    )
+
+        # Generate warning if mappings_expanded is empty
+        if not mappings_expanded:
+            logger.warning(
+                "No variables will be updated, "
+                "check variable_mappings to ensure variable names are correctly specified!"
+            )
+
+        # If longitude or latitude are requested, verify that both are present
+        # and they share the same external time dimension
+        if "longitude" in mappings_expanded or "latitude" in mappings_expanded:
+            if "longitude" not in mappings_expanded or "latitude" not in mappings_expanded:
+                raise ValueError(
+                    "Only one of latitude and longitude are specified. Please include both, or neither."  # noqa
+                )
+            if (
+                mappings_expanded["longitude"]["ext_time_dim_name"]
+                != mappings_expanded["latitude"]["ext_time_dim_name"]
+            ):
+                raise ValueError(
+                    "The external latitude and longitude use different time dimensions. "
+                    "They must share the same time dimension."
+                )
+
+        # Generate warnings regarding variables that will be updated
+        vars_not_handled = set(variable_mappings.keys()).difference(mappings_expanded.keys())
+        if len(vars_not_handled) > 0:
+            logger.warning(
+                f"The following requested variables will not be updated: {', '.join(vars_not_handled)}"  # noqa
+            )
+
+        vars_notnan_replaced = [
+            platform_var
+            for platform_var, v in mappings_expanded.items()
+            if v["platform_validvalues"]
+        ]
+        if len(vars_notnan_replaced) > 0:
+            logger.warning(
+                f"Some variables with valid data in the original Platform group will be overwritten: {', '.join(vars_notnan_replaced)}"  # noqa
+            )
+
+        # Create names for required new time dimensions
+        ext_time_dims = list(
+            {
+                v["ext_time_dim_name"]
+                for v in mappings_expanded.values()
+                if v["ext_time_dim_name"] != "scalar"
+            }
+        )
+        time_dims_max = max([int(dim[-1]) for dim in platform.dims if dim.startswith("time")])
+        new_time_dims = [f"time{time_dims_max+i+1}" for i in range(len(ext_time_dims))]
+        # Map each new time dim name to the external time dim name:
+        new_time_dims_mappings = {new: ext for new, ext in zip(new_time_dims, ext_time_dims)}
+
+        # Process variable updates by corresponding new time dimensions
+        for time_dim in new_time_dims:
+            ext_time_dim = new_time_dims_mappings[time_dim]
+            mappings_selected = {
+                k: v for k, v in mappings_expanded.items() if v["ext_time_dim_name"] == ext_time_dim
+            }
+            ext_vars = [v["external_var"] for v in mappings_selected.values()]
+            ext_ds = _clip_by_time_dim(extra_platform_data[ext_vars], ext_time_dim)
+
+            # Create new time coordinate and dimension
+            platform = platform.assign_coords(**{time_dim: ext_ds[ext_time_dim].values})
+            time_attrs = {
+                "axis": "T",
+                "standard_name": "time",
+                "long_name": "Timestamps from an external dataset",
+                "comment": "Time coordinate originated from a dataset "
+                "external to the sonar data files.",
+                "history": f"{history_attr}. From external {ext_time_dim} variable.",
+            }
+            platform[time_dim] = platform[time_dim].assign_attrs(**time_attrs)
+
+            # Process each platform variable that will be replaced
+            for platform_var in mappings_selected.keys():
+                ext_var = mappings_expanded[platform_var]["external_var"]
+                platform_var_attrs = platform[platform_var].attrs.copy()
+
+                # Create new (replaced) variable using dataset "update"
+                # With update, dropping the variable first is not needed
+                platform = platform.update({platform_var: (time_dim, ext_ds[ext_var].data)})
+
+                # Assign attributes to newly created (replaced) variables
+                var_attrs = platform_var_attrs
+                var_attrs["history"] = f"{history_attr}. From external {ext_var} variable."
+                platform[platform_var] = platform[platform_var].assign_attrs(**var_attrs)
+
+        # Update scalar variables, if any
+        scalar_vars = [
+            platform_var
+            for platform_var, v in mappings_expanded.items()
+            if v["ext_time_dim_name"] == "scalar"
+        ]
+        for platform_var in scalar_vars:
+            ext_var = mappings_expanded[platform_var]["external_var"]
+            # Replace the scalar value and add a history attribute
+            platform[platform_var].data = float(extra_platform_data[ext_var].data)
+            platform[platform_var] = platform[platform_var].assign_attrs(
+                **{"history": f"{history_attr}. From external {ext_var} variable."}
+            )
+
+        # Drop pre-existing time dimensions that are no longer being used
+        used_dims = {
+            platform[platform_var].dims[0]
+            for platform_var in platform.data_vars
+            if len(platform[platform_var].dims) > 0
+        }
+        platform = platform.drop_dims(set(platform.dims).difference(used_dims), errors="ignore")
 
         self["Platform"] = set_time_encodings(platform)
 

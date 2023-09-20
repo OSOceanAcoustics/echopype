@@ -197,7 +197,7 @@ def range_check_files(request, test_path):
 
 
 class TestEchoData:
-    expected_groups = {
+    expected_groups = (
         'Top-level',
         'Environment',
         'Platform',
@@ -206,7 +206,7 @@ class TestEchoData:
         'Sonar',
         'Sonar/Beam_group1',
         'Vendor_specific',
-    }
+    )
 
     @pytest.fixture(scope="class")
     def mock_echodata(self):
@@ -459,12 +459,14 @@ def test_nan_range_entries(range_check_files):
             echodata, env_params=None, cal_params=None, ecs_file=None, waveform_mode="BB", encode_mode="complex",
         )
         range_output = cal_obj.range_meter
+        # broadband complex data EK80 file: always need to drop "beam" dimension
         nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
     else:
+        # EK60 file does not need dropping "beam" dimension
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
         cal_obj = CalibrateEK60(echodata, env_params={}, cal_params=None, ecs_file=None)
         range_output = cal_obj.range_meter
-        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
+        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isnull()
 
     nan_locs_Sv_range = ~ds_Sv.echo_range.isnull()
     nan_locs_range = ~range_output.isnull()
@@ -473,39 +475,41 @@ def test_nan_range_entries(range_check_files):
 
 
 @pytest.mark.parametrize(
-    ["ext_type", "sonar_model", "updated", "path_model", "raw_path", "platform_data"],
+    ["ext_type", "sonar_model", "variable_mappings", "path_model", "raw_path", "platform_data"],
     [
         (
-                "external-trajectory",
-                "EK80",
-                ("pitch", "roll", "longitude", "latitude"),
-                "EK80",
-                (
-                        "saildrone",
-                        "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
-                ),
-                (
-                        "saildrone",
-                        "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",  #noqa
-                ),
+            "external-trajectory",
+            "EK80",
+            # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
+            {"pitch": "PITCH", "roll": "ROLL", "longitude": "longitude", "latitude": "latitude"},
+            "EK80",
+            (
+                    "saildrone",
+                    "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
+            ),
+            (
+                    "saildrone",
+                    "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",  #noqa
+            ),
         ),
         (
-                "fixed-location",
-                "EK60",
-                ("longitude", "latitude"),
-                "EK60",
-                (
-                        "ooi",
-                        "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
-                ),
-                (-100.0, -50.0),
+            "fixed-location",
+            "EK60",
+            # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
+            {"longitude": "longitude", "latitude": "latitude"},
+            "EK60",
+            (
+                    "ooi",
+                    "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+            ),
+            (-100.0, -50.0),
         ),
     ],
 )
 def test_update_platform(
         ext_type,
         sonar_model,
-        updated,
+        variable_mappings,
         path_model,
         raw_path,
         platform_data,
@@ -514,9 +518,11 @@ def test_update_platform(
     raw_file = test_path[path_model] / raw_path[0] / raw_path[1]
     ed = echopype.open_raw(raw_file, sonar_model=sonar_model)
 
-    for variable in updated:
+    # Test that the variables in Platform are all empty (nan)
+    for variable in variable_mappings.keys():
         assert np.isnan(ed["Platform"][variable].values).all()
 
+    # Prepare the external data
     if ext_type == "external-trajectory":
         extra_platform_data_file_name = platform_data[1]
         extra_platform_data = xr.open_dataset(
@@ -534,36 +540,156 @@ def test_update_platform(
             },
         )
 
+    # Run update_platform
     ed.update_platform(
         extra_platform_data,
+        variable_mappings=variable_mappings,
         extra_platform_data_file_name=extra_platform_data_file_name,
     )
 
-    for variable in updated:
+    for variable in variable_mappings.keys():
         assert not np.isnan(ed["Platform"][variable].values).all()
 
     # times have max interval of 2s
     # check times are > min(ed["Sonar/Beam_group1"]["ping_time"]) - 2s
     assert (
-        ed["Platform"]["time1"]
+        ed["Platform"]["time3"]
         > ed["Sonar/Beam_group1"]["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time < min(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed["Platform"]["time1"] < ed["Sonar/Beam_group1"]["ping_time"].min()
+            ed["Platform"]["time3"] < ed["Sonar/Beam_group1"]["ping_time"].min()
         )
         <= 1
     )
     # check times are < max(ed["Sonar/Beam_group1"]["ping_time"]) + 2s
     assert (
-        ed["Platform"]["time1"]
+        ed["Platform"]["time3"]
         < ed["Sonar/Beam_group1"]["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time > max(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
         np.count_nonzero(
-            ed["Platform"]["time1"] > ed["Sonar/Beam_group1"]["ping_time"].max()
+            ed["Platform"]["time3"] > ed["Sonar/Beam_group1"]["ping_time"].max()
         )
         <= 1
     )
+
+
+def test_update_platform_multidim(test_path):
+    raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+    ed = echopype.open_raw(raw_file, sonar_model="EK60")
+
+    extra_platform_data = xr.Dataset(
+        {
+            "lon": (["time"], np.array([-100.0])),
+            "lat": (["time"], np.array([-50.0])),
+            "pitch": (["time_pitch"], np.array([0.1])),
+            "waterlevel": ([], float(10)),
+        },
+        coords={
+            "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+            "time_pitch": (
+                ["time_pitch"],
+                # Adding a time delta is not necessary, but it may be handy if we later
+                # want to expand the scope of this test
+                np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]) + np.timedelta64(5, "s")
+            )
+        },
+    )
+
+    platform_preexisting_dims = ed["Platform"].dims
+
+    variable_mappings = {
+        "longitude": "lon",
+        "latitude": "lat",
+        "pitch": "pitch",
+        "water_level": "waterlevel"
+    }
+    ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
+
+    # Updated variables are not all nan
+    for variable in variable_mappings.keys():
+        assert not np.isnan(ed["Platform"][variable].values).all()
+
+    # Number of dimensions in Platform group and addition of time3 and time4
+    assert len(ed["Platform"].dims) == len(platform_preexisting_dims) + 2
+    assert "time3" in ed["Platform"].dims
+    assert "time4" in ed["Platform"].dims
+
+    # Dimension assignment
+    assert ed["Platform"]["longitude"].dims[0] == ed["Platform"]["latitude"].dims[0]
+    assert ed["Platform"]["pitch"].dims[0] != ed["Platform"]["longitude"].dims[0]
+    assert ed["Platform"]["longitude"].dims[0] not in platform_preexisting_dims
+    assert ed["Platform"]["pitch"].dims[0] not in platform_preexisting_dims
+    # scalar variable
+    assert len(ed["Platform"]["water_level"].dims) == 0
+
+
+@pytest.mark.parametrize(
+    ["variable_mappings"],
+    [
+        pytest.param(
+            # lat and lon both exist, but aligned on different time dimension: should fail
+            {"longitude": "lon", "latitude": "lat"},
+            marks=pytest.mark.xfail(strict=True, reason="Fail since lat and lon not on the same time dimension")
+        ),
+        pytest.param(
+            # only lon exists: should fail
+            {"longitude": "lon"},
+            marks=pytest.mark.xfail(strict=True, reason="Fail since only lon exists without lat")
+        ),
+    ],
+    ids=[
+        "lat_lon_diff_time",
+        "lon_only"
+    ]
+)
+def test_update_platform_latlon(test_path, variable_mappings):
+    raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+    ed = echopype.open_raw(raw_file, sonar_model="EK60")
+
+    if "latitude" in variable_mappings:
+        extra_platform_data = xr.Dataset(
+            {
+                "lon": (["time1"], np.array([-100.0])),
+                "lat": (["time2"], np.array([-50.0])),
+            },
+            coords={
+                "time1": (["time1"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+                "time2": (["time2"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]) + np.timedelta64(5, "s")),
+            },
+        )
+    else:
+        extra_platform_data = xr.Dataset(
+            {
+                "lon": (["time"], np.array([-100.0])),
+            },
+            coords={
+                "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+            },
+        )
+
+    ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
+
+
+@pytest.mark.filterwarnings("ignore:No variables will be updated")
+def test_update_platform_no_update(test_path):
+    raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+    ed = echopype.open_raw(raw_file, sonar_model="EK60")
+
+    extra_platform_data = xr.Dataset(
+        {
+            "lon": (["time"], np.array([-100.0])),
+            "lat": (["time"], np.array([-50.0])),
+        },
+        coords={
+            "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+        },
+    )
+
+    # variable names in mappings different from actual external dataset
+    variable_mappings = {"longitude": "longitude", "latitude": "latitude"}
+
+    ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)

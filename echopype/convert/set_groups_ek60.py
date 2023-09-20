@@ -6,7 +6,6 @@ import xarray as xr
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
-from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 # fmt: off
 from .set_groups_base import SetGroupsBase
@@ -24,26 +23,27 @@ class SetGroupsEK60(SetGroupsBase):
     # in converting from v0.5.x to v0.6.0. The values within
     # these sets are applied to all Sonar/Beam_groupX groups.
 
+    # 2023-07-24:
+    #   PRs:
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1056
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1083
+    #   The artificially added beam and ping_time dimensions at v0.6.0
+    #   were reverted at v0.8.0, due to concerns with efficiency and code clarity
+    #   (see https://github.com/OSOceanAcoustics/echopype/issues/684 and
+    #        https://github.com/OSOceanAcoustics/echopype/issues/978).
+    #   However, the mechanisms to expand these dimensions were preserved for
+    #   flexibility and potential later use.
+    #   Note such expansion is still applied on AZFP data for 2 variables
+    #   (see set_groups_azfp.py).
+
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {"backscatter_r", "angle_athwartship", "angle_alongship"}
+    beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {"beam_type"}
+    ping_time_only_names = set()
 
     # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {
-        "beam_direction_x",
-        "beam_direction_y",
-        "beam_direction_z",
-        "beamwidth_twoway_alongship",
-        "beamwidth_twoway_athwartship",
-        "angle_offset_alongship",
-        "angle_offset_athwartship",
-        "angle_sensitivity_alongship",
-        "angle_sensitivity_athwartship",
-        "equivalent_beam_angle",
-        "gain_correction",
-    }
+    beam_ping_time_names = set()
 
     beamgroups_possible = [
         {
@@ -57,8 +57,6 @@ class SetGroupsEK60(SetGroupsBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self.old_ping_time = None
 
         # obtain sorted channel dict in ascending order
         channels = list(self.parser_obj.config_datagram["transceivers"].keys())
@@ -79,70 +77,6 @@ class SetGroupsEK60(SetGroupsBase):
             self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
             for ch in self.sorted_channel.keys()
         ]
-
-        # correct duplicate ping_time
-        for ch in self.sorted_channel.keys():
-            ping_time = self.parser_obj.ping_time[ch]
-            _, unique_idx = np.unique(ping_time, return_index=True)
-            duplicates = np.invert(np.isin(np.arange(len(ping_time)), unique_idx))
-            if duplicates.any():
-                if self.old_ping_time is None:
-                    if (
-                        len({arr.shape for arr in self.parser_obj.ping_time.values()}) == 1
-                        and np.unique(np.stack(self.parser_obj.ping_time.values()), axis=0).shape[0]
-                        == 1
-                    ):
-                        self.old_ping_time = self.parser_obj.ping_time[ch]
-                    else:
-                        ping_times = [
-                            xr.DataArray(arr, dims="ping_time")
-                            for arr in self.parser_obj.ping_time.values()
-                        ]
-                        self.old_ping_time = xr.concat(ping_times, dim="ping_time")
-
-                backscatter_r = self.parser_obj.ping_data_dict["power"][ch]
-                # indexes of duplicates including the originals
-                # (if there are 2 times that are the same, both will be included)
-                (all_duplicates_idx,) = np.where(np.isin(ping_time, ping_time[duplicates][0]))
-                if np.array_equal(
-                    backscatter_r[all_duplicates_idx[0]],
-                    backscatter_r[all_duplicates_idx[1]],
-                ):
-                    logger.warning(
-                        "duplicate pings with identical values detected; the duplicate pings will be removed"  # noqa
-                    )
-                    for v in self.parser_obj.ping_data_dict.values():
-                        if v[ch] is None or len(v[ch]) == 0:
-                            continue
-                        if isinstance(v[ch], np.ndarray):
-                            v[ch] = v[ch][unique_idx]
-                        else:
-                            v[ch] = [v[ch][i] for i in unique_idx]
-                    self.parser_obj.ping_time[ch] = self.parser_obj.ping_time[ch][unique_idx]
-                else:
-                    logger.warning(
-                        "duplicate ping times detected; the duplicate times will be incremented by 1 nanosecond and remain in the ping_time coordinate. The original ping times will be preserved in the Provenance group"  # noqa
-                    )
-
-                    deltas = duplicates * np.timedelta64(1, "ns")
-                    new_ping_time = ping_time + deltas
-                    self.parser_obj.ping_time[ch] = new_ping_time
-
-    def set_provenance(self) -> xr.Dataset:
-        """Set the Provenance group."""
-        prov_dict = echopype_prov_attrs(process_type="conversion")
-        prov_dict["duplicate_ping_times"] = 1 if self.old_ping_time is not None else 0
-        files_vars = source_files_vars(self.input_file)
-        if self.old_ping_time is not None:
-            source_vars = {"old_ping_time": self.old_ping_time, **files_vars["source_files_var"]}
-        else:
-            source_vars = files_vars["source_files_var"]
-
-        ds = xr.Dataset(
-            data_vars=source_vars, coords=files_vars["source_files_coord"], attrs=prov_dict
-        )
-
-        return ds
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
@@ -240,7 +174,16 @@ class SetGroupsEK60(SetGroupsBase):
         # Read lat/long from NMEA datagram
         time1, msg_type, lat, lon = self._extract_NMEA_latlon()
 
-        # NMEA dataset: variables filled with nan if do not exist
+        # NMEA dataset: variables filled with np.nan if they do not exist
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
+
+        # Values for the variables in ds below having a channel (ch) dependence
+        # are identical across channels
+        ch = list(self.sorted_channel.keys())[0]
+
+        # Handle potential nan timestamp for time1 and time2
+        time1 = self._nan_timestamp_handler(time1)
+
         ds = xr.Dataset(
             {
                 "latitude": (
@@ -253,7 +196,46 @@ class SetGroupsEK60(SetGroupsBase):
                     lon,
                     self._varattrs["platform_var_default"]["longitude"],
                 ),
-                "sentence_type": (["time1"], msg_type),
+                "sentence_type": (
+                    ["time1"],
+                    msg_type,
+                    self._varattrs["platform_var_default"]["sentence_type"],
+                ),
+                "pitch": (
+                    ["time2"],
+                    self.parser_obj.ping_data_dict["pitch"][ch],
+                    self._varattrs["platform_var_default"]["pitch"],
+                ),
+                "roll": (
+                    ["time2"],
+                    self.parser_obj.ping_data_dict["roll"][ch],
+                    self._varattrs["platform_var_default"]["roll"],
+                ),
+                "vertical_offset": (
+                    ["time2"],
+                    self.parser_obj.ping_data_dict["heave"][ch],
+                    self._varattrs["platform_var_default"]["vertical_offset"],
+                ),
+                "water_level": (
+                    [],
+                    # a scalar, assumed to be a constant in the source transducer_depth data
+                    self.parser_obj.ping_data_dict["transducer_depth"][ch][0],
+                    self._varattrs["platform_var_default"]["water_level"],
+                ),
+                **{
+                    var: ([], np.nan, self._varattrs["platform_var_default"][var])
+                    for var in [
+                        "MRU_offset_x",
+                        "MRU_offset_y",
+                        "MRU_offset_z",
+                        "MRU_rotation_x",
+                        "MRU_rotation_y",
+                        "MRU_rotation_z",
+                        "position_offset_x",
+                        "position_offset_y",
+                        "position_offset_z",
+                    ]
+                },
             },
             coords={
                 "time1": (
@@ -263,43 +245,26 @@ class SetGroupsEK60(SetGroupsBase):
                         **self._varattrs["platform_coord_default"]["time1"],
                         "comment": "Time coordinate corresponding to NMEA position data.",
                     },
-                )
+                ),
+                "time2": (
+                    ["time2"],
+                    self.parser_obj.ping_time[ch],
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for platform motion and orientation data",
+                        "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform motion and "
+                        "orientation data.",
+                    },
+                ),
             },
         )
-
-        # TODO: consider allow users to set water_level like in EK80?
-        # if self.ui_param['water_level'] is not None:
-        #     water_level = self.ui_param['water_level']
-        # else:
-        #     water_level = np.nan
-        #     print('WARNING: The water_level_draft was not in the file. Value '
-        #           'set to None.')
 
         # Loop over channels and merge all
         ds_plat = []
         for ch in self.sorted_channel.keys():
             ds_tmp = xr.Dataset(
                 {
-                    "pitch": (
-                        ["time2"],
-                        self.parser_obj.ping_data_dict["pitch"][ch],
-                        self._varattrs["platform_var_default"]["pitch"],
-                    ),
-                    "roll": (
-                        ["time2"],
-                        self.parser_obj.ping_data_dict["roll"][ch],
-                        self._varattrs["platform_var_default"]["roll"],
-                    ),
-                    "vertical_offset": (
-                        ["time2"],
-                        self.parser_obj.ping_data_dict["heave"][ch],
-                        self._varattrs["platform_var_default"]["vertical_offset"],
-                    ),
-                    "water_level": (
-                        ["time3"],
-                        self.parser_obj.ping_data_dict["transducer_depth"][ch],
-                        self._varattrs["platform_var_default"]["water_level"],
-                    ),
                     "transducer_offset_x": (
                         [],
                         self.parser_obj.config_datagram["transceivers"][ch].get("pos_x", np.nan),
@@ -315,58 +280,10 @@ class SetGroupsEK60(SetGroupsBase):
                         self.parser_obj.config_datagram["transceivers"][ch].get("pos_z", np.nan),
                         self._varattrs["platform_var_default"]["transducer_offset_z"],
                     ),
-                    **{
-                        var: ([], np.nan, self._varattrs["platform_var_default"][var])
-                        for var in [
-                            "MRU_offset_x",
-                            "MRU_offset_y",
-                            "MRU_offset_z",
-                            "MRU_rotation_x",
-                            "MRU_rotation_y",
-                            "MRU_rotation_z",
-                            "position_offset_x",
-                            "position_offset_y",
-                            "position_offset_z",
-                        ]
-                    },
-                },
-                coords={
-                    "time2": (
-                        ["time2"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamps for platform motion and orientation data",
-                            "standard_name": "time",
-                            "comment": "Time coordinate corresponding to platform motion and "
-                            "orientation data.",
-                        },
-                    ),
-                    "time3": (
-                        ["time3"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamps for platform-related sampling environment",
-                            "standard_name": "time",
-                            "comment": "Time coordinate corresponding to platform-related "
-                            "sampling environment.",
-                        },
-                    ),
-                },
-                attrs={
-                    "platform_code_ICES": self.ui_param["platform_code_ICES"],
-                    "platform_name": self.ui_param["platform_name"],
-                    "platform_type": self.ui_param["platform_type"],
                 },
             )
-
             # Attach channel dimension/coordinate
             ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
-            ds_tmp["channel"] = ds_tmp["channel"].assign_attrs(
-                self._varattrs["beam_coord_default"]["channel"]
-            )
-
             ds_tmp["frequency_nominal"] = (
                 ["channel"],
                 [self.parser_obj.config_datagram["transceivers"][ch]["frequency"]],
@@ -385,9 +302,13 @@ class SetGroupsEK60(SetGroupsBase):
         #  pitch/roll/heave are the same for all freq channels
         #  consider only saving those from the first channel
         ds_plat = xr.merge(ds_plat)
+        ds_plat["channel"] = ds_plat["channel"].assign_attrs(
+            self._varattrs["beam_coord_default"]["channel"]
+        )
 
         # Merge with NMEA data
         ds = xr.merge([ds, ds_plat], combine_attrs="override")
+        ds = ds.assign_attrs(platform_dict)
 
         return set_time_encodings(ds)
 
@@ -455,6 +376,16 @@ class SetGroupsEK60(SetGroupsBase):
                 self.parser_obj.config_datagram["transceivers"][ch_seq].get(param, np.nan)
                 for ch_seq in self.sorted_channel.keys()
             ]
+
+        for i, ch in enumerate(self.sorted_channel.keys()):
+            if (
+                np.isclose(beam_params["dir_x"][i], 0.00)
+                and np.isclose(beam_params["dir_y"][i], 0.00)
+                and np.isclose(beam_params["dir_z"][i], 0.00)
+            ):
+                beam_params["dir_x"][i] = np.nan
+                beam_params["dir_y"][i] = np.nan
+                beam_params["dir_z"][i] = np.nan
 
         # TODO: Need to discuss if to remove INDEX2POWER factor from the backscatter_r
         #  currently this factor is multiplied to the raw data before backscatter_r is saved.
@@ -602,6 +533,46 @@ class SetGroupsEK60(SetGroupsBase):
                     ["channel"],
                     beam_params["gpt_software_version"],
                 ),
+                "transmit_frequency_start": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["channel"],
+                    self.freq,
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
+                "transmit_type": (
+                    [],
+                    "CW",
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW"],
+                        "flag_meanings": [
+                            "Continuous Wave – a pulse nominally of one frequency",
+                        ],
+                    },
+                ),
+                "beam_stabilisation": (
+                    [],
+                    np.array(0, np.byte),
+                    {
+                        "long_name": "Beam stabilisation applied (or not)",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["not stabilised", "stabilised"],
+                    },
+                ),
+                "non_quantitative_processing": (
+                    [],
+                    np.array(0, np.int16),
+                    {
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
+                        "flag_values": [0],
+                        "flag_meanings": ["None"],
+                    },
+                ),
             },
             coords={
                 "channel": (
@@ -655,25 +626,34 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
                 "data_type": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["mode"][ch],
+                    np.array(self.parser_obj.ping_data_dict["mode"][ch], dtype=np.byte),
                     {
-                        "long_name": "recorded data type (1-power only, 2-angle only 3-power and angle)"  # noqa
+                        "long_name": "recorded data type (1=power only, 2=angle only, 3=power and angle)",  # noqa
+                        "flag_values": [1, 2, 3],
+                        "flag_meanings": ["power only", "angle only", "power and angle"],
                     },
                 ),
-                "count": (
+                "sample_time_offset": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["count"][ch],
-                    {"long_name": "Number of samples "},
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
-                "offset": (
+                "channel_mode": (
                     ["ping_time"],
-                    self.parser_obj.ping_data_dict["offset"][ch],
-                    {"long_name": "Offset of first sample"},
-                ),
-                "transmit_mode": (
-                    ["ping_time"],
-                    self.parser_obj.ping_data_dict["transmit_mode"][ch],
-                    {"long_name": "0 = Active, 1 = Passive, 2 = Test, -1 = Unknown"},
+                    np.array(self.parser_obj.ping_data_dict["transmit_mode"][ch], dtype=np.byte),
+                    {
+                        "long_name": "Transceiver mode",
+                        "flag_values": [-1, 0, 1, 2],
+                        "flag_meanings": ["Unknown", "Active", "Passive", "Test"],
+                        "comment": "From transmit_mode in the EK60 datagram",
+                    },
                 ),
             }
 
@@ -681,7 +661,12 @@ class SetGroupsEK60(SetGroupsBase):
                 var_dict["backscatter_r"] = (
                     ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
-                    {"long_name": "Backscatter power", "units": "dB"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],
+                        "units": "dB",
+                    },
                 )
 
                 ds_tmp = xr.Dataset(

@@ -9,6 +9,8 @@ import xarray as xr
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .shoal import _weill as shoal_weill
+from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
+
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -367,128 +369,11 @@ def apply_mask(
     return output_ds
 
 
-def _check_freq_diff_non_data_inputs(
-    freqAB: Optional[List[float]] = None,
-    chanAB: Optional[List[str]] = None,
-    operator: str = ">",
-    diff: Union[float, int] = None,
-) -> None:
-    """
-    Checks that the non-data related inputs of ``frequency_differencing`` (i.e. ``freqAB``,
-    ``chanAB``, ``operator``, ``diff``) were correctly provided.
-
-    Parameters
-    ----------
-    freqAB: list of float, optional
-        The pair of nominal frequencies to be used for frequency-differencing, where
-        the first element corresponds to ``freqA`` and the second element corresponds
-        to ``freqB``
-    chanAB: list of float, optional
-        The pair of channels that will be used to select the nominal frequencies to be
-        used for frequency-differencing, where the first element corresponds to ``freqA``
-        and the second element corresponds to ``freqB``
-    operator: {">", "<", "<=", ">=", "=="}
-        The operator for the frequency-differencing
-    diff: float or int
-        The threshold of Sv difference between frequencies
-    """
-
-    # check that either freqAB or chanAB are provided and they are a list of length 2
-    if (freqAB is None) and (chanAB is None):
-        raise ValueError("Either freqAB or chanAB must be given!")
-    elif (freqAB is not None) and (chanAB is not None):
-        raise ValueError("Only freqAB or chanAB must be given, but not both!")
-    elif freqAB is not None:
-        if not isinstance(freqAB, list):
-            raise TypeError("freqAB must be a list!")
-        elif len(set(freqAB)) != 2:
-            raise ValueError("freqAB must be a list of length 2 with unique elements!")
-    else:
-        if not isinstance(chanAB, list):
-            raise TypeError("chanAB must be a list!")
-        elif len(set(chanAB)) != 2:
-            raise ValueError("chanAB must be a list of length 2 with unique elements!")
-
-    # check that operator is a string and a valid operator
-    if not isinstance(operator, str):
-        raise TypeError("operator must be a string!")
-    else:
-        if operator not in [">", "<", "<=", ">=", "=="]:
-            raise ValueError("Invalid operator!")
-
-    # ensure that diff is a float or an int
-    if not isinstance(diff, (float, int)):
-        raise TypeError("diff must be a float or int!")
-
-
-def _check_source_Sv_freq_diff(
-    source_Sv: xr.Dataset,
-    freqAB: Optional[List[float]] = None,
-    chanAB: Optional[List[str]] = None,
-) -> None:
-    """
-    Ensures that ``source_Sv`` contains ``channel`` as a coordinate and
-    ``frequency_nominal`` as a variable, the provided list input
-    (``freqAB`` or ``chanAB``) are contained in the coordinate ``channel``
-    or variable ``frequency_nominal``, and ``source_Sv`` does not have
-    repeated values for ``channel`` and ``frequency_nominal``.
-
-    Parameters
-    ----------
-    source_Sv: xr.Dataset
-        A Dataset that contains the Sv data to create a mask for
-    freqAB: list of float, optional
-        The pair of nominal frequencies to be used for frequency-differencing, where
-        the first element corresponds to ``freqA`` and the second element corresponds
-        to ``freqB``
-    chanAB: list of float, optional
-        The pair of channels that will be used to select the nominal frequencies to be
-        used for frequency-differencing, where the first element corresponds to ``freqA``
-        and the second element corresponds to ``freqB``
-    """
-
-    # check that channel and frequency nominal are in source_Sv
-    if "channel" not in source_Sv.coords:
-        raise ValueError("The Dataset defined by source_Sv must have channel as a coordinate!")
-    elif "frequency_nominal" not in source_Sv.variables:
-        raise ValueError(
-            "The Dataset defined by source_Sv must have frequency_nominal as a variable!"
-        )
-
-    # make sure that the channel and frequency_nominal values are not repeated in source_Sv
-    if len(set(source_Sv.channel.values)) < source_Sv.channel.size:
-        raise ValueError(
-            "The provided source_Sv contains repeated channel values, this is not allowed!"
-        )
-
-    if len(set(source_Sv.frequency_nominal.values)) < source_Sv.frequency_nominal.size:
-        raise ValueError(
-            "The provided source_Sv contains repeated frequency_nominal "
-            "values, this is not allowed!"
-        )
-
-    # check that the elements of freqAB are in frequency_nominal
-    if (freqAB is not None) and (not all([freq in source_Sv.frequency_nominal for freq in freqAB])):
-        raise ValueError(
-            "The provided list input freqAB contains values that "
-            "are not in the frequency_nominal variable!"
-        )
-
-    # check that the elements of chanAB are in channel
-    if (chanAB is not None) and (not all([chan in source_Sv.channel for chan in chanAB])):
-        raise ValueError(
-            "The provided list input chanAB contains values that are "
-            "not in the channel coordinate!"
-        )
-
-
 def frequency_differencing(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     storage_options: Optional[dict] = {},
-    freqAB: Optional[List[float]] = None,
-    chanAB: Optional[List[str]] = None,
-    operator: str = ">",
-    diff: Union[float, int] = None,
+    freqABEq: Optional[str] = None,
+    chanABEq: Optional[str] = None,
 ) -> xr.DataArray:
     """
     Create a mask based on the differences of Sv values using a pair of
@@ -505,19 +390,13 @@ def frequency_differencing(
     storage_options: dict, optional
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_Sv``
-    freqAB: list of float, optional
-        The pair of nominal frequencies to be used for frequency-differencing, where
-        the first element corresponds to ``freqA`` and the second element corresponds
-        to ``freqB``. Only one of ``freqAB`` and ``chanAB`` should be provided, and not both.
-    chanAB: list of strings, optional
-        The pair of channels that will be used to select the nominal frequencies to be
-        used for frequency-differencing, where the first element corresponds to ``freqA``
-        and the second element corresponds to ``freqB``. Only one of ``freqAB`` and ``chanAB``
+    freqABEq: string, optional
+        The frequency differencing criteria.
+        Only one of ``freqAB`` and ``chanAB`` should be provided, and not both.
+    chanAB: string, optional
+        The frequency differencing criteria in terms of channel names where channel names
+        in the criteria are enclosed in double quotes. Only one of ``freqAB`` and ``chanAB``
         should be provided, and not both.
-    operator: {">", "<", "<=", ">=", "=="}
-        The operator for the frequency-differencing
-    diff: float or int
-        The threshold of Sv difference between frequencies
 
     Returns
     -------
@@ -528,24 +407,24 @@ def frequency_differencing(
     Raises
     ------
     ValueError
-        If neither ``freqAB`` or ``chanAB`` are given
+        If neither ``freqABEq`` or ``chanABEq`` are given
     ValueError
-        If both ``freqAB`` and ``chanAB`` are given
+        If both ``freqABEq`` and ``chanABEq`` are given
     TypeError
         If any input is not of the correct type
     ValueError
-        If either ``freqAB`` or ``chanAB`` are provided and the list
-        does not contain 2 distinct elements
+        If either ``freqABEq`` or ``chanABEq`` are provided and the extracted
+        ``freqAB`` or ``chanAB`` does not contain 2 distinct elements
     ValueError
-        If ``freqAB`` contains values that are not contained in ``frequency_nominal``
+        If ``freqABEq`` contains values that are not contained in ``frequency_nominal``
     ValueError
-        If ``chanAB`` contains values that not contained in ``channel``
+        If ``chanABEq`` contains values that not contained in ``channel``
     ValueError
         If ``operator`` is not one of the following: ``">", "<", "<=", ">=", "=="``
     ValueError
         If the path provided for ``source_Sv`` is not a valid path
     ValueError
-        If ``freqAB`` or ``chanAB`` is provided and the Dataset produced by ``source_Sv``
+        If ``freqABEq`` or ``chanABEq`` is provided and the Dataset produced by ``source_Sv``
         does not contain the coordinate ``channel`` and variable ``frequency_nominal``
 
     Notes
@@ -574,9 +453,8 @@ def frequency_differencing(
     >>> Sv_ds = xr.Dataset(data_vars={"Sv": Sv_da, "frequency_nominal": freq_nom})
     ...
     >>> # compute frequency-differencing mask using channel names
-    >>> echopype.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={}, freqAB=None,
-    ...                                      chanAB = ['chan1', 'chan2'],
-    ...                                      operator = ">=", diff=10.0)
+    >>> echopype.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={},
+    ...                                      freqABEq=None, chanABEq = '"chan1" - "chan2">=10.0')
     <xarray.DataArray 'mask' (ping_time: 5, range_sample: 5)>
     array([[False, False, False, False, False],
            [False, False, False, False, False],
@@ -589,7 +467,8 @@ def frequency_differencing(
     """
 
     # check that non-data related inputs were correctly provided
-    _check_freq_diff_non_data_inputs(freqAB, chanAB, operator, diff)
+    # _check_freq_diff_non_data_inputs(freqAB, chanAB, operator, diff)
+    freqAB, chanAB, operator, diff = _parse_freq_diff_eq(freqABEq, chanABEq)
 
     # validate the source_Sv type or path (if it is provided)
     source_Sv, file_type = validate_source_ds_da(source_Sv, storage_options)
@@ -599,7 +478,7 @@ def frequency_differencing(
         source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
 
     # check the source_Sv with respect to channel and frequency_nominal
-    _check_source_Sv_freq_diff(source_Sv, freqAB, chanAB)
+    _check_freq_diff_source_Sv(source_Sv, freqAB, chanAB)
 
     # determine chanA and chanB
     if freqAB is not None:
