@@ -3,6 +3,31 @@ import echopype as ep
 import numpy as np
 
 
+# Utilties Tests
+@pytest.mark.parametrize(
+    ["range_bin", "expected_result"],
+    [
+        (5, TypeError),
+        ("0.2m", 0.2),
+        ("10m", 10.0),
+        ("10km", ValueError),
+        ("10", ValueError)
+    ],
+)
+def test__parse_range_bin(range_bin, expected_result):
+    expected_error_msg = r"range_bin must be in meters"
+    if isinstance(range_bin, int):
+        expected_error_msg = r"range_bin must be a string"
+    elif range_bin in ["10km", "10"]:
+        expected_error_msg = r"range_bin must be in meters"
+
+    if not isinstance(expected_result, float):
+        with pytest.raises(expected_result, match=expected_error_msg):
+            ep.commongrid.api._parse_range_bin(range_bin)
+    else:
+        assert ep.commongrid.api._parse_range_bin(range_bin) == expected_result
+
+
 # NASC Tests
 @pytest.mark.integration
 @pytest.mark.skip(reason="NASC is not implemented yet")
@@ -219,7 +244,7 @@ def test_compute_MVBS_values(request, er_type):
                     bins=np.append(
                         mvbs.Sv.echo_range.values,
                         # Add one more bin to account for the last value
-                        mvbs.Sv.echo_range.values.max() + echo_range_step
+                        mvbs.Sv.echo_range.values.max() + echo_range_step,
                     ),
                 )
                 # Convert any non-zero values to False, and zero values to True
@@ -240,17 +265,15 @@ def test_compute_MVBS_values(request, er_type):
         ds_Sv = request.getfixturevalue("mock_sv_dataset_irregular")
         expected_mvbs = request.getfixturevalue("mock_mvbs_array_irregular")
 
-    ds_MVBS = ep.commongrid.compute_MVBS(
-        ds_Sv, range_bin=range_bin, ping_time_bin=ping_time_bin
-    )
-    
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin=range_bin, ping_time_bin=ping_time_bin)
+
     expected_outputs = _parse_nans(ds_MVBS, ds_Sv)
 
     assert ds_MVBS.Sv.shape == expected_mvbs.shape
     # Floating digits need to check with all close not equal
     # Compare the values of the MVBS array with the expected values
-    assert np.allclose(ds_MVBS.Sv.values, expected_mvbs, atol=1e-8, equal_nan=True)
-    
+    assert np.allclose(ds_MVBS.Sv.values, expected_mvbs, atol=1e-10, rtol=1e-10, equal_nan=True)
+
     # Ensures that the computation of MVBS takes doesn't take into account NaN values
     # that are sporadically placed in the echo_range values
     assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)

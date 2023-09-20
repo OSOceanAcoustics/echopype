@@ -1,10 +1,9 @@
 import dask.array
 import numpy as np
 import pandas as pd
-from numpy.random import default_rng
 import pytest
 from typing import Tuple, Iterable, Union
-from echopype.commongrid.mvbs import bin_and_mean_2d, get_MVBS_along_channels
+from echopype.commongrid.mvbs import get_MVBS_along_channels
 from echopype.consolidate.api import POSITION_VARIABLES
 from flox.xarray import xarray_reduce
 
@@ -363,70 +362,7 @@ def bin_and_mean_2d_params(request):
     return list(request.param.values())
 
 @pytest.mark.unit
-def test_bin_and_mean_2d(bin_and_mean_2d_params) -> None:
-    """
-    Tests the function ``bin_and_mean_2d``, which is the core
-    method for ``compute_MVBS``. This is done by creating mock
-    data (which can have varying number of ``echo_range`` values
-    for each ``ping_time``) with known means.
-
-    Parameters
-    ----------
-    create_dask: bool
-        If True the ``Sv`` and ``echo_range`` values produced will be
-        dask arrays, else they will be numpy arrays.
-    final_num_ping_bins: int
-        The total number of ping time bins
-    final_num_er_bins: int
-        The total number of echo range bins
-    ping_range: list
-        A list whose first element is the lowest and second element is
-        the highest possible number of ping time values in a given bin
-    er_range: list
-        A list whose first element is the lowest and second element is
-        the highest possible number of echo range values in a given bin
-    """
-
-    # get all parameters needed to create the mock data
-    create_dask, final_num_ping_bins, final_num_er_bins, ping_range, er_range = bin_and_mean_2d_params
-
-    # randomly generate a seed
-    seed = np.random.randint(low=10, high=100000, size=1)[0]
-
-    print(f"seed used to generate mock data: {seed}")
-
-    # establish generator for random integers
-    rng = default_rng(seed=seed)
-
-    # seed dask random generator
-    if create_dask:
-        dask.array.random.seed(seed=seed)
-
-    # create echo_range, ping_time, and Sv arrays where the MVBS is known
-    known_MVBS, final_sv, ping_bins, er_bins, final_er, final_ping_time = create_known_mean_data(final_num_ping_bins,
-                                                                                                 final_num_er_bins,
-                                                                                                 ping_range, er_range,
-                                                                                                 create_dask,
-                                                                                                 rng)
-
-    # put the created ping bins into a form that works with bin_and_mean_2d
-    digitize_ping_bin = np.array([*ping_bins[0]] + [bin_val[1] for bin_val in ping_bins[1:-1]])
-    digitize_ping_bin = digitize_ping_bin.astype('datetime64[ns]')
-
-    # put the created echo range bins into a form that works with bin_and_mean_2d
-    digitize_er_bin = np.array([*er_bins[0]] + [bin_val[1] for bin_val in er_bins[1:]])
-
-    # calculate MVBS for mock data set
-    calc_MVBS = bin_and_mean_2d(arr=final_sv, bins_time=digitize_ping_bin,
-                                bins_er=digitize_er_bin, times=final_ping_time,
-                                echo_range=final_er, comprehensive_er_check=True)
-
-    # compare known MVBS solution against its calculated counterpart
-    assert np.allclose(calc_MVBS, known_MVBS, atol=1e-10, rtol=1e-10, equal_nan=True)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(["range_var", "lat_lon"], [("depth", False), ("echo_range", True)])
+@pytest.mark.parametrize(["range_var", "lat_lon"], [("depth", False), ("echo_range", True), ("echo_range", False)])
 def test_get_MVBS_along_channels(request, range_var, lat_lon):
     """Testing the underlying function of compute_MVBS"""
     range_bin = 20

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from echopype.consolidate import add_depth
+import echopype as ep
 
 
 @pytest.fixture
@@ -111,7 +112,12 @@ def mock_sv_dataset_irregular(mock_parameters, mock_sv_sample, mock_nan_ilocs):
 
 
 @pytest.fixture
-def mock_mvbs_array_regular():
+def mock_mvbs_inputs():
+    return dict(range_meter_bin=2, ping_time_bin="1s")
+
+
+@pytest.fixture
+def mock_mvbs_array_regular(mock_sv_dataset_regular, mock_mvbs_inputs, mock_parameters):
     """
     Mock Sv sample result from compute_MVBS
 
@@ -119,24 +125,19 @@ def mock_mvbs_array_regular():
     Ping time bin: 1s
     Range bin: 2m
     """
-    return np.array(
-        [
-            [
-                [0.13197759, 0.3425039, 0.55303022, 0.76355653, 0.94758103],
-                [0.13197759, 0.3425039, 0.55303022, 0.76355653, 0.94758103],
-                [0.13197759, 0.3425039, 0.55303022, 0.76355653, 0.94758103],
-            ],
-            [
-                [0.13197759, 0.3425039, 0.55303022, 0.76355653, 0.94758103],
-                [0.13197759, 0.3425039, 0.55303022, 0.76355653, 0.94758103],
-                [0.13197759, 0.3425039, 0.55303022, 0.76355653, 0.94758103],
-            ],
-        ]
+    ds_Sv = mock_sv_dataset_regular
+    ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
+    range_bin = mock_mvbs_inputs["range_meter_bin"]
+    channel_len = mock_parameters["channel_len"]
+    expected_mvbs_val = _get_expected_mvbs_val(
+        ds_Sv, ping_time_bin, range_bin, channel_len
     )
+
+    return expected_mvbs_val
 
 
 @pytest.fixture
-def mock_mvbs_array_irregular():
+def mock_mvbs_array_irregular(mock_sv_dataset_irregular, mock_mvbs_inputs, mock_parameters):
     """
     Mock Sv sample irregular result from compute_MVBS
 
@@ -144,20 +145,15 @@ def mock_mvbs_array_irregular():
     Ping time bin: 1s
     Range bin: 2m
     """
-    return np.array(
-        [
-            [
-                [0.15495845, 0.44702859, 0.71315706, 0.81188627, 0.94752788],
-                [0.18004567, 0.51673084, 0.81671961, 1.0, np.nan],
-                [np.nan, np.nan, np.nan, np.nan, np.nan],
-            ],
-            [
-                [0.16702056, 0.43637851, 0.72277163, 0.81739217, 0.94758103],
-                [0.18514066, 0.50093013, 0.7901115, np.nan, np.nan],
-                [np.nan, np.nan, np.nan, np.nan, np.nan],
-            ],
-        ]
+    ds_Sv = mock_sv_dataset_irregular
+    ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
+    range_bin = mock_mvbs_inputs["range_meter_bin"]
+    channel_len = mock_parameters["channel_len"]
+    expected_mvbs_val = _get_expected_mvbs_val(
+        ds_Sv, ping_time_bin, range_bin, channel_len
     )
+
+    return expected_mvbs_val
 
 
 @pytest.fixture(
@@ -324,6 +320,52 @@ def ds_Sv_er_irregular(random_number_generator):
 
 
 # Helper functions to generate mock Sv dataset
+def _get_expected_mvbs_val(ds_Sv, ping_time_bin, range_bin, channel_len=2):
+    """Helper function to brute force compute_MVBS"""
+    # create bin information needed for ping_time
+    d_index = (
+        ds_Sv["ping_time"]
+        .resample(ping_time=ping_time_bin, skipna=True)
+        .first()  # Not actually being used, but needed to get the bin groups
+        .indexes["ping_time"]
+    )
+    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)]).values
+
+    # create bin information for echo_range
+    # this computes the echo range max since there might NaNs in the data
+    echo_range_max = ds_Sv["echo_range"].max()
+    range_interval = np.arange(0, echo_range_max + 2, range_bin)
+
+    sv = ds_Sv["Sv"].pipe(ep.utils.compute._log2lin)
+
+    expected_mvbs_val = np.ones((2, len(ping_interval) - 1, len(range_interval) - 1)) * np.nan
+
+    for ch_idx in range(channel_len):
+        for p_idx in range(len(ping_interval) - 1):
+            for r_idx in range(len(range_interval) - 1):
+                echo_range = (
+                    ds_Sv["echo_range"]
+                    .isel(channel=ch_idx)
+                    .sel(ping_time=slice(ping_interval[p_idx], ping_interval[p_idx + 1]))
+                    .max(dim="ping_time", skipna=True)
+                    .data
+                )
+                cur_sv = sv.assign_coords({"range_sample": echo_range})
+                r_idx_active = np.logical_and(
+                    echo_range.data >= range_interval[r_idx],
+                    echo_range.data < range_interval[r_idx + 1],
+                )
+                sv_tmp = cur_sv.isel(channel=ch_idx).sel(
+                    ping_time=slice(ping_interval[p_idx], ping_interval[p_idx + 1]),
+                    range_sample=r_idx_active,
+                )
+                if 0 in sv_tmp.shape:
+                    expected_mvbs_val[ch_idx, p_idx, r_idx] = np.nan
+                else:
+                    expected_mvbs_val[ch_idx, p_idx, r_idx] = np.mean(sv_tmp)
+    return ep.utils.compute._lin2log(expected_mvbs_val)
+
+
 def _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms=0):
     ping_time = pd.date_range("2018-07-01", periods=ping_time_len, freq=ping_time_interval)
     if ping_time_jitter_max_ms != 0:  # if to add jitter
