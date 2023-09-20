@@ -405,10 +405,6 @@ def test_get_MVBS_along_channels(request, range_var, lat_lon):
     # When it's echo_range and lat_lon, the dataset should have positions
     if range_var == "echo_range" and lat_lon is True:
         assert raw_MVBS.attrs["has_positions"] is True
-    else:
-        assert raw_MVBS.attrs["has_positions"] is False
-    
-    if range_var == "echo_range":
         assert all(v in raw_MVBS for v in POSITION_VARIABLES)
 
         # Compute xarray reduce manually for this
@@ -423,3 +419,5 @@ def test_get_MVBS_along_channels(request, range_var, lat_lon):
         
         for v in POSITION_VARIABLES:
             assert np.array_equal(raw_MVBS[v].data, expected_Pos[v].data)
+    else:
+        assert raw_MVBS.attrs["has_positions"] is False

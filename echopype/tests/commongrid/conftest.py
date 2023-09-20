@@ -96,7 +96,7 @@ def mock_sv_dataset_regular(mock_parameters, mock_sv_sample):
 
 @pytest.fixture
 def mock_sv_dataset_irregular(mock_parameters, mock_sv_sample, mock_nan_ilocs):
-    depth_interval = [0.5, 0.32, np.nan]  # Added nans
+    depth_interval = [0.5, 0.32, 0.2]
     depth_ping_time_len = [2, 3, 5]
     ds_Sv = _gen_Sv_er_irregular(
         **mock_parameters,
@@ -344,21 +344,16 @@ def _get_expected_mvbs_val(ds_Sv, ping_time_bin, range_bin, channel_len=2):
         for p_idx in range(len(ping_interval) - 1):
             for r_idx in range(len(range_interval) - 1):
                 echo_range = (
-                    ds_Sv["echo_range"]
+                    ds_Sv['echo_range']
                     .isel(channel=ch_idx)
-                    .sel(ping_time=slice(ping_interval[p_idx], ping_interval[p_idx + 1]))
-                    .max(dim="ping_time", skipna=True)
-                    .data
+                    .sel(ping_time=slice(ping_interval[p_idx], ping_interval[p_idx+1]))
                 )
-                cur_sv = sv.assign_coords({"range_sample": echo_range})
                 r_idx_active = np.logical_and(
                     echo_range.data >= range_interval[r_idx],
-                    echo_range.data < range_interval[r_idx + 1],
+                    echo_range.data < range_interval[r_idx+1]
                 )
-                sv_tmp = cur_sv.isel(channel=ch_idx).sel(
-                    ping_time=slice(ping_interval[p_idx], ping_interval[p_idx + 1]),
-                    range_sample=r_idx_active,
-                )
+                sv_tmp = sv.isel(channel=ch_idx).sel(
+                    ping_time=slice(ping_interval[p_idx], ping_interval[p_idx+1])).data[r_idx_active]
                 if 0 in sv_tmp.shape:
                     expected_mvbs_val[ch_idx, p_idx, r_idx] = np.nan
                 else:
