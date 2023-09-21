@@ -1,14 +1,28 @@
 import secrets
 import sys
-from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-import more_itertools as miter
+import dask.array
+import fsspec
 import numpy as np
 import pandas as pd
+import xarray as xr
 import zarr
 
-from ..utils.io import ECHOPYPE_DIR, check_file_permissions
+from ..echodata.convention import sonarnetcdf_1
+from ..utils.io import ECHOPYPE_DIR, check_file_permissions, validate_output_path
+
+DEFAULT_ZARR_TEMP_DIR = ECHOPYPE_DIR / "temp_output" / "parsed2zarr_temp_files"
+
+
+def _create_zarr_store_map(path, storage_options):
+    file_path = validate_output_path(
+        source_file=secrets.token_hex(16),
+        engine="zarr",
+        save_path=path,
+        output_storage_options=storage_options,
+    )
+    return fsspec.get_mapper(file_path, **storage_options)
 
 
 class Parsed2Zarr:
@@ -26,53 +40,63 @@ class Parsed2Zarr:
         self.zarr_root = None
         self.parser_obj = parser_obj  # parser object ParseEK60/ParseEK80/etc.
 
-    def _create_zarr_info(self):
+        self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+
+        if hasattr(self.parser_obj, "sonar_model"):
+            self.sonar_model = self.parser_obj.sonar_model
+
+    def _create_zarr_info(
+        self, dest_path: str = None, dest_storage_options: Optional[Dict] = None, retries: int = 10
+    ):
         """
         Creates the temporary directory for zarr
         storage, zarr file name, zarr store, and
         the root group of the zarr store.
         """
 
-        # get current working directory
-        current_dir = Path.cwd()
+        if dest_path is None:
+            # Check permission of cwd, raise exception if no permission
+            check_file_permissions(ECHOPYPE_DIR)
 
-        # Check permission of cwd, raise exception if no permission
-        check_file_permissions(current_dir)
-
-        # construct temporary directory that will hold the zarr file
-        out_dir = current_dir / ECHOPYPE_DIR / "temp_output" / "parsed2zarr_temp_files"
-        if not out_dir.exists():
-            out_dir.mkdir(parents=True)
+            # construct temporary directory that will hold the zarr file
+            dest_path = DEFAULT_ZARR_TEMP_DIR
+            if not dest_path.exists():
+                dest_path.mkdir(parents=True)
 
         # establish temporary directory we will write zarr files to
-        self.temp_zarr_dir = str(out_dir)
+        self.temp_zarr_dir = str(dest_path)
 
-        # create zarr store name
-        zarr_file_name = str(out_dir / secrets.token_hex(16)) + ".zarr"
+        # Set default storage options if None
+        if dest_storage_options is None:
+            dest_storage_options = {}
 
-        # attempt to find different zarr_file_name, if it already exists
-        count = 0
-        while Path(zarr_file_name).exists() and count < 10:
-            # generate new zarr_file_name
-            zarr_file_name = str(out_dir / secrets.token_hex(16)) + ".zarr"
-            count += 1
+        # attempt to find different zarr_file_name
+        attempt = 0
+        exists = True
+        while exists:
+            zarr_store = _create_zarr_store_map(
+                path=dest_path, storage_options=dest_storage_options
+            )
+            exists = zarr_store.fs.exists(zarr_store.root)
+            attempt += 1
 
-        # error out if we are unable to get a unique name, else assign name to class variable
-        if (count == 10) and Path(zarr_file_name).exists():
-            raise RuntimeError("Unable to construct an unused zarr file name for Parsed2Zarr!")
-        else:
-            self.zarr_file_name = zarr_file_name
+            if attempt == retries and exists:
+                raise RuntimeError(
+                    (
+                        "Unable to construct an unused zarr file name for Parsed2Zarr ",
+                        f"after {retries} retries!",
+                    )
+                )
 
         # create zarr store and zarr group we want to write to
-        self.store = zarr.DirectoryStore(self.zarr_file_name)
+        self.store = zarr_store
         self.zarr_root = zarr.group(store=self.store, overwrite=True)
 
     def _close_store(self):
         """properly closes zarr store"""
 
-        # consolidate metadata and close zarr store
+        # consolidate metadata
         zarr.consolidate_metadata(self.store)
-        self.store.close()
 
     @staticmethod
     def set_multi_index(
@@ -383,7 +407,7 @@ class Parsed2Zarr:
 
         # evenly chunk unique times so that the smallest and largest
         # chunk differ by at most 1 element
-        chunks = list(miter.chunked_even(unique_time_ind, max_num_times))
+        chunks = np.array_split(unique_time_ind, np.ceil(len(unique_time_ind) / max_num_times))
 
         self.write_chunks(pd_series, zarr_grp, is_array, chunks, chunk_shape)
 
@@ -398,6 +422,225 @@ class Parsed2Zarr:
             size += sum([sys.getsizeof(val) for key, val in i.items()])
 
         return size
+
+    def _get_channel_ids(self, chan_str: np.ndarray) -> List[str]:
+        """
+        Obtains the channel IDs associated with ``chan_str``.
+
+        Parameters
+        ----------
+        chan_str : np.ndarray
+            A numpy array of strings corresponding to the
+            keys of ``config_datagram["transceivers"]``
+
+        Returns
+        -------
+        A list of strings representing the channel IDS
+        """
+        if self.sonar_model in ["EK60", "ES70"]:
+            return [
+                self.parser_obj.config_datagram["transceivers"][int(i)]["channel_id"]
+                for i in chan_str
+            ]
+        else:
+            return [
+                self.parser_obj.config_datagram["configuration"][i]["channel_id"] for i in chan_str
+            ]
+
+    @property
+    def power_dataarray(self) -> xr.DataArray:
+        """
+        Constructs a DataArray from a Dask array for the power
+        data.
+
+        Returns
+        -------
+        DataArray named "backscatter_r" representing the
+        power data.
+        """
+        zarr_path = self.store
+
+        # collect variables associated with the power data
+        power = dask.array.from_zarr(zarr_path, component="power/power")
+
+        pow_time_path = "power/" + self.power_dims[0]
+        pow_chan_path = "power/" + self.power_dims[1]
+        power_time = dask.array.from_zarr(zarr_path, component=pow_time_path).compute()
+        power_channel = dask.array.from_zarr(zarr_path, component=pow_chan_path).compute()
+
+        # obtain channel names for power data
+        pow_chan_names = self._get_channel_ids(power_channel)
+
+        backscatter_r = xr.DataArray(
+            data=power,
+            coords={
+                "ping_time": (
+                    ["ping_time"],
+                    power_time,
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+                "channel": (
+                    ["channel"],
+                    pow_chan_names,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "range_sample": (
+                    ["range_sample"],
+                    np.arange(power.shape[2]),
+                    self._varattrs["beam_coord_default"]["range_sample"],
+                ),
+            },
+            name="backscatter_r",
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
+                "units": "dB",
+            },
+        )
+
+        return backscatter_r
+
+    @property
+    def angle_dataarrays(self) -> Tuple[xr.DataArray, xr.DataArray]:
+        """
+        Constructs the DataArrays from Dask arrays associated
+        with the angle data.
+
+        Returns
+        -------
+        DataArrays named "angle_athwartship" and "angle_alongship",
+        respectively, representing the angle data.
+        """
+
+        zarr_path = self.store
+
+        # collect variables associated with the angle data
+        angle_along = dask.array.from_zarr(zarr_path, component="angle/angle_alongship")
+        angle_athwart = dask.array.from_zarr(zarr_path, component="angle/angle_athwartship")
+
+        ang_time_path = "angle/" + self.angle_dims[0]
+        ang_chan_path = "angle/" + self.angle_dims[1]
+        angle_time = dask.array.from_zarr(zarr_path, component=ang_time_path).compute()
+        angle_channel = dask.array.from_zarr(zarr_path, component=ang_chan_path).compute()
+
+        # obtain channel names for angle data
+        ang_chan_names = self._get_channel_ids(angle_channel)
+
+        array_coords = {
+            "ping_time": (
+                ["ping_time"],
+                angle_time,
+                self._varattrs["beam_coord_default"]["ping_time"],
+            ),
+            "channel": (
+                ["channel"],
+                ang_chan_names,
+                self._varattrs["beam_coord_default"]["channel"],
+            ),
+            "range_sample": (
+                ["range_sample"],
+                np.arange(angle_athwart.shape[2]),
+                self._varattrs["beam_coord_default"]["range_sample"],
+            ),
+        }
+
+        angle_athwartship = xr.DataArray(
+            data=angle_athwart,
+            coords=array_coords,
+            name="angle_athwartship",
+            attrs={
+                "long_name": "electrical athwartship angle",
+                "comment": (
+                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                    + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                ),
+            },
+        )
+
+        angle_alongship = xr.DataArray(
+            data=angle_along,
+            coords=array_coords,
+            name="angle_alongship",
+            attrs={
+                "long_name": "electrical alongship angle",
+                "comment": (
+                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                    + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                ),
+            },
+        )
+
+        return angle_athwartship, angle_alongship
+
+    @property
+    def complex_dataarrays(self) -> Tuple[xr.DataArray, xr.DataArray]:
+        """
+        Constructs the DataArrays from Dask arrays associated
+        with the complex data.
+
+        Returns
+        -------
+        DataArrays named "backscatter_r" and "backscatter_i",
+        respectively, representing the complex data.
+        """
+
+        zarr_path = self.store
+
+        # collect variables associated with the complex data
+        complex_r = dask.array.from_zarr(zarr_path, component="complex/backscatter_r")
+        complex_i = dask.array.from_zarr(zarr_path, component="complex/backscatter_i")
+
+        comp_time_path = "complex/" + self.complex_dims[0]
+        comp_chan_path = "complex/" + self.complex_dims[1]
+        complex_time = dask.array.from_zarr(zarr_path, component=comp_time_path).compute()
+        complex_channel = dask.array.from_zarr(zarr_path, component=comp_chan_path).compute()
+
+        # obtain channel names for complex data
+        comp_chan_names = self._get_channel_ids(complex_channel)
+
+        array_coords = {
+            "ping_time": (
+                ["ping_time"],
+                complex_time,
+                self._varattrs["beam_coord_default"]["ping_time"],
+            ),
+            "channel": (
+                ["channel"],
+                comp_chan_names,
+                self._varattrs["beam_coord_default"]["channel"],
+            ),
+            "range_sample": (
+                ["range_sample"],
+                np.arange(complex_r.shape[2]),
+                self._varattrs["beam_coord_default"]["range_sample"],
+            ),
+            "beam": (
+                ["beam"],
+                np.arange(start=1, stop=complex_r.shape[3] + 1).astype(str),
+                self._varattrs["beam_coord_default"]["beam"],
+            ),
+        }
+
+        backscatter_r = xr.DataArray(
+            data=complex_r,
+            coords=array_coords,
+            name="backscatter_r",
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
+                "units": "dB",
+            },
+        )
+
+        backscatter_i = xr.DataArray(
+            data=complex_i,
+            coords=array_coords,
+            name="backscatter_i",
+            attrs={
+                "long_name": self._varattrs["beam_var_default"]["backscatter_i"]["long_name"],
+                "units": "dB",
+            },
+        )
+
+        return backscatter_r, backscatter_i
 
     def array_series_bytes(self, pd_series: pd.Series, n_rows: int) -> int:
         """
