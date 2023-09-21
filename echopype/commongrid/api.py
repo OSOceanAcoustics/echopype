@@ -91,7 +91,7 @@ def _convert_bins_to_interval_index(
 def _parse_x_bin(x_bin: str, x_label="range_bin") -> float:
     """
     Parses x bin string, check unit,
-    and returns x bin in x unit.
+    and returns x bin in the specified unit.
 
     Currently only available for:
     range_bin: meters (m)
@@ -144,12 +144,12 @@ def _parse_x_bin(x_bin: str, x_label="range_bin") -> float:
     if not isinstance(x_bin, str):
         raise TypeError("'x_bin' must be a string")
     # normalize to lower case
-    # for range_bin
+    # for x_bin
     x_bin = x_bin.strip().lower()
     # Only matches meters
     match_obj = re.match(x_bin_info["pattern"], x_bin)
 
-    # Do some checks on range meter inputs
+    # Do some checks on x_bin inputs
     if match_obj is None:
         # This shouldn't be other units
         raise ValueError(
@@ -159,8 +159,8 @@ def _parse_x_bin(x_bin: str, x_label="range_bin") -> float:
         )
 
     # Convert back to float
-    range_bin = float(match_obj.group(1))
-    return range_bin
+    x_bin = float(match_obj.group(1))
+    return x_bin
 
 
 @add_processing_level("L3*")

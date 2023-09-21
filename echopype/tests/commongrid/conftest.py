@@ -73,7 +73,7 @@ def mock_parameters():
 
 
 @pytest.fixture
-def mock_sv_sample(mock_parameters):
+def mock_Sv_sample(mock_parameters):
     """
     Mock Sv sample
 
@@ -88,23 +88,23 @@ def mock_sv_sample(mock_parameters):
 
 
 @pytest.fixture
-def mock_sv_dataset_regular(mock_parameters, mock_sv_sample):
-    ds_Sv = _gen_Sv_er_regular(**mock_parameters, ping_time_jitter_max_ms=0)
-    ds_Sv["Sv"].data = mock_sv_sample
+def mock_Sv_dataset_regular(mock_parameters, mock_Sv_sample):
+    ds_Sv = _gen_Sv_echo_range_regular(**mock_parameters, ping_time_jitter_max_ms=0)
+    ds_Sv["Sv"].data = mock_Sv_sample
     return ds_Sv
 
 
 @pytest.fixture
-def mock_sv_dataset_irregular(mock_parameters, mock_sv_sample, mock_nan_ilocs):
+def mock_Sv_dataset_irregular(mock_parameters, mock_Sv_sample, mock_nan_ilocs):
     depth_interval = [0.5, 0.32, 0.2]
     depth_ping_time_len = [2, 3, 5]
-    ds_Sv = _gen_Sv_er_irregular(
+    ds_Sv = _gen_Sv_echo_range_irregular(
         **mock_parameters,
         depth_interval=depth_interval,
         depth_ping_time_len=depth_ping_time_len,
         ping_time_jitter_max_ms=30,  # Added jitter to ping_time
     )
-    ds_Sv["Sv"].data = mock_sv_sample
+    ds_Sv["Sv"].data = mock_Sv_sample
     # Sprinkle nans around echo_range
     for pos in mock_nan_ilocs:
         ds_Sv["echo_range"][pos] = np.nan
@@ -117,7 +117,7 @@ def mock_mvbs_inputs():
 
 
 @pytest.fixture
-def mock_mvbs_array_regular(mock_sv_dataset_regular, mock_mvbs_inputs, mock_parameters):
+def mock_mvbs_array_regular(mock_Sv_dataset_regular, mock_mvbs_inputs, mock_parameters):
     """
     Mock Sv sample result from compute_MVBS
 
@@ -125,7 +125,7 @@ def mock_mvbs_array_regular(mock_sv_dataset_regular, mock_mvbs_inputs, mock_para
     Ping time bin: 1s
     Range bin: 2m
     """
-    ds_Sv = mock_sv_dataset_regular
+    ds_Sv = mock_Sv_dataset_regular
     ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
     range_bin = mock_mvbs_inputs["range_meter_bin"]
     channel_len = mock_parameters["channel_len"]
@@ -137,7 +137,7 @@ def mock_mvbs_array_regular(mock_sv_dataset_regular, mock_mvbs_inputs, mock_para
 
 
 @pytest.fixture
-def mock_mvbs_array_irregular(mock_sv_dataset_irregular, mock_mvbs_inputs, mock_parameters):
+def mock_mvbs_array_irregular(mock_Sv_dataset_irregular, mock_mvbs_inputs, mock_parameters):
     """
     Mock Sv sample irregular result from compute_MVBS
 
@@ -145,7 +145,7 @@ def mock_mvbs_array_irregular(mock_sv_dataset_irregular, mock_mvbs_inputs, mock_
     Ping time bin: 1s
     Range bin: 2m
     """
-    ds_Sv = mock_sv_dataset_irregular
+    ds_Sv = mock_Sv_dataset_irregular
     ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
     range_bin = mock_mvbs_inputs["range_meter_bin"]
     channel_len = mock_parameters["channel_len"]
@@ -237,8 +237,8 @@ def regular_data_params():
 
 
 @pytest.fixture
-def ds_Sv_er_regular(regular_data_params, random_number_generator):
-    return _gen_Sv_er_regular(
+def ds_Sv_echo_range_regular(regular_data_params, random_number_generator):
+    return _gen_Sv_echo_range_regular(
         **regular_data_params,
         random_number_generator=random_number_generator,
     )
@@ -283,33 +283,33 @@ def depth_offset():
 
 
 @pytest.fixture
-def ds_Sv_er_regular_w_latlon(ds_Sv_er_regular, lat_attrs, lon_attrs):
+def ds_Sv_echo_range_regular_w_latlon(ds_Sv_echo_range_regular, lat_attrs, lon_attrs):
     """Sv dataset with latitude and longitude"""
-    n_pings = ds_Sv_er_regular.ping_time.shape[0]
+    n_pings = ds_Sv_echo_range_regular.ping_time.shape[0]
     latitude = np.linspace(42, 43, num=n_pings)
     longitude = np.linspace(-124, -125, num=n_pings)
 
-    ds_Sv_er_regular["latitude"] = (["ping_time"], latitude, lat_attrs)
-    ds_Sv_er_regular["longitude"] = (["ping_time"], longitude, lon_attrs)
+    ds_Sv_echo_range_regular["latitude"] = (["ping_time"], latitude, lat_attrs)
+    ds_Sv_echo_range_regular["longitude"] = (["ping_time"], longitude, lon_attrs)
 
     # Need processing level code for compute MVBS to work!
-    ds_Sv_er_regular.attrs["processing_level"] = "Level 2A"
-    return ds_Sv_er_regular
+    ds_Sv_echo_range_regular.attrs["processing_level"] = "Level 2A"
+    return ds_Sv_echo_range_regular
 
 
 @pytest.fixture
-def ds_Sv_er_regular_w_depth(ds_Sv_er_regular, depth_offset):
+def ds_Sv_echo_range_regular_w_depth(ds_Sv_echo_range_regular, depth_offset):
     """Sv dataset with depth"""
-    return ds_Sv_er_regular.pipe(add_depth, depth_offset=depth_offset)
+    return ds_Sv_echo_range_regular.pipe(add_depth, depth_offset=depth_offset)
 
 
 @pytest.fixture
-def ds_Sv_er_irregular(random_number_generator):
+def ds_Sv_echo_range_irregular(random_number_generator):
     depth_interval = [0.5, 0.32, 0.13]
     depth_ping_time_len = [100, 300, 200]
     ping_time_len = 600
     ping_time_interval = "0.3S"
-    return _gen_Sv_er_irregular(
+    return _gen_Sv_echo_range_irregular(
         depth_interval=depth_interval,
         depth_ping_time_len=depth_ping_time_len,
         ping_time_len=ping_time_len,
@@ -319,9 +319,25 @@ def ds_Sv_er_irregular(random_number_generator):
     )
 
 
-# Helper functions to generate mock Sv dataset
-def _get_expected_mvbs_val(ds_Sv, ping_time_bin, range_bin, channel_len=2):
-    """Helper function to brute force compute_MVBS"""
+# Helper functions to generate mock Sv and MVBS dataset
+def _get_expected_mvbs_val(
+    ds_Sv: xr.Dataset, ping_time_bin: str, range_bin: float, channel_len: int = 2
+) -> np.ndarray:
+    """
+    Helper functions to generate expected MVBS outputs from mock Sv dataset
+    by brute-force looping and compute the mean
+    
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        Mock Sv dataset
+    ping_time_bin : str
+        Ping time bin
+    range_bin : float
+        Range bin
+    channel_len : int, default 2
+        Number of channels
+    """
     # create bin information needed for ping_time
     d_index = (
         ds_Sv["ping_time"]
@@ -371,7 +387,7 @@ def _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms=0)
     return ping_time
 
 
-def _gen_Sv_er_regular(
+def _gen_Sv_echo_range_regular(
     channel_len=2,
     depth_len=100,
     depth_interval=0.5,
@@ -384,6 +400,21 @@ def _gen_Sv_er_regular(
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
     ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
+    
+    Parameters
+    ------------
+    channel_len
+        number of channels
+    depth_len
+        number of total depth bins
+    depth_interval
+        depth intervals, may have multiple values
+    ping_time_len
+        total number of ping_time
+    ping_time_interval
+        interval between pings
+    ping_time_jitter_max_ms
+        jitter of ping_time in milliseconds
     """
 
     if random_number_generator is None:
@@ -412,7 +443,7 @@ def _gen_Sv_er_regular(
     return ds_Sv
 
 
-def _gen_Sv_er_irregular(
+def _gen_Sv_echo_range_irregular(
     channel_len=2,
     depth_len=100,
     depth_interval=[0.5, 0.32, 0.13],
@@ -426,6 +457,28 @@ def _gen_Sv_er_irregular(
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
     ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
+    
+    Parameters
+    ------------
+    channel_len
+        number of channels
+    depth_len
+        number of total depth bins
+    depth_interval
+        depth intervals, may have multiple values
+    depth_ping_time_len
+        the number of pings to use each of the depth_interval
+        for example, with depth_interval=[0.5, 0.32, 0.13] 
+        and depth_ping_time_len=[100, 300, 200],
+        the first 100 pings have echo_range with depth intervals of 0.5 m,
+        the next 300 pings have echo_range with depth intervals of 0.32 m,
+        and the last 200 pings have echo_range with depth intervals of 0.13 m.
+    ping_time_len
+        total number of ping_time
+    ping_time_interval
+        interval between pings
+    ping_time_jitter_max_ms
+        jitter of ping_time in milliseconds
     """
     if random_number_generator is None:
         random_number_generator = np.random.default_rng()
