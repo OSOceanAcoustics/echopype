@@ -1,6 +1,11 @@
+from typing import Optional, Tuple
+
+import dask.array
 import numpy as np
 import pandas as pd
 import psutil
+import xarray as xr
+from zarr.errors import ArrayNotFoundError
 
 from .parsed_to_zarr_ek60 import Parsed2ZarrEK60
 
@@ -20,6 +25,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         self.p2z_ch_ids = {}  # channel ids for power, angle, complex
         self.pow_ang_df = None  # df that holds power and angle data
         self.complex_df = None  # df that holds complex data
+        self.tx_df = None  # df that holds transmit data
 
         # get channel and channel_id association and sort by channel_id
         channels_old = list(self.parser_obj.config_datagram["configuration"].keys())
@@ -30,6 +36,78 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         # obtain sort rule for the channel index
         self.channel_sort_rule = {ch: channels_new.index(ch) for ch in channels_old}
+
+    @property
+    def tx_complex_dataarrays(self) -> Optional[Tuple[xr.DataArray, xr.DataArray]]:
+        """
+        Constructs the DataArrays from Dask arrays associated
+        with the transmit complex data (RAW4).
+
+        Returns
+        -------
+        DataArrays named "transmit_pulse_r" and "transmit_pulse_i",
+        respectively, representing the complex data.
+        """
+        try:
+            zarr_path = self.store
+
+            # collect variables associated with the complex data
+            complex_r = dask.array.from_zarr(zarr_path, component="tx_complex/transmit_pulse_r")
+            complex_i = dask.array.from_zarr(zarr_path, component="tx_complex/transmit_pulse_i")
+
+            comp_time_path = "tx_complex/" + self.complex_dims[0]
+            comp_chan_path = "tx_complex/" + self.complex_dims[1]
+            complex_time = dask.array.from_zarr(zarr_path, component=comp_time_path).compute()
+            complex_channel = dask.array.from_zarr(zarr_path, component=comp_chan_path).compute()
+
+            # obtain channel names for complex data
+            comp_chan_names = self._get_channel_ids(complex_channel)
+
+            array_coords = {
+                "ping_time": (
+                    ["ping_time"],
+                    complex_time,
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+                "channel": (
+                    ["channel"],
+                    comp_chan_names,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "transmit_sample": (
+                    ["transmit_sample"],
+                    np.arange(complex_r.shape[2]),
+                    {
+                        "long_name": "Transmit pulse sample number, base 0",
+                        "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                    },
+                ),
+            }
+
+            transmit_pulse_r = xr.DataArray(
+                data=complex_r,
+                coords=array_coords,
+                name="transmit_pulse_r",
+                attrs={
+                    "long_name": "Real part of the transmit pulse",
+                    "units": "V",
+                    "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                },
+            )
+
+            transmit_pulse_i = xr.DataArray(
+                data=complex_i,
+                coords=array_coords,
+                name="transmit_pulse_i",
+                attrs={
+                    "long_name": "Imaginary part of the transmit pulse",
+                    "units": "V",
+                    "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
+                },
+            )
+            return transmit_pulse_r, transmit_pulse_i
+        except ArrayNotFoundError:
+            return None
 
     def _get_num_transd_sec(self, x: pd.DataFrame):
         """
@@ -86,7 +164,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         )
 
     @staticmethod
-    def _split_complex_data(complex_series: pd.Series) -> pd.DataFrame:
+    def _split_complex_data(complex_series: pd.Series, rx: bool = True) -> pd.DataFrame:
         """
         Splits the 1D complex data into two 1D arrays
         representing the real and imaginary parts of
@@ -105,6 +183,9 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         respectively. The DataFrame will have the
         same index as ``complex_series``.
         """
+        columns = ["backscatter_r", "backscatter_i"]
+        if not rx:
+            columns = ["transmit_pulse_r", "transmit_pulse_i"]
 
         complex_split = complex_series.apply(
             lambda x: [np.real(x), np.imag(x)] if isinstance(x, np.ndarray) else [None, None]
@@ -112,11 +193,11 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         return pd.DataFrame(
             data=complex_split.to_list(),
-            columns=["backscatter_r", "backscatter_i"],
+            columns=columns,
             index=complex_series.index,
         )
 
-    def _write_complex(self, df: pd.DataFrame, max_mb: int):
+    def _write_complex(self, df: pd.DataFrame, max_mb: int, rx: bool = True):
         """
         Writes the complex data and associated indices
         to a zarr group.
@@ -142,11 +223,15 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         )
         channels = channels[indexer]
 
-        complex_series = self._reshape_series(complex_series)
+        if rx:
+            complex_series = self._reshape_series(complex_series)
+            grp_key = "complex"
+        else:
+            grp_key = "tx_complex"
 
-        complex_df = self._split_complex_data(complex_series)
+        self.p2z_ch_ids[grp_key] = channels.values  # store channel ids for variable
 
-        self.p2z_ch_ids["complex"] = channels.values  # store channel ids for variable
+        complex_df = self._split_complex_data(complex_series, rx=rx)
 
         # create multi index using the product of the unique dims
         unique_dims = [times, channels]
@@ -154,7 +239,11 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         complex_df = self.set_multi_index(complex_df, unique_dims)
 
         # write complex data to the complex group
-        zarr_grp = self.zarr_root.create_group("complex")
+        if rx:
+            zarr_grp = self.zarr_root.create_group(grp_key)
+        else:
+            zarr_grp = self.zarr_root.create_group(grp_key)
+
         for column in complex_df:
             self.write_df_column(
                 pd_series=complex_df[column],
@@ -219,6 +308,17 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         self.complex_df = datagram_df.dropna().copy()
 
+    def _get_tx_zarr_df(self) -> None:
+        """Create dataframe for the transmit data."""
+
+        tx_datagram_df = pd.DataFrame.from_dict(self.parser_obj.zarr_tx_datagrams)
+        # remove power and angle to conserve memory
+        for col in ["power", "angle"]:
+            if col in tx_datagram_df.columns:
+                del tx_datagram_df[col]
+
+        self.tx_df = tx_datagram_df.dropna().copy()
+
     def whether_write_to_zarr(self, mem_mult: float = 0.3) -> bool:
         """
         Determines if the zarr data provided will expand
@@ -266,7 +366,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
 
         return mem.total * mem_mult < req_mem
 
-    def datagram_to_zarr(self, max_mb: int) -> None:
+    def datagram_to_zarr(self, dest_path: str, dest_storage_options: dict, max_mb: int) -> None:
         """
         Facilitates the conversion of a list of
         datagrams to a form that can be written
@@ -288,7 +388,7 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
         the same.
         """
 
-        self._create_zarr_info()
+        self._create_zarr_info(dest_path=dest_path, dest_storage_options=dest_storage_options)
 
         # create zarr dfs, if they do not exist
         if not isinstance(self.pow_ang_df, pd.DataFrame) and not isinstance(
@@ -307,5 +407,15 @@ class Parsed2ZarrEK80(Parsed2ZarrEK60):
             self._write_complex(df=self.complex_df, max_mb=max_mb)
 
         del self.complex_df  # free memory
+
+        # write transmit data
+        if not isinstance(self.tx_df, pd.DataFrame):
+            self._get_tx_zarr_df()
+            del self.parser_obj.zarr_tx_datagrams  # free memory
+
+            if not self.tx_df.empty:
+                self._write_complex(df=self.tx_df, max_mb=max_mb, rx=False)
+
+            del self.tx_df  # free memory
 
         self._close_store()

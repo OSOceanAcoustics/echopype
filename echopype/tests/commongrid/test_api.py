@@ -41,7 +41,7 @@ def test_compute_NASC(test_data_samples):
 
 # MVBS Tests
 @pytest.mark.integration
-def test_compute_MVBS_index_binning(ds_Sv_er_regular, regular_data_params):
+def test_compute_MVBS_index_binning(ds_Sv_echo_range_regular, regular_data_params):
     """Test compute_MVBS_index_binning on mock data"""
 
     ping_num = 3  # number of pings to average over
@@ -52,7 +52,7 @@ def test_compute_MVBS_index_binning(ds_Sv_er_regular, regular_data_params):
 
     # Binned MVBS test
     ds_MVBS = ep.commongrid.compute_MVBS_index_binning(
-        ds_Sv_er_regular, range_sample_num=range_sample_num, ping_num=ping_num
+        ds_Sv_echo_range_regular, range_sample_num=range_sample_num, ping_num=ping_num
     )
 
     # Shape test
@@ -63,7 +63,7 @@ def test_compute_MVBS_index_binning(ds_Sv_er_regular, regular_data_params):
 
     # Expected values compute
     # average should be done in linear domain
-    da_sv = 10 ** (ds_Sv_er_regular["Sv"] / 10)
+    da_sv = 10 ** (ds_Sv_echo_range_regular["Sv"] / 10)
     expected = 10 * np.log10(
         da_sv.coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad").mean(
             skipna=True
@@ -78,27 +78,27 @@ def test_compute_MVBS_index_binning(ds_Sv_er_regular, regular_data_params):
 @pytest.mark.parametrize(
     ["range_bin", "ping_time_bin"], [(5, "10S"), ("10m", 10), ("10km", "10S"), ("10", "10S")]
 )
-def test_compute_MVBS_bin_inputs_fail(ds_Sv_er_regular, range_bin, ping_time_bin):
+def test_compute_MVBS_bin_inputs_fail(ds_Sv_echo_range_regular, range_bin, ping_time_bin):
     expected_error = ValueError
     if isinstance(range_bin, int) or isinstance(ping_time_bin, int):
         expected_error = TypeError
-        match = r"\w+ must be a string"
+        match = r"must be a string"
     else:
-        match = r"range_bin must be in meters"
+        match = r"Range bin must be in meters"
 
     with pytest.raises(expected_error, match=match):
         ep.commongrid.compute_MVBS(
-            ds_Sv_er_regular, range_bin=range_bin, ping_time_bin=ping_time_bin
+            ds_Sv_echo_range_regular, range_bin=range_bin, ping_time_bin=ping_time_bin
         )
 
 
 @pytest.mark.unit
-def test_compute_MVBS_w_latlon(ds_Sv_er_regular_w_latlon, lat_attrs, lon_attrs):
+def test_compute_MVBS_w_latlon(ds_Sv_echo_range_regular_w_latlon, lat_attrs, lon_attrs):
     """Testing for compute_MVBS with latitude and longitude"""
     from echopype.consolidate.api import POSITION_VARIABLES
 
     ds_MVBS = ep.commongrid.compute_MVBS(
-        ds_Sv_er_regular_w_latlon, range_bin="5m", ping_time_bin="10S"
+        ds_Sv_echo_range_regular_w_latlon, range_bin="5m", ping_time_bin="10S"
     )
     for var in POSITION_VARIABLES:
         # Check to ensure variable is in dataset
@@ -115,17 +115,17 @@ def test_compute_MVBS_w_latlon(ds_Sv_er_regular_w_latlon, lat_attrs, lon_attrs):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("range_var", ["my_range", "echo_range", "depth"])
-def test_compute_MVBS_invalid_range_var(ds_Sv_er_regular, range_var):
+def test_compute_MVBS_invalid_range_var(ds_Sv_echo_range_regular, range_var):
     """Test compute MVBS range_var on mock data"""
 
     if range_var == "my_range":
         with pytest.raises(ValueError, match="range_var must be one of 'echo_range' or 'depth'."):
-            ep.commongrid.compute_MVBS(ds_Sv_er_regular, range_var=range_var)
+            ep.commongrid.compute_MVBS(ds_Sv_echo_range_regular, range_var=range_var)
     elif range_var == "depth":
         with pytest.raises(
             ValueError, match=f"range_var '{range_var}' does not exist in the input dataset."
         ):
-            ep.commongrid.compute_MVBS(ds_Sv_er_regular, range_var=range_var)
+            ep.commongrid.compute_MVBS(ds_Sv_echo_range_regular, range_var=range_var)
     else:
         pass
 
@@ -173,12 +173,18 @@ def test_compute_MVBS(test_data_samples):
     ],
 )
 def test_compute_MVBS_range_output(request, er_type):
-    """Tests the output of compute_MVBS on regular and irregular data."""
+    """
+    Tests the shape of compute_MVBS output on regular and irregular data.
+    The irregularity in the input echo_range would cause some rows or columns
+    of the output Sv to contain NaN.
+    Here we test for the expected shape after dropping the NaNs
+    for specific ping_time bins.
+    """
     # set jitter=0 to get predictable number of ping within each echo_range groups
     if er_type == "regular":
-        ds_Sv = request.getfixturevalue("ds_Sv_er_regular")
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
     else:
-        ds_Sv = request.getfixturevalue("ds_Sv_er_irregular")
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
 
     ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="5m", ping_time_bin="10S")
 
@@ -261,12 +267,12 @@ def test_compute_MVBS_values(request, er_type):
     ping_time_bin = "1s"
 
     if er_type == "regular":
-        ds_Sv = request.getfixturevalue("mock_sv_dataset_regular")
+        ds_Sv = request.getfixturevalue("mock_Sv_dataset_regular")
         expected_mvbs = request.getfixturevalue("mock_mvbs_array_regular")
     else:
         # Mock irregular dataset contains jitter
         # and NaN values in the bottom echo_range
-        ds_Sv = request.getfixturevalue("mock_sv_dataset_irregular")
+        ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
         expected_mvbs = request.getfixturevalue("mock_mvbs_array_irregular")
 
     ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin=range_bin, ping_time_bin=ping_time_bin)

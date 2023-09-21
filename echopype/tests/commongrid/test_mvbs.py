@@ -19,11 +19,11 @@ def test_get_MVBS_along_channels(request, range_var, lat_lon):
     
     # Retrieve the correct dataset
     if range_var == "depth":
-        ds_Sv = request.getfixturevalue("ds_Sv_er_regular_w_depth")
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_depth")
     elif range_var == "echo_range" and lat_lon is True:
-        ds_Sv = request.getfixturevalue("ds_Sv_er_regular_w_latlon")
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_latlon")
     else:
-        ds_Sv = request.getfixturevalue("ds_Sv_er_regular")
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
     
     # compute range interval
     echo_range_max = ds_Sv[range_var].max()
