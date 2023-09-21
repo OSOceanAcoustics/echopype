@@ -5,28 +5,32 @@ import numpy as np
 
 # Utilities Tests
 @pytest.mark.parametrize(
-    ["range_bin", "expected_result"],
+    ["x_bin", "x_label", "expected_result"],
     [
-        (5, TypeError),
-        ("0.2m", 0.2),
-        ("10m", 10.0),
-        ("10km", ValueError),
-        ("10", ValueError)
+        # Success
+        ("10m", "range_bin", 10.0),
+        ("0.2m", "range_bin", 0.2),
+        ("0.5nmi", "dist_bin", 0.5),
+        # Errored
+        (10, "range_bin", TypeError),
+        ("10km", "range_bin", ValueError),
+        ("10", "range_bin", ValueError),
+        ("10m", "invalid_label", KeyError),
     ],
 )
-def test__parse_range_bin(range_bin, expected_result):
-    expected_error_msg = r"range_bin must be in meters"
-    if isinstance(range_bin, int):
-        expected_error_msg = r"range_bin must be a string"
-    elif range_bin in ["10km", "10"]:
-        expected_error_msg = r"range_bin must be in meters"
+def test__parse_x_bin(x_bin, x_label, expected_result):
+    if x_label == "invalid_label":
+        expected_error_msg = r"x_label must be one of"
+    elif isinstance(x_bin, int):
+        expected_error_msg = r"must be a string"
+    elif x_bin in ["10km", "10"]:
+        expected_error_msg = r"must be in"
 
     if not isinstance(expected_result, float):
         with pytest.raises(expected_result, match=expected_error_msg):
-            ep.commongrid.api._parse_range_bin(range_bin)
+            ep.commongrid.api._parse_x_bin(x_bin, x_label)
     else:
-        assert ep.commongrid.api._parse_range_bin(range_bin) == expected_result
-
+        assert ep.commongrid.api._parse_x_bin(x_bin, x_label) == expected_result
 
 # NASC Tests
 @pytest.mark.integration
