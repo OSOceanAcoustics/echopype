@@ -91,41 +91,75 @@ def _convert_bins_to_interval_index(
     return pd.IntervalIndex.from_breaks(bins, closed=closed).sort_values()
 
 
-def _parse_range_bin(range_bin: str) -> float:
+def _parse_x_bin(x_bin: str, x_label="range_bin") -> float:
     """
-    Parses range bin string, check unit,
-    and returns range bin in meters.
+    Parses x bin string, check unit,
+    and returns x bin in x unit.
+
+    Currently only available for:
+    range_bin: meters (m)
+    dist_bin: nautical miles (nmi)
 
     Parameters
     ----------
-    range_bin : str
-        Range bin string, e.g., "10m"
+    x_bin : str
+        X bin string, e.g., "0.5nmi" or "10m"
+    x_label : {"range_bin", "dist_bin"}, default "range_bin"
+        The label of the x bin.
 
     Returns
     -------
     float
-        The resulting range bin value in meters.
+        The resulting x bin value in x unit,
+        based on label.
 
     Raises
     ------
     ValueError
-        If the range bin string doesn't include 'm' for meters.
+        If the x bin string doesn't include unit value.
     TypeError
-        If the range bin is not a type string.
+        If the x bin is not a type string.
+    KeyError
+        If the x label is not one of the available labels.
     """
+    x_bin_map = {
+        "range_bin": {
+            "name": "Range bin",
+            "unit": "m",
+            "ex": "10m",
+            "unit_label": "meters",
+            "pattern": r"([\d+]*[.,]{0,1}[\d+]*)(\s+)?(m)",
+        },
+        "dist_bin": {
+            "name": "Distance bin",
+            "unit": "nmi",
+            "ex": "0.5nmi",
+            "unit_label": "nautical miles",
+            "pattern": r"([\d+]*[.,]{0,1}[\d+]*)(\s+)?(nmi)",
+        },
+    }
+    x_bin_info = x_bin_map.get(x_label, None)
+
+    if x_bin_info is None:
+        raise KeyError(f"x_label must be one of {list(x_bin_map.keys())}")
+
     # First check for bin types
-    if not isinstance(range_bin, str):
-        raise TypeError("range_bin must be a string")
+    if not isinstance(x_bin, str):
+        raise TypeError("'x_bin' must be a string")
     # normalize to lower case
     # for range_bin
-    range_bin = range_bin.strip().lower()
+    x_bin = x_bin.strip().lower()
     # Only matches meters
-    match_obj = re.match(r"([\d+]*[.,]{0,1}[\d+]*)(\s+)?(m)", range_bin)
+    match_obj = re.match(x_bin_info["pattern"], x_bin)
 
     # Do some checks on range meter inputs
     if match_obj is None:
         # This shouldn't be other units
-        raise ValueError("range_bin must be in meters (e.g., '10m').")
+        raise ValueError(
+            f"{x_bin_info['name']} must be in "
+            f"{x_bin_info['unit_label']} "
+            f"(e.g., '{x_bin_info['ex']}')."
+        )
 
     # Convert back to float
     range_bin = float(match_obj.group(1))
@@ -182,7 +216,7 @@ def compute_MVBS(
     if not isinstance(ping_time_bin, str):
         raise TypeError("ping_time_bin must be a string")
 
-    range_bin = _parse_range_bin(range_bin)
+    range_bin = _parse_x_bin(range_bin, "range_bin")
 
     # Clean up filenames dimension if it exists
     # not needed here
