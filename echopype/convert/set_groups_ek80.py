@@ -1,14 +1,21 @@
 from collections import defaultdict
-from typing import List
+from typing import Dict, List, Union
 
 import numpy as np
 import xarray as xr
+from numpy.typing import NDArray
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 from .set_groups_base import SetGroupsBase
 
 logger = _init_logger(__name__)
+
+WIDE_BAND_TRANS = "WBT"
+PULSE_COMPRESS = "PC"
+FILTER_IMAG = "filter_i"
+FILTER_REAL = "filter_r"
+DECIMATION = "decimation"
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -19,32 +26,27 @@ class SetGroupsEK80(SetGroupsBase):
     # in converting from v0.5.x to v0.6.0. The values within
     # these sets are applied to all Sonar/Beam_groupX groups.
 
+    # 2023-07-24:
+    #   PRs:
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1056
+    #     - https://github.com/OSOceanAcoustics/echopype/pull/1083
+    #   The artificially added beam and ping_time dimensions at v0.6.0
+    #   were reverted at v0.8.0, due to concerns with efficiency and code clarity
+    #   (see https://github.com/OSOceanAcoustics/echopype/issues/684 and
+    #        https://github.com/OSOceanAcoustics/echopype/issues/978).
+    #   However, the mechanisms to expand these dimensions were preserved for
+    #   flexibility and potential later use.
+    #   Note such expansion is still applied on AZFP data for 2 variables
+    #   (see set_groups_azfp.py).
+
     # Variables that need only the beam dimension added to them.
-    beam_only_names = {
-        "backscatter_r",
-        "backscatter_i",
-        "angle_athwartship",
-        "angle_alongship",
-        "frequency_start",
-        "frequency_end",
-    }
+    beam_only_names = set()
 
     # Variables that need only the ping_time dimension added to them.
-    ping_time_only_names = {"beam_type"}
+    ping_time_only_names = set()
 
     # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = {
-        "beam_direction_x",
-        "beam_direction_y",
-        "beam_direction_z",
-        "angle_offset_alongship",
-        "angle_offset_athwartship",
-        "angle_sensitivity_alongship",
-        "angle_sensitivity_athwartship",
-        "equivalent_beam_angle",
-        "beamwidth_twoway_alongship",
-        "beamwidth_twoway_athwartship",
-    }
+    beam_ping_time_names = set()
 
     beamgroups_possible = [
         {
@@ -72,7 +74,7 @@ class SetGroupsEK80(SetGroupsBase):
         # if we have zarr files, create parser_obj.ch_ids
         if self.parsed2zarr_obj.temp_zarr_dir:
             for k, v in self.parsed2zarr_obj.p2z_ch_ids.items():
-                self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
+                self.parser_obj.ch_ids[k] = self.parsed2zarr_obj._get_channel_ids(v)
 
         # obtain sorted channel dict in ascending order for each usage scenario
         self.sorted_channel = {
@@ -298,9 +300,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
 
         # Collect variables
-        if self.ui_param["water_level"] is not None:
-            water_level = self.ui_param["water_level"]
-        elif "water_level_draft" in self.parser_obj.environment:
+        if "water_level_draft" in self.parser_obj.environment:
             water_level = self.parser_obj.environment["water_level_draft"]
         else:
             water_level = np.nan
@@ -310,18 +310,20 @@ class SetGroupsEK80(SetGroupsBase):
         time2 = self.parser_obj.mru.get("timestamp", None)
         time2 = np.array(time2) if time2 is not None else [np.nan]
 
+        # Handle potential nan timestamp for time1 and time2
+        time1 = self._nan_timestamp_handler(time1)
+        time2 = self._nan_timestamp_handler(time2)
+
         # Assemble variables into a dataset: variables filled with nan if do not exist
+        platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         ds = xr.Dataset(
             {
-                "frequency_nominal": (
-                    ["channel"],
-                    freq,
-                    {
-                        "units": "Hz",
-                        "long_name": "Transducer frequency",
-                        "valid_min": 0.0,
-                        "standard_name": "sound_frequency",
-                    },
+                "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
+                "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
+                "sentence_type": (
+                    ["time1"],
+                    msg_type,
+                    self._varattrs["platform_var_default"]["sentence_type"],
                 ),
                 "pitch": (
                     ["time2"],
@@ -338,20 +340,22 @@ class SetGroupsEK80(SetGroupsBase):
                     np.array(self.parser_obj.mru.get("heave", [np.nan])),
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
-                "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
-                "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
-                "sentence_type": (["time1"], msg_type),
+                "water_level": (
+                    [],
+                    water_level,
+                    self._varattrs["platform_var_default"]["water_level"],
+                ),
                 "drop_keel_offset": (
-                    ["time3"],
-                    [self.parser_obj.environment["drop_keel_offset"]]
-                    if hasattr(self.parser_obj.environment, "drop_keel_offset")
-                    else [np.nan],
+                    [],
+                    self.parser_obj.environment.get("drop_keel_offset", np.nan),
                 ),
                 "drop_keel_offset_is_manual": (
-                    ["time3"],
-                    [self.parser_obj.environment["drop_keel_offset_is_manual"]]
-                    if "drop_keel_offset_is_manual" in self.parser_obj.environment
-                    else [np.nan],
+                    [],
+                    self.parser_obj.environment.get("drop_keel_offset_is_manual", np.nan),
+                ),
+                "water_level_draft_is_manual": (
+                    [],
+                    self.parser_obj.environment.get("water_level_draft_is_manual", np.nan),
                 ),
                 "transducer_offset_x": (
                     ["channel"],
@@ -383,21 +387,6 @@ class SetGroupsEK80(SetGroupsBase):
                     ],
                     self._varattrs["platform_var_default"]["transducer_offset_z"],
                 ),
-                "water_level": (
-                    ["time3"],
-                    [water_level],
-                    {
-                        "long_name": "z-axis distance from the platform coordinate system "
-                        "origin to the sonar transducer",
-                        "units": "m",
-                    },
-                ),
-                "water_level_draft_is_manual": (
-                    ["time3"],
-                    [self.parser_obj.environment["water_level_draft_is_manual"]]
-                    if "water_level_draft_is_manual" in self.parser_obj.environment
-                    else [np.nan],
-                ),
                 **{
                     var: ([], np.nan, self._varattrs["platform_var_default"][var])
                     for var in [
@@ -412,12 +401,30 @@ class SetGroupsEK80(SetGroupsBase):
                         "position_offset_z",
                     ]
                 },
+                "frequency_nominal": (
+                    ["channel"],
+                    freq,
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
+                    },
+                ),
             },
             coords={
                 "channel": (
                     ["channel"],
                     self.sorted_channel["power_complex"],
                     self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "time1": (
+                    ["time1"],
+                    time1,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA position data.",
+                    },
                 ),
                 "time2": (
                     ["time2"],
@@ -430,36 +437,9 @@ class SetGroupsEK80(SetGroupsBase):
                         "orientation data.",
                     },
                 ),
-                "time3": (
-                    ["time3"],
-                    [self.parser_obj.environment["timestamp"]]
-                    if "timestamp" in self.parser_obj.environment
-                    else np.datetime64("NaT"),
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamps for platform-related sampling environment",
-                        "standard_name": "time",
-                        "comment": "Time coordinate corresponding to platform-related "
-                        "sampling environment. Note that Platform.time3 is "
-                        "the same as Environment.time1.",
-                    },
-                ),
-                "time1": (
-                    ["time1"],
-                    time1,
-                    {
-                        **self._varattrs["platform_coord_default"]["time1"],
-                        "comment": "Time coordinate corresponding to NMEA position data.",
-                    },
-                ),
-            },
-            attrs={
-                "platform_code_ICES": self.ui_param["platform_code_ICES"],
-                "platform_name": self.ui_param["platform_name"],
-                "platform_type": self.ui_param["platform_type"],
-                # TODO: check what this 'drop_keel_offset' is
             },
         )
+        ds = ds.assign_attrs(platform_dict)
         return set_time_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
@@ -485,6 +465,17 @@ class SetGroupsEK80(SetGroupsBase):
                 self.parser_obj.config_datagram["configuration"][ch].get(param, np.nan)
                 for ch in self.sorted_channel[data_type]
             ]
+
+        for i, ch in enumerate(self.sorted_channel[data_type]):
+            if (
+                np.isclose(beam_params["transducer_alpha_x"][i], 0.00)
+                and np.isclose(beam_params["transducer_alpha_y"][i], 0.00)
+                and np.isclose(beam_params["transducer_alpha_z"][i], 0.00)
+            ):
+                beam_params["transducer_alpha_x"][i] = np.nan
+                beam_params["transducer_alpha_y"][i] = np.nan
+                beam_params["transducer_alpha_z"][i] = np.nan
+
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
@@ -497,7 +488,11 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
-                "beam_type": (["channel"], beam_params["transducer_beam_type"]),
+                "beam_type": (
+                    ["channel"],
+                    beam_params["transducer_beam_type"],
+                    {"long_name": "type of transducer (0-single, 1-split)"},
+                ),
                 "beamwidth_twoway_alongship": (
                     ["channel"],
                     beam_params["beam_width_alongship"],
@@ -616,6 +611,25 @@ class SetGroupsEK80(SetGroupsBase):
                     ["channel"],
                     beam_params["transceiver_software_version"],
                 ),
+                "beam_stabilisation": (
+                    [],
+                    np.array(0, np.byte),
+                    {
+                        "long_name": "Beam stabilisation applied (or not)",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["not stabilised", "stabilised"],
+                    },
+                ),
+                "non_quantitative_processing": (
+                    [],
+                    np.array(0, np.int16),
+                    {
+                        "long_name": "Presence or not of non-quantitative processing applied"
+                        " to the backscattering data (sonar specific)",
+                        "flag_values": [0],
+                        "flag_meanings": ["None"],
+                    },
+                ),
             },
             coords={
                 "channel": (
@@ -627,15 +641,29 @@ class SetGroupsEK80(SetGroupsBase):
             attrs={"beam_mode": "vertical", "conversion_equation_t": "type_3"},
         )
 
+        if data_type == "power":
+            ds = ds.assign(
+                {
+                    "transmit_frequency_start": (
+                        ["channel"],
+                        freq,
+                        self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                    ),
+                    "transmit_frequency_stop": (
+                        ["channel"],
+                        freq,
+                        self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                    ),
+                }
+            )
+
         return ds
 
     def _add_freq_start_end_ds(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
         """
         Returns a Dataset with variables
-        ``frequency_start`` and ``frequency_end``
-        added to ``ds_tmp`` for a specific channel,
-        if ``frequency_start`` is in ping_data_dict.
-
+        ``transmit_frequency_start`` and ``transmit_frequency_stop``
+        added to ``ds_tmp`` for a specific channel.
         Parameters
         ----------
         ds_tmp: xr.Dataset
@@ -644,54 +672,43 @@ class SetGroupsEK80(SetGroupsBase):
             Channel id
         """
 
+        # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
         # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        # TODO: use PulseForm instead of checking for the existence
-        #   of FrequencyStart and FrequencyEnd
-        if (
-            "frequency_start" in self.parser_obj.ping_data_dict.keys()
-            and self.parser_obj.ping_data_dict["frequency_start"][ch]
-        ):
-            ds_f_start_end = xr.Dataset(
-                {
-                    "frequency_start": (
-                        ["ping_time"],
-                        np.array(
-                            self.parser_obj.ping_data_dict["frequency_start"][ch],
-                            dtype=int,
-                        ),
-                        {
-                            "long_name": "Starting frequency of the transducer",
-                            "units": "Hz",
-                        },
-                    ),
-                    "frequency_end": (
-                        ["ping_time"],
-                        np.array(
-                            self.parser_obj.ping_data_dict["frequency_end"][ch],
-                            dtype=int,
-                        ),
-                        {
-                            "long_name": "Ending frequency of the transducer",
-                            "units": "Hz",
-                        },
-                    ),
-                },
-                coords={
-                    "ping_time": (
-                        ["ping_time"],
-                        self.parser_obj.ping_time[ch],
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamp of each ping",
-                            "standard_name": "time",
-                        },
-                    ),
-                },
-            )
+        if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
+            freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
+            freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
+        elif not self.sorted_channel["power"]:
+            freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+            freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
+            freq_stop = freq_start
+        else:
+            return ds_tmp
 
-            ds_tmp = xr.merge(
-                [ds_tmp, ds_f_start_end], combine_attrs="override"
-            )  # override keeps the Dataset attributes
+        ds_f_start_end = xr.Dataset(
+            {
+                "transmit_frequency_start": (
+                    ["ping_time"],
+                    freq_start.astype(float),
+                    self._varattrs["beam_var_default"]["transmit_frequency_start"],
+                ),
+                "transmit_frequency_stop": (
+                    ["ping_time"],
+                    freq_stop.astype(float),
+                    self._varattrs["beam_var_default"]["transmit_frequency_stop"],
+                ),
+            },
+            coords={
+                "ping_time": (
+                    ["ping_time"],
+                    self.parser_obj.ping_time[ch],
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+            },
+        )
+
+        ds_tmp = xr.merge(
+            [ds_tmp, ds_f_start_end], combine_attrs="override"
+        )  # override keeps the Dataset attributes
 
         return ds_tmp
 
@@ -717,12 +734,22 @@ class SetGroupsEK80(SetGroupsBase):
                 "backscatter_r": (
                     ["ping_time", "range_sample", "beam"],
                     np.real(data),
-                    {"long_name": "Real part of backscatter power", "units": "V"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],
+                        "units": "dB",
+                    },
                 ),
                 "backscatter_i": (
                     ["ping_time", "range_sample", "beam"],
                     np.imag(data),
-                    {"long_name": "Imaginary part of backscatter power", "units": "V"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_i"][
+                            "long_name"
+                        ],
+                        "units": "dB",
+                    },
                 ),
             },
             coords={
@@ -816,7 +843,12 @@ class SetGroupsEK80(SetGroupsBase):
                 "backscatter_r": (
                     ["ping_time", "range_sample"],
                     self.parser_obj.ping_data_dict["power"][ch],
-                    {"long_name": "Backscatter power", "units": "dB"},
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],
+                        "units": "dB",
+                    },
                 ),
             },
             coords={
@@ -864,6 +896,8 @@ class SetGroupsEK80(SetGroupsBase):
                 }
             )
 
+        ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
+
         return set_time_encodings(ds_tmp)
 
     def _assemble_ds_common(self, ch, range_sample_size):
@@ -877,6 +911,10 @@ class SetGroupsEK80(SetGroupsBase):
             pulse_length = np.array(
                 self.parser_obj.ping_data_dict["pulse_duration"][ch], dtype="float32"
             )
+
+        def pulse_form_map(pulse_form):
+            str_map = np.array(["CW", "LFM", "", "", "", "FMD"])
+            return str_map[pulse_form]
 
         ds_common = xr.Dataset(
             {
@@ -910,6 +948,44 @@ class SetGroupsEK80(SetGroupsBase):
                 "slope": (
                     ["ping_time"],
                     self.parser_obj.ping_data_dict["slope"][ch],
+                    {"long_name": "Hann window slope parameter for transmit signal"},
+                ),
+                "channel_mode": (
+                    ["ping_time"],
+                    np.array(self.parser_obj.ping_data_dict["channel_mode"][ch], dtype=np.byte),
+                    {
+                        "long_name": "Transceiver mode",
+                        "flag_values": [0, 1],
+                        "flag_meanings": ["Active", "Unknown"],
+                    },
+                ),
+                "transmit_type": (
+                    ["ping_time"],
+                    pulse_form_map(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch])),
+                    {
+                        "long_name": "Type of transmitted pulse",
+                        "flag_values": ["CW", "LFM", "FMD"],
+                        "flag_meanings": [
+                            "Continuous Wave – a pulse nominally of one frequency",
+                            "Linear Frequency Modulation – a pulse which varies from "
+                            "transmit_frequency_start to transmit_frequency_stop in a linear "
+                            "manner over the nominal pulse duration (transmit_duration_nominal)",
+                            "Frequency Modulated 'D' - An EK80-specific FM type that is not "
+                            "clearly described",
+                        ],
+                    },
+                ),
+                "sample_time_offset": (
+                    ["ping_time"],
+                    (
+                        np.array(self.parser_obj.ping_data_dict["offset"][ch])
+                        * np.array(self.parser_obj.ping_data_dict["sample_interval"][ch])
+                    ),
+                    {
+                        "long_name": "Time offset that is subtracted from the timestamp"
+                        " of each sample",
+                        "units": "s",
+                    },
                 ),
             },
             coords={
@@ -991,26 +1067,25 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.zarr_file_name
-        backscatter_r = self._get_power_dataarray(zarr_path)
-        angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
+        backscatter_r = self.parsed2zarr_obj.power_dataarray
+        angle_athwartship, angle_alongship = self.parsed2zarr_obj.angle_dataarrays
+
+        # Obtain RAW4 transmit pulse data if it exists
+        tx_pulse_list = []
+        if (
+            hasattr(self.parsed2zarr_obj, "tx_complex_dataarrays")
+            and self.parsed2zarr_obj.tx_complex_dataarrays is not None
+        ):
+            tx_pulse_list = list(self.parsed2zarr_obj.tx_complex_dataarrays)
 
         # create power related ds using DataArrays created from zarr file
-        ds_power = xr.merge([backscatter_r, angle_athwartship, angle_alongship])
+        ds_power = xr.merge(
+            [backscatter_r, angle_athwartship, angle_alongship] + tx_pulse_list,
+            combine_attrs="override",
+        )
         ds_power = set_time_encodings(ds_power)
 
-        # obtain additional variables that need to be added to ds_power
-        ds_tmp = []
-        for ch in self.sorted_channel["power"]:
-            ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
-            ds_data = set_time_encodings(ds_data)
-
-            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_power.range_sample.size)
-            ds_tmp.append(ds_data)
-
-        ds_tmp = self.merge_save(ds_tmp, ds_invariant_power)
-
-        return xr.merge([ds_tmp, ds_power], combine_attrs="override")
+        return xr.merge([ds_invariant_power, ds_power], combine_attrs="override")
 
     def _get_ds_complex_zarr(self, ds_invariant_complex: xr.Dataset) -> xr.Dataset:
         """
@@ -1033,8 +1108,7 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.zarr_file_name
-        backscatter_r, backscatter_i = self._get_complex_dataarrays(zarr_path)
+        backscatter_r, backscatter_i = self.parsed2zarr_obj.complex_dataarrays
 
         # create power related ds using DataArrays created from zarr file
         ds_complex = xr.merge([backscatter_r, backscatter_i])
@@ -1244,7 +1318,7 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
         if "rx_sample_frequency" in param_dict:
-            ds_table["fs_receiver"] = xr.DataArray(
+            ds_table["receiver_sampling_frequency"] = xr.DataArray(
                 param_dict["rx_sample_frequency"].astype(float),
                 dims=["channel"],
                 coords={"channel": ds_table["channel"]},
@@ -1310,32 +1384,93 @@ class SetGroupsEK80(SetGroupsBase):
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
-        #  Save decimation factors and filter coefficients
-        coeffs = dict()
-        decimation_factors = dict()
+        # Save decimation factors and filter coefficients
+        # Param map values
+        # 1: wide band transceiver (WBT)
+        # 2: pulse compression (PC)
+        param_map = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
+        coeffs_and_decimation = {
+            t: {FILTER_IMAG: [], FILTER_REAL: [], DECIMATION: []} for t in list(param_map.values())
+        }
+
         for ch in self.sorted_channel["all"]:
-            # filter coeffs and decimation factor for wide band transceiver (WBT)
-            if self.parser_obj.fil_coeffs and (ch in self.parser_obj.fil_coeffs.keys()):
-                coeffs[f"{ch} WBT filter"] = self.parser_obj.fil_coeffs[ch][1]
-                decimation_factors[f"{ch} WBT decimation"] = self.parser_obj.fil_df[ch][1]
-            # filter coeffs and decimation factor for pulse compression (PC)
-            if self.parser_obj.fil_df and (ch in self.parser_obj.fil_coeffs.keys()):
-                coeffs[f"{ch} PC filter"] = self.parser_obj.fil_coeffs[ch][2]
-                decimation_factors[f"{ch} PC decimation"] = self.parser_obj.fil_df[ch][2]
+            fil_coeffs = self.parser_obj.fil_coeffs.get(ch, None)
+            fil_df = self.parser_obj.fil_df.get(ch, None)
+
+            if fil_coeffs and fil_df:
+                # get filter coefficient values
+                for type_num, values in fil_coeffs.items():
+                    param = param_map[type_num]
+                    coeffs_and_decimation[param][FILTER_IMAG].append(np.imag(values))
+                    coeffs_and_decimation[param][FILTER_REAL].append(np.real(values))
+
+                # get decimation factor values
+                for type_num, value in fil_df.items():
+                    param = param_map[type_num]
+                    coeffs_and_decimation[param][DECIMATION].append(value)
 
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
 
-        # Save filter coefficients as real and imaginary parts as attributes
-        for k, v in coeffs.items():
-            ds.attrs[k + "_r"] = np.real(v)
-            ds.attrs[k + "_i"] = np.imag(v)
-
-        # Save decimation factors as attributes
-        for k, v in decimation_factors.items():
-            ds.attrs[k] = v
+        # Add the coeffs and decimation
+        ds = ds.pipe(self._add_filter_params, coeffs_and_decimation)
 
         # Save the entire config XML in vendor group in case of info loss
-        ds.attrs["config_xml"] = self.parser_obj.config_datagram["xml"]
+        ds["config_xml"] = self.parser_obj.config_datagram["xml"]
 
         return ds
+
+    @staticmethod
+    def _add_filter_params(
+        dataset: xr.Dataset, coeffs_and_decimation: Dict[str, Dict[str, List[Union[int, NDArray]]]]
+    ) -> xr.Dataset:
+        """
+        Assembles filter coefficient and decimation factors and add to the dataset
+
+        Parameters
+        ----------
+        dataset : xr.Dataset
+            xarray dataset where the filter coefficient and decimation factors will be added
+        coeffs_and_decimation : dict
+            dictionary holding the filter coefficient and decimation factors
+
+        Returns
+        -------
+        xr.Dataset
+            The modified dataset with filter coefficient and decimation factors included
+        """
+        attribute_values = {
+            FILTER_IMAG: "filter coefficients (imaginary part)",
+            FILTER_REAL: "filter coefficients (real part)",
+            DECIMATION: "decimation factor",
+            WIDE_BAND_TRANS: "Wideband transceiver",
+            PULSE_COMPRESS: "Pulse compression",
+        }
+
+        coeffs_xr_data = {}
+        for cd_type, values in coeffs_and_decimation.items():
+            for key, data in values.items():
+                if data:
+                    if "filter" in key:
+                        attrs = {
+                            "long_name": f"{attribute_values[cd_type]} {attribute_values[key]}"
+                        }
+                        # filter_i and filter_r
+                        max_len = np.max([len(a) for a in data])
+                        # Pad arrays
+                        data = np.asarray(
+                            [
+                                np.pad(a, (0, max_len - len(a)), "constant", constant_values=np.nan)
+                                for a in data
+                            ]
+                        )
+                        dims = ["channel", f"{cd_type}_filter_n"]
+                    else:
+                        attrs = {
+                            "long_name": f"{attribute_values[cd_type]} {attribute_values[DECIMATION]}"  # noqa
+                        }
+                        dims = ["channel"]
+                    # Set the xarray data dictionary
+                    coeffs_xr_data[f"{cd_type}_{key}"] = (dims, data, attrs)
+
+        return dataset.assign(coeffs_xr_data)

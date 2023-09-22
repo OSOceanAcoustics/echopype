@@ -12,20 +12,25 @@ parts:
   chapters:
   - file: convert
   - file: open-converted
-  - file: process
   - file: data-format
-    title: Data formats
+    title: Raw data formats
     sections:
+    - file: data-format-sonarnetcdf4
     - file: data-format-raw
-    - file: data-format-processed
-    - file: data-format-5to6
+    - file: data-format-changes
+  - file: data-proc
+    title: Data processing
+    sections:
+    - file: data-proc-func
+    - file: data-proc-additional
   - file: viz
   - file: processing-levels
     title: Processing levels
-- caption: Help & reference
+- caption: Help & references
   chapters:
-  - file: api
   - file: whats-new
-  - file: roadmap
   - file: contributing
+  - file: api
+  - file: zbibliography
+  - file: roadmap
   - file: resources

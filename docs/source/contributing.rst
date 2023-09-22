@@ -72,12 +72,20 @@ then set the source repository as the ``upstream`` git remote:
     cd echopype
     git remote add upstream https://github.com/OSOceanAcoustics/echopype.git
 
-Create a `conda <https://docs.conda.io>`_ environment for echopype development
-(replace the Python version with your preferred version):
+Below shows the steps to create a `conda <https://docs.conda.io>`_
+environment for echopype development
+(replace the Python version with your preferred version).
+
+.. attention::
+    We recommend using the ``libmamba`` solver instead of the classic solver,
+    since the ``conda create`` and ``conda install`` step could take very long or fail.
+    See instructions `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
+    for installation and usage.
+
 
 .. code-block:: bash
 
-    # create conda environment using the supplied requirements files
+    # create a conda environment using the supplied requirements files
     # note the last one docs/requirements.txt is only required for building docs
     conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
 
@@ -92,13 +100,6 @@ Create a `conda <https://docs.conda.io>`_ environment for echopype development
     # plot is an extra set of requirements that can be used for plotting.
     # the command will install all the dependencies along with plotting dependencies.
     pip install -e ".[plot]"
-
-.. note::
-
-    Try using `mamba <https://mamba.readthedocs.io>`_ instead of ``conda``
-    if the ``conda create`` and ``conda install`` step fail or take too long.
-    ``Mamba`` is a drop-in replacement for conda environment creation and package
-    installation that is typically faster than conda.
 
 See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
 
@@ -144,13 +145,20 @@ the latter via `minio <https://minio.io>`_.
 will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
 or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``,
 ``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
-as an argument a comma-separated list of the modules that have changed. For example:
+as an argument a comma-separated list of the modules that have changed or also run only particular test
+files by passing a comma-separated list of test files that you want to run. For example:
 
 .. code-block:: bash
 
     python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/preprocess/noise_est.py
 
 will run only tests associated with the ``calibrate`` and ``preprocess`` subpackages.
+
+.. code-block:: bash
+
+    python .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
+
+will run only the tests in the ``test_convert_azfp.py`` and ``test_noise.py`` files.
 For ``run-test.py`` usage information, use the ``-h`` argument:
 ``python .ci_helpers/run-test.py -h``
 

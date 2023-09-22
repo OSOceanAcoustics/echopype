@@ -33,7 +33,7 @@ MODULES_TO_TEST = {
     "echodata": {},
     "mask": {},
     "metrics": {},
-    "preprocess": {},
+    "qc": {},
     "utils": {},
     "visualize": {},
 }
@@ -118,15 +118,18 @@ if __name__ == "__main__":
     for k, v in test_to_run.items():
         print(f"=== RUNNING {k.upper()} TESTS===")
         print(f"Touched files: {','.join([os.path.basename(p) for p in v])}")
-        if k == "root":
-            file_glob_str = "echopype/tests/test_*.py"
-            cov_mod_arg = ["--cov=echopype"]
+        if all(os.path.exists(f) for f in v):
+            test_files = [str(p) for p in v]
         else:
-            file_glob_str = f"echopype/tests/{k}/*.py"
-            cov_mod_arg = [f"--cov=echopype/{k}"]
-        if args.include_cov:
-            pytest_args = original_pytest_args + cov_mod_arg
-        test_files = glob.glob(file_glob_str)
+            if k == "root":
+                file_glob_str = "echopype/tests/test_*.py"
+                cov_mod_arg = ["--cov=echopype"]
+            else:
+                file_glob_str = f"echopype/tests/{k}/*.py"
+                cov_mod_arg = [f"--cov=echopype/{k}"]
+            if args.include_cov:
+                pytest_args = original_pytest_args + cov_mod_arg
+            test_files = glob.glob(file_glob_str)
         final_args = pytest_args + test_files
         print(f"Pytest args: {final_args}")
         exit_code = pytest.main(final_args)

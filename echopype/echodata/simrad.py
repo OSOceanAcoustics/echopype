@@ -3,6 +3,8 @@ Contains functions that are specific to Simrad echo sounders
 """
 from typing import Optional, Tuple
 
+import numpy as np
+
 from .echodata import EchoData
 
 
@@ -118,38 +120,30 @@ def _retrieve_correct_beam_group_EK80(
     power_ed_group = None
     complex_ed_group = None
 
+    transmit_type = echodata["Sonar/Beam_group1"]["transmit_type"]
+    # assume transmit_type identical for all pings in a channel
+    # TODO: change when allowing within-channel CW-BB switch
+    first_ping_transmit_type = transmit_type.isel(ping_time=0)
     if waveform_mode == "BB":
         # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
-        # when echodata contains CW power and BB complex samples, and frequency_start
-        # variable in Beam_group1
-        if waveform_mode == "BB" and "frequency_start" not in echodata["Sonar/Beam_group1"]:
-            raise ValueError("waveform_mode='BB', but broadband data not found!")
-        elif "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
+        # when echodata contains CW power and BB complex samples
+        if np.all(first_ping_transmit_type == "CW"):
             raise ValueError("waveform_mode='BB', but complex data does not exist!")
         elif echodata["Sonar/Beam_group2"] is not None:
             power_ed_group = "Sonar/Beam_group2"
             complex_ed_group = "Sonar/Beam_group1"
         else:
             complex_ed_group = "Sonar/Beam_group1"
-
     else:
         # CW can have complex or power data, so we just need to make sure that
         # 1) complex samples always exist in Sonar/Beam_group1
         # 2) power samples are in Sonar/Beam_group1 if only one beam group exists
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
 
-        # Raise error if waveform_mode="CW" but CW data does not exist
-        if (
-            encode_mode == "complex"  # only check if encode_mode="complex"
-            and "frequency_start" in echodata["Sonar/Beam_group1"]  # only check is data is BB
-        ):
-            if (
-                echodata["Sonar/Beam_group1"]["channel"].size  # total number of channels
-                == echodata["Sonar/Beam_group1"]["frequency_start"]
-                .dropna(dim="channel")["channel"]
-                .size  # number of BB channel
-            ):  # if all channels are BB
-                raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
+        # Raise error if waveform_mode="CW" but CW data does not exist (not a single ping is CW)
+        # TODO: change when allowing within-channel CW-BB switch
+        if encode_mode == "complex" and np.all(first_ping_transmit_type != "CW"):
+            raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
 
         if echodata["Sonar/Beam_group2"] is None:
             if encode_mode == "power":

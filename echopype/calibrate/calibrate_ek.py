@@ -9,7 +9,13 @@ from ..utils.log import _init_logger
 from .cal_params import _get_interp_da, get_cal_params_EK
 from .calibrate_base import CalibrateBase
 from .ecs import conform_channel_order, ecs_ds2dict, ecs_ev2ep
-from .ek80_complex import compress_pulse, get_filter_coeff, get_tau_effective, get_transmit_signal
+from .ek80_complex import (
+    compress_pulse,
+    get_filter_coeff,
+    get_norm_fac,
+    get_tau_effective,
+    get_transmit_signal,
+)
 from .env_params import get_env_params_EK
 from .range import compute_range_EK, range_mod_TVG_EK
 
@@ -78,7 +84,7 @@ class CalibrateEK(CalibrateBase):
             CSv = (
                 10 * np.log10(beam["transmit_power"])
                 + 2 * self.cal_params["gain_correction"]
-                + self.cal_params["equivalent_beam_angle"]  # has beam dim
+                + self.cal_params["equivalent_beam_angle"]
                 + 10
                 * np.log10(
                     wavelength**2
@@ -93,7 +99,7 @@ class CalibrateEK(CalibrateBase):
                 beam["backscatter_r"]  # has beam dim
                 + spreading_loss
                 + absorption_loss
-                - CSv  # has beam dim
+                - CSv
                 - 2 * self.cal_params["sa_correction"]
             )
             out.name = "Sv"
@@ -124,9 +130,7 @@ class CalibrateEK(CalibrateBase):
         if "time1" in out.coords:
             out = out.drop("time1")
 
-        # Squeeze out the beam dim
-        # doing it here because both out and self.cal_params["equivalent_beam_angle"] has beam dim
-        return out.squeeze("beam", drop=True)
+        return out
 
 
 class CalibrateEK60(CalibrateEK):
@@ -248,9 +252,9 @@ class CalibrateEK80(CalibrateEK):
         # Use center frequency if in BB mode, else use nominal channel frequency
         if self.waveform_mode == "BB":
             # use true center frequency to interpolate for various cal params
-            self.freq_center = (beam["frequency_start"] + beam["frequency_end"]).sel(
-                channel=self.chan_sel
-            ).isel(beam=0).drop("beam") / 2
+            self.freq_center = (
+                beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]
+            ).sel(channel=self.chan_sel) / 2
         else:
             # use nominal channel frequency for CW pulse
             self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
@@ -311,18 +315,24 @@ class CalibrateEK80(CalibrateEK):
         """
         # Use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        if "frequency_start" in beam and "frequency_end" in beam:
-            # At least some channels are BB
-            # frequency_start and frequency_end are NaN for CW channels
-            freq_center = (beam["frequency_start"] + beam["frequency_end"]) / 2  # has beam dim
+        if not np.all(beam["transmit_type"] == "CW"):
+            # At least 1 BB ping exists -- this is analogous to what we had from before
+            # Before: when at least 1 BB ping exists, frequency_start and frequency_end will exist
 
+            # assume transmit_type identical for all pings in a channel
+            first_ping_transmit_type = (
+                beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
+            )  # noqa
             return {
-                # For BB: drop channels containing CW samples (nan in freq start/end)
-                "BB": freq_center.dropna(dim="channel").channel,
-                # For CW: drop channels containing BB samples (not nan in freq start/end)
-                "CW": freq_center.where(np.isnan(freq_center), drop=True).channel,
+                # For BB: Keep only non-CW channels (LFM or FMD) based on transmit_type
+                "BB": first_ping_transmit_type.where(
+                    first_ping_transmit_type != "CW", drop=True
+                ).channel,  # noqa
+                # For CW: Keep only CW channels based on transmit_type
+                "CW": first_ping_transmit_type.where(
+                    first_ping_transmit_type == "CW", drop=True
+                ).channel,  # noqa
             }
-
         else:
             # All channels are CW
             return {"BB": None, "CW": beam.channel}
@@ -366,6 +376,8 @@ class CalibrateEK80(CalibrateEK):
 
                 # Assemble parameter data array with all channels
                 # Either interpolate or pull from narrowband input
+                # The ping_time dimension has to persist for BB case,
+                # because center frequency may change across ping
                 if "ping_time" in cal_params_dict[p].coords:
                     ds_cal_BB[p] = _get_interp_da(
                         da_param=ds_cal_BB[p],  # freq-dep xr.DataArray
@@ -432,6 +444,7 @@ class CalibrateEK80(CalibrateEK):
             pc = compress_pulse(
                 backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"], chirp=chirp
             )  # has beam dim
+            pc = pc / get_norm_fac(chirp=chirp)  # normalization for each channel
             prx = _get_prx(pc)  # ensure prx is xr.DataArray
         else:
             bs_cw = beam["backscatter_r"] + 1j * beam["backscatter_i"]
@@ -572,16 +585,7 @@ class CalibrateEK80(CalibrateEK):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        # Squeeze out the beam dim
-        # out has beam dim, which came from absorption and absorption_loss
-        # self.cal_params["equivalent_beam_angle"] also has beam dim
-
-        # TODO: out should not have beam dimension at this stage
-        # once that dimension is removed from equivalent_beam_angle
-        if "beam" in out.coords:
-            return out.isel(beam=0).drop("beam")
-        else:
-            return out
+        return out
 
     def _compute_cal(self, cal_type) -> xr.Dataset:
         """

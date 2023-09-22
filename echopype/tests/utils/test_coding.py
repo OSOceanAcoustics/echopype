@@ -4,7 +4,7 @@ import xarray as xr
 import math
 import dask
 
-from echopype.utils.coding import _get_auto_chunk
+from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings
 
 @pytest.mark.parametrize(
     "chunk",
@@ -31,3 +31,41 @@ def test__get_auto_chunk(chunk):
         assert chunk_byte_size == dask_data.nbytes, "Default chunk is not equal to data array size!"
     else:
         assert chunk_byte_size <= dask.utils.parse_bytes(chunk), "Calculated chunk exceeded max chunk!"
+        
+def test_set_netcdf_encodings():
+    # create a test dataset
+    ds = xr.Dataset(
+        {
+            "var1": xr.DataArray(np.random.rand(10), dims="dim1"),
+            "var2": xr.DataArray(np.random.rand(10), dims="dim1", attrs={"attr1": "value1"}),
+            "var3": xr.DataArray(["a", "b", "c"], dims="dim2"),
+        },
+        attrs={"global_attr": "global_value"},
+    )
+
+    # test with default compression settings
+    encoding = set_netcdf_encodings(ds, {})
+    assert isinstance(encoding, dict)
+    assert len(encoding) == 3
+    assert "var1" in encoding
+    assert "var2" in encoding
+    assert "var3" in encoding
+    assert encoding["var1"]["zlib"] is True
+    assert encoding["var1"]["complevel"] == 4
+    assert encoding["var2"]["zlib"] is True
+    assert encoding["var2"]["complevel"] == 4
+    assert encoding["var3"]["zlib"] is False
+
+    # test with custom compression settings
+    compression_settings = {"zlib": True, "complevel": 5}
+    encoding = set_netcdf_encodings(ds, compression_settings)
+    assert isinstance(encoding, dict)
+    assert len(encoding) == 3
+    assert "var1" in encoding
+    assert "var2" in encoding
+    assert "var3" in encoding
+    assert encoding["var1"]["zlib"] is True
+    assert encoding["var1"]["complevel"] == 5
+    assert encoding["var2"]["zlib"] is True
+    assert encoding["var2"]["complevel"] == 5
+    assert encoding["var3"]["zlib"] is False

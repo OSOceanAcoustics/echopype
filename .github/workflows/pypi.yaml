@@ -18,7 +18,7 @@ jobs:
     if: github.repository == 'OSOceanAcoustics/echopype'
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         # fetch all history so that setuptools-scm works
         fetch-depth: 0
@@ -69,7 +69,7 @@ jobs:
         ls -ltrh
         ls -ltrh dist
     - name: Publish to Test PyPI
-      uses: pypa/gh-action-pypi-publish@v1.8.8
+      uses: pypa/gh-action-pypi-publish@v1.8.10
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
         repository_url: https://test.pypi.org/legacy/
@@ -104,6 +104,6 @@ jobs:
         name: releases
         path: dist
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.8.8
+      uses: pypa/gh-action-pypi-publish@v1.8.10
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}

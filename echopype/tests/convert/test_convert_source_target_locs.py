@@ -12,15 +12,16 @@ import os
 import fsspec
 import xarray as xr
 import pytest
+from datatree import open_datatree
 from tempfile import TemporaryDirectory
 from echopype import open_raw
 from echopype.utils.coding import DEFAULT_ENCODINGS
 
 
 def _check_file_group(data_file, engine, groups):
-    for g in groups:
-        ds = xr.open_dataset(data_file, engine=engine, group=g)
-
+    tree = open_datatree(data_file, engine=engine)
+    for group in groups:
+        ds = tree[f"/{group}"].ds
         assert isinstance(ds, xr.Dataset) is True
 
 
@@ -235,7 +236,7 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
         xml_path = str(test_path[path_model].joinpath(*xml_path).absolute())
 
     ed = open_raw(
-        sonar_model=sonar_model, raw_file=raw_file, xml_path=xml_path
+        sonar_model=sonar_model, raw_file=raw_file, xml_path=xml_path, destination_path="no_swap"
     )
     ed.to_netcdf(overwrite=True)
     for group, details in ed.group_map.items():
@@ -296,6 +297,7 @@ def test_convert_ek(
         raw_file=ipath,
         sonar_model=sonar_model,
         storage_options=input_storage_options,
+        destination_path="no_swap"
     )
 
     if (
@@ -369,6 +371,7 @@ def test_convert_azfp(
         xml_path=azfp_xml_paths,
         sonar_model=model,
         storage_options=input_storage_options,
+        destination_path="no_swap"
     )
 
     assert echodata.xml_path == azfp_xml_paths

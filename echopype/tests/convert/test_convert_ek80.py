@@ -5,6 +5,7 @@ from scipy.io import loadmat
 from echopype import open_raw
 
 from echopype.testing import TEST_DATA_FOLDER
+from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 
 
 @pytest.fixture
@@ -57,23 +58,25 @@ def check_env_xml(echodata):
     assert "sound_velocity_profile_depth"
     assert np.array_equal(echodata["Environment"]["sound_velocity_profile_depth"], [1, 1000])
 
-    # check plat vars
+    # check a subset of platform variables. plat_vars specifies a list of possible, expected scalar values
+    # for each variable. The variables from the EchoData object are tested against this dictionary
+    # to verify their presence and their scalar values
     plat_vars = {
-        "drop_keel_offset": [np.nan],
+        "drop_keel_offset": [np.nan, 0, 7.5],
         "drop_keel_offset_is_manual": [0, 1],
         "water_level": [0],
         "water_level_draft_is_manual": [0, 1]
     }
     for plat_var, expected_plat_var_values in plat_vars.items():
         assert plat_var in echodata["Platform"]
-        assert echodata["Platform"][plat_var].dims == ("time3",)
         if np.isnan(expected_plat_var_values).all():
             assert np.isnan(echodata["Platform"][plat_var]).all()
         else:
-            assert all([env_var_value in expected_plat_var_values for env_var_value in echodata["Platform"][plat_var]])
+            assert echodata["Platform"][plat_var] in expected_plat_var_values
 
     # check plat dims
-    assert "time3" in echodata["Platform"]
+    assert "time1" in echodata["Platform"]
+    assert "time2" in echodata["Platform"]
 
 
 def test_convert(ek80_new_file, dump_output_dir):
@@ -105,17 +108,23 @@ def test_convert_ek80_complex_matlab(ek80_path):
     # Test complex parsed data
     ds_matlab = loadmat(ek80_matlab_path_bb)
     assert np.array_equal(
-        echodata["Sonar/Beam_group1"].backscatter_r.sel(
-            channel='WBT 549762-15 ES70-7C', ping_time='2017-09-12T23:49:10.722999808'
-        ).dropna('range_sample').squeeze().values[1:, :],  # squeeze remove ping_time dimension
-        np.real(
-            ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
+        (
+            echodata["Sonar/Beam_group1"].backscatter_r
+            .sel(channel='WBT 549762-15 ES70-7C')
+            .isel(ping_time=0)
+            .dropna('range_sample').squeeze().values[1:, :]  # squeeze remove ping_time dimension
+        ),
+            np.real(
+                ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
         ),  # real part
     )
     assert np.array_equal(
-        echodata["Sonar/Beam_group1"].backscatter_i.sel(
-            channel='WBT 549762-15 ES70-7C', ping_time='2017-09-12T23:49:10.722999808'
-        ).dropna('range_sample').squeeze().values[1:, :],  # squeeze remove ping_time dimension
+        (
+            echodata["Sonar/Beam_group1"].backscatter_i
+            .sel(channel='WBT 549762-15 ES70-7C')
+            .isel(ping_time=0)
+            .dropna('range_sample').squeeze().values[1:, :]  # squeeze remove ping_time dimension
+        ),
         np.imag(
             ds_matlab['data']['echodata'][0][0][0, 0]['complexsamples']
         ),  # imag part
@@ -186,8 +195,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         test_power = pd.read_csv(file, delimiter=';').iloc[:, 13:].values
         assert np.allclose(
             test_power,
-            echodata["Sonar/Beam_group1"].backscatter_r.sel(channel=chan,
-                                            beam='1').dropna('range_sample'),
+            echodata["Sonar/Beam_group1"].backscatter_r.sel(channel=chan).dropna('range_sample'),
             rtol=0,
             atol=1.1e-5,
         )
@@ -213,7 +221,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
         for ping_idx in df_angle['Ping_index'].value_counts().index:
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Major'],
-                major.sel(channel=chan, beam='1')
+                major.sel(channel=chan)
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,
@@ -221,7 +229,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
             )
             assert np.allclose(
                 df_angle.loc[df_angle['Ping_index'] == ping_idx, ' Minor'],
-                minor.sel(channel=chan, beam='1')
+                minor.sel(channel=chan)
                 .isel(ping_time=ping_idx)
                 .dropna('range_sample'),
                 rtol=0,
@@ -415,10 +423,8 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
     """Make sure we can convert EK80 file with empty filter coefficients."""
     echodata = open_raw(raw_file=ek80_path.joinpath('D20210330-T123857.raw'), sonar_model='EK80')
 
-    ch_ids = list(echodata["Sonar/Beam_group1"]["channel"].values)
+    vendor_spec_ds = echodata["Vendor_specific"]
 
-    for ch_id in ch_ids:
-        assert f"{ch_id} WBT filter_r" not in echodata["Vendor_specific"].attrs.keys()
-        assert f"{ch_id} WBT filter_i" not in echodata["Vendor_specific"].attrs.keys()
-        assert f"{ch_id} PC filter_r" not in echodata["Vendor_specific"].attrs.keys()
-        assert f"{ch_id} PC filter_i" not in echodata["Vendor_specific"].attrs.keys()
+    for t in [WIDE_BAND_TRANS, PULSE_COMPRESS]:
+        for p in [FILTER_REAL, FILTER_IMAG, DECIMATION]:
+            assert f"{t}_{p}" not in vendor_spec_ds

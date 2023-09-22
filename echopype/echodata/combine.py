@@ -1,19 +1,30 @@
 import itertools
 import re
+from collections import ChainMap
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from warnings import warn
 
-import dask.distributed
 import fsspec
-from dask.distributed import Client
+import numpy as np
+import pandas as pd
+import xarray as xr
+from datatree import DataTree
 
 from ..utils.io import validate_output_path
 from ..utils.log import _init_logger
+from ..utils.prov import echopype_prov_attrs
 from .echodata import EchoData
-from .zarr_combine import ZarrCombine
 
 logger = _init_logger(__name__)
+
+POSSIBLE_TIME_DIMS = {"time1", "time2", "time3", "ping_time"}
+APPEND_DIMS = {"filenames"}.union(POSSIBLE_TIME_DIMS)
+DATE_CREATED_ATTR = "date_created"
+CONVERSION_TIME_ATTR = "conversion_time"
+ED_GROUP = "echodata_group"
+ED_FILENAME = "echodata_filename"
+FILENAMES = "filenames"
 
 
 def check_zarr_path(
@@ -142,22 +153,22 @@ def _check_channel_selection_form(
             raise TypeError("Each value of channel_selection must be a list of strings!")
 
 
-def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
+def check_eds(echodata_list: List[EchoData]) -> Tuple[str, List[str]]:
     """
     Ensures that the input list of ``EchoData`` objects for ``combine_echodata``
     is in the correct form and all necessary items exist.
 
     Parameters
     ----------
-    echodatas: list of EchoData object
+    echodata_list: list of EchoData object
         The list of `EchoData` objects to be combined.
 
     Returns
     -------
     sonar_model : str
-        The sonar model used for all values in ``echodatas``
+        The sonar model used for all values in ``echodata_list``
     echodata_filenames : list of str
-        The source files names for all values in ``echodatas``
+        The source files names for all values in ``echodata_list``
 
     Raises
     ------
@@ -172,17 +183,19 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
     """
 
     # make sure that the input is a list of EchoData objects
-    if not isinstance(echodatas, list) and all([isinstance(ed, EchoData) for ed in echodatas]):
+    if not isinstance(echodata_list, list) and all(
+        [isinstance(ed, EchoData) for ed in echodata_list]
+    ):
         raise TypeError("The input, eds, must be a list of EchoData objects!")
 
     # get the sonar model for the combined object
-    if echodatas[0].sonar_model is None:
+    if echodata_list[0].sonar_model is None:
         raise ValueError("all EchoData objects must have non-None sonar_model values")
     else:
-        sonar_model = echodatas[0].sonar_model
+        sonar_model = echodata_list[0].sonar_model
 
     echodata_filenames = []
-    for ed in echodatas:
+    for ed in echodata_list:
         # check sonar model
         if ed.sonar_model is None:
             raise ValueError("all EchoData objects must have non-None sonar_model values")
@@ -195,12 +208,16 @@ def check_echodatas_input(echodatas: List[EchoData]) -> Tuple[str, List[str]]:
         elif ed.converted_raw_path is not None:
             filepath = ed.converted_raw_path
         else:
-            # unreachable
-            raise ValueError("EchoData object does not have a file path")
+            # defaulting to none, must be from memory
+            filepath = None
 
-        filename = Path(filepath).name
-        if filename in echodata_filenames:
-            raise ValueError("EchoData objects have conflicting filenames")
+        # set default filename to internal memory
+        filename = "internal-memory"
+        if filepath is not None:
+            filename = Path(filepath).name
+            if filename in echodata_filenames:
+                raise ValueError("EchoData objects have conflicting filenames")
+
         echodata_filenames.append(filename)
 
     return sonar_model, echodata_filenames
@@ -364,16 +381,17 @@ def _create_channel_selection_dict(
 
 
 def _check_echodata_channels(
-    echodatas: List[EchoData], user_channel_selection: Optional[Union[List, Dict[str, list]]] = None
+    echodata_list: List[EchoData],
+    user_channel_selection: Optional[Union[List, Dict[str, list]]] = None,
 ) -> Dict[str, Optional[List[str]]]:
     """
     Coordinates the routines that check to make sure each ``EchoData`` group with a ``channel``
-    dimension has consistent channels for all elements in ``echodatas``, taking into account
+    dimension has consistent channels for all elements in ``echodata_list``, taking into account
     the input ``user_channel_selection``.
 
     Parameters
     ----------
-    echodatas: list of EchoData object
+    echodata_list: list of EchoData object
         The list of ``EchoData`` objects to be combined
     user_channel_selection: list or dict, optional
         A user provided input that will be used to specify which channels will be
@@ -399,17 +417,19 @@ def _check_echodata_channels(
     """
 
     # determine if the EchoData group contains a channel dimension
-    has_chan_dim = {grp: "channel" in echodatas[0][grp].dims for grp in echodatas[0].group_paths}
+    has_chan_dim = {
+        grp: "channel" in echodata_list[0][grp].dims for grp in echodata_list[0].group_paths
+    }
 
     # create dictionary specifying the channels that should be selected for each group
     channel_selection = _create_channel_selection_dict(
-        echodatas[0].sonar_model, has_chan_dim, user_channel_selection
+        echodata_list[0].sonar_model, has_chan_dim, user_channel_selection
     )
 
-    for ed_group in echodatas[0].group_paths:
-        if "channel" in echodatas[0][ed_group].dims:
+    for ed_group in echodata_list[0].group_paths:
+        if "channel" in echodata_list[0][ed_group].dims:
             # get each EchoData's channels as a list of list
-            all_chan_list = [list(ed[ed_group].channel.values) for ed in echodatas]
+            all_chan_list = [list(ed[ed_group].channel.values) for ed in echodata_list]
 
             # make sure each EchoData does not have repeating channels
             all_chan_unique = [len(set(ed_chans)) == len(ed_chans) for ed_chans in all_chan_list]
@@ -420,7 +440,7 @@ def _check_echodata_channels(
 
                 # get files that produced the EchoData objects with repeated channels
                 files_w_rep_chan = [
-                    echodatas[ind]["Provenance"].source_filenames.values[0] for ind in false_ind
+                    echodata_list[ind]["Provenance"].source_filenames.values[0] for ind in false_ind
                 ]
 
                 raise RuntimeError(
@@ -435,35 +455,415 @@ def _check_echodata_channels(
     return channel_selection
 
 
-def combine_echodata(
-    echodatas: List[EchoData] = None,
-    zarr_path: Optional[Union[str, Path]] = None,
-    overwrite: bool = False,
-    storage_options: Dict[str, Any] = {},
-    client: Optional[dask.distributed.Client] = None,
-    channel_selection: Optional[Union[List, Dict[str, list]]] = None,
-    consolidated: bool = True,
-) -> EchoData:
+def _check_ascending_ds_times(ds_list: List[xr.Dataset], ed_group: str) -> None:
     """
-    Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
-    This is accomplished by writing each element of ``echodatas`` in parallel
-    (using Dask) to the zarr store specified by ``zarr_path``.
+    A minimal check that the first time value of each Dataset is less than
+    the first time value of the subsequent Dataset. If each first time value
+    is NaT, then this check is skipped.
 
     Parameters
     ----------
-    echodatas : list of EchoData object
+    ds_list: list of xr.Dataset
+        List of Datasets to be combined
+    ed_group: str
+        The name of the ``EchoData`` group being combined
+
+    Returns
+    -------
+    None
+
+
+    Raises
+    ------
+    RuntimeError
+        If the timeX dimension is not in ascending order
+        for the specified echodata group
+    """
+
+    # get all time dimensions of the input Datasets
+    ed_time_dim = set(ds_list[0].dims).intersection(POSSIBLE_TIME_DIMS)
+
+    for time in ed_time_dim:
+        # gather the first time of each Dataset
+        first_times = []
+        for ds in ds_list:
+            times = ds[time].values
+            if isinstance(times, np.ndarray):
+                # store first time if we have an array
+                first_times.append(times[0])
+            else:
+                # store first time if we have a single value
+                first_times.append(times)
+
+        first_times = np.array(first_times)
+
+        # skip check if all first times are NaT
+        if not np.isnan(first_times).all():
+            is_descending = (np.diff(first_times) < np.timedelta64(0, "ns")).any()
+
+            if is_descending:
+                raise RuntimeError(
+                    f"The coordinate {time} is not in ascending order for "
+                    f"group {ed_group}, combine cannot be used!"
+                )
+
+
+def _check_no_append_vendor_params(
+    ds_list: List[xr.Dataset], ed_group: Literal["Vendor_specific"], ds_append_dims: set
+) -> None:
+    """
+    Check for identical params for all inputs without an
+    appending dimension in Vendor specific group
+
+    Parameters
+    ----------
+    ds_list: list of xr.Dataset
+        List of Datasets to be combined
+    ed_group: "Vendor_specific"
+        The name of the ``EchoData`` group being combined,
+        this only works for "Vendor_specific" group.
+    ds_append_dims: set
+        A set of datasets append dimensions
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If ``ed_group`` is not ``Vendor_specific``.
+    RuntimeError
+        If non identical filter parameters is found.
+    """
+    if ed_group != "Vendor_specific":
+        raise ValueError("Group must be `Vendor_specific`!")
+
+    if len(ds_append_dims) > 0:
+        # If there's a dataset appending dimension, drop for comparison
+        # of the other values... everything else should be identical
+        ds_list = [ds.drop_dims(ds_append_dims) for ds in ds_list]
+
+    it = iter(ds_list)
+    # Init as identical, must stay True.
+    is_identical = True
+    dataset = next(it)
+    for next_dataset in it:
+        is_identical = dataset.identical(next_dataset)
+        if not is_identical:
+            raise RuntimeError(
+                f"Non identical filter parameters in {ed_group} group. " "Objects cannot be merged!"
+            )
+        dataset = next_dataset
+
+
+def _merge_attributes(attributes: List[Dict[str, str]]) -> Dict[str, str]:
+    """
+    Merge a list of attributes dictionary
+
+    Parameters
+    ----------
+    attributes : list of dict
+        List of attributes dictionary
+        E.g. [{'attr1': 'val1'}, {'attr2': 'val2'}, ...]
+
+    Returns
+    -------
+    dict
+        The merged attribute dictionary
+    """
+    merged_dict = {}
+    for attribute in attributes:
+        for key, value in attribute.items():
+            if key not in merged_dict:
+                # if current key is not in merged attribute,
+                # then save the value for that key
+                merged_dict[key] = value
+            elif merged_dict[key] == "":
+                # if current key is already in merged attribute,
+                # check if the value of that key is empty,
+                # in this case overwrite the value with current value
+                merged_dict[key] = value
+            # By default the rest of the behavior
+            # will keep the first non-empty value it sees
+
+            # NOTE: @lsetiawan (6/2/2023) - Comment this out for now until
+            # attributes are fully evaluated by @leewujung and @emiliom
+            # if value == "" and key not in merged_dict:
+            #     # checks if current attr value is empty,
+            #     # and doesn't exist in merged attribute,
+            #     # saving the first non empty value only
+            #     merged_dict[key] = value
+            # elif value != "":
+            #     # if current attr value is not empty,
+            #     # then overwrite the merged attribute,
+            #     # keeping attribute from latest value
+            #     merged_dict[key] = value
+    return merged_dict
+
+
+def _capture_prov_attrs(
+    attrs_dict: Dict[str, List[Dict[str, str]]], echodata_filenames: List[str], sonar_model: str
+) -> xr.Dataset:
+    """
+    Capture and create provenance dataset,
+    from the combined attribute values.
+
+    Parameters
+    ----------
+    attrs_dict : dict of list
+        Dictionary of attributes for each of the group.
+        E.g. {'Group': [{'attr1': 'val1'}, {'attr2': 'val2'}, ...]}
+    echodata_filenames : list of str
+        The filenames of the echodata objects
+    sonar_model : str
+        The sonar model
+
+    Returns
+    -------
+    xr.Dataset
+        The provenance dataset for all attribute values from
+        the list of echodata objects that are combined.
+
+    """
+    ds_list = []
+    for group, attributes in attrs_dict.items():
+        df = pd.DataFrame.from_records(attributes)
+        df.loc[:, ED_FILENAME] = echodata_filenames
+        df = df.set_index(ED_FILENAME)
+
+        group_ds = df.to_xarray()
+        for _, var in group_ds.data_vars.items():
+            var.attrs.update({ED_GROUP: group})
+        ds_list.append(group_ds)
+
+    prov_ds = xr.merge(ds_list)
+    # Set these provenance as string
+    prov_ds = prov_ds.fillna("").astype(str)
+    prov_ds[ED_FILENAME] = prov_ds[ED_FILENAME].astype(str)
+    return prov_ds
+
+
+def _get_prov_attrs(
+    ds: xr.Dataset, is_combined: bool = True
+) -> Optional[Dict[str, List[Dict[str, str]]]]:
+    """
+    Get the provenance attributes from the dataset.
+    This function is meant to be used on an already combined dataset.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The Provenance group dataset to get attributes from
+    is_combined: bool
+        The flag to indicate if it's combined
+
+    Returns
+    -------
+    Dict[str, List[Dict[str, str]]]
+        The provenance attributes
+    """
+
+    if is_combined:
+        attrs_dict = {}
+        for k, v in ds.data_vars.items():
+            # Go through each data variable and extract the attribute values
+            # based on the echodata group as stored in the variable attribute
+            if ED_GROUP in v.attrs:
+                ed_group = v.attrs[ED_GROUP]
+                if ed_group not in attrs_dict:
+                    attrs_dict[ed_group] = []
+                # Store the values as a list of dictionary for each group
+                attrs_dict[ed_group].append([{k: i} for i in v.values])
+
+        # Merge the attributes for each group so it matches the
+        # attributes dict for later merging
+        return {
+            ed_group: [
+                dict(ChainMap(*v))
+                for _, v in pd.DataFrame.from_dict(attrs).to_dict(orient="list").items()
+            ]
+            for ed_group, attrs in attrs_dict.items()
+        }
+    return None
+
+
+def _combine(
+    sonar_model: str,
+    eds: List[EchoData] = [],
+    echodata_filenames: List[str] = [],
+    ed_group_chan_sel: Dict[str, Optional[List[str]]] = {},
+) -> Dict[str, xr.Dataset]:
+    """
+    Combines the echodata objects and export to a dictionary tree.
+
+    Parameters
+    ----------
+    sonar_model : str
+        The sonar model used for all elements in ``eds``
+    eds: list of EchoData object
         The list of ``EchoData`` objects to be combined
-    zarr_path: str or pathlib.Path, optional
-        The full save path to the final combined zarr store
-    overwrite: bool
-        If True, will overwrite the zarr store specified by
-        ``zarr_path`` if it already exists, otherwise an error
-        will be returned if the file already exists.
-    storage_options: dict
-        Any additional parameters for the storage
-        backend (ignored for local paths)
-    client: dask.distributed.Client, optional
-        An initialized Dask distributed client
+    echodata_filenames : list of str
+        The filenames of the echodata objects
+    ed_group_chan_sel: dict
+        A dictionary with keys corresponding to the ``EchoData`` groups
+        and values specify what channels should be selected within that
+        group. If a value is ``None``, then a subset of channels should
+        not be selected.
+
+    Returns
+    -------
+    dict of xr.Dataset
+        The dictionary tree containing the xarray dataset
+        for each of the combined group
+
+    """
+    all_group_paths = dict.fromkeys(
+        itertools.chain.from_iterable([list(ed.group_paths) for ed in eds])
+    ).keys()
+    # For dealing with attributes
+    attrs_dict = {}
+
+    # Check if input data are combined datasets
+    # Create combined mapping for later use
+    combined_mapping = []
+    for idx, ed in enumerate(eds):
+        is_combined = ed["Provenance"].attrs.get("is_combined", False)
+        combined_mapping.append(
+            {
+                "is_combined": is_combined,
+                "attrs_dict": _get_prov_attrs(ed["Provenance"], is_combined),
+                "echodata_filename": [str(s) for s in ed["Provenance"][ED_FILENAME].values]
+                if is_combined
+                else [echodata_filenames[idx]],
+            }
+        )
+    # Get single boolean value to see if there's any combined files
+    any_combined = any(d["is_combined"] for d in combined_mapping)
+
+    if any_combined:
+        # Fetches the true echodata filenames if there are any combined files
+        echodata_filenames = list(
+            itertools.chain.from_iterable([d[ED_FILENAME] for d in combined_mapping])
+        )
+
+    # Create Echodata tree dict
+    tree_dict = {}
+    for ed_group in all_group_paths:
+        # collect the group Dataset from all eds that have their channels unselected
+        all_chan_ds_list = [ed[ed_group] for ed in eds]
+
+        # select only the appropriate channels from each Dataset
+        ds_list = [
+            ds.sel(channel=ed_group_chan_sel[ed_group])
+            if ed_group_chan_sel[ed_group] is not None
+            else ds
+            for ds in all_chan_ds_list
+        ]
+
+        if ds_list:
+            if not any_combined:
+                # Get all of the keys and attributes
+                # for regular non combined echodata object
+                ds_attrs = [ds.attrs for ds in ds_list]
+            else:
+                # If there are any combined files,
+                # iterate through from mapping above
+                ds_attrs = []
+                for idx, ds in enumerate(ds_list):
+                    # Retrieve the echodata attrs dict
+                    # parsed from provenance group above
+                    ed_attrs_dict = combined_mapping[idx]["attrs_dict"]
+                    if ed_attrs_dict is not None:
+                        # Set attributes to the appropriate group
+                        # from echodata attrs provenance,
+                        # set default empty dict for missing group
+                        attrs = ed_attrs_dict.get(ed_group, {})
+                    else:
+                        # This is for non combined echodata object
+                        attrs = [ds.attrs]
+                    ds_attrs += attrs
+
+            # Attribute holding
+            attrs_dict[ed_group] = ds_attrs
+
+            # Checks for ascending time in dataset list
+            _check_ascending_ds_times(ds_list, ed_group)
+
+            # get all dimensions in ds that are append dimensions
+            ds_append_dims = set(ds_list[0].dims).intersection(APPEND_DIMS)
+
+            # Checks for filter parameters for "Vendor_specific" ONLY
+            if ed_group == "Vendor_specific":
+                _check_no_append_vendor_params(ds_list, ed_group, ds_append_dims)
+
+            if len(ds_append_dims) == 0:
+                combined_ds = ds_list[0]
+            else:
+                combined_ds = xr.Dataset()
+                for dim in ds_append_dims:
+                    drop_dims = [c_dim for c_dim in ds_append_dims if c_dim != dim]
+                    sub_ds = xr.concat(
+                        [ds.drop_dims(drop_dims) for ds in ds_list],
+                        dim=dim,
+                        coords="minimal",
+                        data_vars="minimal",
+                        compat="no_conflicts",
+                    )
+                    combined_ds = combined_ds.assign(sub_ds.variables)
+
+            # Modify default attrs
+            if ed_group == "Top-level":
+                ed_group = "/"
+
+            # Merge attributes and set to dataset
+            group_attrs = _merge_attributes(ds_attrs)
+
+            # Empty out attributes for now, will be refilled later
+            combined_ds.attrs = group_attrs
+
+            # Add combined flag and update conversion time for Provenance
+            if ed_group == "Provenance":
+                combined_ds.attrs.update(
+                    {
+                        "is_combined": True,
+                        "conversion_software_name": group_attrs["conversion_software_name"],
+                        "conversion_software_version": group_attrs["conversion_software_version"],
+                        "conversion_time": group_attrs["conversion_time"],
+                    }
+                )
+                prov_dict = echopype_prov_attrs(process_type="combination")
+                combined_ds = combined_ds.assign_attrs(prov_dict)
+
+            # Data holding
+            tree_dict[ed_group] = combined_ds
+
+    # Capture provenance for all the attributes
+    prov_ds = _capture_prov_attrs(attrs_dict, echodata_filenames, sonar_model)
+    if not any_combined:
+        # Update the provenance dataset with the captured data
+        prov_ds = tree_dict["Provenance"].assign(prov_ds)
+    else:
+        prov_ds = tree_dict["Provenance"].drop_dims(ED_FILENAME).assign(prov_ds)
+
+    # Update filenames to iter integers
+    prov_ds[FILENAMES] = prov_ds[FILENAMES].copy(data=np.arange(*prov_ds[FILENAMES].shape))  # noqa
+    tree_dict["Provenance"] = prov_ds
+
+    return tree_dict
+
+
+def combine_echodata(
+    echodata_list: List[EchoData] = None,
+    channel_selection: Optional[Union[List, Dict[str, list]]] = None,
+) -> EchoData:
+    """
+    Combines multiple ``EchoData`` objects into a single ``EchoData`` object.
+
+    Parameters
+    ----------
+    echodata_list : list of EchoData object
+        The list of ``EchoData`` objects to be combined
     channel_selection: list of str or dict, optional
         Specifies what channels should be selected for an ``EchoData`` group
         with a ``channel`` dimension (before combination).
@@ -474,24 +874,17 @@ def combine_echodata(
         groups (e.g. "Sonar/Beam_group1") and values as a list of channel names to select
         within that beam group. The rest of the ``EchoData`` groups with a ``channel`` dimension
         will have their selected channels chosen automatically.
-    consolidated: bool
-        Flag to consolidate zarr metadata.
-        Defaults to ``True``
 
     Returns
     -------
     EchoData
-        A lazy loaded ``EchoData`` object obtained from ``zarr_path``,
+        A lazy loaded ``EchoData`` object,
         with all data from the input ``EchoData`` objects combined.
 
     Raises
     ------
     ValueError
         If the provided zarr path does not point to a zarr file
-    TypeError
-        If the a provided `zarr_path` input is not of type string or pathlib.Path
-    RuntimeError
-        If ``zarr_path`` already exists and ``overwrite=False``
     TypeError
         If a list of ``EchoData`` objects are not provided
     ValueError
@@ -503,9 +896,9 @@ def combine_echodata(
     RuntimeError
         If the first time value of each ``EchoData`` group is not less
         than the first time value of the subsequent corresponding
-        ``EchoData`` group, with respect to the order in ``echodatas``
+        ``EchoData`` group, with respect to the order in ``echodata_list``
     RuntimeError
-        If the same ``EchoData`` groups in ``echodatas`` do not
+        If the same ``EchoData`` groups in ``echodata_list`` do not
         have the same number of channels and the same name for each
         of these channels.
     RuntimeError
@@ -521,23 +914,16 @@ def combine_echodata(
         with a duplicate value.
     RuntimeError
         If ``channel_selection=None`` and the ``channel`` dimensions are not the
-        same across the same group under each object in ``echodatas``.
+        same across the same group under each object in ``echodata_list``.
     NotImplementedError
         If ``channel_selection`` is a list and the listed channels are not contained
-        in the ``EchoData`` group across all objects in ``echodatas``.
+        in the ``EchoData`` group across all objects in ``echodata_list``.
 
     Notes
     -----
-    * ``EchoData`` objects are combined by appending their groups individually to a zarr store.
+    * ``EchoData`` objects are combined by appending their groups individually.
     * All attributes (besides attributes whose values are arrays) from all groups before the
       combination will be stored in the ``Provenance`` group.
-    * The instance attributes ``source_file`` and ``converted_raw_path`` of the combined
-      ``EchoData`` object will be copied from the first ``EchoData`` object in the given list.
-    * If no ``zarr_path`` is provided, the combined zarr file will be
-      ``'~/.echopype/temp_output/combined_echodata.zarr'``.
-    * If no ``client`` is provided, then a client with a local scheduler will be used. The
-      created scheduler and client will be shutdown once computation has finished.
-    * For each run of this function, we print our the client dashboard link.
 
     Examples
     --------
@@ -545,67 +931,42 @@ def combine_echodata(
 
     >>> ed1 = echopype.open_converted("file1.zarr")
     >>> ed2 = echopype.open_converted("file2.zarr")
-    >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2],
-    >>>                                      zarr_path="path/to/combined.zarr",
-    >>>                                      storage_options=my_storage_options)
+    >>> combined = echopype.combine_echodata(echodata_list=[ed1, ed2])
 
     Combine in-memory ``EchoData`` objects:
 
     >>> ed1 = echopype.open_raw(raw_file="EK60_file1.raw", sonar_model="EK60")
     >>> ed2 = echopype.open_raw(raw_file="EK60_file2.raw", sonar_model="EK60")
-    >>> combined = echopype.combine_echodata(echodatas=[ed1, ed2],
-    >>>                                      zarr_path="path/to/combined.zarr",
-    >>>                                      storage_options=my_storage_options)
+    >>> combined = echopype.combine_echodata(echodata_list=[ed1, ed2])
     """
-
-    # set flag specifying that a client was not created
-    client_created = False
-
-    # check the client input and print dashboard link
-    if client is None:
-        # set flag specifying that a client was created
-        client_created = True
-
-        client = Client()  # create client with local scheduler
-        logger.info(f"Client dashboard link: {client.dashboard_link}")
-    elif isinstance(client, Client):
-        logger.info(f"Client dashboard link: {client.dashboard_link}")
-    else:
-        raise TypeError(f"The input client is not of type {type(Client)}!")
-
-    # Check the provided zarr_path is valid, or create a temp zarr_path if not provided
-    zarr_path = check_zarr_path(zarr_path, storage_options, overwrite)
-
     # return empty EchoData object, if no EchoData objects are provided
-    if echodatas is None:
+    if echodata_list is None:
         warn("No EchoData objects were provided, returning an empty EchoData object.")
         return EchoData()
 
     # Ensure the list of all EchoData objects to be combined are valid
-    sonar_model, echodata_filenames = check_echodatas_input(echodatas)
+    sonar_model, echodata_filenames = check_eds(echodata_list)
 
     # make sure channel_selection is the appropriate type and only contains the beam groups
     _check_channel_selection_form(channel_selection)
 
     # perform channel check and get channel selection for each EchoData group
-    ed_group_chan_sel = _check_echodata_channels(echodatas, channel_selection)
+    ed_group_chan_sel = _check_echodata_channels(echodata_list, channel_selection)
 
-    # initiate ZarrCombine object
-    comb = ZarrCombine()
-
-    # combine all elements in echodatas by writing to a zarr store
-    ed_comb = comb.combine(
-        zarr_path,
-        echodatas,
-        storage_options=storage_options,
+    # combine the echodata objects and get the tree dict
+    tree_dict = _combine(
         sonar_model=sonar_model,
+        eds=echodata_list,
         echodata_filenames=echodata_filenames,
         ed_group_chan_sel=ed_group_chan_sel,
-        consolidated=consolidated,
     )
 
-    if client_created:
-        # close client
-        client.close()
+    # create datatree from tree dictionary
+    tree = DataTree.from_dict(tree_dict, name="root")
+
+    # create echodata object from datatree
+    ed_comb = EchoData(sonar_model=sonar_model)
+    ed_comb._set_tree(tree)
+    ed_comb._load_tree()
 
     return ed_comb

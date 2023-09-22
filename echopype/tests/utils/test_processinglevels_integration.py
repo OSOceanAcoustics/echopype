@@ -52,8 +52,14 @@ def test_raw_to_mvbs(
         assert "processing_level_url" not in test_ds.attrs
 
     # ---- Convert raw file and update_platform
+    def _var_presence_notnan_test(name):
+        if name in ed['Platform'].data_vars and not ed["Platform"][name].isnull().all():
+            return True
+        else:
+            return False
+
     ed = ep.open_raw(raw_path, xml_path=xml_path, sonar_model=sonar_model)
-    if "longitude" in ed['Platform'].data_vars and "latitude" in ed['Platform'].data_vars:
+    if _var_presence_notnan_test("longitude") and _var_presence_notnan_test("latitude"):
         _presence_test(ed["Top-level"], "Level 1A")
     elif "longitude" in extras and "latitude" in extras:
         _absence_test(ed["Top-level"])
@@ -66,7 +72,7 @@ def test_raw_to_mvbs(
                 "time": (["time"], np.array([ed["Sonar/Beam_group1"]["ping_time"].values.min()]))
             },
         )
-        ed.update_platform(point_ds)
+        ed.update_platform(point_ds, variable_mappings={"latitude": "latitude", "longitude": "longitude"})
         _presence_test(ed["Top-level"], "Level 1A")
     else:
         _absence_test(ed["Top-level"])
@@ -105,7 +111,8 @@ def test_raw_to_mvbs(
         else:
             out_ds = test_ds
         freqAB = list(out_ds.frequency_nominal.values[:2])
-        freqdiff_da = ep.mask.frequency_differencing(source_Sv=out_ds, freqAB=freqAB, operator=">", diff=5)
+        freqABEq = str(freqAB[0]) + "Hz" + "-" + str(freqAB[1]) + "Hz" + ">" + str(5) + "dB"
+        freqdiff_da = ep.mask.frequency_differencing(source_Sv=out_ds, freqABEq=freqABEq)
 
         # Apply mask to multi-channel Sv
         return ep.mask.apply_mask(source_ds=out_ds, var_name="Sv", mask=freqdiff_da)
@@ -120,7 +127,6 @@ def test_raw_to_mvbs(
 
     # ---- Compute MVBS
     # compute_MVBS expects a variable named "Sv"
-    # No product level is assigned because at present compute_MVBS drops the lat/lon data associated with the input Sv dataset
     # ds = ds.rename_vars(name_dict={"Sv": "Sv_unmasked", "Sv_ch0": "Sv"})
-    mvbs_ds = ep.commongrid.compute_MVBS(ds, range_meter_bin=30, ping_time_bin='1min')
-    _absence_test(mvbs_ds)
+    mvbs_ds = ep.commongrid.compute_MVBS(ds, range_bin="30m", ping_time_bin='1min')
+    _presence_test(mvbs_ds, "Level 3B")

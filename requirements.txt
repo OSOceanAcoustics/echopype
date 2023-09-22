@@ -1,15 +1,13 @@
 dask[array,distributed]
 jinja2
-# https://github.com/Unidata/netcdf4-python/issues/1175#issuecomment-1173142506
-netCDF4<1.6
+netCDF4>1.6
 numpy
 pynmea2
 pytz
 scipy
 scikit-image
 xarray
-# https://github.com/pydata/xarray/pull/7650
-pandas<2
+pandas
 zarr
 fsspec
 s3fs
@@ -19,3 +17,4 @@ xarray-datatree==0.0.6
 psutil>=5.9.1
 more-itertools==8.13.0
 geopy
+flox>=0.7.2,<1.0.0

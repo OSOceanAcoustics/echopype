@@ -1,5 +1,5 @@
 import os
-import xml.dom.minidom
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime as dt
 from struct import unpack
@@ -8,48 +8,11 @@ import fsspec
 import numpy as np
 
 from ..utils.log import _init_logger
+from ..utils.misc import camelcase2snakecase
 from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+.01A"
-XML_INT_PARAMS = {
-    "NumFreq": "num_freq",
-    "SerialNumber": "serial_number",
-    "BurstInterval": "burst_interval",
-    "PingsPerBurst": "pings_per_burst",
-    "AverageBurstPings": "average_burst_pings",
-    "SensorsFlag": "sensors_flag",
-}
-XML_FLOAT_PARAMS = [
-    # Temperature coeffs
-    "ka",
-    "kb",
-    "kc",
-    "A",
-    "B",
-    "C",
-    # Tilt coeffs
-    "X_a",
-    "X_b",
-    "X_c",
-    "X_d",
-    "Y_a",
-    "Y_b",
-    "Y_c",
-    "Y_d",
-]
-XML_FREQ_PARAMS = {
-    "RangeSamples": "range_samples",
-    "RangeAveragingSamples": "range_averaging_samples",
-    "DigRate": "dig_rate",
-    "LockOutIndex": "lockout_index",
-    "Gain": "gain",
-    "PulseLen": "pulse_length",
-    "DS": "DS",
-    "EL": "EL",
-    "TVR": "TVR",
-    "VTX0": "VTX",
-    "BP": "BP",
-}
+
 HEADER_FIELDS = (
     ("profile_flag", "u2"),
     ("profile_number", "u2"),
@@ -64,7 +27,7 @@ HEADER_FIELDS = (
     ("second", "u2"),  # Second
     ("hundredths", "u2"),  # Hundredths of a second
     ("dig_rate", "u2", 4),  # Digitalization rate for each channel
-    ("lockout_index", "u2", 4),  # Lockout index for each channel
+    ("lock_out_index", "u2", 4),  # Lockout index for each channel
     ("num_bins", "u2", 4),  # Number of bins for each channel
     (
         "range_samples_per_bin",
@@ -88,7 +51,7 @@ HEADER_FIELDS = (
     ("num_chan", "u1"),  # 1, 2, 3, or 4
     ("gain", "u1", 4),  # gain channel 1-4
     ("spare_chan", "u1"),  # spare channel
-    ("pulse_length", "u2", 4),  # Pulse length chan 1-4 uS
+    ("pulse_len", "u2", 4),  # Pulse length chan 1-4 uS
     ("board_num", "u2", 4),  # The board the data came from channel 1-4
     ("frequency", "u2", 4),  # frequency for channel 1-4 in kHz
     (
@@ -110,42 +73,49 @@ class ParseAZFP(ParseBase):
     HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
     FILE_TYPE = 64770
 
-    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}):
-        super().__init__(file, storage_options)
+    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}, sonar_model="AZFP"):
+        super().__init__(file, storage_options, sonar_model)
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
         self.timestamp_pattern = FILENAME_DATETIME_AZFP
         self.xml_path = params
 
         # Class attributes
-        self.parameters = dict()
+        self.parameters = defaultdict(list)
         self.unpacked_data = defaultdict(list)
         self.sonar_type = "AZFP"
 
     def load_AZFP_xml(self):
-        """Parse XML file to get params for reading AZFP data."""
-        """Parses the AZFP  XML file.
+        """
+        Parses the AZFP XML file.
         """
 
-        def get_value_by_tag_name(tag_name, element=0):
-            """Returns the value in an XML tag given the tag name and the number of occurrences."""
-            return px.getElementsByTagName(tag_name)[element].childNodes[0].data
-
         xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
-        px = xml.dom.minidom.parse(xmlmap.fs.open(xmlmap.root))
+        root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
 
-        # Retrieve integer parameters from the xml file
-        for old_name, new_name in XML_INT_PARAMS.items():
-            self.parameters[new_name] = int(get_value_by_tag_name(old_name))
-        # Retrieve floating point parameters from the xml file
-        for param in XML_FLOAT_PARAMS:
-            self.parameters[param] = float(get_value_by_tag_name(param))
-        # Retrieve frequency dependent parameters from the xml file
-        for old_name, new_name in XML_FREQ_PARAMS.items():
-            self.parameters[new_name] = [
-                float(get_value_by_tag_name(old_name, ch))
-                for ch in range(self.parameters["num_freq"])
-            ]
+        for child in root.iter():
+            if len(child.tag) > 3 and not child.tag.startswith("VTX"):
+                camel_case_tag = camelcase2snakecase(child.tag)
+            else:
+                camel_case_tag = child.tag
+            if len(child.attrib) > 0:
+                for key, val in child.attrib.items():
+                    self.parameters[camel_case_tag + "_" + camelcase2snakecase(key)].append(val)
+
+            if all(char == "\n" for char in child.text):
+                continue
+            else:
+                try:
+                    val = int(child.text)
+                except ValueError:
+                    val = float(child.text)
+
+            self.parameters[camel_case_tag].append(val)
+
+        # Handling the case where there is only one value for each parameter
+        for key, val in self.parameters.items():
+            if len(val) == 1:
+                self.parameters[key] = val[0]
 
     def _compute_temperature(self, ping_num, is_valid):
         """
@@ -245,7 +215,6 @@ class ParseAZFP(ParseBase):
                 header_chunk = file.read(self.HEADER_SIZE)
                 if header_chunk:
                     header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
-
                     # Reading will stop if the file contains an unexpected flag
                     if self._split_header(file, header_unpacked):
                         # Appends the actual 'data values' to unpacked_data
@@ -354,12 +323,12 @@ class ParseAZFP(ParseBase):
 
         field_w_freq = (
             "dig_rate",
-            "lockout_index",
+            "lock_out_index",
             "num_bins",
             "range_samples_per_bin",  # fields with num_freq data
             "data_type",
             "gain",
-            "pulse_length",
+            "pulse_len",
             "board_num",
             "frequency",
         )
@@ -417,12 +386,12 @@ class ParseAZFP(ParseBase):
             # fields with num_freq data
             field_w_freq = (
                 "dig_rate",
-                "lockout_index",
+                "lock_out_index",
                 "num_bins",
                 "range_samples_per_bin",
                 "data_type",
                 "gain",
-                "pulse_length",
+                "pulse_len",
                 "board_num",
                 "frequency",
             )
@@ -472,28 +441,28 @@ class ParseAZFP(ParseBase):
                             + self.unpacked_data["hundredths"][ping_num] / 100
                         ),
                     ).replace(tzinfo=None),
-                    "[ms]",
+                    "[ns]",
                 )
             )
         self.ping_time = ping_time
 
     @staticmethod
-    def _calc_Sv_offset(f, pulse_length):
+    def _calc_Sv_offset(f, pulse_len):
         """Calculate the compensation factor for Sv calculation."""
         # TODO: this method seems should be in echopype.process
         if f > 38000:
-            if pulse_length == 300:
+            if pulse_len == 300:
                 return 1.1
-            elif pulse_length == 500:
+            elif pulse_len == 500:
                 return 0.8
-            elif pulse_length == 700:
+            elif pulse_len == 700:
                 return 0.5
-            elif pulse_length == 900:
+            elif pulse_len == 900:
                 return 0.3
-            elif pulse_length == 1000:
+            elif pulse_len == 1000:
                 return 0.3
         else:
-            if pulse_length == 500:
+            if pulse_len == 500:
                 return 1.1
-            elif pulse_length == 1000:
+            elif pulse_len == 1000:
                 return 0.7

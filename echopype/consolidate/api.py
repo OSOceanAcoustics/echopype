@@ -12,6 +12,8 @@ from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level
 from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
+POSITION_VARIABLES = ["latitude", "longitude"]
+
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
     """
@@ -29,8 +31,8 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
     -------
     The input dataset with the dimension swapped
 
-    Note
-    ----
+    Notes
+    -----
     This operation is only possible when there are no duplicated frequencies present in the file.
     """
     # Only possible if no duplicated frequencies
@@ -152,7 +154,7 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
     The input dataset with the location data added
     """
 
-    def sel_interp(var):
+    def sel_interp(var, time_dim_name):
         # NMEA sentence selection
         if nmea_sentence:
             position_var = echodata["Platform"][var][
@@ -169,26 +171,29 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
                 attrs=position_var.attrs,
             )
         else:
-            # Interpolation. time1 is always associated with location data
-            # Values may be nan if there are ping_time values outside the time1 range
-            return position_var.interp(time1=ds["ping_time"])
+            # Values may be nan if there are ping_time values outside the time_dim_name range
+            return position_var.interp(**{time_dim_name: ds["ping_time"]})
 
     if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
 
     interp_ds = ds.copy()
-    interp_ds["latitude"] = sel_interp("latitude")
-    interp_ds["longitude"] = sel_interp("longitude")
+    time_dim_name = list(echodata["Platform"]["longitude"].dims)[0]
+    interp_ds["latitude"] = sel_interp("latitude", time_dim_name)
+    interp_ds["longitude"] = sel_interp("longitude", time_dim_name)
     # Most attributes are attached automatically via interpolation
     # here we add the history
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. "
         "Interpolated or propagated from Platform latitude/longitude."  # noqa
     )
-    for da_name in ["latitude", "longitude"]:
+    for da_name in POSITION_VARIABLES:
         interp_ds[da_name] = interp_ds[da_name].assign_attrs({"history": history_attr})
 
-    return interp_ds.drop_vars("time1")
+    if time_dim_name in interp_ds:
+        interp_ds = interp_ds.drop_vars(time_dim_name)
+
+    return interp_ds
 
 
 def add_splitbeam_angle(
@@ -322,7 +327,10 @@ def add_splitbeam_angle(
     ]
     angle_params = {}
     for p_name in angle_param_list:
-        angle_params[p_name] = source_Sv[p_name]
+        if p_name in source_Sv:
+            angle_params[p_name] = source_Sv[p_name]
+        else:
+            raise ValueError(f"source_Sv does not contain the necessary parameter {p_name}!")
 
     # fail if source_Sv and ds_beam do not have the same lengths
     # for ping_time, range_sample, and channel
