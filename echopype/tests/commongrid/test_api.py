@@ -123,7 +123,7 @@ def test_compute_MVBS_invalid_range_var(ds_Sv_echo_range_regular, range_var):
             ep.commongrid.compute_MVBS(ds_Sv_echo_range_regular, range_var=range_var)
     elif range_var == "depth":
         with pytest.raises(
-            ValueError, match=f"range_var '{range_var}' does not exist in the input dataset."
+            ValueError, match=r"Input Sv dataset must contain all of the following variables"
         ):
             ep.commongrid.compute_MVBS(ds_Sv_echo_range_regular, range_var=range_var)
     else:

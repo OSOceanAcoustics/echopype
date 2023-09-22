@@ -2,7 +2,7 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 import re
-from typing import Literal
+from typing import Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -166,6 +166,79 @@ def _parse_x_bin(x_bin: str, x_label="range_bin") -> float:
     return x_bin
 
 
+def _setup_and_validate(
+    ds_Sv: xr.Dataset,
+    range_var: Literal["echo_range", "depth"] = "echo_range",
+    range_bin: Optional[str] = None,
+    closed: Literal["left", "right"] = "left",
+    required_data_vars: Optional[list] = None,
+) -> Tuple[xr.Dataset, float]:
+    """
+    Setup and validate shared arguments for
+    ``compute_X`` functions.
+
+    For now this is only used by ``compute_MVBS`` and ``compute_NASC``.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        Sv dataset
+    range_var : {'echo_range', 'depth'}, default 'echo_range'
+        The variable to use for range binning.
+        Must be one of ``echo_range`` or ``depth``.
+        Note that ``depth`` is only available if the input dataset contains
+        ``depth`` as a data variable.
+    range_bin : str, default None
+        bin size along ``echo_range`` or ``depth`` in meters.
+    closed: {'left', 'right'}, default 'left'
+        Which side of bin interval is closed.
+    required_data_vars : list, optional
+        List of required data variables in ds_Sv.
+        If None, defaults to empty list.
+
+    Returns
+    -------
+    ds_Sv : xr.Dataset
+        Modified Sv dataset
+    range_bin : float
+        The range bin value in meters
+    """
+
+    # Check if range_var is valid
+    if range_var not in ["echo_range", "depth"]:
+        raise ValueError("range_var must be one of 'echo_range' or 'depth'.")
+
+    # Set to default empty list if None
+    if required_data_vars is None:
+        required_data_vars = []
+
+    # Check if required data variables exists in ds_Sv
+    # Use set to ensure no duplicates
+    required_data_vars = set(required_data_vars + [range_var])
+    if not all([var in ds_Sv.data_vars for var in required_data_vars]):
+        raise ValueError(
+            "Input Sv dataset must contain all of " f"the following variables: {required_data_vars}"
+        )
+
+    # Check if range_bin is a string
+    if not isinstance(range_bin, str):
+        raise TypeError("range_bin must be a string")
+
+    # Parse the range_bin string and convert to float
+    range_bin = _parse_x_bin(range_bin, "range_bin")
+
+    # Check for closed values
+    if closed not in ["right", "left"]:
+        raise ValueError(f"{closed} is not a valid option. Options are 'left' or 'right'.")
+
+    # Clean up filenames dimension if it exists
+    # not needed here
+    if "filenames" in ds_Sv.dims:
+        ds_Sv = ds_Sv.drop_dims("filenames")
+
+    return ds_Sv, range_bin
+
+
 @add_processing_level("L3*")
 def compute_MVBS(
     ds_Sv: xr.Dataset,
@@ -204,7 +277,7 @@ def compute_MVBS(
         for more details.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
-    **kwargs
+    **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
 
@@ -213,27 +286,14 @@ def compute_MVBS(
     A dataset containing bin-averaged Sv
     """
 
+    # Setup and validate
+    # * Sv dataset must contain specified range_var
+    # * Parse range_bin
+    # * Check closed value
+    ds_Sv, range_bin = _setup_and_validate(ds_Sv, range_var, range_bin, closed)
+
     if not isinstance(ping_time_bin, str):
         raise TypeError("ping_time_bin must be a string")
-
-    range_bin = _parse_x_bin(range_bin, "range_bin")
-
-    # Clean up filenames dimension if it exists
-    # not needed here
-    if "filenames" in ds_Sv.dims:
-        ds_Sv = ds_Sv.drop_dims("filenames")
-
-    # Check if range_var is valid
-    if range_var not in ["echo_range", "depth"]:
-        raise ValueError("range_var must be one of 'echo_range' or 'depth'.")
-
-    # Check if range_var exists in ds_Sv
-    if range_var not in ds_Sv.data_vars:
-        raise ValueError(f"range_var '{range_var}' does not exist in the input dataset.")
-
-    # Check for closed values
-    if closed not in ["right", "left"]:
-        raise ValueError(f"{closed} is not a valid option. Options are 'left' or 'right'.")
 
     # create bin information for echo_range
     # this computes the echo range max since there might NaNs in the data
@@ -420,9 +480,11 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
 
 def compute_NASC(
     ds_Sv: xr.Dataset,
-    range_var: str = "depth",
-    range_bin=20,  # TODO: accept "20m" like in compute_MVBS
-    dist_bin=0.5,  # TODO: accept "0.5nmi"
+    range_bin="20m",
+    dist_bin="0.5nmi",
+    method="map-reduce",
+    closed="left",
+    **flox_kwargs,
 ) -> xr.Dataset:
     """
     Compute Nautical Areal Scattering Coefficient (NASC) from an Sv dataset.
@@ -432,10 +494,19 @@ def compute_NASC(
     ds_Sv : xr.Dataset
         A dataset containing Sv data.
         The Sv dataset must contain ``latitude``, ``longitude``, and ``depth`` as data variables.
-    cell_dist: int, float
-        The horizontal size of each NASC cell, in nautical miles [nmi]
-    cell_depth: int, float
-        The vertical size of each NASC cell, in meters [m]
+    range_bin : str, default '20m'
+        bin size along ``depth`` in meters (m).
+    dist_bin : str, default '0.5nmi'
+        bin size along ``distance`` in nautical miles (nmi).
+    method: str, default 'map-reduce'
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    closed: {'left', 'right'}, default 'left'
+        Which side of bin interval is closed.
+    **flox_kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function.
 
     Returns
     -------
@@ -457,9 +528,23 @@ def compute_NASC(
     thickness when computing mean Sv
     (see https://support.echoview.com/WebHelp/Reference/Algorithms/Analysis_Variables/Sv_mean.htm#Conversions).  # noqa
     """
-    # Check Sv contains lat/lon
-    if "latitude" not in ds_Sv or "longitude" not in ds_Sv:
-        raise ValueError("Both 'latitude' and 'longitude' must exist in the input Sv dataset.")
+    # Set range_var to be 'depth'
+    range_var = "depth"
+
+    # Setup and validate
+    # * Sv dataset must contain latitude, longitude, and depth
+    # * Parse range_bin
+    # * Check closed value
+    ds_Sv, range_bin = _setup_and_validate(
+        ds_Sv, range_var, range_bin, closed, required_data_vars=POSITION_VARIABLES
+    )
+
+    # Check if dist_bin is a string
+    if not isinstance(dist_bin, str):
+        raise TypeError("dist_bin must be a string")
+
+    # Parse the dist_bin string and convert to float
+    dist_bin = _parse_x_bin(dist_bin, "dist_bin")
 
     # Get distance from lat/lon in nautical miles
     dist_nmi = get_distance_from_latlon(ds_Sv)
@@ -494,6 +579,7 @@ def compute_NASC(
         expected_groups=(dist_interval, range_interval),
         isbin=[True, True],
         method="map-reduce",
+        **flox_kwargs,
     )
 
     # Mean height: approach to use flox
@@ -512,16 +598,18 @@ def compute_NASC(
         func="sum",
         expected_groups=(dist_interval),
         isbin=[True],
-        method="map-reduce",
+        method=method,
+        **flox_kwargs,
     )
     h_mean_num = xarray_reduce(
-        ds_Sv["depth"].diff(dim="range_sample", label="lower"),  # use lower end label after diff
+        ds_Sv[range_var].diff(dim="range_sample", label="lower"),  # use lower end label after diff
         ds_Sv[range_var],
-        ds_Sv["depth"][:-1],
+        ds_Sv[range_var][:-1],
         func="sum",
         expected_groups=(range_interval, range_interval),
         isbin=[True, True],
-        method="map-reduce",
+        method=method,
+        **flox_kwargs,
     )
     h_mean = h_mean_num / h_mean_denom
 
