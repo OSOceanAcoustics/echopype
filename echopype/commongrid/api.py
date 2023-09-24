@@ -638,7 +638,7 @@ def compute_NASC(
         units="m2 nmi-2",
         round_digits=3,
     )
-    _set_var_attrs(ds_NASC["distance"], "Cumulative distance", "m", 3)
+    _set_var_attrs(ds_NASC["distance"], "Cumulative distance", "nmi", 3)
     _set_var_attrs(ds_NASC["depth"], "Cell depth", "m", 3, standard_name="depth")
 
     # Calculate and add ACDD bounding box global attributes
