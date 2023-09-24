@@ -603,10 +603,10 @@ def compute_NASC(
     )
     h_mean_num = xarray_reduce(
         ds_Sv[range_var].diff(dim="range_sample", label="lower"),  # use lower end label after diff
-        ds_Sv[range_var],
+        ds_Sv["distance_nmi"],
         ds_Sv[range_var][:-1],
         func="sum",
-        expected_groups=(range_interval, range_interval),
+        expected_groups=(dist_interval, range_interval),
         isbin=[True, True],
         method=method,
         **flox_kwargs,
