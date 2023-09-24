@@ -91,26 +91,32 @@ class ParseAZFP(ParseBase):
         """
 
         xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
-        root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
+        phase_number = None
+        for event, child in ET.iterparse(xmlmap.fs.open(xmlmap.root), events=("start", "end")):
+            if event == "end" and child.tag == "Phases":
+                phase_number = None
+            if event == "start":
+                if len(child.tag) > 3 and not child.tag.startswith("VTX"):
+                    camel_case_tag = camelcase2snakecase(child.tag)
+                else:
+                    camel_case_tag = child.tag
 
-        for child in root.iter():
-            if len(child.tag) > 3 and not child.tag.startswith("VTX"):
-                camel_case_tag = camelcase2snakecase(child.tag)
-            else:
-                camel_case_tag = child.tag
-            if len(child.attrib) > 0:
-                for key, val in child.attrib.items():
-                    self.parameters[camel_case_tag + "_" + camelcase2snakecase(key)].append(val)
+                if len(child.attrib) > 0:
+                    for key, val in child.attrib.items():
+                        self.parameters[camel_case_tag + "_" + camelcase2snakecase(key)].append(val)
+                        if child.tag == "Phase":
+                            phase_number = val
 
-            if all(char == "\n" for char in child.text):
-                continue
-            else:
-                try:
-                    val = int(child.text)
-                except ValueError:
-                    val = float(child.text)
-
-            self.parameters[camel_case_tag].append(val)
+                if all(char == "\n" for char in child.text):
+                    continue
+                else:
+                    try:
+                        val = int(child.text)
+                    except ValueError:
+                        val = float(child.text)
+                    if phase_number is not None and camel_case_tag != "phase":
+                        camel_case_tag += f"_phase{phase_number}"
+                    self.parameters[camel_case_tag].append(val)
 
         # Handling the case where there is only one value for each parameter
         for key, val in self.parameters.items():

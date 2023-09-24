@@ -9,6 +9,18 @@ import xarray as xr
 from ..utils.coding import set_time_encodings
 from .set_groups_base import SetGroupsBase
 
+PHASE_PARAMS = ["burst_interval", "pings_per_burst", "average_burst_pings"]
+
+PHASE_FREQ_PARAMS = [
+    "acquire_frequency",
+    "dig_rate",
+    "range_samples",
+    "range_averaging_samples",
+    "lock_out_index",
+    "gain",
+    "storage_format",
+]
+
 
 class SetGroupsAZFP(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from AZFP data files."""
@@ -500,7 +512,18 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
-        tdn = parameters["pulse_len"][self.freq_ind_sorted] / 1e6
+        tdn = []
+        for num in parameters["phase_number"]:
+            tdn.append(parameters["pulse_len_phase{}".format(num)][self.freq_ind_sorted] / 1e6)
+        tdn = np.array(tdn)
+        for param in PHASE_FREQ_PARAMS:
+            for num in parameters["phase_number"]:
+                parameters[param].append(
+                    parameters[param + "_phase{}".format(num)][self.freq_ind_sorted]
+                )
+        for param in PHASE_PARAMS:
+            for num in parameters["phase_number"]:
+                parameters[param].append(parameters[param + "_phase{}".format(num)])
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         # Build variables in the output xarray Dataset
@@ -639,13 +662,13 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 # parameters with channel dimension from XML file
                 "XML_transmit_duration_nominal": (
-                    ["channel"],
+                    ["phase_number", "channel"],
                     tdn,
                     {"long_name": "(From XML file) Nominal bandwidth of transmitted pulse"},
                 ),  # tdn comes from parameters
                 "XML_gain_correction": (
-                    ["channel"],
-                    parameters["gain"][self.freq_ind_sorted],
+                    ["phase_number", "channel"],
+                    parameters["gain"],
                     {"long_name": "(From XML file) Gain correction"},
                 ),
                 "instrument_type": parameters["instrument_type"][0],
@@ -660,8 +683,8 @@ class SetGroupsAZFP(SetGroupsBase):
                 "parameter_version": parameters["parameter_version"],
                 "configuration_version": parameters["configuration_version"],
                 "XML_digitization_rate": (
-                    ["channel"],
-                    parameters["dig_rate"][self.freq_ind_sorted],
+                    ["phase_number", "channel"],
+                    parameters["dig_rate"],
                     {
                         "long_name": "(From XML file) Number of samples per second in kHz that is "
                         "processed by the A/D converter when digitizing the returned acoustic "
@@ -669,8 +692,8 @@ class SetGroupsAZFP(SetGroupsBase):
                     },
                 ),
                 "XML_lockout_index": (
-                    ["channel"],
-                    parameters["lock_out_index"][self.freq_ind_sorted],
+                    ["phase_number", "channel"],
+                    parameters["lock_out_index"],
                     {
                         "long_name": "(From XML file) The distance, rounded to the nearest "
                         "Bin Size after the pulse is transmitted that over which AZFP will "
@@ -713,17 +736,17 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
-                    ["channel"],
-                    parameters["range_samples"][self.freq_ind_sorted],
+                    ["phase_number", "channel"],
+                    parameters["range_samples"],
                 ),
                 "number_of_digitized_samples_averaged_per_pings": (
-                    ["channel"],
-                    parameters["range_averaging_samples"][self.freq_ind_sorted],
+                    ["phase_number", "channel"],
+                    parameters["range_averaging_samples"],
                 ),
                 # parameters with dim len=0 from XML file
                 "XML_sensors_flag": parameters["sensors_flag"],
                 "XML_burst_interval": (
-                    [],
+                    ["phase_number"],
                     parameters["burst_interval"],
                     {
                         "long_name": "Time in seconds between bursts or between pings if the burst "
@@ -732,8 +755,14 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "XML_sonar_serial_number": parameters["serial_number"],
                 "number_of_frequency": parameters["num_freq"],
-                "number_of_pings_per_burst": parameters["pings_per_burst"],
-                "average_burst_pings_flag": parameters["average_burst_pings"],
+                "number_of_pings_per_burst": (
+                    ["phase_number"],
+                    parameters["pings_per_burst"],
+                ),
+                "average_burst_pings_flag": (
+                    ["phase_number"],
+                    parameters["average_burst_pings"],
+                ),
                 # temperature coefficients from XML file
                 **{
                     f"temperature_k{var}": (
@@ -789,6 +818,10 @@ class SetGroupsAZFP(SetGroupsBase):
                     list(range(len(unpacked_data["ancillary"][0]))),
                 ),
                 "ad_len": (["ad_len"], list(range(len(unpacked_data["ad"][0])))),
+                "phase_number": (
+                    ["phase_number"],
+                    sorted([int(num) for num in parameters["phase_number"]], reverse=False),
+                ),
             },
         )
         return set_time_encodings(ds)
