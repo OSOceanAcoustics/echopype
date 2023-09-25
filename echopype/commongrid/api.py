@@ -480,10 +480,10 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
 
 def compute_NASC(
     ds_Sv: xr.Dataset,
-    range_bin="20m",
-    dist_bin="0.5nmi",
-    method="map-reduce",
-    closed="left",
+    range_bin: str = "20m",
+    dist_bin: str = "0.5nmi",
+    method: str = "map-reduce",
+    closed: Literal["left", "right"] = "left",
     **flox_kwargs,
 ) -> xr.Dataset:
     """
@@ -578,7 +578,7 @@ def compute_NASC(
         func="nanmean",
         expected_groups=(dist_interval, range_interval),
         isbin=[True, True],
-        method="map-reduce",
+        method=method,
         **flox_kwargs,
     )
 
