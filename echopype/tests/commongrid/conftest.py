@@ -129,9 +129,7 @@ def mock_mvbs_array_regular(mock_Sv_dataset_regular, mock_mvbs_inputs, mock_para
     ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
     range_bin = mock_mvbs_inputs["range_meter_bin"]
     channel_len = mock_parameters["channel_len"]
-    expected_mvbs_val = _get_expected_mvbs_val(
-        ds_Sv, ping_time_bin, range_bin, channel_len
-    )
+    expected_mvbs_val = _get_expected_mvbs_val(ds_Sv, ping_time_bin, range_bin, channel_len)
 
     return expected_mvbs_val
 
@@ -149,9 +147,7 @@ def mock_mvbs_array_irregular(mock_Sv_dataset_irregular, mock_mvbs_inputs, mock_
     ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
     range_bin = mock_mvbs_inputs["range_meter_bin"]
     channel_len = mock_parameters["channel_len"]
-    expected_mvbs_val = _get_expected_mvbs_val(
-        ds_Sv, ping_time_bin, range_bin, channel_len
-    )
+    expected_mvbs_val = _get_expected_mvbs_val(ds_Sv, ping_time_bin, range_bin, channel_len)
 
     return expected_mvbs_val
 
@@ -319,6 +315,69 @@ def ds_Sv_echo_range_irregular(random_number_generator):
     )
 
 
+# Helper functions for NASC testing
+def _create_dataset(i, sv, dim, rng):
+    dims = {
+        "range_sample": np.arange(5),
+        "distance_nmi": np.arange(5),
+    }
+    # Add one for other channel
+    sv = sv + (rng.random() * 5)
+    Sv = ep.utils.compute._lin2log(sv)
+    ds_Sv = xr.Dataset(
+        {
+            "Sv": (list(dims.keys()), Sv),
+            "depth": (list(dims.keys()), np.array([dim] * 5).T),
+            "ping_time": (
+                ["distance_nmi"],
+                pd.date_range("2020-01-01", periods=len(dim), freq="1min"),
+            ),
+        },
+        coords=dict(channel=f"ch_{i}", **dims),
+    )
+    return ds_Sv
+
+
+def get_NASC_echoview(ds_Sv, ch_idx=0, r0=2, r1=20):
+    """
+    Computes NASC using echoview's method, 1 channel only,
+    as described in https://gist.github.com/leewujung/3b058ab63c3b897b273b33b907b62f6d
+    """
+    r = ds_Sv.depth.isel(channel=ch_idx, distance_nmi=0).values
+    # get r0 and r1 indexes
+    # these are used to slice the desired Sv samples
+    r0 = np.argmin(abs(r - r0))
+    r1 = np.argmin(abs(r - r1))
+
+    sh = np.r_[np.diff(r), np.nan]
+
+    sv = ds_Sv["Sv"].pipe(ep.utils.compute._log2lin).isel(channel=ch_idx).values
+    sv_mean_echoview = np.nanmean(sv[r0:r1])
+    h_mean_echoview = np.sum(sh[r0:r1]) * sv.shape[1] / sv.shape[1]
+
+    NASC_echoview = sv_mean_echoview * h_mean_echoview * 4 * np.pi * 1852**2
+    return NASC_echoview
+
+
+@pytest.fixture
+def mock_Sv_dataset_NASC(mock_parameters, random_number_generator):
+    channel_len = mock_parameters["channel_len"]
+    dim0 = np.array([0.5, 1.5, 2.5, 3.5, 9])
+    sv0 = np.array(
+        [
+            [1.0, 2.0, 3.0, 4.0, np.nan],
+            [6.0, 7.0, 8.0, 9.0, 10.0],
+            [11.0, 12.0, 13.0, 14.0, 15.0],
+            [16.0, 17.0, 18.0, 19.0, np.nan],
+            [21.0, 22.0, 23.0, 24.0, 25.0],
+        ]
+    )
+    return xr.concat(
+        [_create_dataset(i, sv0, dim0, random_number_generator) for i in range(channel_len)],
+        dim="channel",
+    )
+
+
 # Helper functions to generate mock Sv and MVBS dataset
 def _get_expected_mvbs_val(
     ds_Sv: xr.Dataset, ping_time_bin: str, range_bin: float, channel_len: int = 2
@@ -326,7 +385,7 @@ def _get_expected_mvbs_val(
     """
     Helper functions to generate expected MVBS outputs from mock Sv dataset
     by brute-force looping and compute the mean
-    
+
     Parameters
     ----------
     ds_Sv : xr.Dataset
@@ -360,16 +419,19 @@ def _get_expected_mvbs_val(
         for p_idx in range(len(ping_interval) - 1):
             for r_idx in range(len(range_interval) - 1):
                 echo_range = (
-                    ds_Sv['echo_range']
+                    ds_Sv["echo_range"]
                     .isel(channel=ch_idx)
-                    .sel(ping_time=slice(ping_interval[p_idx], ping_interval[p_idx+1]))
+                    .sel(ping_time=slice(ping_interval[p_idx], ping_interval[p_idx + 1]))
                 )
                 r_idx_active = np.logical_and(
                     echo_range.data >= range_interval[r_idx],
-                    echo_range.data < range_interval[r_idx+1]
+                    echo_range.data < range_interval[r_idx + 1],
                 )
-                sv_tmp = sv.isel(channel=ch_idx).sel(
-                    ping_time=slice(ping_interval[p_idx], ping_interval[p_idx+1])).data[r_idx_active]
+                sv_tmp = (
+                    sv.isel(channel=ch_idx)
+                    .sel(ping_time=slice(ping_interval[p_idx], ping_interval[p_idx + 1]))
+                    .data[r_idx_active]
+                )
                 if 0 in sv_tmp.shape:
                     expected_mvbs_val[ch_idx, p_idx, r_idx] = np.nan
                 else:
@@ -400,7 +462,7 @@ def _gen_Sv_echo_range_regular(
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
     ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
-    
+
     Parameters
     ------------
     channel_len
@@ -457,7 +519,7 @@ def _gen_Sv_echo_range_irregular(
     Generate a Sv dataset with uniform echo_range across all ping_time.
 
     ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
-    
+
     Parameters
     ------------
     channel_len
@@ -468,7 +530,7 @@ def _gen_Sv_echo_range_irregular(
         depth intervals, may have multiple values
     depth_ping_time_len
         the number of pings to use each of the depth_interval
-        for example, with depth_interval=[0.5, 0.32, 0.13] 
+        for example, with depth_interval=[0.5, 0.32, 0.13]
         and depth_ping_time_len=[100, 300, 200],
         the first 100 pings have echo_range with depth intervals of 0.5 m,
         the next 300 pings have echo_range with depth intervals of 0.32 m,

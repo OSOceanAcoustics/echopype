@@ -217,7 +217,7 @@ def _setup_and_validate(
     # Check if required data variables exists in ds_Sv
     # Use set to ensure no duplicates
     required_data_vars = set(required_data_vars + [range_var])
-    if not all([var in ds_Sv.data_vars for var in required_data_vars]):
+    if not all([var in ds_Sv.variables for var in required_data_vars]):
         raise ValueError(
             "Input Sv dataset must contain all of " f"the following variables: {required_data_vars}"
         )
