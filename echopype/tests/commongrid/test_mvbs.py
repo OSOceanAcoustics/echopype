@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from echopype.commongrid.mvbs import get_MVBS_along_channels
+from echopype.commongrid.api import get_x_along_channels
 from echopype.consolidate.api import POSITION_VARIABLES
 from flox.xarray import xarray_reduce
 
@@ -38,9 +38,9 @@ def test_get_MVBS_along_channels(request, range_var, lat_lon):
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
     
-    raw_MVBS = get_MVBS_along_channels(
+    raw_MVBS = get_x_along_channels(
         ds_Sv, range_interval, ping_interval,
-        range_var=range_var, method=method, **flox_kwargs
+        x_var="ping_time", range_var=range_var, method=method, **flox_kwargs
     )
     
     # Check that the range_var is in the dimension
