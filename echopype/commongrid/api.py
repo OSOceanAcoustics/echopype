@@ -399,7 +399,7 @@ def get_x_along_channels(
 
         # Combine to compute NASC and name it
         raw_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
-        raw_NASC.name = "NASC"
+        raw_NASC.name = "sv"
 
         return xr.merge([ds_Pos, ds_ping_time, raw_NASC])
 
@@ -728,73 +728,37 @@ def compute_NASC(
     dist_max = ds_Sv["distance_nmi"].max()
     dist_interval = np.arange(0, dist_max + dist_bin, dist_bin)
 
-    # TODO: move the below to a function equivalent to get_MVBS_along_channels
-    # Mean sv (volume backscattering coefficient, linear scale):
-    #   do the equivalent of get_MVBS_along_channels
-    #   but reduce along ping_time and echo_range or depth by binning and averaging
-    #   for each channel
-
-    # average should be done in linear domain
-    sv = ds_Sv["Sv"].pipe(_log2lin)
-
-    sv_mean = xarray_reduce(
-        sv,
-        ds_Sv["distance_nmi"],
-        ds_Sv[range_var],
-        func="nanmean",
-        expected_groups=(dist_interval, range_interval),
-        isbin=[True, True],
+    raw_NASC = get_x_along_channels(
+        ds_Sv,
+        range_interval,
+        dist_interval,
+        x_var="distance_nmi",
+        range_var=range_var,
         method=method,
         **flox_kwargs,
     )
-
-    # Mean height: approach to use flox
-    # Numerator (h_mean_num):
-    #   - create a dataarray filled with the first difference of sample height
-    #     with 2D coordinate (distance, depth)
-    #   - flox xarray_reduce along both distance and depth, summing over each 2D bin
-    # Denominator (h_mean_denom):
-    #   - create a datararray filled with 1, with 1D coordinate (distance)
-    #   - flox xarray_reduce along distance, summing over each 1D bin
-    # h_mean = N/D
-    da_denom = xr.ones_like(ds_Sv["distance_nmi"])
-    h_mean_denom = xarray_reduce(
-        da_denom,
-        ds_Sv["distance_nmi"],
-        func="sum",
-        expected_groups=(dist_interval),
-        isbin=[True],
-        method=method,
-        **flox_kwargs,
-    )
-    h_mean_num = xarray_reduce(
-        ds_Sv[range_var].diff(dim="range_sample", label="lower"),  # use lower end label after diff
-        ds_Sv["distance_nmi"],
-        ds_Sv[range_var][:-1],
-        func="sum",
-        expected_groups=(dist_interval, range_interval),
-        isbin=[True, True],
-        method=method,
-        **flox_kwargs,
-    )
-    h_mean = h_mean_num / h_mean_denom
-
-    # Combine to compute NASC
-    raw_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
-
-    # TODO: add mean lat/lon, as in ds_Pos in get_MVBS_along_channels
-    # TODO: add mean ping_time, similar to mean lat/lon
 
     # create MVBS dataset
     # by transforming the binned dimensions to regular coords
     ds_NASC = xr.Dataset(
-        data_vars={"NASC": (["channel", "ping_time", range_var], raw_NASC["Sv"].data)},
+        data_vars={"NASC": (["channel", "distance", range_var], raw_NASC["sv"].data)},
         coords={
-            "distance_nmi": np.array([v.left for v in raw_NASC.distance_nmi_bins.values]),
-            "channel": raw_NASC.channel.values,
+            "distance": np.array([v.left for v in raw_NASC["distance_nmi_bins"].values]),
+            "channel": raw_NASC["channel"].values,
             range_var: np.array([v.left for v in raw_NASC[f"{range_var}_bins"].values]),
         },
     )
+
+    # "has_positions" attribute is inserted in get_x_along_channels
+    # when the dataset has position information
+    # propagate this to the final MVBS dataset
+    if raw_NASC.attrs.get("has_positions", False):
+        for var in POSITION_VARIABLES:
+            ds_NASC[var] = (["distance"], raw_NASC[var].data, ds_Sv[var].attrs)
+
+    # Set ping time binning information
+    ds_NASC["ping_time"] = (["distance"], raw_NASC["ping_time"].data, ds_Sv["ping_time"].attrs)
+
     ds_NASC["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
 
     # Attach attributes
