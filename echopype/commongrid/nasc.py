@@ -72,7 +72,7 @@ def get_distance_from_latlon(ds_Sv):
     )
     df_pos = df_pos.join(df_latlon_nonan["dist"], how="left")
     df_pos["dist"] = df_pos["dist"].cumsum()
-    df_pos["dist"] = df_pos["dist"].fillna(method="ffill").fillna(method="bfill")
+    df_pos["dist"] = df_pos["dist"].ffill().bfill()
 
     return df_pos["dist"].values
 
