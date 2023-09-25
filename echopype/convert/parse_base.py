@@ -17,12 +17,14 @@ logger = _init_logger(__name__)
 class ParseBase:
     """Parent class for all convert classes."""
 
-    def __init__(self, file, storage_options):
+    def __init__(self, file, storage_options, sonar_model):
         self.source_file = file
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.ping_time = []  # list to store ping time
         self.storage_options = storage_options
         self.zarr_datagrams = []  # holds all parsed datagrams
+        self.zarr_tx_datagrams = []  # holds all parsed transmit datagrams
+        self.sonar_model = sonar_model
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
@@ -31,8 +33,8 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, params, storage_options, dgram_zarr_vars):
-        super().__init__(file, storage_options)
+    def __init__(self, file, params, storage_options, dgram_zarr_vars, sonar_model):
+        super().__init__(file, storage_options, sonar_model)
 
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
@@ -77,6 +79,10 @@ class ParseEK(ParseBase):
         # append zarr datagrams to channel ping data
         for dgram in self.zarr_datagrams:
             self._append_channel_ping_data(dgram, zarr_vars=False)
+
+        # append zarr transmit datagrams to channel ping data
+        for dgram in self.zarr_tx_datagrams:
+            self._append_channel_ping_data(dgram, rx=False, zarr_vars=False)
 
         # Rectangularize all data and convert to numpy array indexed by channel
         for data_type in ["power", "angle", "complex"]:
@@ -350,7 +356,7 @@ class ParseEK(ParseBase):
             else:
                 logger.info("Unknown datagram type: " + str(new_datagram["type"]))
 
-    def _append_zarr_dgram(self, full_dgram: dict):
+    def _append_zarr_dgram(self, full_dgram: dict, rx: bool):
         """
         Selects a subset of the datagram values that
         need to be sent directly to a zarr file and
@@ -389,7 +395,10 @@ class ParseEK(ParseBase):
             reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
 
         if reduced_datagram:
-            self.zarr_datagrams.append(reduced_datagram)
+            if rx:
+                self.zarr_datagrams.append(reduced_datagram)
+            else:
+                self.zarr_tx_datagrams.append(reduced_datagram)
 
     def _append_channel_ping_data(self, datagram, rx=True, zarr_vars=True):
         """
@@ -411,10 +420,10 @@ class ParseEK(ParseBase):
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
 
         # append zarr variables, if they exist
-        if zarr_vars and rx:
+        if zarr_vars:
             common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
             if common_vars:
-                self._append_zarr_dgram(datagram)
+                self._append_zarr_dgram(datagram, rx=rx)
                 for var in common_vars:
                     del datagram[var]
 

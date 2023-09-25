@@ -12,6 +12,8 @@ from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level
 from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
+POSITION_VARIABLES = ["latitude", "longitude"]
+
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
     """
@@ -185,7 +187,7 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
         f"{datetime.datetime.utcnow()} +00:00. "
         "Interpolated or propagated from Platform latitude/longitude."  # noqa
     )
-    for da_name in ["latitude", "longitude"]:
+    for da_name in POSITION_VARIABLES:
         interp_ds[da_name] = interp_ds[da_name].assign_attrs({"history": history_attr})
 
     if time_dim_name in interp_ds:
