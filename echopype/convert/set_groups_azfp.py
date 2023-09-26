@@ -815,7 +815,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 "ad_len": (["ad_len"], list(range(len(unpacked_data["ad"][0])))),
                 "phase_number": (
                     ["phase_number"],
-                    sorted([int(num) for num in parameters["phase_number"]], reverse=False),
+                    sorted([int(num) for num in parameters["phase_number"]]),
                 ),
             },
         )
