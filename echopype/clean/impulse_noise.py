@@ -19,7 +19,7 @@ from typing import List, Tuple, Union
 
 import numpy as np
 import xarray as xr
-from scipy.ndimage import median_filter as medianf
+from scipy.ndimage import median_filter
 from skimage.morphology import dilation, erosion
 
 from ..utils import mask_transformation
@@ -178,7 +178,7 @@ def _wang(
     Sv_median = Sv_corrected1.copy()
     for m in median:
         Sv_median = mask_transformation.log(
-            medianf(mask_transformation.lin(Sv_median), footprint=np.ones(m))
+            median_filter(mask_transformation.lin(Sv_median), footprint=np.ones(m))
         )
 
     # any vacant sample inside biological features will be corrected with
