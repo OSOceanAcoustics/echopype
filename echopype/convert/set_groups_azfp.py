@@ -9,18 +9,6 @@ import xarray as xr
 from ..utils.coding import set_time_encodings
 from .set_groups_base import SetGroupsBase
 
-PHASE_PARAMS = ["burst_interval", "pings_per_burst", "average_burst_pings"]
-
-PHASE_FREQ_PARAMS = [
-    "acquire_frequency",
-    "dig_rate",
-    "range_samples",
-    "range_averaging_samples",
-    "lock_out_index",
-    "gain",
-    "storage_format",
-]
-
 
 class SetGroupsAZFP(SetGroupsBase):
     """Class for saving groups to netcdf or zarr from AZFP data files."""
@@ -93,7 +81,7 @@ class SetGroupsAZFP(SetGroupsBase):
         """
 
         serial_number = self.parser_obj.unpacked_data["serial_number"]
-        frequency_number = self.parser_obj.parameters["frequency_number"]
+        frequency_number = self.parser_obj.parameters["frequency_number_phase1"]
 
         if serial_number.size == 1:
             freq_as_str = self.freq_sorted.astype(int).astype(str)
@@ -512,18 +500,25 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
+        PHASE_PARAMS = ["burst_interval", "pings_per_burst", "average_burst_pings"]
+        PHASE_FREQ_PARAMS = [
+            "dig_rate",
+            "range_samples",
+            "range_averaging_samples",
+            "lock_out_index",
+            "gain",
+            "storage_format",
+        ]
         tdn = []
         for num in parameters["phase_number"]:
-            tdn.append(parameters["pulse_len_phase{}".format(num)][self.freq_ind_sorted] / 1e6)
+            tdn.append(parameters[f"pulse_len_phase{num}"][self.freq_ind_sorted] / 1e6)
         tdn = np.array(tdn)
         for param in PHASE_FREQ_PARAMS:
             for num in parameters["phase_number"]:
-                parameters[param].append(
-                    parameters[param + "_phase{}".format(num)][self.freq_ind_sorted]
-                )
+                parameters[param].append(parameters[param + f"_phase{num}"][self.freq_ind_sorted])
         for param in PHASE_PARAMS:
             for num in parameters["phase_number"]:
-                parameters[param].append(parameters[param + "_phase{}".format(num)])
+                parameters[param].append(parameters[param + f"_phase{num}"])
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         # Build variables in the output xarray Dataset

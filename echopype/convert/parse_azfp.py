@@ -103,7 +103,10 @@ class ParseAZFP(ParseBase):
 
                 if len(child.attrib) > 0:
                     for key, val in child.attrib.items():
-                        self.parameters[camel_case_tag + "_" + camelcase2snakecase(key)].append(val)
+                        attrib_tag = camel_case_tag + "_" + camelcase2snakecase(key)
+                        if phase_number is not None and camel_case_tag != "phase":
+                            attrib_tag += f"_phase{phase_number}"
+                        self.parameters[attrib_tag].append(val)
                         if child.tag == "Phase":
                             phase_number = val
 
