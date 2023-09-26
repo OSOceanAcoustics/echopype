@@ -15,7 +15,6 @@ __authors__ = [
 ]
 
 import warnings
-from typing import List, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -28,10 +27,7 @@ from ..utils import mask_transformation
 def _wang(
     Sv_ds: xr.Dataset,
     desired_channel: str,
-    thr: Tuple[float, float],
-    erode: List[Tuple[int, int]],
-    dilate: List[Tuple[int, int]],
-    median: List[Tuple[int, int]],
+    parameters: {},
 ) -> xr.DataArray:
     """
     Clean impulse noise from Sv data following the method described by:
@@ -48,11 +44,14 @@ def _wang(
     ----------
         Sv_ds (xarray.Dataset): xr.DataArray with Sv data for multiple channels (dB).
         desired_channel (str): Name of the desired frequency channel.
-        thr    : 2-element tuple with bottom/top Sv thresholds (dB).
-        erode  : List of 2-element tuples indicating the window's size for each erosion cycle.
-        dilate : List of 2-element tuples indicating the window's size for each dilation cycle.
-        median : List of 2-element tuples indicating the window's
-                size for each median filter cycle.
+        parameters {}: parameter dict, should contain:
+            thr    : 2-element tuple with bottom/top Sv thresholds (dB).
+            erode  : List of 2-element tuples indicating the window's size
+                        for each erosion cycle.
+            dilate : List of 2-element tuples indicating the window's size
+                        for each dilation cycle.
+            median : List of 2-element tuples indicating the window's size
+                        for each median filter cycle.
 
     Returns
     -------
@@ -75,6 +74,16 @@ def _wang(
 
 
     """
+    parameter_names = ("thr", "erode", "dilate", "median")
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be thr, erode, dilate, median, are"
+            + str(parameters.keys())
+        )
+    thr = parameters["thr"]
+    erode = parameters["erode"]
+    dilate = parameters["dilate"]
+    median = parameters["median"]
 
     # Select the desired frequency channel directly using 'sel'
     selected_channel_ds = Sv_ds.sel(channel=desired_channel)
@@ -121,12 +130,12 @@ def _wang(
 
     # dilation has modified the Sv value of biological features, so these are
     # now corrected to corresponding Sv values before the erosion/dilation
-    Sv_corrected1 = Sv_dilated.copy()
+    Sv_corrected = Sv_dilated.copy()
     mask_bio = (Sv_dilated >= thr[0]) & (Sv_dilated < thr[1])
-    Sv_corrected1[mask_bio] = Sv_thresholded[mask_bio]
+    Sv_corrected[mask_bio] = Sv_thresholded[mask_bio]
 
     # compute median convolution in Sv corrected array
-    Sv_median = Sv_corrected1.copy()
+    Sv_median = Sv_corrected.copy()
     for m in median:
         Sv_median = mask_transformation.log(
             median_filter(mask_transformation.lin(Sv_median), footprint=np.ones(m))
@@ -134,9 +143,9 @@ def _wang(
 
     # any vacant sample inside biological features will be corrected with
     # the median of corresponding neighbouring samples
-    Sv_cleaned = Sv_corrected1.copy()
+    Sv_cleaned = Sv_corrected.copy()
     mask_bio = (Sv >= thr[0]) & (Sv < thr[1])
-    mask_vacant = Sv_corrected1 == -999
+    mask_vacant = Sv_corrected == -999
     Sv_cleaned[mask_vacant & mask_bio] = Sv_median[mask_vacant & mask_bio]
 
     # get mask indicating edges, where swarms analysis couldn't be performed
@@ -190,9 +199,7 @@ def _wang(
 def _ryan(
     Sv_ds: xr.Dataset,
     desired_channel: str,
-    m: Union[int, float],
-    n: int,
-    thr: Union[int, float],
+    parameters: {},
 ) -> xr.DataArray:
     """
     Mask impulse noise following the two-sided comparison method described in:
@@ -203,9 +210,10 @@ def _ryan(
     ----------
         Sv_ds (xarray.Dataset): xr.DataArray with Sv data for multiple channels (dB).
         desired_channel (str): Name of the desired frequency channel.
-        m (int/float): Vertical binning length (n samples or range).
-        n (int): Number of pings either side for comparisons.
-        thr (int/float): User-defined threshold value (dB).
+        parameters (dict): Dictionary of parameters. Must contain the following:
+            m (int/float): Vertical binning length (n samples or range).
+            n (int): Number of pings either side for comparisons.
+            thr (int/float): User-defined threshold value (dB).
 
     Returns
     -------
@@ -223,6 +231,12 @@ def _ryan(
     Then, we create a combined mask using a bitwise AND operation between 'mask' and '~mask_'.
 
     """
+    parameter_names = ("m", "n", "thr")
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError("Missing parameters - should be m, n, thr, are" + str(parameters.keys()))
+    m = parameters["m"]
+    n = parameters["n"]
+    thr = parameters["thr"]
 
     # Select the desired frequency channel directly using 'sel'
     selected_channel_ds = Sv_ds.sel(channel=desired_channel)
@@ -283,9 +297,7 @@ def _ryan(
 def _ryan_iterable(
     Sv_ds: xr.Dataset,
     desired_channel: str,
-    m: Union[int, float],
-    n: Tuple[int, ...],
-    thr: Union[int, float],
+    parameters: {},
 ) -> xr.DataArray:
     """
     Modified from "ryan" so that the parameter "n" can be provided multiple
@@ -298,9 +310,10 @@ def _ryan_iterable(
     ----------
         Sv_ds (xarray.Dataset): xr.DataArray with Sv data for multiple channels (dB).
         desired_channel (str): Name of the desired frequency channel.
-        m (int/float): Vertical binning length (n samples or range).
-        n (int): Number of pings either side for comparisons.
-        thr (int/float): User-defined threshold value (dB).
+        parameters (dict): Dictionary of parameters. Must contain the following:
+            m (int/float): Vertical binning length (n samples or range).
+            n (int): Number of pings either side for comparisons.
+            thr (int/float): User-defined threshold value (dB).
 
     Returns
     -------
@@ -319,9 +332,17 @@ def _ryan_iterable(
     Then, we create a combined mask using a bitwise AND operation between 'mask' and '~mask_'.
 
     """
+    parameter_names = ("m", "n", "thr")
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError("Missing parameters - should be m, n, thr, are" + str(parameters.keys()))
+    m = parameters["m"]
+    n = parameters["n"]
+    thr = parameters["thr"]
+
     mask_list = []
     for n_i in n:
-        mask = _ryan(Sv_ds, desired_channel, m, n_i, thr)
+        parameter_dict = {"m": m, "n": n_i, "thr": thr}
+        mask = _ryan(Sv_ds, desired_channel, parameter_dict)
         mask_list.append(mask)
     mask_xr = mask_list[0]
     if len(mask_list) > 1:

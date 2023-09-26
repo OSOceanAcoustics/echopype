@@ -2,7 +2,7 @@
 Functions for reducing variabilities in backscatter data.
 """
 import pathlib
-from typing import List, Optional, Tuple, Union
+from typing import Union
 
 import numpy as np
 import xarray as xr
@@ -148,12 +148,7 @@ def get_transient_noise_mask(
 def get_impulse_noise_mask(
     source_Sv: xr.Dataset,
     desired_channel: str,
-    thr: Union[Tuple[float, float], int, float],
-    m: Optional[Union[int, float]] = None,
-    n: Optional[Union[int, Tuple[int, int]]] = None,
-    erode: Optional[List[Tuple[int, int]]] = None,
-    dilate: Optional[List[Tuple[int, int]]] = None,
-    median: Optional[List[Tuple[int, int]]] = None,
+    parameters: {},
     method: str = "ryan",
 ) -> xr.DataArray:
     """
@@ -165,24 +160,32 @@ def get_impulse_noise_mask(
         Dataset  containing the Sv data to create a mask
     desired_channel: str
         Name of the desired frequency channel.
-    thr: float or tuple
-        User-defined threshold value (dB) (ryan and ryan iterable) o
-        r a 2-element tuple specifying the range of threshold values (wang).
-    m: int or float, optional
-        Vertical binning length (in number of samples or range) (ryan and ryan iterable).
-        Defaults to None.
-    n: int or tuple, optional
-        Number of pings either side for comparisons (ryan),
-        or a 2-element tuple specifying the range (ryan iterable).
-        Defaults to None.
-    erode: List of 2-element tuples, optional
-        List indicating the window's size for each erosion cycle (wang). Defaults to None.
-    dilate: List of 2-element tuples, optional
-        List indicating the window's size for each dilation cycle (wang). Defaults to None.
-    median: List of 2-element tuples, optional
-        List indicating the window's size for each median filter cycle (wang). Defaults to None.
+    parameters: {}
+        Parameter dictionary containing function-specific arguments.
+        Can contain the following:
+            thr: Union[Tuple[float, float], int, float]
+                User-defined threshold value (dB) (ryan and ryan iterable)
+                or a 2-element tuple with the range of threshold values (wang).
+            m:  Optional[Union[int, float]] = None,
+                Vertical binning length (in number of samples or range)
+                (ryan and ryan iterable).
+                Defaults to None.
+            n: Optional[Union[int, Tuple[int, int]]] = None,
+                Number of pings either side for comparisons (ryan),
+                or a 2-element tuple specifying the range (ryan iterable).
+                Defaults to None.
+            erode: Optional[List[Tuple[int, int]]] = None,
+                Window size for each erosion cycle (wang).
+                Defaults to None.
+            dilate: Optional[List[Tuple[int, int]]] = None,
+                Window size for each dilation cycle (wang).
+                Defaults to None.
+            median: Optional[List[Tuple[int, int]]] = None,
+                Window size for each median filter cycle (wang).
+                Defaults to None.
     method: str, optional
-        The method (ryan, ryan iterable or wang) used to mask impulse noise. Defaults to 'ryan'.
+        The method (ryan, ryan_iterable or wang) used to mask impulse noise.
+        Defaults to 'ryan'.
 
     Returns
     -------
@@ -190,21 +193,13 @@ def get_impulse_noise_mask(
         A DataArray consisting of a mask for the Sv data, wherein True values signify
         samples that are free of noise.
     """
-
-    # Our goal is to have a mask where True represents samples that are NOT impulse noise.
+    # Our goal is to have a mask True on samples that are NOT impulse noise.
     # So, we negate the obtained mask.
-
-    if method == "ryan":
-        impulse_mask_ryan = _ryan(source_Sv, desired_channel, m, n, thr)
-        noise_free_mask = ~impulse_mask_ryan
-    elif method == "ryan_iterable":
-        impulse_mask_ryan_iterable = _ryan_iterable(source_Sv, desired_channel, m, n, thr)
-        noise_free_mask = ~impulse_mask_ryan_iterable
-    elif method == "wang":
-        impulse_mask_wang = _wang(source_Sv, desired_channel, thr, erode, dilate, median)
-        noise_free_mask = ~impulse_mask_wang
-    else:
+    mask_map = {"ryan": _ryan, "ryan_iterable": _ryan_iterable, "wang": _wang}
+    if method not in mask_map.keys():
         raise ValueError(f"Unsupported method: {method}")
+    impulse_mask = mask_map[method](source_Sv, desired_channel, parameters)
+    noise_free_mask = ~impulse_mask
 
     return noise_free_mask
 

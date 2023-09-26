@@ -4,25 +4,23 @@ import echopype.clean
 
 
 # Note: We've removed all the setup and utility functions since they are now in conftest.py
+RYAN_PARAMS = {"thr": 10, "m": 5, "n": 1}
+RYAN_ITERABLE_PARAMS = {"thr": 10, "m": 5, "n": (1, 2)}
+WANG_PARAMS = {"thr": (-70, -40), "erode": [(3, 3)], "dilate": [(5, 5), (7, 7)], "median": [(7, 7)]}
 
 
 @pytest.mark.parametrize(
-    "method,thr,m,n,erode,dilate,median,expected_true_false_counts",
+    "method,parameters,expected_true_false_counts",
     [
-        ("ryan", 10, 5, 1, None, None, None, (2130885, 32419)),
-        ("ryan_iterable", 10, 5, (1, 2), None, None, None, (2124976, 38328)),
-        ("wang", (-70, -40), None, None, [(3, 3)], [(5, 5), (7, 7)], [(7, 7)], (635732, 1527572)),
+        ("ryan", RYAN_PARAMS, (2130885, 32419)),
+        ("ryan_iterable", RYAN_ITERABLE_PARAMS, (2124976, 38328)),
+        ("wang", WANG_PARAMS, (635732, 1527572)),
     ],
 )
 def test_get_impulse_noise_mask(
     sv_dataset_jr230,  # Use the specific fixture for the JR230 file
     method,
-    thr,
-    m,
-    n,
-    erode,
-    dilate,
-    median,
+    parameters,
     expected_true_false_counts,
 ):
     source_Sv = sv_dataset_jr230
@@ -30,12 +28,7 @@ def test_get_impulse_noise_mask(
     mask = echopype.clean.get_impulse_noise_mask(
         source_Sv,
         desired_channel,
-        thr=thr,
-        m=m,
-        n=n,
-        erode=erode,
-        dilate=dilate,
-        median=median,
+        parameters=parameters,
         method=method,
     )
     count_true = np.count_nonzero(mask)
