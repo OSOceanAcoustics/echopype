@@ -4,7 +4,12 @@ import numpy as np
 import pandas as pd
 from flox.xarray import xarray_reduce
 import echopype as ep
-from echopype.commongrid.api import get_x_along_channels, POSITION_VARIABLES
+from echopype.commongrid.api import get_x_along_channels, POSITION_VARIABLES, _parse_x_bin
+from echopype.consolidate import add_location, add_depth
+from echopype.commongrid.nasc import (
+    get_distance_from_latlon,
+)
+from echopype.tests.commongrid.conftest import get_NASC_echoview
 
 
 # Utilities Tests
@@ -36,18 +41,19 @@ def test__parse_x_bin(x_bin, x_label, expected_result):
     else:
         assert ep.commongrid.api._parse_x_bin(x_bin, x_label) == expected_result
 
+
 @pytest.mark.unit
-@pytest.mark.parametrize(["range_var", "lat_lon"], [("depth", False), ("echo_range", True), ("echo_range", False)])
+@pytest.mark.parametrize(
+    ["range_var", "lat_lon"], [("depth", False), ("echo_range", True), ("echo_range", False)]
+)
 def test_get_x_along_channels(request, range_var, lat_lon):
     """Testing the underlying function of compute_MVBS and compute_NASC"""
     range_bin = 20
     ping_time_bin = "20S"
     method = "map-reduce"
-    
-    flox_kwargs = {
-        "reindex": True
-    }
-    
+
+    flox_kwargs = {"reindex": True}
+
     # Retrieve the correct dataset
     if range_var == "depth":
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_depth")
@@ -55,11 +61,11 @@ def test_get_x_along_channels(request, range_var, lat_lon):
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_latlon")
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
-    
+
     # compute range interval
     echo_range_max = ds_Sv[range_var].max()
     range_interval = np.arange(0, echo_range_max + range_bin, range_bin)
-    
+
     # create bin information needed for ping_time
     d_index = (
         ds_Sv["ping_time"]
@@ -68,15 +74,20 @@ def test_get_x_along_channels(request, range_var, lat_lon):
         .indexes["ping_time"]
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
-    
+
     raw_MVBS = get_x_along_channels(
-        ds_Sv, range_interval, ping_interval,
-        x_var="ping_time", range_var=range_var, method=method, **flox_kwargs
+        ds_Sv,
+        range_interval,
+        ping_interval,
+        x_var="ping_time",
+        range_var=range_var,
+        method=method,
+        **flox_kwargs,
     )
-    
+
     # Check that the range_var is in the dimension
     assert f"{range_var}_bins" in raw_MVBS.dims
-    
+
     # When it's echo_range and lat_lon, the dataset should have positions
     if range_var == "echo_range" and lat_lon is True:
         assert raw_MVBS.attrs["has_positions"] is True
@@ -91,17 +102,89 @@ def test_get_x_along_channels(request, range_var, lat_lon):
             isbin=True,
             method=method,
         )
-        
+
         for v in POSITION_VARIABLES:
             assert np.array_equal(raw_MVBS[v].data, expected_Pos[v].data)
     else:
         assert raw_MVBS.attrs["has_positions"] is False
 
+
 # NASC Tests
 @pytest.mark.integration
-@pytest.mark.skip(reason="NASC is not implemented yet")
-def test_compute_NASC(test_data_samples):
-    pass
+@pytest.mark.parametrize("compute_mvbs", [True, False])
+def test_compute_NASC(request, test_data_samples, compute_mvbs):
+    if any(request.node.callspec.id.startswith(id) for id in ["ek80", "azfp"]):
+        pytest.skip("Skipping NASC test for ek80 and azfp, no data available")
+
+    (
+        filepath,
+        sonar_model,
+        azfp_xml_path,
+        range_kwargs,
+    ) = test_data_samples
+    ed = ep.open_raw(filepath, sonar_model, azfp_xml_path)
+    if ed.sonar_model.lower() == "azfp":
+        avg_temperature = ed["Environment"]["temperature"].values.mean()
+        env_params = {
+            "temperature": avg_temperature,
+            "salinity": 27.9,
+            "pressure": 59,
+        }
+        range_kwargs["env_params"] = env_params
+        if "azfp_cal_type" in range_kwargs:
+            range_kwargs.pop("azfp_cal_type")
+    ds_Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
+
+    # Adds location and depth information
+    ds_Sv = ds_Sv.pipe(add_location, ed).pipe(
+        add_depth, depth_offset=ed["Platform"].water_level.values
+    )
+    
+    if compute_mvbs:
+        range_bin = "2m"
+        ping_time_bin = "1s"
+        
+        ds_Sv = ds_Sv.pipe(
+            ep.commongrid.compute_MVBS,
+            range_var="depth",
+            range_bin=range_bin,
+            ping_time_bin=ping_time_bin
+        )
+
+    dist_bin = "0.5nmi"
+    range_bin = "10m"
+
+    ds_NASC = ep.commongrid.compute_NASC(ds_Sv, range_bin=range_bin, dist_bin=dist_bin)
+    assert ds_NASC is not None
+
+    dist_nmi = get_distance_from_latlon(ds_Sv)
+
+    # Check dimensions
+    dist_bin = _parse_x_bin(dist_bin, "dist_bin")
+    range_bin = _parse_x_bin(range_bin)
+    da_NASC = ds_NASC["NASC"]
+    assert da_NASC.dims == ("channel", "distance", "depth")
+    assert np.all(ds_NASC["channel"].values == ds_Sv["channel"].values)
+    assert da_NASC["depth"].size == np.ceil(ds_Sv["depth"].max() / range_bin)
+    assert da_NASC["distance"].size == np.ceil(dist_nmi.max() / dist_bin)
+
+
+@pytest.mark.unit
+def test_simple_NASC_Echoview_values(mock_Sv_dataset_NASC):
+    dist_interval = np.array([-5, 10])
+    range_interval = np.array([1, 5])
+    raw_NASC = get_x_along_channels(
+        mock_Sv_dataset_NASC,
+        range_interval,
+        dist_interval,
+        x_var="distance_nmi",
+        range_var="range_sample",
+    )
+    for ch_idx, _ in enumerate(raw_NASC.channel):
+        NASC_echoview = get_NASC_echoview(mock_Sv_dataset_NASC, ch_idx)
+        assert np.allclose(
+            raw_NASC.sv.isel(channel=ch_idx)[0, 0], NASC_echoview, atol=1e-10, rtol=1e-10
+        )
 
 
 # MVBS Tests
