@@ -1,9 +1,5 @@
-import os
 import pytest
-
 import numpy as np
-import xarray as xr
-
 import echopype.clean
 
 

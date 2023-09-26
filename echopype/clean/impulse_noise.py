@@ -103,27 +103,13 @@ def _ryan_iterable(
         bool: 2D array with IN mask
         bool: 2D array with mask indicating valid IN mask samples.
     """
-
-    # resample down vertically
-    iax_ = np.arange(iax[0], iax[-1], m)
-    Sv_ = mask_transformation.oned(Sv, iax, iax_, 0, log_var=True)[0]
-
-    # resample back to full resolution
-    jax = np.arange(len(Sv[0]))
-    Sv_, mask_ = mask_transformation.full(Sv_, iax_, jax, iax, jax)
-
-    # perform side comparisons and combine masks in one unique mask
     mask = np.zeros_like(Sv, dtype=bool)
+    mask_ = np.zeros_like(Sv, dtype=bool)
     for i in n:
-        dummy = np.zeros((iax.shape[0], i))
-        dummy[:] = np.nan
-        forward = Sv_ - np.c_[Sv_[:, i:], dummy]
-        backward = Sv_ - np.c_[dummy, Sv_[:, 0:-i]]
-        maskf = np.ma.masked_greater(forward, thr).mask
-        maskb = np.ma.masked_greater(backward, thr).mask
-        mask = mask | (maskf & maskb)
+        iterate_mask, iterate_mask_ = _ryan(Sv, iax, m, i, thr)
+        mask |= iterate_mask
+        mask_ |= iterate_mask_
 
-    # get second mask indicating valid samples in IN mask
     mask_[:, 0 : max(n)] = True
     mask_[:, -max(n) :] = True
 
