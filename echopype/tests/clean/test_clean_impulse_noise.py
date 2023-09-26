@@ -10,7 +10,7 @@ import echopype.clean
     "method,thr,m,n,erode,dilate,median,expected_true_false_counts",
     [
         ("ryan", 10, 5, 1, None, None, None, (2130885, 32419)),
-        ("ryan_iterable", 10, 5, (1, 2), None, None, None, (2125144, 38160)),
+        ("ryan_iterable", 10, 5, (1, 2), None, None, None, (2124976, 38328)),
         ("wang", (-70, -40), None, None, [(3, 3)], [(5, 5), (7, 7)], [(7, 7)], (635732, 1527572)),
     ],
 )

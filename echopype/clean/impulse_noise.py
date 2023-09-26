@@ -25,179 +25,7 @@ from skimage.morphology import dilation, erosion
 from ..utils import mask_transformation
 
 
-def _ryan(
-    Sv: np.ndarray, iax: np.ndarray, m: Union[int, float], n: int, thr: Union[int, float]
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Mask impulse noise following the two-sided comparison method described
-    in:
-        Ryan et al. (2015) ‘Reducing bias due to noise and attenuation in
-        open-ocean echo integration data’, ICES Journal of Marine Science,
-        72: 2482–2493.
-
-    Parameters
-    ----------
-        Sv  (float)    : 2D array with Sv data to be masked (dB).
-        iax (int/float): 1D array with i axis data (n samples or range).
-        m   (int/float): vertical binning length (n samples or range).
-        n   (int)      : number of pings either side for comparisons.
-        thr (int/float): user-defined threshold value (dB).
-
-    Returns
-    -------
-        bool: 2D array with IN mask
-        bool: 2D array with mask indicating valid IN mask samples.
-    """
-
-    # resample down vertically
-    iax_ = np.arange(iax[0], iax[-1], m)
-    Sv_ = mask_transformation.oned(Sv, iax, iax_, 0, log_var=True)[0]
-
-    # resample back to full resolution
-    jax = np.arange(len(Sv[0]))
-    Sv_, mask_ = mask_transformation.full(Sv_, iax_, jax, iax, jax)
-
-    # side comparison (±n)
-    dummy = np.zeros((iax.shape[0], n)) * np.nan
-    comparison_forward = Sv_ - np.c_[Sv_[:, n:], dummy]
-    comparison_backward = Sv_ - np.c_[dummy, Sv_[:, 0:-n]]
-
-    # get IN mask
-    comparison_forward[np.isnan(comparison_forward)] = np.inf
-    maskf = comparison_forward > thr
-    comparison_backward[np.isnan(comparison_backward)] = np.inf
-    maskb = comparison_backward > thr
-    mask = maskf & maskb
-
-    # get second mask indicating valid samples in IN mask
-    mask_[:, 0:n] = False
-    mask_[:, -n:] = False
-
-    return mask, mask_
-
-
-def _ryan_iterable(
-    Sv: Union[float, np.ndarray],
-    iax: Union[int, float, np.ndarray],
-    m: Union[int, float],
-    n: Tuple[int, ...],
-    thr: Union[int, float],
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Modified from "ryan" so that the parameter "n" can be provided multiple
-    times. It enables the algorithm to iterate and perform comparisons at
-    different n distances. Resulting masks at each iteration are combined in
-    a single mask. By setting multiple n distances the algorithm can detect
-    spikes adjacent each other.
-
-    Parameters
-    ----------
-        Sv  (float)     : 2D array with Sv data to be masked (dB).
-        iax (int, float): 1D array with i axis data (n samples or range).
-        m   (int, float): vertical binning length (n samples or range).
-        n   (int)       : number of pings either side for comparisons.
-        thr (int,float) : user-defined threshold value (dB).
-
-    Returns
-    -------
-        bool: 2D array with IN mask
-        bool: 2D array with mask indicating valid IN mask samples.
-    """
-    mask = np.zeros_like(Sv, dtype=bool)
-    mask_ = np.zeros_like(Sv, dtype=bool)
-    for i in n:
-        iterate_mask, iterate_mask_ = _ryan(Sv, iax, m, i, thr)
-        mask |= iterate_mask
-        mask_ |= iterate_mask_
-
-    mask_[:, 0 : max(n)] = True
-    mask_[:, -max(n) :] = True
-
-    return mask, mask_
-
-
 def _wang(
-    Sv: np.ndarray,
-    thr: Tuple[float, float],
-    erode: List[Tuple[int, int]],
-    dilate: List[Tuple[int, int]],
-    median: List[Tuple[int, int]],
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Clean impulse noise from Sv data following the method described by:
-
-        Wang et al. (2015) ’A noise removal algorithm for acoustic data with
-        strong interference based on post-processing techniques’, CCAMLR
-        SG-ASAM: 15/02.
-
-    This algorithm runs different cycles of erosion, dilation, and median
-    filtering to clean impulse noise from Sv. Note that this function
-    returns a clean/corrected Sv array, instead of a boolean array indicating
-    the occurrence of impulse noise.
-
-    Parameters
-    ----------
-        Sv     (float)    : 2D numpy array with Sv data (dB).
-        thr    (int/float): 2-element tuple with bottom/top Sv thresholds (dB)
-        erode  (int)      : list of 2-element tuples indicating the window's
-                            size for each erosion cycle.
-        dilate (int)      : list of 2-element tuples indicating the window's
-                            size for each dilation cycle.
-        median (int)      : list of 2-element tuples indicating the window's
-                            size for each median filter cycle.
-
-    Returns
-    -------
-        float             : 2D array with clean Sv data.
-        bool              : 2D array with mask indicating valid clean Sv data.
-    """
-
-    # set weak noise and strong interference as vacant samples (-999)
-    Sv_thresholded = Sv.copy()
-    Sv_thresholded[(Sv < thr[0]) | (Sv > thr[1])] = -999
-
-    # remaining weak interferences will take neighbouring vacant values
-    # by running erosion cycles
-    Sv_eroded = Sv.copy()
-    for e in erode:
-        Sv_eroded = erosion(Sv_thresholded, np.ones(e))
-
-    # the last step might have turned interferences inside biology into vacant
-    # samples, this is solved by running dilation cycles
-    Sv_dilated = Sv_eroded.copy()
-    for d in dilate:
-        Sv_dilated = dilation(Sv_dilated, np.ones(d))
-
-    # dilation has modified the Sv value of biological features, so these are
-    # now corrected to corresponding Sv values before the erosion/dilation
-    Sv_corrected1 = Sv_dilated.copy()
-    mask_bio = (Sv_dilated >= thr[0]) & (Sv_dilated < thr[1])
-    Sv_corrected1[mask_bio] = Sv_thresholded[mask_bio]
-
-    # compute median convolution in Sv corrected array
-    Sv_median = Sv_corrected1.copy()
-    for m in median:
-        Sv_median = mask_transformation.log(
-            median_filter(mask_transformation.lin(Sv_median), footprint=np.ones(m))
-        )
-
-    # any vacant sample inside biological features will be corrected with
-    # the median of corresponding neighbouring samples
-    Sv_corrected2 = Sv_corrected1.copy()
-    mask_bio = (Sv >= thr[0]) & (Sv < thr[1])
-    mask_vacant = Sv_corrected1 == -999
-    Sv_corrected2[mask_vacant & mask_bio] = Sv_median[mask_vacant & mask_bio]
-
-    # get mask indicating edges, where swarms analysis couldn't be performed
-    mask_ = np.ones_like(Sv_corrected2, dtype=bool)
-    idx = int((max([e[0], d[0]]) - 1) / 2)
-    jdx = int((max([e[1], d[1]]) - 1) / 2)
-    mask_[idx:-idx, jdx:-jdx] = False
-
-    return Sv_corrected2, mask_
-
-
-def _find_impulse_mask_wang(
     Sv_ds: xr.Dataset,
     desired_channel: str,
     thr: Tuple[float, float],
@@ -206,7 +34,15 @@ def _find_impulse_mask_wang(
     median: List[Tuple[int, int]],
 ) -> xr.DataArray:
     """
-    Return a boolean mask indicating the location of impulse noise in Sv data.
+    Clean impulse noise from Sv data following the method described by:
+
+        Wang et al. (2015) ’A noise removal algorithm for acoustic data with
+        strong interference based on post-processing techniques’, CCAMLR
+        SG-ASAM: 15/02.
+
+    This algorithm runs different cycles of erosion, dilation, and median
+    filtering to clean impulse noise from Sv.
+    Returns a boolean mask indicating the location of impulse noise in Sv data.
 
     Parameters
     ----------
@@ -266,7 +102,50 @@ def _find_impulse_mask_wang(
     True represents edges where cleaning wasn't applied,
     and False represents areas where cleaning was applied
     """
-    Sv_cleaned, mask_ = _wang(Sv, thr, erode, dilate, median)
+    # Sv_cleaned, mask_ = _wang(Sv, thr, erode, dilate, median)
+    # set weak noise and strong interference as vacant samples (-999)
+    Sv_thresholded = Sv.copy()
+    Sv_thresholded[(Sv < thr[0]) | (Sv > thr[1])] = -999
+
+    # remaining weak interferences will take neighbouring vacant values
+    # by running erosion cycles
+    Sv_eroded = Sv.copy()
+    for e in erode:
+        Sv_eroded = erosion(Sv_thresholded, np.ones(e))
+
+    # the last step might have turned interferences inside biology into vacant
+    # samples, this is solved by running dilation cycles
+    Sv_dilated = Sv_eroded.copy()
+    for d in dilate:
+        Sv_dilated = dilation(Sv_dilated, np.ones(d))
+
+    # dilation has modified the Sv value of biological features, so these are
+    # now corrected to corresponding Sv values before the erosion/dilation
+    Sv_corrected1 = Sv_dilated.copy()
+    mask_bio = (Sv_dilated >= thr[0]) & (Sv_dilated < thr[1])
+    Sv_corrected1[mask_bio] = Sv_thresholded[mask_bio]
+
+    # compute median convolution in Sv corrected array
+    Sv_median = Sv_corrected1.copy()
+    for m in median:
+        Sv_median = mask_transformation.log(
+            median_filter(mask_transformation.lin(Sv_median), footprint=np.ones(m))
+        )
+
+    # any vacant sample inside biological features will be corrected with
+    # the median of corresponding neighbouring samples
+    Sv_cleaned = Sv_corrected1.copy()
+    mask_bio = (Sv >= thr[0]) & (Sv < thr[1])
+    mask_vacant = Sv_corrected1 == -999
+    Sv_cleaned[mask_vacant & mask_bio] = Sv_median[mask_vacant & mask_bio]
+
+    # get mask indicating edges, where swarms analysis couldn't be performed
+    mask_ = np.ones_like(Sv_cleaned, dtype=bool)
+    idx = int((max([e[0], d[0]]) - 1) / 2)
+    jdx = int((max([e[1], d[1]]) - 1) / 2)
+    mask_[idx:-idx, jdx:-jdx] = False
+
+    # return Sv_corrected2, mask_
 
     """
     Create a boolean mask comparing the original and cleaned Sv data
@@ -308,7 +187,7 @@ def _find_impulse_mask_wang(
     return mask_xr
 
 
-def _find_impulse_mask_ryan(
+def _ryan(
     Sv_ds: xr.Dataset,
     desired_channel: str,
     m: Union[int, float],
@@ -357,7 +236,31 @@ def _find_impulse_mask_ryan(
     iax = selected_channel_ds.range_sample.values
 
     # Call the existing ryan function
-    mask, mask_ = _ryan(Sv, iax, m, n, thr)
+    # mask, mask_ = _ryan(Sv, iax, m, n, thr)
+    iax_ = np.arange(iax[0], iax[-1], m)
+    Sv_ = mask_transformation.oned(Sv, iax, iax_, 0, log_var=True)[0]
+
+    # resample back to full resolution
+    jax = np.arange(len(Sv[0]))
+    Sv_, mask_ = mask_transformation.full(Sv_, iax_, jax, iax, jax)
+
+    # side comparison (±n)
+    dummy = np.zeros((iax.shape[0], n)) * np.nan
+    comparison_forward = Sv_ - np.c_[Sv_[:, n:], dummy]
+    comparison_backward = Sv_ - np.c_[dummy, Sv_[:, 0:-n]]
+
+    # get IN mask
+    comparison_forward[np.isnan(comparison_forward)] = np.inf
+    maskf = comparison_forward > thr
+    comparison_backward[np.isnan(comparison_backward)] = np.inf
+    maskb = comparison_backward > thr
+    mask = maskf & maskb
+
+    # get second mask indicating valid samples in IN mask
+    mask_[:, 0:n] = False
+    mask_[:, -n:] = False
+
+    # return mask, mask_
 
     # Transpose the mask back to its original shape
     mask = np.transpose(mask)
@@ -377,7 +280,7 @@ def _find_impulse_mask_ryan(
     return mask_xr
 
 
-def _find_impulse_mask_ryan_iterable(
+def _ryan_iterable(
     Sv_ds: xr.Dataset,
     desired_channel: str,
     m: Union[int, float],
@@ -416,34 +319,12 @@ def _find_impulse_mask_ryan_iterable(
     Then, we create a combined mask using a bitwise AND operation between 'mask' and '~mask_'.
 
     """
-
-    # Select the desired frequency channel directly using 'sel'
-    selected_channel_ds = Sv_ds.sel(channel=desired_channel)
-
-    # Extract Sv and iax for the desired frequency channel
-    Sv = selected_channel_ds["Sv"].values
-
-    # But first, transpose the Sv data so that the vertical dimension is axis 0
-    Sv = np.transpose(Sv)
-
-    iax = selected_channel_ds.range_sample.values
-
-    # Call the existing ryan function
-    mask, mask_ = _ryan_iterable(Sv, iax, m, n, thr)
-
-    # Transpose the mask back to its original shape
-    mask = np.transpose(mask)
-    mask_ = np.transpose(mask_)
-    combined_mask = mask & (~mask_)
-
-    # Create a new xarray for the mask with the correct dimensions and coordinates
-    mask_xr = xr.DataArray(
-        combined_mask,
-        dims=("ping_time", "range_sample"),
-        coords={
-            "ping_time": selected_channel_ds.ping_time.values,
-            "range_sample": selected_channel_ds.range_sample.values,
-        },
-    )
-
+    mask_list = []
+    for n_i in n:
+        mask = _ryan(Sv_ds, desired_channel, m, n_i, thr)
+        mask_list.append(mask)
+    mask_xr = mask_list[0]
+    if len(mask_list) > 1:
+        for mask in mask_list[1:]:
+            mask_xr |= mask
     return mask_xr

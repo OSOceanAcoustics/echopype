@@ -9,11 +9,7 @@ import xarray as xr
 
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from . import signal_attenuation, transient_noise
-from .impulse_noise import (
-    _find_impulse_mask_ryan,
-    _find_impulse_mask_ryan_iterable,
-    _find_impulse_mask_wang,
-)
+from .impulse_noise import _ryan, _ryan_iterable, _wang
 from .noise_est import NoiseEst
 
 
@@ -199,17 +195,13 @@ def get_impulse_noise_mask(
     # So, we negate the obtained mask.
 
     if method == "ryan":
-        impulse_mask_ryan = _find_impulse_mask_ryan(source_Sv, desired_channel, m, n, thr)
+        impulse_mask_ryan = _ryan(source_Sv, desired_channel, m, n, thr)
         noise_free_mask = ~impulse_mask_ryan
     elif method == "ryan_iterable":
-        impulse_mask_ryan_iterable = _find_impulse_mask_ryan_iterable(
-            source_Sv, desired_channel, m, n, thr
-        )
+        impulse_mask_ryan_iterable = _ryan_iterable(source_Sv, desired_channel, m, n, thr)
         noise_free_mask = ~impulse_mask_ryan_iterable
     elif method == "wang":
-        impulse_mask_wang = _find_impulse_mask_wang(
-            source_Sv, desired_channel, thr, erode, dilate, median
-        )
+        impulse_mask_wang = _wang(source_Sv, desired_channel, thr, erode, dilate, median)
         noise_free_mask = ~impulse_mask_wang
     else:
         raise ValueError(f"Unsupported method: {method}")
