@@ -375,7 +375,7 @@ def get_x_along_channels(
         #   - create a datararray filled with 1, with 1D coordinate (distance)
         #   - flox xarray_reduce along distance, summing over each 1D bin
         # h_mean = N/D
-        da_denom = xr.ones_like(ds_Sv["distance_nmi"])
+        da_denom = xr.ones_like(ds_Sv[x_var])
         h_mean_denom = xarray_reduce(
             da_denom,
             ds_Sv[x_var],
@@ -727,6 +727,10 @@ def compute_NASC(
     # this computes the distance max since there might NaNs in the data
     dist_max = ds_Sv["distance_nmi"].max()
     dist_interval = np.arange(0, dist_max + dist_bin, dist_bin)
+
+    # Set interval index for groups
+    dist_interval = _convert_bins_to_interval_index(dist_interval, closed=closed)
+    range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
 
     raw_NASC = get_x_along_channels(
         ds_Sv,

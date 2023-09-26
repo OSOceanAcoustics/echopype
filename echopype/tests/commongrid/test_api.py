@@ -139,16 +139,16 @@ def test_compute_NASC(request, test_data_samples, compute_mvbs):
     ds_Sv = ds_Sv.pipe(add_location, ed).pipe(
         add_depth, depth_offset=ed["Platform"].water_level.values
     )
-    
+
     if compute_mvbs:
         range_bin = "2m"
         ping_time_bin = "1s"
-        
+
         ds_Sv = ds_Sv.pipe(
             ep.commongrid.compute_MVBS,
             range_var="depth",
             range_bin=range_bin,
-            ping_time_bin=ping_time_bin
+            ping_time_bin=ping_time_bin,
         )
 
     dist_bin = "0.5nmi"
@@ -435,3 +435,36 @@ def test_compute_MVBS_values(request, er_type):
     # Ensures that the computation of MVBS takes doesn't take into account NaN values
     # that are sporadically placed in the echo_range values
     assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("er_type"),
+    [
+        ("regular"),
+        ("irregular"),
+    ],
+)
+def test_compute_NASC_values(request, er_type):
+    """Tests for the values of compute_NASC on regular and irregular data."""
+
+    range_bin = "2m"
+    dist_bin = "0.5nmi"
+
+    if er_type == "regular":
+        ds_Sv = request.getfixturevalue("mock_Sv_dataset_regular")
+        expected_nasc = request.getfixturevalue("mock_nasc_array_regular")
+    else:
+        # Mock irregular dataset contains jitter
+        # and NaN values in the bottom echo_range
+        ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
+        expected_nasc = request.getfixturevalue("mock_nasc_array_irregular")
+
+    ds_NASC = ep.commongrid.compute_NASC(ds_Sv, range_bin=range_bin, dist_bin=dist_bin)
+
+    assert ds_NASC.NASC.shape == expected_nasc.shape
+    # Floating digits need to check with all close not equal
+    # Compare the values of the MVBS array with the expected values
+    assert np.allclose(
+        ds_NASC.NASC.values, expected_nasc.values, atol=1e-10, rtol=1e-10, equal_nan=True
+    )
