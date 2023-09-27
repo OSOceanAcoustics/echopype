@@ -5,12 +5,11 @@ import pathlib
 from typing import Union
 
 import xarray as xr
+from pandas import Index
 
 from ..utils.misc import frequency_nominal_to_channel
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from . import impulse_noise, signal_attenuation, transient_noise
-
-# from .impulse_noise import _ryan, _ryan_iterable, _wang
 from .noise_est import NoiseEst
 
 
@@ -275,4 +274,168 @@ def get_attenuation_mask(
             desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
 
     mask = mask_map[method](source_Sv, desired_channel, parameters)
+    return mask
+
+
+def create_multichannel_mask(masks: [xr.Dataset], channels: [str]) -> xr.Dataset:
+    """
+    Given a set of single-channel masks and a list of channels,
+    creates a multichannel mask
+
+    Parameters
+    ==========
+    masks(xr.Dataset): a list of single-channel masks
+    channels(str): a list of channel names
+
+    Returns
+    mask: a multi-channel mask
+    ======
+    """
+    if len(masks) != len(channels):
+        raise ValueError("number of masks and of channels provided should be the same")
+    for i in range(0, len(masks)):
+        mask = masks[i]
+        if "channel" in mask.coords:
+            masks[i] = mask.isel(channel=0)
+    result = xr.concat(
+        masks, Index(channels, name="channel"), data_vars="all", coords="all", join="exact"
+    )
+    return result
+
+
+def get_transient_noise_mask_multichannel(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    parameters: dict,
+    method: str = "ryan",
+) -> xr.DataArray:
+    """
+    Create a mask based on the identified signal attenuations of Sv values at 38KHz.
+    This method is based on:
+    Ryan et al. (2015) ‘Reducing bias due to noise and attenuation in
+        open-ocean echo integration data’, ICES Journal of Marine Science,
+        72: 2482–2493.
+
+    Parameters
+    ----------
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a mask for,
+        else it specifies the path to a zarr or netcdf file containing
+        a Dataset. This input must correspond to a Dataset that has the
+        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    method: str with either "ryan" or "fielding" based on
+        the preferred method for signal attenuation mask generation
+    parameters: dict
+        Default method parameters
+    Returns
+    -------
+    xr.DataArray
+        A multichannel DataArray containing the mask for the Sv data.
+        Regions satisfying the thresholding criteria are filled with ``True``,
+        else the regions are filled with ``False``.
+
+    Raises
+    ------
+    ValueError
+        If neither ``ryan`` or ``fielding`` are given
+
+    """
+    channel_list = source_Sv["channel"].values
+    mask_list = []
+    for channel in channel_list:
+        mask = get_transient_noise_mask(
+            source_Sv, parameters=parameters, desired_channel=channel, method=method
+        )
+        mask_list.append(mask)
+    mask = create_multichannel_mask(mask_list, channel_list)
+    return mask
+
+
+def get_impulse_noise_mask_multichannel(
+    source_Sv: xr.Dataset,
+    parameters: dict,
+    method: str = "ryan",
+) -> xr.DataArray:
+    """
+    Algorithms for masking Impulse noise.
+
+    Parameters
+    ----------
+    source_Sv: xr.Dataset
+        Dataset  containing the Sv data to create a mask
+    method: str, optional
+        The method (ryan, ryan iterable or wang) used to mask impulse noise. Defaults to 'ryan'.
+    parameters: dict
+        Default method parameters
+
+    Returns
+    -------
+    xr.DataArray
+        A multichannel DataArray consisting of a mask for the Sv data,
+        wherein True values signify samples that are free of noise.
+    """
+    channel_list = source_Sv["channel"].values
+    mask_list = []
+    for channel in channel_list:
+        mask = get_impulse_noise_mask(
+            source_Sv,
+            parameters=parameters,
+            desired_channel=channel,
+            method=method,
+        )
+        mask_list.append(mask)
+    mask = create_multichannel_mask(mask_list, channel_list)
+    return mask
+
+
+def get_attenuation_mask_multichannel(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    parameters: dict,
+    method: str = "ryan",
+) -> xr.DataArray:
+    """
+    Create a mask based on the identified signal attenuations of Sv values at 38KHz.
+    This method is based on:
+    Ryan et al. (2015) ‘Reducing bias due to noise and attenuation in
+        open-ocean echo integration data’, ICES Journal of Marine Science,
+        72: 2482–2493.
+    and,
+    Ariza et al. (2022) 'Acoustic seascape partitioning through functional data analysis',
+    Journal of Biogeography, 00, 1– 15. https://doi.org/10.1111/jbi.14534
+
+
+    Parameters
+    ----------
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a mask for,
+        else it specifies the path to a zarr or netcdf file containing
+        a Dataset. This input must correspond to a Dataset that has the
+        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    method: str with either "ryan" or "ariza" based on the
+                preferred method for signal attenuation mask generation
+    parameters: dict
+        Default method parameters
+
+    Returns
+    -------
+    xr.DataArray
+        A DataArray containing the multidimensional mask for the Sv data.
+        Regions satisfying the thresholding criteria are filled with ``True``,
+        else the regions are filled with ``False``.
+
+    Raises
+    ------
+    ValueError
+        If neither ``ryan`` or ``ariza`` are given
+    """
+    channel_list = source_Sv["channel"].values
+    mask_list = []
+    for channel in channel_list:
+        mask = get_attenuation_mask(
+            source_Sv,
+            parameters=parameters,
+            desired_channel=channel,
+            method=method,
+        )
+        mask_list.append(mask)
+    mask = create_multichannel_mask(mask_list, channel_list)
     return mask
