@@ -114,7 +114,7 @@ def mock_ping_data_dict(
         # the length along range_sample changes across ping_time in different ways for each channel
         ch_range_sample_len=[[10, 20, 100], [130], [20, 100, 10]]
 
-        # the number of pings in each block (each block has diffrent length along range_sample)
+        # the number of pings in each block (each block has different length along range_sample)
         # is different for each channel
         ch_range_sample_ping_time_len=[[20, 100, 20], [120, 10, 5], [50, 20, 20]]
 
