@@ -67,13 +67,13 @@ def mock_channel_timestamp(ping_time_len, ping_time_interval="1S", ping_time_jit
 
 
 @pytest.fixture
-def gen_timestamp_data(ch_num, ch_range_sample_ping_time_len):
+def gen_timestamp_data(ch_num, ch_range_sample_ping_time_len, ping_time_jitter_max_ms=0):
     timestamp_data = defaultdict(list)
     for ch_seq in np.arange(ch_num):
         mock_time = mock_channel_timestamp(
             ping_time_len=sum(ch_range_sample_ping_time_len[ch_seq]),
             ping_time_interval="1S",
-            ping_time_jitter_max_ms=0
+            ping_time_jitter_max_ms=ping_time_jitter_max_ms,
         )
         timestamp_data[ch_seq+1] = [np.datetime64(t) for t in mock_time.tolist()]
     return timestamp_data
@@ -93,11 +93,31 @@ def gen_echo_data(ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, da
 
 
 @pytest.fixture
-def mock_regular_ping_data_dict(
+def mock_ping_data_dict(
     ch_num,
     ch_range_sample_len=[[100], [100], [100]],
     ch_range_sample_ping_time_len=[[20], [20], [20]],
 ):
+    """
+    To generate regular data:
+        # all pings in each channel have length=100 along the range_sample dimension
+        ch_range_sample_len=[[100], [100], [100]]
+
+        # all channels have 20 pings
+        ch_range_sample_ping_time_len=[[20], [20], [20]]
+    
+    To generate irregular data:
+        # the length along range_sample changes across ping_time in different ways for each channel
+        ch_range_sample_len=[[10, 20, 100], [130], [20, 100, 10]]
+
+        # the number of pings in each block (each block has diffrent length along range_sample)
+        # is different for each channel
+        ch_range_sample_ping_time_len=[[20, 100, 20], [120, 10, 5], [50, 20, 20]]
+
+    If ping_time_jitter_max_ms!=0 in gen_timestamp_data(),
+    each ping_time will be different by some small jitter across all channels,
+    i.e., the ping_time across will NOT be aligned.
+    """
 
     if (ch_num != len(ch_range_sample_len)) or (ch_num != len(ch_range_sample_ping_time_len)):
         raise ValueError("Channel length mismatches!")
@@ -110,3 +130,5 @@ def mock_regular_ping_data_dict(
     
     # Ping time generation
     ping_data_dict["timestamp"] = gen_timestamp_data(ch_num, ch_range_sample_ping_time_len)
+
+    return ping_data_dict
