@@ -23,11 +23,20 @@ from skimage.morphology import dilation, erosion
 
 from ..utils import mask_transformation
 
+RYAN_DEFAULT_PARAMS = {"thr": 10, "m": 5, "n": 1}
+RYAN_ITERABLE_DEFAULT_PARAMS = {"thr": 10, "m": 5, "n": (1, 2)}
+WANG_DEFAULT_PARAMS = {
+    "thr": (-70, -40),
+    "erode": [(3, 3)],
+    "dilate": [(5, 5), (7, 7)],
+    "median": [(7, 7)],
+}
+
 
 def _wang(
     Sv_ds: xr.Dataset,
     desired_channel: str,
-    parameters: {},
+    parameters: dict = WANG_DEFAULT_PARAMS,
 ) -> xr.DataArray:
     """
     Clean impulse noise from Sv data following the method described by:
@@ -199,7 +208,7 @@ def _wang(
 def _ryan(
     Sv_ds: xr.Dataset,
     desired_channel: str,
-    parameters: {},
+    parameters: dict = RYAN_DEFAULT_PARAMS,
 ) -> xr.DataArray:
     """
     Mask impulse noise following the two-sided comparison method described in:
@@ -297,7 +306,7 @@ def _ryan(
 def _ryan_iterable(
     Sv_ds: xr.Dataset,
     desired_channel: str,
-    parameters: {},
+    parameters: dict = RYAN_ITERABLE_DEFAULT_PARAMS,
 ) -> xr.DataArray:
     """
     Modified from "ryan" so that the parameter "n" can be provided multiple
