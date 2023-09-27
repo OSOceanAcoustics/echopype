@@ -7,9 +7,11 @@ from typing import Union
 import numpy as np
 import xarray as xr
 
+from ..utils.misc import frequency_nominal_to_channel
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
-from . import signal_attenuation, transient_noise
-from .impulse_noise import _ryan, _ryan_iterable, _wang
+from . import impulse_noise, signal_attenuation, transient_noise
+
+# from .impulse_noise import _ryan, _ryan_iterable, _wang
 from .noise_est import NoiseEst
 
 
@@ -103,6 +105,8 @@ def get_transient_noise_mask(
         else it specifies the path to a zarr or netcdf file containing
         a Dataset. This input must correspond to a Dataset that has the
         coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    desired_channel: str
+        Name of the desired frequency channel.
     mask_type: str with either "ryan" or "fielding" based on
         the preferred method for signal attenuation mask generation
     Returns
@@ -147,8 +151,9 @@ def get_transient_noise_mask(
 
 def get_impulse_noise_mask(
     source_Sv: xr.Dataset,
-    desired_channel: str,
     parameters: {},
+    desired_channel: str = None,
+    desired_frequency: int = None,
     method: str = "ryan",
 ) -> xr.DataArray:
     """
@@ -160,6 +165,8 @@ def get_impulse_noise_mask(
         Dataset  containing the Sv data to create a mask
     desired_channel: str
         Name of the desired frequency channel.
+    desired_frequency: int
+        Desired frequency, in case the channel is not directly specified
     parameters: {}
         Parameter dictionary containing function-specific arguments.
         Can contain the following:
@@ -195,9 +202,18 @@ def get_impulse_noise_mask(
     """
     # Our goal is to have a mask True on samples that are NOT impulse noise.
     # So, we negate the obtained mask.
-    mask_map = {"ryan": _ryan, "ryan_iterable": _ryan_iterable, "wang": _wang}
+    mask_map = {
+        "ryan": impulse_noise._ryan,
+        "ryan_iterable": impulse_noise._ryan_iterable,
+        "wang": impulse_noise._wang,
+    }
     if method not in mask_map.keys():
         raise ValueError(f"Unsupported method: {method}")
+    if desired_channel is None:
+        if desired_frequency is None:
+            raise ValueError("Must specify either desired channel or desired frequency")
+        else:
+            desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
     impulse_mask = mask_map[method](source_Sv, desired_channel, parameters)
     noise_free_mask = ~impulse_mask
 
@@ -240,7 +256,7 @@ def get_attenuation_mask(
     Raises
     ------
     ValueError
-        If neither ``ryan`` or ``azira`` are given
+        If neither ``ryan`` or ``ariza`` are given
 
     Notes
     -----
