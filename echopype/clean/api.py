@@ -87,7 +87,8 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
 
 def get_transient_noise_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    desired_channel: str,
+    desired_channel: str = None,
+    desired_frequency: int = None,
     mask_type: str = "ryan",
     **kwargs,
 ) -> xr.DataArray:
@@ -107,6 +108,8 @@ def get_transient_noise_mask(
         coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
     desired_channel: str
         Name of the desired frequency channel.
+    desired_frequency: int
+        Desired frequency, in case the channel is not directly specified
     mask_type: str with either "ryan" or "fielding" based on
         the preferred method for signal attenuation mask generation
     Returns
@@ -121,6 +124,11 @@ def get_transient_noise_mask(
         If neither ``ryan`` or ``fielding`` are given
 
     """
+    if desired_channel is None:
+        if desired_frequency is None:
+            raise ValueError("Must specify either desired channel or desired frequency")
+        else:
+            desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
     assert mask_type in ["ryan", "fielding"], "mask_type must be either 'ryan' or 'fielding'"
     selected_channel_Sv = source_Sv.sel(channel=desired_channel)
     Sv = selected_channel_Sv["Sv"].values
@@ -222,7 +230,8 @@ def get_impulse_noise_mask(
 
 def get_attenuation_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    desired_channel: str,
+    desired_channel: str = None,
+    desired_frequency: int = None,
     mask_type: str = "ryan",
     **kwargs,
 ) -> xr.DataArray:
@@ -244,7 +253,10 @@ def get_attenuation_mask(
         else it specifies the path to a zarr or netcdf file containing
         a Dataset. This input must correspond to a Dataset that has the
         coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
-    desired_channel: the Dataset channel to be used for identifying the signal attenuation.
+    desired_channel: str
+        Name of the desired frequency channel.
+    desired_frequency: int
+        Desired frequency, in case the channel is not directly specified
     mask_type: str with either "ryan" or "ariza" based on the
                 preferred method for signal attenuation mask generation
     Returns
@@ -266,6 +278,11 @@ def get_attenuation_mask(
     --------
 
     """
+    if desired_channel is None:
+        if desired_frequency is None:
+            raise ValueError("Must specify either desired channel or desired frequency")
+        else:
+            desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
     assert mask_type in ["ryan", "ariza"], "mask_type must be either 'ryan' or 'ariza'"
     selected_channel_Sv = source_Sv.sel(channel=desired_channel)
     Sv = selected_channel_Sv["Sv"].values
