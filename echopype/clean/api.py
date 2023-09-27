@@ -230,10 +230,10 @@ def get_impulse_noise_mask(
 
 def get_attenuation_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    parameters: dict,
     desired_channel: str = None,
     desired_frequency: int = None,
-    mask_type: str = "ryan",
-    **kwargs,
+    method: str = "ryan",
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
@@ -253,6 +253,8 @@ def get_attenuation_mask(
         else it specifies the path to a zarr or netcdf file containing
         a Dataset. This input must correspond to a Dataset that has the
         coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    parameters: dict
+        Dictionary of parameters to pass to the relevant subfunctions.
     desired_channel: str
         Name of the desired frequency channel.
     desired_frequency: int
@@ -278,33 +280,17 @@ def get_attenuation_mask(
     --------
 
     """
+    mask_map = {
+        "ryan": signal_attenuation._ryan,
+        "ariza": signal_attenuation._ariza,
+    }
+    if method not in mask_map.keys():
+        raise ValueError(f"Unsupported method: {method}")
     if desired_channel is None:
         if desired_frequency is None:
             raise ValueError("Must specify either desired channel or desired frequency")
         else:
             desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
-    assert mask_type in ["ryan", "ariza"], "mask_type must be either 'ryan' or 'ariza'"
-    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
-    Sv = selected_channel_Sv["Sv"].values
-    r = source_Sv["echo_range"].values[0, 0]
-    if mask_type == "ryan":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "n", "thr", "start"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = signal_attenuation._ryan(Sv, r, **filtered_kwargs)
-    elif mask_type == "ariza":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"offset", "thr", "m", "n"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = signal_attenuation._ariza(Sv, r, **filtered_kwargs)
-    else:
-        raise ValueError("The provided mask_type must be ryan or ariza!")
 
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask
+    mask = mask_map[method](source_Sv, desired_channel, parameters)
+    return mask

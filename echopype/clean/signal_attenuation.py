@@ -1,10 +1,14 @@
 import numpy as np
+import xarray as xr
 from skimage.measure import label
 
 from ..utils.mask_transformation import full as _full, lin as _lin, log as _log, twod as _twod
 
+DEFAULT_RYAN_PARAMS = {"r0": 180, "r1": 280, "n": 30, "thr": -6, "start": 0}
+DEFAULT_ARIZA_PARAMS = {"offset": 20, "thr": (-40, -35), "m": 20, "n": 50}
 
-def _ryan(Sv, r, r0=180, r1=280, n=30, thr=6, start=0):
+
+def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters=DEFAULT_RYAN_PARAMS):
     """
     Locate attenuated signal and create a mask following the attenuated signal
     filter as in:
@@ -28,18 +32,32 @@ def _ryan(Sv, r, r0=180, r1=280, n=30, thr=6, start=0):
     threshold value.
 
     Args:
-        Sv (float): 2D array with Sv data to be masked (dB).
-        r (float):  1D array with range data (m).
-        r0 (int): upper limit of SL (m).
-        r1 (int): lower limit of SL (m).
-        n (int): number of preceding & subsequent pings defining the block.
-        thr (int): user-defined threshold value (dB).
-        start (int): ping index to start processing.
+        source_Sv (xr.DataArray): Sv array
+        selected_channel (str): name of the channel to process
+        parameters(dict): dict of parameters, containing:
+            r0 (int): upper limit of SL (m).
+            r1 (int): lower limit of SL (m).
+            n (int): number of preceding & subsequent pings defining the block.
+            thr (int): user-defined threshold value (dB).
+            start (int): ping index to start processing.
 
     Returns:
-        list: 2D boolean array with AS mask and 2D boolean array with mask
-              indicating where AS detection was unfeasible.
+        xr.DataArray: boolean array with AS mask, with ping_time and range_sample dims
     """
+    parameter_names = ("r0", "r1", "n", "thr", "start")
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be r0, r1, n, thr, start, are" + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    n = parameters["n"]
+    thr = parameters["thr"]
+    start = parameters["start"]
+
+    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = selected_channel_Sv["Sv"].values
+    r = source_Sv["echo_range"].values[0, 0]
 
     # raise errors if wrong arguments
     if r0 > r1:
@@ -79,16 +97,50 @@ def _ryan(Sv, r, r0=180, r1=280, n=30, thr=6, start=0):
                 mask[j, :] = True
 
     final_mask = np.logical_not(mask[start:, :] | mask_[start:, :])
-    return final_mask
+    return_mask = xr.DataArray(
+        final_mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask
 
 
-def _ariza(Sv, r, offset=20, thr=(-40, -35), m=20, n=50):
+def _ariza(source_Sv, desired_channel, parameters=DEFAULT_ARIZA_PARAMS):
     """
     Mask attenuated pings by looking at seabed breaches.
 
     Ariza et al. (2022) 'Acoustic seascape partitioning through functional data analysis',
     Journal of Biogeography, 00, 1– 15. https://doi.org/10.1111/jbi.14534
+    Args:
+        source_Sv (xr.DataArray): Sv array
+        selected_channel (str): name of the channel to process
+        parameters(dict): dict of parameters, containing:
+            offset (int):
+            m (int):
+            n (int):
+            thr (int):
+
+    Returns:
+        xr.DataArray: boolean array with AS mask, with ping_time and range_sample dims
     """
+    parameter_names = (
+        "thr",
+        "m",
+        "n",
+        "offset",
+    )
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be thr, m, n, offset, are" + str(parameters.keys())
+        )
+    m = parameters["m"]
+    n = parameters["n"]
+    thr = parameters["thr"]
+    offset = parameters["offset"]
+
+    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = selected_channel_Sv["Sv"].values
+    r = source_Sv["echo_range"].values[0, 0]
 
     # get ping array
     p = np.arange(len(Sv))
@@ -135,4 +187,9 @@ def _ariza(Sv, r, offset=20, thr=(-40, -35), m=20, n=50):
     # get mask where this value falls below a Sv threshold (seabed breaches)
     mask = seabed_percentile < thr[0]
     mask = np.tile(mask, [len(Sv), 1])
-    return mask
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask
