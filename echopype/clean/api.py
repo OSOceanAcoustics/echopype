@@ -4,7 +4,6 @@ Functions for reducing variabilities in backscatter data.
 import pathlib
 from typing import Union
 
-import numpy as np
 import xarray as xr
 
 from ..utils.misc import frequency_nominal_to_channel
@@ -87,10 +86,10 @@ def remove_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshol
 
 def get_transient_noise_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    parameters: dict,
     desired_channel: str = None,
     desired_frequency: int = None,
-    mask_type: str = "ryan",
-    **kwargs,
+    method: str = "ryan",
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
@@ -124,37 +123,20 @@ def get_transient_noise_mask(
         If neither ``ryan`` or ``fielding`` are given
 
     """
+    mask_map = {
+        "ryan": transient_noise._ryan,
+        "fielding": transient_noise._fielding,
+    }
+    if method not in mask_map.keys():
+        raise ValueError(f"Unsupported method: {method}")
     if desired_channel is None:
         if desired_frequency is None:
             raise ValueError("Must specify either desired channel or desired frequency")
         else:
             desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
-    assert mask_type in ["ryan", "fielding"], "mask_type must be either 'ryan' or 'fielding'"
-    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
-    Sv = selected_channel_Sv["Sv"].values
-    r = source_Sv["echo_range"].values[0, 0]
-    if mask_type == "ryan":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"m", "n", "thr", "excludeabove", "operation"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = transient_noise._ryan(Sv, r, m=5, **filtered_kwargs)
-    elif mask_type == "fielding":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "roff", "n", "thr"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = transient_noise._fielding(Sv, r, **filtered_kwargs)
-    else:
-        raise ValueError("The provided mask_type must be ryan or fielding!")
 
-    mask = np.logical_not(mask)
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask
+    mask = mask_map[method](source_Sv, desired_channel, parameters)
+    return mask
 
 
 def get_impulse_noise_mask(

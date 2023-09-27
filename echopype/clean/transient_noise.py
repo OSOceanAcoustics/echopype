@@ -16,11 +16,30 @@ __authors__ = [
 
 
 import numpy as np
+import xarray as xr
 
 from ..utils.mask_transformation import lin as _lin, log as _log
 
+RYAN_DEFAULT_PARAMS = {
+    "m": 5,
+    "n": 20,
+    "thr": 20,
+    "excludeabove": 250,
+    "operation": "percentile15",
+}
+FIELDING_DEFAULT_PARAMS = {
+    "r0": 200,
+    "r1": 1000,
+    "n": 20,
+    "thr": [2, 0],
+    "roff": 250,
+    "jumps": 5,
+    "maxts": -35,
+    "start": 0,
+}
 
-def _ryan(Sv, r, m=50, n=20, thr=20, excludeabove=250, operation="percentile15"):
+
+def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters: dict = RYAN_DEFAULT_PARAMS):
     """
     Mask transient noise as in:
 
@@ -34,21 +53,39 @@ def _ryan(Sv, r, m=50, n=20, thr=20, excludeabove=250, operation="percentile15")
     excluded above 250 m by default to avoid the removal of aggregated biota.
 
     Args:
-        Sv (float): 2D numpy array with Sv data to be masked (dB)
-        r (float): 1D numpy array with range data (m)
-        m (int): height of surrounding region (m)
-        n (int): width of surrounding region (pings)
-        threshold (int): user-defined threshold for comparisons (dB)
-        excludeabove (int): range above which masking is excluded (m)
-        operation (str): type of average operation:
-            'mean'
-            'percentileXX'
-            'median'
-            'mode'#not in numpy
+    Args:
+        source_Sv (xr.DataArray): Sv array
+        selected_channel (str): name of the channel to process
+        parameters(dict): dict of parameters, containing:
+            m (int): height of surrounding region (m)
+            n (int): width of surrounding region (pings)
+            thr (int): user-defined threshold for comparisons (dB)
+            excludeabove (int): range above which masking is excluded (m)
+            operation (str): type of average operation:
+                'mean'
+                'percentileXX'
+                'median'
+                'mode'#not in numpy
 
     Returns:
-        bool: 2D numpy array mask (transient noise = True)
+        xarray.DataArray: xr.DataArray with mask indicating the presence of transient noise.
     """
+    parameter_names = ("m", "n", "thr", "excludeabove", "operation")
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be m, n, thr, excludeabove, operation, are"
+            + str(parameters.keys())
+        )
+    m = parameters["m"]
+    n = parameters["n"]
+    thr = parameters["thr"]
+    excludeabove = parameters["excludeabove"]
+    operation = parameters["operation"]
+
+    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = selected_channel_Sv["Sv"].values
+    r = source_Sv["echo_range"].values[0, 0]
+
     # offsets for i and j indexes
     ioff = n
     joff = np.argmin(abs(r - m))
@@ -77,11 +114,18 @@ def _ryan(Sv, r, m=50, n=20, thr=20, excludeabove=250, operation="percentile15")
                         )
                     )
                 mask[i, j] = sample - block > thr
+    mask = np.logical_not(mask)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask
 
-    return mask
 
-
-def _fielding(Sv, r, r0=200, r1=1000, n=20, thr=[2, 0], roff=250, jumps=5, maxts=-35, start=0):
+def _fielding(
+    source_Sv: xr.DataArray, desired_channel: str, parameters: dict = FIELDING_DEFAULT_PARAMS
+):
     """
     Mask transient noise with method proposed by Fielding et al (unpub.).
 
@@ -104,22 +148,40 @@ def _fielding(Sv, r, r0=200, r1=1000, n=20, thr=[2, 0], roff=250, jumps=5, maxts
     with a secondary threshold or until it gets the exclusion range depth.
 
     Args:
-        Sv    (float): 2D numpy array with Sv data to be masked (dB).
-        r     (float): 1D numpy array with range data (m).
-        r0    (int  ): range below which transient noise is evaluated (m).
-        r1    (int  ): range above which transient noise is evaluated (m).
-        n     (int  ): n of preceding & subsequent pings defining the block.
-        thr   (int  ): user-defined threshold for side-comparisons (dB).
-        roff  (int  ): range above which masking is excluded (m).
-        maxts (int  ): max transient noise permitted, prevents to interpret
-                       seabed as transient noise (dB).
-        jumps (int  ): height of vertical steps (m).
-        start (int  ): ping index to start processing.
+        source_Sv (xr.DataArray): Sv array
+        selected_channel (str): name of the channel to process
+        parameters(dict): dict of parameters, containing:
+            r0    (int  ): range below which transient noise is evaluated (m).
+            r1    (int  ): range above which transient noise is evaluated (m).
+            n     (int  ): n of preceding & subsequent pings defining the block.
+            thr   (int  ): user-defined threshold for side-comparisons (dB).
+            roff  (int  ): range above which masking is excluded (m).
+            maxts (int  ): max transient noise permitted, prevents to interpret
+                           seabed as transient noise (dB).
+            jumps (int  ): height of vertical steps (m).
+            start (int  ): ping index to start processing.
 
     Returns:
-        list: 2D boolean array with TN mask and 2D boolean array with mask
-              indicating where TN detection was unfeasible.
+        xarray.DataArray: xr.DataArray with mask indicating the presence of transient noise.
     """
+    parameter_names = ("r0", "r1", "n", "thr", "roff", "maxts", "jumps", "start")
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be r0, r1, n, thr, roff, maxts, jumps, start, are"
+            + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    n = parameters["n"]
+    thr = parameters["thr"]
+    roff = parameters["roff"]
+    maxts = parameters["maxts"]
+    jumps = parameters["jumps"]
+    start = parameters["start"]
+
+    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = selected_channel_Sv["Sv"].values
+    r = source_Sv["echo_range"].values[0, 0]
 
     # raise errors if wrong arguments
     if r0 > r1:
@@ -165,5 +227,11 @@ def _fielding(Sv, r, r0=200, r1=1000, n=20, thr=[2, 0], roff=250, jumps=5, maxts
                         break
                 mask[j, r0:] = True
 
-    final_mask = mask[:, start:] | mask_[:, start:]
-    return final_mask
+    mask = mask[:, start:] | mask_[:, start:]
+    mask = np.logical_not(mask)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask
