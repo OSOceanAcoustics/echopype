@@ -2,7 +2,6 @@ import pytest
 
 from collections import defaultdict
 
-import xarray as xr
 import numpy as np
 import pandas as pd
 
@@ -19,6 +18,7 @@ def mock_channel(
     range_sample_len=[100, 500, 10000],
     range_sample_ping_time_len=[20, 30, 10],
     data_type="power",
+    has_angle=True,
 ) -> np.ndarray:
     """
     Create data for one channel with variable length
@@ -47,9 +47,12 @@ def mock_channel(
     ch_data = []
     for rs_len, pt_len in zip(range_sample_len, range_sample_ping_time_len):
         # Generate data for each ping
-        if pt_len is not None:
-            for pt in np.arange(pt_len):  # looping since this needs to be a list of np arrays
+        for pt in np.arange(pt_len):  # looping since this needs to be a list of np arrays
+            if (data_type != "angle") or (has_angle is True):
                 ch_data.append(np.random.randint(0, 10000, size=(rs_len, DATA_LEN[data_type])).squeeze())
+            else:
+                ch_data.append(None)
+
     return ch_data
 
 
@@ -69,34 +72,35 @@ def mock_channel_timestamp(ping_time_len, ping_time_interval="1S", ping_time_jit
 @pytest.fixture
 def gen_timestamp_data(ch_num, ch_range_sample_ping_time_len, ping_time_jitter_max_ms=0):
     timestamp_data = defaultdict(list)
-    for ch_seq in np.arange(ch_num):
+    for ch_seq, ch in enumerate(ch_num):
         mock_time = mock_channel_timestamp(
             ping_time_len=sum(ch_range_sample_ping_time_len[ch_seq]),
             ping_time_interval="1S",
             ping_time_jitter_max_ms=ping_time_jitter_max_ms,
         )
-        timestamp_data[ch_seq+1] = [np.datetime64(t) for t in mock_time.tolist()]
+        timestamp_data[ch] = [np.datetime64(t) for t in mock_time.tolist()]
     return timestamp_data
 
 
 @pytest.fixture
-def gen_echo_data(ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type):
+def gen_echo_data(ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type, has_angle):
     echo_data = defaultdict(list)
-    for ch_seq in np.arange(ch_num):
-        # ch_seq+1 below because EK60/EK80 channel sequence is 1-based
-        echo_data[ch_seq+1] = mock_channel(
+    for ch_seq, ch in enumerate(ch_num):
+        echo_data[ch] = mock_channel(
             range_sample_len=ch_range_sample_len[ch_seq],
             range_sample_ping_time_len=ch_range_sample_ping_time_len[ch_seq],
             data_type=data_type,
+            has_angle=has_angle[ch_seq],
         )
     return echo_data
 
 
 @pytest.fixture
 def mock_ping_data_dict(
-    ch_num,
+    ch_num=[1, 2, 3],
     ch_range_sample_len=[[100], [100], [100]],
     ch_range_sample_ping_time_len=[[20], [20], [20]],
+    has_angle=[True, True, True],
 ):
     """
     To generate regular data:
@@ -114,19 +118,27 @@ def mock_ping_data_dict(
         # is different for each channel
         ch_range_sample_ping_time_len=[[20, 100, 20], [120, 10, 5], [50, 20, 20]]
 
+    To generate data with a subset channels containing no angle data:
+        # set has_angle of the channel without angle data to False
+        has_angle=[True, False, True]
+
     If ping_time_jitter_max_ms!=0 in gen_timestamp_data(),
     each ping_time will be different by some small jitter across all channels,
     i.e., the ping_time across will NOT be aligned.
     """
 
-    if (ch_num != len(ch_range_sample_len)) or (ch_num != len(ch_range_sample_ping_time_len)):
+    if (len(ch_num) != len(ch_range_sample_len)) or (len(ch_num) != len(ch_range_sample_ping_time_len)):
         raise ValueError("Channel length mismatches!")
 
     ping_data_dict = defaultdict(list)
 
     # Echo data (power, angle, complex) generation
-    ping_data_dict["power"] = gen_echo_data(ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="power")
-    ping_data_dict["angle"] = gen_echo_data(ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="angle")
+    ping_data_dict["power"] = gen_echo_data(
+        ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="power", has_angle=has_angle
+    )
+    ping_data_dict["angle"] = gen_echo_data(
+        ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="angle", has_angle=has_angle
+    )
     
     # Ping time generation
     ping_data_dict["timestamp"] = gen_timestamp_data(ch_num, ch_range_sample_ping_time_len)
