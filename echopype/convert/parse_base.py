@@ -282,7 +282,7 @@ class ParseEK(ParseBase):
                 self.ping_time[new_datagram["channel"]].append(new_datagram["timestamp"])
 
                 # Append ping by ping data
-                self._append_channel_ping_data(new_datagram)
+                self._append_channel_ping_data(new_datagram, zarr_vars=False)
 
             # EK80 datagram sequence:
             #   - XML0 pingsequence
@@ -302,7 +302,7 @@ class ParseEK(ParseBase):
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
-                self._append_channel_ping_data(new_datagram)
+                self._append_channel_ping_data(new_datagram, zarr_vars=False)
 
             # RAW4 datagrams store raw transmit pulse for a channel for EK80
             elif new_datagram["type"].startswith("RAW4"):
@@ -317,7 +317,7 @@ class ParseEK(ParseBase):
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
-                self._append_channel_ping_data(new_datagram, rx=False)
+                self._append_channel_ping_data(new_datagram, rx=False, zarr_vars=False)
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram["type"].startswith("NME"):
