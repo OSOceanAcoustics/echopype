@@ -7,6 +7,7 @@ from typing import Union
 import xarray as xr
 from pandas import Index
 
+from ..utils.io import get_dataset
 from ..utils.misc import frequency_nominal_to_channel
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from . import impulse_noise, signal_attenuation, transient_noise
@@ -122,6 +123,7 @@ def get_transient_noise_mask(
         If neither ``ryan`` or ``fielding`` are given
 
     """
+    source_Sv = get_dataset(source_Sv)
     mask_map = {
         "ryan": transient_noise._ryan,
         "fielding": transient_noise._fielding,
@@ -139,7 +141,7 @@ def get_transient_noise_mask(
 
 
 def get_impulse_noise_mask(
-    source_Sv: xr.Dataset,
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
     parameters: {},
     desired_channel: str = None,
     desired_frequency: int = None,
@@ -150,8 +152,11 @@ def get_impulse_noise_mask(
 
     Parameters
     ----------
-    source_Sv: xr.Dataset
-        Dataset  containing the Sv data to create a mask
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a mask for,
+        else it specifies the path to a zarr or netcdf file containing
+        a Dataset. This input must correspond to a Dataset that has the
+        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
     desired_channel: str
         Name of the desired frequency channel.
     desired_frequency: int
@@ -191,6 +196,7 @@ def get_impulse_noise_mask(
     """
     # Our goal is to have a mask True on samples that are NOT impulse noise.
     # So, we negate the obtained mask.
+    source_Sv = get_dataset(source_Sv)
     mask_map = {
         "ryan": impulse_noise._ryan,
         "ryan_iterable": impulse_noise._ryan_iterable,
@@ -261,6 +267,7 @@ def get_attenuation_mask(
     --------
 
     """
+    source_Sv = get_dataset(source_Sv)
     mask_map = {
         "ryan": signal_attenuation._ryan,
         "ariza": signal_attenuation._ariza,
@@ -339,6 +346,7 @@ def get_transient_noise_mask_multichannel(
         If neither ``ryan`` or ``fielding`` are given
 
     """
+    source_Sv = get_dataset(source_Sv)
     channel_list = source_Sv["channel"].values
     mask_list = []
     for channel in channel_list:
@@ -373,6 +381,7 @@ def get_impulse_noise_mask_multichannel(
         A multichannel DataArray consisting of a mask for the Sv data,
         wherein True values signify samples that are free of noise.
     """
+    source_Sv = get_dataset(source_Sv)
     channel_list = source_Sv["channel"].values
     mask_list = []
     for channel in channel_list:
@@ -427,6 +436,7 @@ def get_attenuation_mask_multichannel(
     ValueError
         If neither ``ryan`` or ``ariza`` are given
     """
+    source_Sv = get_dataset(source_Sv)
     channel_list = source_Sv["channel"].values
     mask_list = []
     for channel in channel_list:
