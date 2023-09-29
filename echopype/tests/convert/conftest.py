@@ -9,7 +9,7 @@ import pandas as pd
 DATA_LEN = {
     "power": 1,
     "angle": 2,
-    "complex": 4,
+    "complex": 4,  # assume 4 transducer sectors, can also be 3
 }
 
 
@@ -49,7 +49,14 @@ def mock_channel(
         # Generate data for each ping
         for pt in np.arange(pt_len):  # looping since this needs to be a list of np arrays
             if (data_type != "angle") or (has_angle is True):
-                ch_data.append(np.random.randint(0, 10000, size=(rs_len, DATA_LEN[data_type])).squeeze())
+                if data_type == "complex":
+                    rand_samples = (
+                        np.random.randn(rs_len, DATA_LEN[data_type])
+                        + 1j*np.random.randn(rs_len, DATA_LEN[data_type])
+                    ).reshape(-1, 1).squeeze()
+                else:
+                    rand_samples = np.random.randint(0, 10000, size=(rs_len, DATA_LEN[data_type])).squeeze()
+                ch_data.append(rand_samples)
             else:
                 ch_data.append(None)
 
@@ -70,9 +77,9 @@ def mock_channel_timestamp(ping_time_len, ping_time_interval="1S", ping_time_jit
 
 
 @pytest.fixture
-def gen_timestamp_data(ch_num, ch_range_sample_ping_time_len, ping_time_jitter_max_ms=0):
+def gen_timestamp_data(ch_name, ch_range_sample_ping_time_len, ping_time_jitter_max_ms=0):
     timestamp_data = defaultdict(list)
-    for ch_seq, ch in enumerate(ch_num):
+    for ch_seq, ch in enumerate(ch_name):
         mock_time = mock_channel_timestamp(
             ping_time_len=sum(ch_range_sample_ping_time_len[ch_seq]),
             ping_time_interval="1S",
@@ -83,9 +90,9 @@ def gen_timestamp_data(ch_num, ch_range_sample_ping_time_len, ping_time_jitter_m
 
 
 @pytest.fixture
-def gen_echo_data(ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type, has_angle):
+def gen_echo_data(ch_name, ch_range_sample_len, ch_range_sample_ping_time_len, data_type, has_angle):
     echo_data = defaultdict(list)
-    for ch_seq, ch in enumerate(ch_num):
+    for ch_seq, ch in enumerate(ch_name):
         echo_data[ch] = mock_channel(
             range_sample_len=ch_range_sample_len[ch_seq],
             range_sample_ping_time_len=ch_range_sample_ping_time_len[ch_seq],
@@ -96,13 +103,15 @@ def gen_echo_data(ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, da
 
 
 @pytest.fixture
-def mock_ping_data_dict(
-    ch_num=[1, 2, 3],
+def mock_ping_data_dict_power_angle(
+    ch_name=[1, 2, 3],
     ch_range_sample_len=[[100], [100], [100]],
     ch_range_sample_ping_time_len=[[20], [20], [20]],
     has_angle=[True, True, True],
 ):
     """
+    Mock parser.ping_data_dict for EK60/EK80 power-angle data.
+
     To generate regular data:
         # all pings in each channel have length=100 along the range_sample dimension
         ch_range_sample_len=[[100], [100], [100]]
@@ -127,20 +136,68 @@ def mock_ping_data_dict(
     i.e., the ping_time across will NOT be aligned.
     """
 
-    if (len(ch_num) != len(ch_range_sample_len)) or (len(ch_num) != len(ch_range_sample_ping_time_len)):
+    if (len(ch_name) != len(ch_range_sample_len)) or (len(ch_name) != len(ch_range_sample_ping_time_len)):
         raise ValueError("Channel length mismatches!")
 
     ping_data_dict = defaultdict(list)
 
     # Echo data (power, angle, complex) generation
     ping_data_dict["power"] = gen_echo_data(
-        ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="power", has_angle=has_angle
+        ch_name, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="power", has_angle=has_angle
     )
     ping_data_dict["angle"] = gen_echo_data(
-        ch_num, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="angle", has_angle=has_angle
+        ch_name, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="angle", has_angle=has_angle
     )
     
     # Ping time generation
-    ping_data_dict["timestamp"] = gen_timestamp_data(ch_num, ch_range_sample_ping_time_len)
+    ping_data_dict["timestamp"] = gen_timestamp_data(ch_name, ch_range_sample_ping_time_len)
+
+    return ping_data_dict
+
+
+@pytest.fixture
+def mock_ping_data_dict_complex(
+    ch_name=["WBT_1", "WBT_2", "WBT_4"],
+    ch_range_sample_len=[[100], [100], [100]],
+    ch_range_sample_ping_time_len=[[20], [20], [20]],
+    has_angle=[False, False, False],
+):
+    """
+    Mock parser.ping_data_dict for EK80 complex data.
+
+    There is no angle data with complex samples.
+
+    To generate regular data:
+        # all pings in each channel have length=100 along the range_sample dimension
+        ch_range_sample_len=[[100], [100], [100]]
+
+        # all channels have 20 pings
+        ch_range_sample_ping_time_len=[[20], [20], [20]]
+    
+    To generate irregular data:
+        # the length along range_sample changes across ping_time in different ways for each channel
+        ch_range_sample_len=[[10, 20, 100], [130], [20, 100, 10]]
+
+        # the number of pings in each block (each block has different length along range_sample)
+        # is different for each channel
+        ch_range_sample_ping_time_len=[[20, 100, 20], [120, 10, 5], [50, 20, 20]]
+
+    If ping_time_jitter_max_ms!=0 in gen_timestamp_data(),
+    each ping_time will be different by some small jitter across all channels,
+    i.e., the ping_time across will NOT be aligned.
+    """
+
+    if (len(ch_name) != len(ch_range_sample_len)) or (len(ch_name) != len(ch_range_sample_ping_time_len)):
+        raise ValueError("Channel length mismatches!")
+
+    ping_data_dict = defaultdict(list)
+
+    # Echo data (power, angle, complex) generation
+    ping_data_dict["complex"] = gen_echo_data(
+        ch_name, ch_range_sample_len, ch_range_sample_ping_time_len, data_type="complex", has_angle=has_angle
+    )
+    
+    # Ping time generation
+    ping_data_dict["timestamp"] = gen_timestamp_data(ch_name, ch_range_sample_ping_time_len)
 
     return ping_data_dict
