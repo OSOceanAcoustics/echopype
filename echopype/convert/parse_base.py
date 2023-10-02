@@ -239,7 +239,7 @@ class ParseEK(ParseBase):
     ) -> None:
         ping_data_dict = self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
 
-        # Set up zarr
+        # Set up zarr when using swap
         if use_swap:
             if zarr_root is None:
                 raise ValueError("zarr_root cannot be None when use_swap is True")
@@ -271,36 +271,48 @@ class ParseEK(ParseBase):
                 )
                 chunks = tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
 
+        # Go through data for each channel
         for ch_id, arr_list in ping_data_dict[data_type].items():
+            # NO DATA -----------------------------------------------------------
             if all(
                 (arr is None) or (arr.size == 0) for arr in arr_list
             ):  # if no data in a particular channel
                 # Skip all together if there's no data
                 ping_data_dict[data_type][ch_id] = None
                 continue
+            # -------------------------------------------------------------------
 
-            # If there are data
+            # If there are data do the following
+            # Add channel id to list if there's data
+            # for "receive" raw type only
             if raw_type == "receive":
-                # Add channel id to list if there's data
-                # and it's receive raw type
                 self.ch_ids[data_type].append(ch_id)
 
+            # Pad shorter ping with NaN
+            # do this for each channel
+            # this is the first small expansion
             padded_arr = self.pad_shorter_ping(arr_list)
 
+            # Multiply power data by conversion factor
             if data_type == "power":
-                # Multiply power data by conversion factor
                 padded_arr = padded_arr.astype("float32") * INDEX2POWER
 
             # Split complex data into real and imaginary components
             if data_type == "complex":
                 padded_arr = {"real": np.real(padded_arr), "imag": np.imag(padded_arr)}
 
+            # NO SWAP -----------------------------------------------------------
+            # Directly store the padded array
+            # to the existing dictionary for the particular
+            # data type and channel when not using swap
             if not use_swap:
-                # Store the padded array
                 ping_data_dict[data_type][ch_id] = padded_arr
                 continue
+            # -------------------------------------------------------------------
 
+            # SWAP --------------------------------------------------------------
             # Write to temp zarr for swap
+            # then assign the dask array to the dictionary
             if data_type == "complex":
                 # Save real and imaginary components separately
                 channel_group = data_group.create_group(str(ch_id))
@@ -314,6 +326,7 @@ class ParseEK(ParseBase):
                     padded_arr, data_group, str(ch_id), data_shape, chunks
                 )
                 ping_data_dict[data_type][ch_id] = d_arr
+            # -------------------------------------------------------------------
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""
