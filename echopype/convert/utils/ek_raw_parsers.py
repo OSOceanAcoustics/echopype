@@ -11,7 +11,7 @@ import re
 import struct
 import sys
 import xml.etree.ElementTree as ET
-from collections import Counter
+from collections import Counter, defaultdict
 
 import numpy as np
 
@@ -712,7 +712,7 @@ class SimradXMLParser(_SimradDatagramParser):
                                             except:
                                                 pass
                                         data["configuration"][channel_id][key] = str_data
-                                cal_pars = {}
+                                cal_pars = defaultdict(list)
                                 freqpar = transducer.findall("FrequencyPar")
                                 if freqpar:
                                     for freq in freqpar:
@@ -790,6 +790,12 @@ class SimradXMLParser(_SimradDatagramParser):
                 for h in root.iter("Transducer"):
                     self.append_data(h, data["environment"])
 
+            elif data["subtype"] == "pingsequence":
+                #  parse the pingsequence XML datagram
+                data["pingsequence"] = defaultdict(list)
+                for h in root.iter("Ping"):
+                    self.append_data(h, data["pingsequence"])
+
         data["xml"] = xml_string
         return data
 
@@ -807,12 +813,13 @@ class SimradXMLParser(_SimradDatagramParser):
                         except:
                             val = str(text)
                     if key == "ChannelID":
-                        data["channel_id"] = val
-                    if child.tag == "FrequencyPar":
-                        data[camelcase2snakecase(key)] = []
-                        data[camelcase2snakecase(key)].append(val)
+                        camcelcase_key = "channel_id"
                     else:
-                        data[camelcase2snakecase(key)] = val
+                        camcelcase_key = camelcase2snakecase(key)
+                    if child.tag == "FrequencyPar" or child.tag == "Ping":
+                        data[camcelcase_key].append(val)
+                    else:
+                        data[camcelcase_key] = val
 
     def _pack_contents(self, data, version):
         def to_CamelCase(xml_param):
