@@ -4,8 +4,8 @@ from .parse_base import ParseEK
 class ParseEK60(ParseEK):
     """Class for converting data from Simrad EK60 echosounders."""
 
-    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}, sonar_model="EK60"):
-        super().__init__(file, params, storage_options, dgram_zarr_vars, sonar_model)
+    def __init__(self, file, params, storage_options={}, sonar_model="EK60"):
+        super().__init__(file, params, storage_options, sonar_model)
 
     def _select_datagrams(self, params):
         # Translates user input into specific datagrams or ALL

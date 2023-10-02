@@ -10,10 +10,7 @@ import numpy as np
 
 from echopype.convert.set_groups_base import SetGroupsBase
 from echopype.echodata.echodata import EchoData
-from echopype.echodata.convention import sonarnetcdf_1
 
-class P2Z:
-    _varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
 
 class SetGroupsTest(SetGroupsBase):
@@ -99,7 +96,6 @@ def get_mock_echodata(
         output_path=None,
         sonar_model=sonar_model,
         params={"survey_name": "mock_survey"},
-        parsed2zarr_obj=P2Z(),
     )
     tree_dict["/"] = setgrouper.set_toplevel(
         sonar_model, date_created=np.datetime64("1970-01-01")

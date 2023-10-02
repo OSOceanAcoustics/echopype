@@ -7,7 +7,6 @@ from datatree import DataTree
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
 from ..core import SONAR_MODELS
-from .parsed_to_zarr import Parsed2Zarr
 
 if TYPE_CHECKING:
     from ..core import EngineHint, PathHint, SonarModelsHint
@@ -17,7 +16,9 @@ from ..utils import io
 from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
-from .utils.ek import should_use_swap
+
+# TODO: Fix and revive auto swap
+# from .utils.ek import should_use_swap
 
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
@@ -318,7 +319,7 @@ def open_raw(
     use_swap: bool = False,
     destination_path: Optional[str] = None,
     destination_storage_options: Optional[Dict[str, str]] = None,
-    max_mb: int = 100,
+    max_chunk_size: str = "100MB",
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
 
@@ -435,15 +436,11 @@ def open_raw(
     else:
         params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
 
-    # obtain dict associated with directly writing to zarr
-    dgram_zarr_vars = SONAR_MODELS[sonar_model]["dgram_zarr_vars"]
-
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk,
         params=params,
         storage_options=storage_options,
-        dgram_zarr_vars=dgram_zarr_vars,
         sonar_model=sonar_model,
     )
 
@@ -451,6 +448,7 @@ def open_raw(
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+        # Determine whether to use swap
         swap_map = {
             "swap": True,
             "no_swap": False,
@@ -458,7 +456,8 @@ def open_raw(
         if destination_path == "auto":
             # Overwrite use_swap if it's True below
             # Use local swap directory
-            use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
+            # use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
+            raise NotImplementedError("Automatic swap is not yet implemented.")
         elif destination_path in swap_map:
             use_swap = swap_map[destination_path]
         else:
@@ -473,21 +472,13 @@ def open_raw(
                     )
                 )
 
-        if use_swap:
-            # Create sonar_model-specific p2z object
-            p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
-            p2z.datagram_to_zarr(
-                dest_path=destination_path,
-                dest_storage_options=destination_storage_options,
-                max_mb=max_mb,
-            )
-        else:
-            p2z = Parsed2Zarr(parser)  # Create general p2z object
-            parser.rectangularize_data()
-
-    else:
         # No rectangularization for other sonar models
-        p2z = Parsed2Zarr(parser)  # Create general p2z object
+        parser.rectangularize_data(
+            use_swap,
+            dest_path=destination_path,
+            dest_storage_options=destination_storage_options,
+            max_chunk_size=max_chunk_size,
+        )
 
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
@@ -496,7 +487,6 @@ def open_raw(
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
-        parsed2zarr_obj=p2z,
     )
 
     # Setup tree dictionary
@@ -547,9 +537,7 @@ def open_raw(
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
-    echodata = EchoData(
-        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model, parsed2zarr_obj=p2z
-    )
+    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     echodata._set_tree(tree)
     echodata._load_tree()
 

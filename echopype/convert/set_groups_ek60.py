@@ -312,41 +312,6 @@ class SetGroupsEK60(SetGroupsBase):
 
         return set_time_encodings(ds)
 
-    def _set_beam_group1_zarr_vars(self, ds: xr.Dataset) -> xr.Dataset:
-        """
-        Modifies ds by setting all variables associated with
-        ``Beam_group1``, that were directly written to a
-        temporary zarr file.
-
-        Parameters
-        ----------
-        ds : xr.Dataset
-            Dataset representing ``Beam_group1`` filled with
-            all variables, besides those written to zarr
-
-        Returns
-        -------
-        A modified version of ``ds`` with the zarr variables
-        added to it.
-        """
-
-        # TODO: In the future it would be nice to have a dictionary of
-        #  attributes stored in one place for all of the variables.
-        #  This would reduce unnecessary code duplication in the
-        #  functions below.
-
-        # obtain DataArrays using zarr variables
-        backscatter_r = self.parsed2zarr_obj.power_dataarray
-        angle_athwartship, angle_alongship = self.parsed2zarr_obj.angle_dataarrays
-
-        # append DataArrays created from zarr file
-        ds = ds.assign(
-            backscatter_r=backscatter_r,
-            angle_athwartship=angle_athwartship,
-            angle_alongship=angle_alongship,
-        )
-        return ds
-
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
 
@@ -656,77 +621,62 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
             }
 
-            if not self.parsed2zarr_obj.temp_zarr_dir:
-                var_dict["backscatter_r"] = (
-                    ["ping_time", "range_sample"],
-                    self.parser_obj.ping_data_dict["power"][ch],
+            var_dict["backscatter_r"] = (
+                ["ping_time", "range_sample"],
+                self.parser_obj.ping_data_dict["power"][ch],
+                {
+                    "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
+                    "units": "dB",
+                },
+            )
+
+            ds_tmp = xr.Dataset(
+                var_dict,
+                coords={
+                    "ping_time": (
+                        ["ping_time"],
+                        self.parser_obj.ping_time[ch],
+                        self._varattrs["beam_coord_default"]["ping_time"],
+                    ),
+                    "range_sample": (
+                        ["range_sample"],
+                        np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
+                        self._varattrs["beam_coord_default"]["range_sample"],
+                    ),
+                },
+            )
+
+            # Save angle data if exist based on values in
+            # self.parser_obj.ping_data_dict['mode'][ch]
+            # Assume the mode of all pings are identical
+            # 1 = Power only, 2 = Angle only 3 = Power & Angle
+            if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):
+                ds_tmp = ds_tmp.assign(
                     {
-                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
-                            "long_name"
-                        ],
-                        "units": "dB",
-                    },
-                )
-
-                ds_tmp = xr.Dataset(
-                    var_dict,
-                    coords={
-                        "ping_time": (
-                            ["ping_time"],
-                            self.parser_obj.ping_time[ch],
-                            self._varattrs["beam_coord_default"]["ping_time"],
+                        "angle_athwartship": (
+                            ["ping_time", "range_sample"],
+                            self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
+                            {
+                                "long_name": "electrical athwartship angle",
+                                "comment": (
+                                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                                    + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
+                                ),
+                            },
                         ),
-                        "range_sample": (
-                            ["range_sample"],
-                            np.arange(self.parser_obj.ping_data_dict["power"][ch].shape[1]),
-                            self._varattrs["beam_coord_default"]["range_sample"],
+                        "angle_alongship": (
+                            ["ping_time", "range_sample"],
+                            self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
+                            {
+                                "long_name": "electrical alongship angle",
+                                "comment": (
+                                    "Introduced in echopype for Simrad echosounders. "  # noqa
+                                    + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
+                                ),
+                            },
                         ),
-                    },
+                    }
                 )
-            else:
-                ds_tmp = xr.Dataset(
-                    var_dict,
-                    coords={
-                        "ping_time": (
-                            ["ping_time"],
-                            self.parser_obj.ping_time[ch],
-                            self._varattrs["beam_coord_default"]["ping_time"],
-                        ),
-                    },
-                )
-
-            if not self.parsed2zarr_obj.temp_zarr_dir:
-                # Save angle data if exist based on values in
-                # self.parser_obj.ping_data_dict['mode'][ch]
-                # Assume the mode of all pings are identical
-                # 1 = Power only, 2 = Angle only 3 = Power & Angle
-                if np.all(np.array(self.parser_obj.ping_data_dict["mode"][ch]) != 1):
-                    ds_tmp = ds_tmp.assign(
-                        {
-                            "angle_athwartship": (
-                                ["ping_time", "range_sample"],
-                                self.parser_obj.ping_data_dict["angle"][ch][:, :, 0],
-                                {
-                                    "long_name": "electrical athwartship angle",
-                                    "comment": (
-                                        "Introduced in echopype for Simrad echosounders. "  # noqa
-                                        + "The athwartship angle corresponds to the major angle in SONAR-netCDF4 vers 2. "  # noqa
-                                    ),
-                                },
-                            ),
-                            "angle_alongship": (
-                                ["ping_time", "range_sample"],
-                                self.parser_obj.ping_data_dict["angle"][ch][:, :, 1],
-                                {
-                                    "long_name": "electrical alongship angle",
-                                    "comment": (
-                                        "Introduced in echopype for Simrad echosounders. "  # noqa
-                                        + "The alongship angle corresponds to the minor angle in SONAR-netCDF4 vers 2. "  # noqa
-                                    ),
-                                },
-                            ),
-                        }
-                    )
 
             # Attach frequency dimension/coordinate
             ds_tmp = ds_tmp.expand_dims({"channel": [self.sorted_channel[ch]]})
@@ -737,11 +687,8 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Merge data from all channels
         ds = xr.merge(
-            [ds, xr.merge(ds_backscatter)], combine_attrs="override"
+            [ds, xr.concat(ds_backscatter, dim="channel")], combine_attrs="override"
         )  # override keeps the Dataset attributes
-
-        if self.parsed2zarr_obj.temp_zarr_dir:
-            ds = self._set_beam_group1_zarr_vars(ds)
 
         # Manipulate some Dataset dimensions to adhere to convention
         self.beam_groups_to_convention(

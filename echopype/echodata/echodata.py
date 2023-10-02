@@ -52,7 +52,6 @@ class EchoData:
         xml_path: Optional["PathHint"] = None,
         sonar_model: Optional["SonarModelsHint"] = None,
         open_kwargs: Optional[Dict[str, Any]] = None,
-        parsed2zarr_obj=None,
     ):
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
@@ -67,22 +66,21 @@ class EchoData:
         self.converted_raw_path: Optional["PathHint"] = converted_raw_path
         self._tree: Optional["DataTree"] = None
 
-        # object associated with directly writing to a zarr file
-        self.parsed2zarr_obj = parsed2zarr_obj
-
         self.__setup_groups()
         # self.__read_converted(converted_raw_path)
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
     def cleanup(self):
-        if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.store is not None):
-            # get Path object of temporary zarr file created by Parsed2Zarr
-            p2z_temp_file = self.parsed2zarr_obj.store
+        ...
+        # TODO: Figure out how to clean up the temp files
+        # if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.store is not None):
+        #     # get Path object of temporary zarr file created by Parsed2Zarr
+        #     p2z_temp_file = self.parsed2zarr_obj.store
 
-            # remove temporary directory created by Parsed2Zarr, if it exists
-            if p2z_temp_file.fs.exists(p2z_temp_file.root):
-                p2z_temp_file.fs.rm(p2z_temp_file.root, recursive=True)
+        #     # remove temporary directory created by Parsed2Zarr, if it exists
+        #     if p2z_temp_file.fs.exists(p2z_temp_file.root):
+        #         p2z_temp_file.fs.rm(p2z_temp_file.root, recursive=True)
 
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or

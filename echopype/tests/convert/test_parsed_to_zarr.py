@@ -10,10 +10,10 @@ from fsspec import FSMap
 from s3fs import S3FileSystem
 import requests
 import time
-from echopype.convert.parsed_to_zarr import Parsed2Zarr, DEFAULT_ZARR_TEMP_DIR
-from echopype.convert.parsed_to_zarr_ek60 import Parsed2ZarrEK60
 from echopype.echodata.convention import sonarnetcdf_1
 from echopype.convert.api import _check_file, SONAR_MODELS
+
+pytestmark = pytest.mark.skip(reason="Removed Parsed2Zarr")
 
 test_bucket_name = "echopype-test"
 port = 5555
@@ -274,7 +274,8 @@ class TestParsed2Zarr:
 
     @pytest.fixture(scope="class")
     def ek60_parsed2zarr_obj(self, ek60_parser_obj):
-        return Parsed2ZarrEK60(ek60_parser_obj)
+        # return Parsed2ZarrEK60(ek60_parser_obj)
+        return None
 
     @pytest.fixture(scope="class")
     def ek60_parsed2zarr_obj_w_df(self, ek60_parsed2zarr_obj):
@@ -322,26 +323,26 @@ class TestParsed2Zarr:
         parser.parse_raw()
         return parser
 
-    @pytest.mark.parametrize(
-        ["sonar_model", "p2z_class"],
-        [
-            (None, Parsed2Zarr),
-            ("EK60", Parsed2ZarrEK60),
-        ],
-    )
-    def test_constructor(self, sonar_model, p2z_class, ek60_parser_obj):
-        if sonar_model is None:
-            p2z = p2z_class(None)
-            assert p2z.parser_obj is None
-            assert p2z.temp_zarr_dir is None
-            assert p2z.zarr_file_name is None
-            assert p2z.store is None
-            assert p2z.zarr_root is None
-            assert p2z._varattrs == sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
-        else:
-            p2z = p2z_class(ek60_parser_obj)
-            assert isinstance(p2z.parser_obj, SONAR_MODELS[self.sonar_model]["parser"])
-            assert p2z.sonar_model == self.sonar_model
+    # @pytest.mark.parametrize(
+    #     ["sonar_model", "p2z_class"],
+    #     [
+    #         (None, Parsed2Zarr),
+    #         ("EK60", Parsed2ZarrEK60),
+    #     ],
+    # )
+    # def test_constructor(self, sonar_model, p2z_class, ek60_parser_obj):
+    #     if sonar_model is None:
+    #         p2z = p2z_class(None)
+    #         assert p2z.parser_obj is None
+    #         assert p2z.temp_zarr_dir is None
+    #         assert p2z.zarr_file_name is None
+    #         assert p2z.store is None
+    #         assert p2z.zarr_root is None
+    #         assert p2z._varattrs == sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
+    #     else:
+    #         p2z = p2z_class(ek60_parser_obj)
+    #         assert isinstance(p2z.parser_obj, SONAR_MODELS[self.sonar_model]["parser"])
+    #         assert p2z.sonar_model == self.sonar_model
 
     @pytest.mark.parametrize("dest_path", [None, "./", f"s3://{test_bucket_name}/my-dir/"])
     def test__create_zarr_info(self, ek60_parsed2zarr_obj, dest_path, s3):
