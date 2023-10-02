@@ -17,9 +17,6 @@ from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 
-# TODO: Fix and revive auto swap
-# from .utils.ek import should_use_swap
-
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
 # Logging setup
@@ -316,7 +313,6 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    use_swap: bool = False,
     destination_path: Optional[str] = None,
     destination_storage_options: Optional[Dict[str, str]] = None,
     max_chunk_size: str = "100MB",
@@ -348,10 +344,6 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict, optional
         options for cloud storage
-    use_swap: bool
-        **DEPRECATED: This flag is ignored**
-        If True, variables with a large memory footprint will be
-        written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
     destination_path: str
         The path to a swap directory in a case of a large memory footprint.
         This path can be a remote path like s3://bucket/swap_dir.
@@ -392,9 +384,6 @@ def open_raw(
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
-
-    # Initially set use_swap False
-    use_swap = False
 
     # Set initial destination_path of "no_swap"
     if destination_path is None:
@@ -443,38 +432,15 @@ def open_raw(
         storage_options=storage_options,
         sonar_model=sonar_model,
     )
-
+    # Actually parse the raw datagrams from source file
     parser.parse_raw()
 
     # Direct offload to zarr and rectangularization only available for some sonar models
+    # No rectangularization for other sonar models not listed below
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        # Determine whether to use swap
-        swap_map = {
-            "swap": True,
-            "no_swap": False,
-        }
-        if destination_path == "auto":
-            # Overwrite use_swap if it's True below
-            # Use local swap directory
-            # use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
-            raise NotImplementedError("Automatic swap is not yet implemented.")
-        elif destination_path in swap_map:
-            use_swap = swap_map[destination_path]
-        else:
-            # TODO: Add docstring about swap path
-            use_swap = True
-            if "://" in destination_path and destination_storage_options is None:
-                raise ValueError(
-                    (
-                        "Please provide storage options for remote destination. ",
-                        "If access is already configured locally, ",
-                        "simply put an empty dictionary.",
-                    )
-                )
-
-        # No rectangularization for other sonar models
+        # Perform rectangularization and offload to zarr
+        # if the data expansion is too large to fit in memory
         parser.rectangularize_data(
-            use_swap,
             dest_path=destination_path,
             dest_storage_options=destination_storage_options,
             max_chunk_size=max_chunk_size,

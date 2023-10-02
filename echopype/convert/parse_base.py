@@ -21,6 +21,12 @@ FILENAME_DATETIME_EK60 = (
 # Manufacturer-specific power conversion factor
 INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
+# Determine whether to use swap
+SWAP_MAP = {
+    "swap": True,
+    "no_swap": False,
+}
+
 logger = _init_logger(__name__)
 
 
@@ -76,9 +82,51 @@ class ParseEK(ParseBase):
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
 
+    @property
+    def expanded_data_shapes(self) -> dict:
+        all_data_shapes = {}
+        # Get all data type shapes
+        for raw_type in self.raw_types:
+            ping_data_dict = (
+                self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
+            )
+            data_type_shapes = calc_final_shapes(self.data_types, ping_data_dict)
+            all_data_shapes[raw_type] = data_type_shapes
+
+        return all_data_shapes
+
+    def __should_use_swap(self, mem_mult: float = 0.4) -> bool:
+        import sys
+
+        import psutil
+
+        # Calculate expansion and current data sizes
+        total_req_mem = 0
+        current_data_size = 0
+        for raw_type, expanded_shapes in self.expanded_data_shapes.items():
+            ping_data_dict = (
+                self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
+            )
+            for data_type, shape in expanded_shapes.items():
+                if shape:
+                    # Get current data size
+                    size = sum([sys.getsizeof(val) for val in ping_data_dict[data_type].values()])
+                    current_data_size += size
+
+                    # Estimate expansion sizes
+                    itemsize = np.dtype("float64").itemsize
+                    req_mem = np.prod(shape) * itemsize
+                    total_req_mem += req_mem
+
+        # get statistics about system memory usage
+        mem = psutil.virtual_memory()
+        # approx. the amount of memory that will be used after expansion
+        req_mem = mem.used - current_data_size + total_req_mem
+
+        return mem.total * mem_mult < req_mem
+
     def rectangularize_data(
         self,
-        use_swap: bool = False,
         dest_path: Optional[str] = None,
         dest_storage_options: Optional[dict] = None,
         max_chunk_size: str = "100MB",
@@ -88,10 +136,30 @@ class ParseEK(ParseBase):
         Additionally, convert the data to a numpy array
         indexed by channel.
         """
+        # Default to not use swap
+        use_swap = False
+
+        # Determine use_swap
+        if dest_path == "auto":
+            use_swap = self.__should_use_swap()
+        elif dest_path in SWAP_MAP:
+            use_swap = SWAP_MAP[use_swap]
+        elif dest_path is not None:
+            use_swap = True
+            if "://" in dest_path and dest_storage_options is None:
+                raise ValueError(
+                    (
+                        "Please provide storage options for remote destination. ",
+                        "If access is already configured locally, ",
+                        "simply put an empty dictionary.",
+                    )
+                )
+
+        # Perform rectangularization
         zarr_root = None
         if use_swap:
             # Set destination path to None if "swap" keyword is used
-            if dest_path == "swap":
+            if dest_path in ["swap", "auto"]:
                 dest_path = None
             # Setup temp store
             zarr_store = create_temp_store(dest_path, dest_storage_options)
@@ -176,24 +244,25 @@ class ParseEK(ParseBase):
             if zarr_root is None:
                 raise ValueError("zarr_root cannot be None when use_swap is True")
 
+            # Compute the final expansion shapes for each data type
+            data_type_shapes = self.expanded_data_shapes[raw_type]
+
             # Retrieve or create raw type group
+            # Skip if there's no data
             if raw_type in zarr_root:
                 raw_group = zarr_root.get(raw_type)
             else:
                 # Create raw type group
                 raw_group = zarr_root.create_group(raw_type)
 
-            # Create data type group
-            data_group = raw_group.create_group(data_type)
-
-            # Compute the final expansion shapes for each data type
-            data_type_shapes = calc_final_shapes(self.data_types, ping_data_dict)
             # Get the final data shape
             data_shape = data_type_shapes[data_type]
 
             # Determine chunks
             chunks = None
             if data_shape:
+                # Create data type group
+                data_group = raw_group.create_group(data_type)
                 # Auto chunk on first dimension
                 # since this is ping time
                 chunks = ("auto",) + data_shape[1:]
@@ -206,6 +275,7 @@ class ParseEK(ParseBase):
             if all(
                 (arr is None) or (arr.size == 0) for arr in arr_list
             ):  # if no data in a particular channel
+                # Skip all together if there's no data
                 ping_data_dict[data_type][ch_id] = None
                 continue
 
@@ -244,25 +314,6 @@ class ParseEK(ParseBase):
                     padded_arr, data_group, str(ch_id), data_shape, chunks
                 )
                 ping_data_dict[data_type][ch_id] = d_arr
-
-    def rectangularize_transmit_ping_data(self, data_type: str) -> None:
-        """
-        Rectangularize the ``data_type`` data within transmit ping data.
-        Additionally, convert the data to a numpy array
-        indexed by channel.
-
-        Parameters
-        ----------
-        data_type: str
-            The key of ``self.ping_data_dict_tx`` to rectangularize
-        """
-
-        # Transmit data
-        for k, v in self.ping_data_dict_tx[data_type].items():
-            if all((x is None) or (x.size == 0) for x in v):  # if no data in a particular channel
-                self.ping_data_dict_tx[data_type][k] = None
-            else:
-                self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""

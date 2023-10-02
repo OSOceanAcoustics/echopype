@@ -1006,7 +1006,8 @@ class SetGroupsEK80(SetGroupsBase):
     @staticmethod
     def merge_save(ds_combine: List[xr.Dataset], ds_invariant: xr.Dataset) -> xr.Dataset:
         """Merge data from all complex or all power/angle channels"""
-        ds_combine = xr.merge(ds_combine)
+        # Combine all channels into one Dataset
+        ds_combine = xr.concat(ds_combine, dim="channel")
 
         ds_combine = xr.merge(
             [ds_invariant, ds_combine], combine_attrs="override"
