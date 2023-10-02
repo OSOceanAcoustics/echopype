@@ -150,7 +150,7 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             )
 
-        varnames = ["sound_velocity_source", "transducer_name", "transducer_sound_speed"]
+        varnames = ["sound_velocity_source", "transducer_name", "sound_speed"]
         for vn in varnames:
             if vn in self.parser_obj.environment:
                 dict_env[vn] = (
@@ -193,12 +193,12 @@ class SetGroupsEK80(SetGroupsBase):
     def set_sonar(self, beam_group_type: list = ["power", None]) -> xr.Dataset:
         # Collect unique variables
         params = [
-            "transducer_frequency",
+            "frequency",
             "serial_number",
             "transducer_name",
             "transducer_serial_number",
             "application_name",
-            "application_version",
+            "version",
             "channel_id_short",
         ]
         var = defaultdict(list)
@@ -231,7 +231,7 @@ class SetGroupsEK80(SetGroupsBase):
         sonar_vars = {
             "frequency_nominal": (
                 ["channel"],
-                var["transducer_frequency"],
+                var["frequency"],
                 {
                     "units": "Hz",
                     "long_name": "Transducer frequency",
@@ -282,7 +282,7 @@ class SetGroupsEK80(SetGroupsBase):
             # will not try to populate sonar_serial_number from the raw datagrams
             "sonar_serial_number": "",
             "sonar_software_name": var["application_name"][0],
-            "sonar_software_version": var["application_version"][0],
+            "sonar_software_version": var["version"][0],
             "sonar_type": "echosounder",
         }
         ds = ds.assign_attrs(sonar_attr_dict)
@@ -294,7 +294,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         freq = np.array(
             [
-                self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+                self.parser_obj.config_datagram["configuration"][ch]["frequency"]
                 for ch in self.sorted_channel["power_complex"]
             ]
         )
@@ -455,7 +455,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         freq = np.array(
             [
-                self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+                self.parser_obj.config_datagram["configuration"][ch]["frequency"]
                 for ch in self.sorted_channel[data_type]
             ]
         )
@@ -678,7 +678,7 @@ class SetGroupsEK80(SetGroupsBase):
             freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
             freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
         elif not self.sorted_channel["power"]:
-            freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+            freq = self.parser_obj.config_datagram["configuration"][ch]["frequency"]
             freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
             freq_stop = freq_start
         else:
@@ -1239,7 +1239,7 @@ class SetGroupsEK80(SetGroupsBase):
         #   - receiver sampling frequency
         #   - transceiver type
         table_params = [
-            "transducer_frequency",
+            "frequency",
             "impedance",  # transceiver impedance (z_er), different from transducer impedance (z_et)
             "rx_sample_frequency",  # receiver sampling frequency
             "transceiver_type",
@@ -1272,7 +1272,7 @@ class SetGroupsEK80(SetGroupsBase):
             {
                 "frequency_nominal": (
                     ["channel"],
-                    param_dict["transducer_frequency"],
+                    param_dict["frequency"],
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -1361,6 +1361,7 @@ class SetGroupsEK80(SetGroupsBase):
             for p in cal_params:
                 if p in config[ch_id]["calibration"]:  # only for parameters that exist in dict
                     param_dict[p] = (["cal_frequency"], config[ch_id]["calibration"][p])
+            print(config[ch_id]["calibration"]["frequency"])
             ds_ch = xr.Dataset(
                 data_vars=param_dict,
                 coords={
