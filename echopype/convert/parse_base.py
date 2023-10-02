@@ -143,7 +143,7 @@ class ParseEK(ParseBase):
         if dest_path == "auto":
             use_swap = self.__should_use_swap()
         elif dest_path in SWAP_MAP:
-            use_swap = SWAP_MAP[use_swap]
+            use_swap = SWAP_MAP[dest_path]
         elif dest_path is not None:
             use_swap = True
             if "://" in dest_path and dest_storage_options is None:
@@ -164,25 +164,23 @@ class ParseEK(ParseBase):
             # Setup temp store
             zarr_store = create_temp_store(dest_path, dest_storage_options)
             # Setup zarr store
-            zarr_root = zarr.group(store=zarr_store, overwrite=True)
+            zarr_root = zarr.group(
+                store=zarr_store, overwrite=True, synchronizer=zarr.ThreadSynchronizer()
+            )
 
-        for data_type in self.data_types:
-            # Parse and pad the datagram
-            self._parse_and_pad_datagram(
-                data_type,
-                raw_type="receive",
-                use_swap=use_swap,
-                zarr_root=zarr_root,
-                max_chunk_size=max_chunk_size,
-            )
-            # Parse and pad the transmit datagram
-            self._parse_and_pad_datagram(
-                data_type,
-                raw_type="transmit",
-                use_swap=use_swap,
-                zarr_root=zarr_root,
-                max_chunk_size=max_chunk_size,
-            )
+        for raw_type in self.raw_types:
+            # Compute the final expansion shapes for each data type
+            data_type_shapes = self.expanded_data_shapes[raw_type]
+            for data_type in self.data_types:
+                # Parse and pad the datagram
+                self._parse_and_pad_datagram(
+                    data_type=data_type,
+                    data_type_shapes=data_type_shapes,
+                    raw_type=raw_type,
+                    use_swap=use_swap,
+                    zarr_root=zarr_root,
+                    max_chunk_size=max_chunk_size,
+                )
 
     def _calc_max_dim_shape(self, swap_vars):
         """
@@ -209,21 +207,36 @@ class ParseEK(ParseBase):
     @staticmethod
     def _write_to_temp_zarr(
         arr: np.ndarray,
-        zarr_group: zarr.Group,
-        name: str,
+        zarr_root: zarr.Group,
+        path: str,
         shape: Tuple[int],
         chunks: Tuple[int],
     ) -> dask.array.Array:
-        # Figure out current data region
-        region = tuple([slice(0, i) for i in arr.shape])
+        if shape == arr.shape:
+            z_arr = zarr_root.array(
+                name=path,
+                data=arr,
+                fill_value=np.nan,
+                chunks=chunks,
+                dtype="f8",
+                write_empty_chunks=False,
+            )
+        else:
+            # Figure out current data region
+            region = tuple([slice(0, i) for i in arr.shape])
 
-        # Create zarr array
-        z_arr = zarr_group.full(
-            name=name, shape=shape, chunks=chunks, dtype="f8", fill_value=np.nan  # same as float64
-        )
+            # Create zarr array
+            z_arr = zarr_root.full(
+                name=path,
+                shape=shape,
+                chunks=chunks,
+                dtype="f8",
+                fill_value=np.nan,  # same as float64
+                write_empty_chunks=False,
+            )
 
-        # Fill zarr array with actual data
-        z_arr.set_basic_selection(region, arr)
+            # Fill zarr array with actual data
+            z_arr.set_basic_selection(region, arr)
 
         # Set dask array from zarr array
         d_arr = da.from_zarr(z_arr)
@@ -232,6 +245,7 @@ class ParseEK(ParseBase):
     def _parse_and_pad_datagram(
         self,
         data_type,
+        data_type_shapes: dict = {},
         raw_type: Literal["transmit", "receive"] = "receive",
         use_swap: bool = False,
         zarr_root: Optional[zarr.Group] = None,
@@ -239,21 +253,16 @@ class ParseEK(ParseBase):
     ) -> None:
         ping_data_dict = self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
 
+        # If there's no data, set and skip
+        if data_type_shapes[data_type] is None:
+            no_data_dict = {ch_id: None for ch_id in ping_data_dict[data_type].keys()}
+            ping_data_dict[data_type] = no_data_dict
+            return
+
         # Set up zarr when using swap
         if use_swap:
             if zarr_root is None:
                 raise ValueError("zarr_root cannot be None when use_swap is True")
-
-            # Compute the final expansion shapes for each data type
-            data_type_shapes = self.expanded_data_shapes[raw_type]
-
-            # Retrieve or create raw type group
-            # Skip if there's no data
-            if raw_type in zarr_root:
-                raw_group = zarr_root.get(raw_type)
-            else:
-                # Create raw type group
-                raw_group = zarr_root.create_group(raw_type)
 
             # Get the final data shape
             data_shape = data_type_shapes[data_type]
@@ -261,14 +270,13 @@ class ParseEK(ParseBase):
             # Determine chunks
             chunks = None
             if data_shape:
-                # Create data type group
-                data_group = raw_group.create_group(data_type)
                 # Auto chunk on first dimension
                 # since this is ping time
-                chunks = ("auto",) + data_shape[1:]
+                chunks = ("auto",) + (data_shape[1],)
                 chunks = auto_chunks(
                     chunks=chunks, shape=data_shape, limit=max_chunk_size, dtype=np.dtype("float64")
                 )
+                chunks = chunks + data_shape[2:]
                 chunks = tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
 
         # Go through data for each channel
@@ -313,17 +321,19 @@ class ParseEK(ParseBase):
             # SWAP --------------------------------------------------------------
             # Write to temp zarr for swap
             # then assign the dask array to the dictionary
+            # TODO: Figure out how this would work on Windows
             if data_type == "complex":
                 # Save real and imaginary components separately
-                channel_group = data_group.create_group(str(ch_id))
                 ping_data_dict[data_type][ch_id] = {}
                 for name, arr in padded_arr.items():
-                    d_arr = self._write_to_temp_zarr(arr, channel_group, name, data_shape, chunks)
+                    d_arr = self._write_to_temp_zarr(
+                        arr, zarr_root, f"{raw_type}/{data_type}/{ch_id}/{name}", data_shape, chunks
+                    )
                     ping_data_dict[data_type][ch_id][name] = d_arr
 
             else:
                 d_arr = self._write_to_temp_zarr(
-                    padded_arr, data_group, str(ch_id), data_shape, chunks
+                    padded_arr, zarr_root, f"{raw_type}/{data_type}/{ch_id}", data_shape, chunks
                 )
                 ping_data_dict[data_type][ch_id] = d_arr
             # -------------------------------------------------------------------
