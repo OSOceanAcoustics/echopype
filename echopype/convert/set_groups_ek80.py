@@ -1361,7 +1361,6 @@ class SetGroupsEK80(SetGroupsBase):
             for p in cal_params:
                 if p in config[ch_id]["calibration"]:  # only for parameters that exist in dict
                     param_dict[p] = (["cal_frequency"], config[ch_id]["calibration"][p])
-            print(config[ch_id]["calibration"]["frequency"])
             ds_ch = xr.Dataset(
                 data_vars=param_dict,
                 coords={
