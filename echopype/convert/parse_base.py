@@ -82,8 +82,8 @@ class ParseEK(ParseBase):
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
 
-    @property
-    def expanded_data_shapes(self) -> dict:
+    def _get_data_shapes(self) -> dict:
+        """Get all the expanded data shapes"""
         all_data_shapes = {}
         # Get all data type shapes
         for raw_type in self.raw_types:
@@ -103,7 +103,7 @@ class ParseEK(ParseBase):
         # Calculate expansion and current data sizes
         total_req_mem = 0
         current_data_size = 0
-        for raw_type, expanded_shapes in self.expanded_data_shapes.items():
+        for raw_type, expanded_shapes in self._get_data_shapes().items():
             ping_data_dict = (
                 self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
             )
@@ -168,9 +168,11 @@ class ParseEK(ParseBase):
                 store=zarr_store, overwrite=True, synchronizer=zarr.ThreadSynchronizer()
             )
 
+        # Compute the final expansion shapes for each data type
+        expanded_data_shapes = self._get_data_shapes()
+
         for raw_type in self.raw_types:
-            # Compute the final expansion shapes for each data type
-            data_type_shapes = self.expanded_data_shapes[raw_type]
+            data_type_shapes = expanded_data_shapes[raw_type]
             for data_type in self.data_types:
                 # Parse and pad the datagram
                 self._parse_and_pad_datagram(
@@ -260,6 +262,7 @@ class ParseEK(ParseBase):
             return
 
         # Set up zarr when using swap
+        # by determining the chunk sizes
         if use_swap:
             if zarr_root is None:
                 raise ValueError("zarr_root cannot be None when use_swap is True")
@@ -267,17 +270,14 @@ class ParseEK(ParseBase):
             # Get the final data shape
             data_shape = data_type_shapes[data_type]
 
-            # Determine chunks
-            chunks = None
-            if data_shape:
-                # Auto chunk on first dimension
-                # since this is ping time
-                chunks = ("auto",) + (data_shape[1],)
-                chunks = auto_chunks(
-                    chunks=chunks, shape=data_shape, limit=max_chunk_size, dtype=np.dtype("float64")
-                )
-                chunks = chunks + data_shape[2:]
-                chunks = tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
+            # Auto chunk on first dimension
+            # since this is ping time
+            chunks = ("auto",) + (data_shape[1],)
+            chunks = auto_chunks(
+                chunks=chunks, shape=data_shape, limit=max_chunk_size, dtype=np.dtype("float64")
+            )
+            chunks = chunks + data_shape[2:]
+            chunks = tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
 
         # Go through data for each channel
         for ch_id, arr_list in ping_data_dict[data_type].items():
