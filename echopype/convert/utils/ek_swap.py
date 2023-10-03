@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import fsspec
 import numpy as np
+from fsspec import AbstractFileSystem
+from zarr.storage import FSStore
 
 from ...utils.io import ECHOPYPE_DIR, check_file_permissions, validate_output_path
 
@@ -18,6 +20,39 @@ def _create_zarr_store_map(path, storage_options):
         output_storage_options=storage_options,
     )
     return fsspec.get_mapper(file_path, **storage_options)
+
+
+def delete_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] = None) -> None:
+    """
+    Delete the store and all its contents.
+
+    Parameters
+    ----------
+    store : FSStore or str
+        The store or store path to delete.
+    fs : AbstractFileSystem, optional
+        The fsspec file system to use
+
+    Returns
+    -------
+    None
+    """
+    if isinstance(store, str):
+        if fs is None:
+            raise ValueError("Must provide fs if store is a path string")
+        store_path = store
+    else:
+        # Get the file system, this should already have the
+        # correct storage options
+        fs = store.fs
+
+        # Get the string path to the store
+        store_path: str = store.dir_path()
+
+    if fs.exists(store_path):
+        print(f"Deleting store: {store_path}")
+        # Delete the store when it exists
+        fs.rm(store_path, recursive=True)
 
 
 def create_temp_store(dest_path, dest_storage_options=None, retries: int = 10):

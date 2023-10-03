@@ -4,6 +4,7 @@ from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
+import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
@@ -13,6 +14,7 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from ..convert.utils.ek_swap import delete_store
 from ..utils.coding import sanitize_dtypes, set_time_encodings
 from ..utils.io import check_file_existence, sanitize_file_path
 from ..utils.log import _init_logger
@@ -71,21 +73,35 @@ class EchoData:
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
-    def cleanup(self):
-        ...
-        # TODO: Figure out how to clean up the temp files
-        # if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.store is not None):
-        #     # get Path object of temporary zarr file created by Parsed2Zarr
-        #     p2z_temp_file = self.parsed2zarr_obj.store
-
-        #     # remove temporary directory created by Parsed2Zarr, if it exists
-        #     if p2z_temp_file.fs.exists(p2z_temp_file.root):
-        #         p2z_temp_file.fs.rm(p2z_temp_file.root, recursive=True)
+    def cleanup_swap_files(self):
+        """
+        Clean up the swap files during raw data conversion
+        """
+        sonar_group = "Sonar"
+        beam_group_var = "beam_group"
+        for beam_group in self[sonar_group][beam_group_var].to_numpy():
+            # Go through each beam group
+            for var in self[f"{sonar_group}/{beam_group}"].data_vars.values():
+                # Go through each variable and only delete if it's a dask array
+                if isinstance(var.data, dask.array.Array):
+                    da = var.data
+                    # Get the dask graph so we have access to the underlying
+                    # zarr stores
+                    dask_graph = da.__dask_graph__()
+                    # Get the zarr stores
+                    zarr_stores = [
+                        v.store for k, v in dask_graph.items() if "original-from-zarr" in k
+                    ]
+                    fs = zarr_stores[0].fs
+                    for store in zarr_stores:
+                        delete_store(store, fs)
 
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
         #  even clear all outputs is used. It will work if you explicitly delete the object
-        self.cleanup()
+        if self.converted_raw_path is None:
+            # Assumes raw data is in memory
+            self.cleanup_swap_files()
 
     def __str__(self) -> str:
         fpath = "Internal Memory"
