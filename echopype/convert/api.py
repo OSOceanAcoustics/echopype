@@ -313,7 +313,7 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    destination_path: Optional[str] = None,
+    destination_path: Optional[str] = "auto",
     destination_storage_options: Optional[Dict[str, str]] = None,
     max_chunk_size: str = "100MB",
 ) -> Optional[EchoData]:
@@ -384,11 +384,6 @@ def open_raw(
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
-
-    # Set initial destination_path of "no_swap"
-    if destination_path is None:
-        destination_path = "no_swap"
-
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
 

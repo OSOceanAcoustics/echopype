@@ -14,9 +14,8 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..convert.utils.ek_swap import delete_store
 from ..utils.coding import sanitize_dtypes, set_time_encodings
-from ..utils.io import check_file_existence, sanitize_file_path
+from ..utils.io import check_file_existence, delete_zarr_store, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
@@ -94,7 +93,7 @@ class EchoData:
                     ]
                     fs = zarr_stores[0].fs
                     for store in zarr_stores:
-                        delete_store(store, fs)
+                        delete_zarr_store(store, fs)
 
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or

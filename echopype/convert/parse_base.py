@@ -10,9 +10,10 @@ import numpy as np
 import zarr
 from dask.array.core import auto_chunks
 
+from ..utils.io import create_temp_zarr_store
 from ..utils.log import _init_logger
 from .utils.ek_raw_io import RawSimradFile, SimradEOF
-from .utils.ek_swap import calc_final_shapes, create_temp_store
+from .utils.ek_swap import calc_final_shapes
 
 FILENAME_DATETIME_EK60 = (
     "(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw"
@@ -162,7 +163,7 @@ class ParseEK(ParseBase):
             if dest_path in ["swap", "auto"]:
                 dest_path = None
             # Setup temp store
-            zarr_store = create_temp_store(dest_path, dest_storage_options)
+            zarr_store = create_temp_zarr_store(dest_path, dest_storage_options)
             # Setup zarr store
             zarr_root = zarr.group(
                 store=zarr_store, overwrite=True, synchronizer=zarr.ThreadSynchronizer()
