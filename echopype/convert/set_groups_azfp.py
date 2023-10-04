@@ -500,8 +500,8 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
-        PHASE_PARAMS = ["burst_interval", "pings_per_burst", "average_burst_pings"]
-        PHASE_FREQ_PARAMS = [
+        phase_params = ["burst_interval", "pings_per_burst", "average_burst_pings"]
+        phase_freq_params = [
             "dig_rate",
             "range_samples",
             "range_averaging_samples",
@@ -513,12 +513,12 @@ class SetGroupsAZFP(SetGroupsBase):
         for num in parameters["phase_number"]:
             tdn.append(parameters[f"pulse_len_phase{num}"][self.freq_ind_sorted] / 1e6)
         tdn = np.array(tdn)
-        for param in PHASE_FREQ_PARAMS:
+        for param in phase_freq_params:
             for num in parameters["phase_number"]:
-                parameters[param].append(parameters[param + f"_phase{num}"][self.freq_ind_sorted])
-        for param in PHASE_PARAMS:
+                parameters[param].append(parameters[f"{param}_phase{num}"][self.freq_ind_sorted])
+        for param in phase_params:
             for num in parameters["phase_number"]:
-                parameters[param].append(parameters[param + f"_phase{num}"])
+                parameters[param].append(parameters[f"{param}_phase{num}"])
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         # Build variables in the output xarray Dataset
