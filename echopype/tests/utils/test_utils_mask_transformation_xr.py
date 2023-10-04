@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-import re
 import echopype.utils.mask_transformation_xr as ep
 import xarray as xr
 
@@ -85,6 +84,28 @@ def test_downsample_exceptions():
 )
 def test_downsample(sv_dataset_jr230, coordinates, operation, is_log, shape, value):
     source_Sv = sv_dataset_jr230.copy(deep=True)["Sv"]
-    res, mask = ep.downsample(source_Sv, coordinates, operation, is_log)
+    res = ep.downsample(source_Sv, coordinates, operation, is_log)
     assert res.values.shape == shape
     assert res.values[-1, -1, -1] == value
+
+
+def test_upsample():
+    data = np.array([[3.5, 4.5, 5.5, 6.5, 7.5], [13.5, 14.5, 15.5, 16.5, 17.5]])
+    data_2 = np.arange(25).reshape(5, 5)
+    data_3 = np.array(
+        [
+            [3.5, 4.5, 5.5, 6.5, 7.5],
+            [3.5, 4.5, 5.5, 6.5, 7.5],
+            [13.5, 14.5, 15.5, 16.5, 17.5],
+            [13.5, 14.5, 15.5, 16.5, 17.5],
+            [np.nan, np.nan, np.nan, np.nan, np.nan],
+        ]
+    )
+    dims = ["x", "y"]
+    coords_1 = {"x": [1, 4], "y": [1, 3, 5, 7, 9]}
+    coords_2 = {"x": [1, 2, 3, 4, 5], "y": [1, 3, 5, 7, 9]}
+    ds_1 = xr.DataArray(data=data, dims=dims, coords=coords_1)
+    ds_2 = xr.DataArray(data=data_2, dims=dims, coords=coords_2)
+    ds_3 = xr.DataArray(data=data_3, dims=dims, coords=coords_2)
+    ds_4 = ep.upsample(ds_1, ds_2)
+    assert ds_3.equals(ds_4)
