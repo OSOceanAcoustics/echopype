@@ -197,6 +197,25 @@ class ParseAZFP(ParseBase):
 
         return N * USL5_BAT_CONSTANT
 
+    def _computer_pressure(self, ping_num, is_valid):
+        """
+        Compute pressure in decibar
+
+        Parameters
+        ----------
+        ping_num
+            ping number
+        is_valid
+            whether the associated parameters have valid values
+        """
+        if self.parameters["sensors_flag_pressure_sensor_installed"] == "no" or not is_valid:
+            return np.nan
+
+        counts = self.unpacked_data["ancillary"][ping_num][3]
+        v_in = 2.5 * (counts / 65535)
+        P = v_in * self.parameters["a1"] + self.parameters["a0"] - 10.125
+        return P
+
     def parse_raw(self):
         """
         Parse raw data file from AZFP echosounder.
@@ -216,6 +235,7 @@ class ParseAZFP(ParseBase):
         temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
         tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
         tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
+        pressure_is_valid = _test_valid_params(["a0", "a1"])
 
         with fmap.fs.open(fmap.root, "rb") as file:
             ping_num = 0
@@ -242,6 +262,10 @@ class ParseAZFP(ParseBase):
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
                         self.unpacked_data["tilt_y"].append(
                             self._compute_tilt(ping_num, "Y", tilt_y_is_valid)
+                        )
+                        # Compute pressure from unpacked_data[ii]['ancillary'][3]
+                        self.unpacked_data["pressure"].append(
+                            self._computer_pressure(ping_num, pressure_is_valid)
                         )
                         # Compute cos tilt magnitude from tilt x and y values
                         self.unpacked_data["cos_tilt_mag"].append(
