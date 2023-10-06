@@ -72,7 +72,7 @@ def downsample(dataset, coordinates: {str: int}, operation: str = "mean", is_log
     if is_log:
         dataset = log(dataset)
     # mask = dataset.isnull()
-    return dataset  # , mask
+    return dataset
 
 
 def upsample(dataset: xr.DataArray, dataset_size: xr.DataArray):
@@ -90,5 +90,4 @@ def upsample(dataset: xr.DataArray, dataset_size: xr.DataArray):
     """
 
     interpolated = dataset.interp_like(dataset_size, method="nearest")
-    # mask = interpolated.isnull()
-    return interpolated  # , mask
+    return interpolated

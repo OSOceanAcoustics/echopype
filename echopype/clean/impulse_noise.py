@@ -22,6 +22,7 @@ from scipy.ndimage import median_filter
 from skimage.morphology import dilation, erosion
 
 from ..utils import mask_transformation
+from ..utils.mask_transformation_xr import downsample, upsample
 
 RYAN_DEFAULT_PARAMS = {"thr": 10, "m": 5, "n": 1}
 RYAN_ITERABLE_DEFAULT_PARAMS = {"thr": 10, "m": 5, "n": (1, 2)}
@@ -250,57 +251,25 @@ def _ryan(
     # Select the desired frequency channel directly using 'sel'
     selected_channel_ds = Sv_ds.sel(channel=desired_channel)
 
-    # Extract Sv and iax for the desired frequency channel
-    Sv = selected_channel_ds["Sv"].values
+    Sv = selected_channel_ds.Sv
+    Sv_ = downsample(Sv, coordinates={"range_sample": m}, is_log=True)
+    Sv_ = upsample(Sv_, Sv)
 
-    # But first, transpose the Sv data so that the vertical dimension is axis 0
-    Sv = np.transpose(Sv)
-
-    iax = selected_channel_ds.range_sample.values
-
-    # Call the existing ryan function
-    # mask, mask_ = _ryan(Sv, iax, m, n, thr)
-    iax_ = np.arange(iax[0], iax[-1], m)
-    Sv_ = mask_transformation.oned(Sv, iax, iax_, 0, log_var=True)[0]
-
-    # resample back to full resolution
-    jax = np.arange(len(Sv[0]))
-    Sv_, mask_ = mask_transformation.full(Sv_, iax_, jax, iax, jax)
-
-    # side comparison (±n)
-    dummy = np.zeros((iax.shape[0], n)) * np.nan
-    comparison_forward = Sv_ - np.c_[Sv_[:, n:], dummy]
-    comparison_backward = Sv_ - np.c_[dummy, Sv_[:, 0:-n]]
+    # get valid sample mask
+    mask = Sv_.isnull()
 
     # get IN mask
-    comparison_forward[np.isnan(comparison_forward)] = np.inf
-    maskf = comparison_forward > thr
-    comparison_backward[np.isnan(comparison_backward)] = np.inf
-    maskb = comparison_backward > thr
-    mask = maskf & maskb
+    forward = Sv_ - Sv_.shift(shifts={"ping_time": n}, fill_value=np.nan)
+    backward = Sv_ - Sv_.shift(shifts={"ping_time": -n}, fill_value=np.nan)
+    forward = forward.fillna(np.inf)
+    backward = backward.fillna(np.inf)
+    mask_in = (forward > thr) & (backward > thr)
+    # add to the mask areas that have had data shifted out of range
+    mask_in[0:n, :] = True
+    mask_in[-n:, :] = True
 
-    # get second mask indicating valid samples in IN mask
-    mask_[:, 0:n] = False
-    mask_[:, -n:] = False
-
-    # return mask, mask_
-
-    # Transpose the mask back to its original shape
-    mask = np.transpose(mask)
-    mask_ = np.transpose(mask_)
-    combined_mask = mask & (~mask_)
-
-    # Create a new xarray for the mask with the correct dimensions and coordinates
-    mask_xr = xr.DataArray(
-        combined_mask,
-        dims=("ping_time", "range_sample"),
-        coords={
-            "ping_time": selected_channel_ds.ping_time.values,
-            "range_sample": selected_channel_ds.range_sample.values,
-        },
-    )
-
-    return mask_xr
+    mask = mask | mask_in
+    return mask
 
 
 def _ryan_iterable(
