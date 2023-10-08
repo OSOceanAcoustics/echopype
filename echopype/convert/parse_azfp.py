@@ -197,7 +197,7 @@ class ParseAZFP(ParseBase):
 
         return N * USL5_BAT_CONSTANT
 
-    def _computer_pressure(self, ping_num, is_valid):
+    def _compute_pressure(self, ping_num, is_valid):
         """
         Compute pressure in decibar
 
@@ -208,7 +208,7 @@ class ParseAZFP(ParseBase):
         is_valid
             whether the associated parameters have valid values
         """
-        if self.parameters["sensors_flag_pressure_sensor_installed"] == "no" or not is_valid:
+        if not is_valid or self.parameters["sensors_flag_pressure_sensor_installed"] == "no":
             return np.nan
 
         counts = self.unpacked_data["ancillary"][ping_num][3]
@@ -233,9 +233,9 @@ class ParseAZFP(ParseBase):
                 return True
 
         temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
+        pressure_is_valid = _test_valid_params(["a0", "a1"])
         tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
         tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
-        pressure_is_valid = _test_valid_params(["a0", "a1"])
 
         with fmap.fs.open(fmap.root, "rb") as file:
             ping_num = 0
@@ -255,6 +255,10 @@ class ParseAZFP(ParseBase):
                         self.unpacked_data["temperature"].append(
                             self._compute_temperature(ping_num, temperature_is_valid)
                         )
+                        # Compute pressure from unpacked_data[ii]['ancillary'][3]
+                        self.unpacked_data["pressure"].append(
+                            self._compute_pressure(ping_num, pressure_is_valid)
+                        )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         self.unpacked_data["tilt_x"].append(
                             self._compute_tilt(ping_num, "X", tilt_x_is_valid)
@@ -262,10 +266,6 @@ class ParseAZFP(ParseBase):
                         # Compute y tilt from unpacked_data[ii]['ancillary][1]
                         self.unpacked_data["tilt_y"].append(
                             self._compute_tilt(ping_num, "Y", tilt_y_is_valid)
-                        )
-                        # Compute pressure from unpacked_data[ii]['ancillary'][3]
-                        self.unpacked_data["pressure"].append(
-                            self._computer_pressure(ping_num, pressure_is_valid)
                         )
                         # Compute cos tilt magnitude from tilt x and y values
                         self.unpacked_data["cos_tilt_mag"].append(

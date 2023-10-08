@@ -176,6 +176,20 @@ def test_convert_azfp_01a_notemperature_notilt(azfp_path):
     assert echodata["Platform"]["tilt_y"].isnull().all()
 
 
+def test_convert_azfp_01a_pressure(azfp_path):
+    """Test converting file with valid pressure data."""
+    azfp_01a_path = azfp_path / 'pressure' / '22042221.01A'
+    azfp_xml_path = azfp_path / 'pressure' / '22042220.XML'
+
+    echodata = open_raw(
+        raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
+    )
+
+    # Pressure variable is present in the Environment group and its values are not all nan
+    assert "pressure" in echodata["Environment"]
+    assert not echodata["Environment"]["pressure"].isnull().all()
+
+
 def test_load_parse_azfp_xml(azfp_path):
 
     azfp_xml_path = azfp_path / '23081211.XML'
