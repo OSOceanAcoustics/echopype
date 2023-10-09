@@ -71,6 +71,9 @@ jobs:
       - name: Install echopype
         run: |
           python -m pip install -e .[plot]
+      - name: Print installed packages
+        run: |
+          micromamba list -n ${{ env.CONDA_ENV }}
       - name: Copying test data to services
         run: |
           python .ci_helpers/docker/setup-services.py --deploy --data-only --http-server ${{ job.services.httpserver.id }}
