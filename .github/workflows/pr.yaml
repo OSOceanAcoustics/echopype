@@ -16,13 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10"]  # TODO: add back 3.11 once parsed2zarr is fixed
+        python-version: ["3.9", "3.10", "3.11"]
         runs-on: [ubuntu-latest]
         experimental: [false]
-        include:
-        - runs-on: ubuntu-latest
-          python-version: "3.11"
-          experimental: true
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:

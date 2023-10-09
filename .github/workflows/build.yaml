@@ -14,13 +14,13 @@ env:
 jobs:
   test:
     name: ${{ matrix.python-version }}-build
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]  # TODO: add back 3.11 once parsed2zarr is fixed
+        python-version: ["3.9", "3.10", "3.11"]
         runs-on: [ubuntu-latest]
         experimental: [false]
     services:
