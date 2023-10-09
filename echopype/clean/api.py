@@ -166,7 +166,6 @@ def get_impulse_noise_mask(
         Can contain the following:
             thr: Union[Tuple[float, float], int, float]
                 User-defined threshold value (dB) (ryan and ryan iterable)
-                or a 2-element tuple with the range of threshold values (wang).
             m:  Optional[Union[int, float]] = None,
                 Vertical binning length (in number of samples or range)
                 (ryan and ryan iterable).
@@ -175,17 +174,8 @@ def get_impulse_noise_mask(
                 Number of pings either side for comparisons (ryan),
                 or a 2-element tuple specifying the range (ryan iterable).
                 Defaults to None.
-            erode: Optional[List[Tuple[int, int]]] = None,
-                Window size for each erosion cycle (wang).
-                Defaults to None.
-            dilate: Optional[List[Tuple[int, int]]] = None,
-                Window size for each dilation cycle (wang).
-                Defaults to None.
-            median: Optional[List[Tuple[int, int]]] = None,
-                Window size for each median filter cycle (wang).
-                Defaults to None.
     method: str, optional
-        The method (ryan, ryan_iterable or wang) used to mask impulse noise.
+        The method (ryan, ryan_iterable) used to mask impulse noise.
         Defaults to 'ryan'.
 
     Returns
@@ -200,7 +190,7 @@ def get_impulse_noise_mask(
     mask_map = {
         "ryan": impulse_noise._ryan,
         "ryan_iterable": impulse_noise._ryan_iterable,
-        "wang": impulse_noise._wang,
+        # "wang": impulse_noise._wang,
     }
     if method not in mask_map.keys():
         raise ValueError(f"Unsupported method: {method}")

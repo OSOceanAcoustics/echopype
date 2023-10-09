@@ -18,7 +18,7 @@ DESIRED_FREQUENCY = 120000
     [
         ("ryan", RYAN_DEFAULT_PARAMS, DESIRED_CHANNEL, None, (2121702, 41602)),
         ("ryan_iterable", RYAN_ITERABLE_DEFAULT_PARAMS, DESIRED_CHANNEL, None, (2108295, 55009)),
-        ("wang", WANG_DEFAULT_PARAMS, None, DESIRED_FREQUENCY, (635732, 1527572)),
+        # ("wang", WANG_DEFAULT_PARAMS, None, DESIRED_FREQUENCY, (635732, 1527572)),
     ],
 )
 def test_get_impulse_noise_mask(
