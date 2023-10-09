@@ -6,17 +6,10 @@ from typing import List, Optional, Union
 import numpy as np
 import xarray as xr
 
-from echopype.mask.seabed import (
-    _get_seabed_mask_ariza,
-    _get_seabed_mask_blackwell,
-    _get_seabed_mask_blackwell_mod,
-    _get_seabed_mask_deltaSv,
-    _get_seabed_mask_experimental,
-    _get_seabed_mask_maxSv,
-)
-
-from ..utils.io import validate_source_ds_da
+from ..utils.io import get_dataset, validate_source_ds_da
+from ..utils.misc import frequency_nominal_to_channel
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from . import seabed
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
 
 # lookup table with key string operator and value as corresponding Python operator
@@ -526,9 +519,10 @@ def frequency_differencing(
 
 def get_seabed_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    desired_channel: str,
-    mask_type: str = "ariza",
-    **kwargs,
+    parameters: dict,
+    desired_channel: str = None,
+    desired_frequency: int = None,
+    method: str = "ariza",
 ) -> xr.DataArray:
     """
     Create a mask based on the identified signal attenuations of Sv values at 38KHz.
@@ -540,7 +534,8 @@ def get_seabed_mask(
         a Dataset. This input must correspond to a Dataset that has the
         coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
     desired_channel: str - channel to generate the mask for
-    mask_type: str with either "ariza", "experimental", "blackwell_mod",
+    desired_freuency: int - desired frequency, in case the channel isn't directly specified
+    method: str with either "ariza", "experimental", "blackwell_mod",
                                 "blackwell", "deltaSv", "maxSv"
                                 based on the preferred method for signal attenuation mask generation
     Returns
@@ -563,84 +558,23 @@ def get_seabed_mask(
     --------
 
     """
-    assert mask_type in [
-        "ariza",
-        "experimental",
-        "blackwell_mod",
-        "blackwell",
-        "deltaSv",
-        "maxSv",
-    ], "mask_type must be either 'ariza', 'experimental', 'blackwell', 'maxSv', 'deltaSv'"
+    source_Sv = get_dataset(source_Sv)
+    mask_map = {
+        "ariza": seabed._ariza,
+        "experimental": seabed._experimental,
+        "blackwell": seabed._blackwell,
+        "blackwell_mod": seabed._blackwell_mod,
+        "delta_Sv": seabed._deltaSv,
+        "max_Sv": seabed._maxSv,
+    }
 
-    channel_Sv = source_Sv.sel(channel=desired_channel)
-    Sv = channel_Sv["Sv"].values.T
-    r = source_Sv["echo_range"].values[0, 0]
+    if method not in mask_map.keys():
+        raise ValueError(f"Unsupported method: {method}")
+    if desired_channel is None:
+        if desired_frequency is None:
+            raise ValueError("Must specify either desired channel or desired frequency")
+        else:
+            desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
+    mask = mask_map[method](source_Sv, desired_channel, parameters)
 
-    if mask_type == "ariza":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "roff", "thr", "ec", "ek", "dc", "dk"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_seabed_mask_ariza(Sv, r, **filtered_kwargs)
-    elif mask_type == "experimental":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "roff", "thr", "ns", "n_dil"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_seabed_mask_experimental(Sv, r, **filtered_kwargs)
-    elif mask_type == "blackwell":
-        # Define a list of the keyword arguments your function can handle
-        # valid_args = {"theta", "phi", "r0", "r1", "tSv", "ttheta", "tphi", "wtheta", "wphi"}
-        valid_args = {"r0", "r1", "tSv", "ttheta", "tphi", "wtheta", "wphi"}
-        theta = channel_Sv["angle_alongship"].values.T
-        phi = channel_Sv["angle_athwartship"].values.T
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_seabed_mask_blackwell(Sv, r, theta=theta, phi=phi, **filtered_kwargs)
-    elif mask_type == "blackwell_mod":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {
-            # "theta",
-            # "phi",
-            "r0",
-            "r1",
-            "tSv",
-            "ttheta",
-            "tphi",
-            "wtheta",
-            "wphi",
-            "rlog",
-            "tpi",
-            "freq",
-            "rank",
-        }
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        theta = channel_Sv["angle_alongship"].values.T
-        phi = channel_Sv["angle_athwartship"].values.T
-        mask = _get_seabed_mask_blackwell_mod(Sv, r, theta=theta, phi=phi, **filtered_kwargs)
-    elif mask_type == "deltaSv":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "roff", "thr"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_seabed_mask_deltaSv(Sv, r, **filtered_kwargs)
-    elif mask_type == "maxSv":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"r0", "r1", "roff", "thr"}
-        # Use dictionary comprehension to filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask = _get_seabed_mask_maxSv(Sv, r, **filtered_kwargs)
-    else:
-        raise ValueError(
-            "The provided mask_type must be 'ariza', "
-            + "'experimental', 'blackwell', 'maxSv' or 'deltaSv'!"
-        )
-
-    mask = np.logical_not(mask.T)
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask
+    return mask

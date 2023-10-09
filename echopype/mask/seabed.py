@@ -33,14 +33,62 @@ Algorithms for masking seabed.
 
 import numpy as np
 import scipy.ndimage as nd_img
+import xarray as xr
 from scipy.signal import convolve2d
 from skimage.measure import label
 from skimage.morphology import dilation, erosion, remove_small_objects, square
 
 from ..utils.mask_transformation import lin, log
 
+MAX_SV_DEFAULT_PARAMS = {"r0": 10, "r1": 1000, "roff": 0, "thr": (-40, -60)}
+DELTA_SV_DEFAULT_PARAMS = {"r0": 10, "r1": 1000, "roff": 0, "thr": 20}
+BLACKWELL_DEFAULT_PARAMS = {
+    "theta": None,
+    "phi": None,
+    "r0": 10,
+    "r1": 1000,
+    "tSv": -75,
+    "ttheta": 702,
+    "tphi": 282,
+    "wtheta": 28,
+    "wphi": 52,
+}
+BLACKWELL_MOD_DEFAULT_PARAMS = {
+    "theta": None,
+    "phi": None,
+    "r0": 10,
+    "r1": 1000,
+    "tSv": -75,
+    "ttheta": 702,
+    "tphi": 282,
+    "wtheta": 28,
+    "wphi": 52,
+    "rlog": None,
+    "tpi": None,
+    "freq": None,
+    "rank": 50,
+}
+EXPERIMENTAL_DEFAULT_PARAMS = {
+    "r0": 10,
+    "r1": 1000,
+    "roff": 0,
+    "thr": (-30, -70),
+    "ns": 150,
+    "n_dil": 3,
+}
+ARIZA_DEFAULT_PARAMS = {
+    "r0": 10,
+    "r1": 1000,
+    "roff": 0,
+    "thr": -40,
+    "ec": 1,
+    "ek": (1, 3),
+    "dc": 10,
+    "dk": (3, 7),
+}
 
-def _get_seabed_mask_maxSv(Sv, r, r0=10, r1=1000, roff=0, thr=(-40, -60)):
+
+def _maxSv(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_DEFAULT_PARAMS):
     """
     Initially detects the seabed as the ping sample with the strongest Sv value,
     as long as it exceeds a dB threshold. Then it searches up along the ping
@@ -48,16 +96,34 @@ def _get_seabed_mask_maxSv(Sv, r, r0=10, r1=1000, roff=0, thr=(-40, -60)):
     seabed is set.
 
     Args:
-        Sv (float): 2D Sv array (dB).
-        r (float): 1D range array (m).
-        r0 (int): minimum range below which the search will be performed (m).
-        r1 (int): maximum range above which the search will be performed (m).
-        roff (int): seabed range offset (m).
-        thr (tuple): 2 integers with 1st and 2nd Sv threshold (dB).
+        Sv_ds (xr.DataArray): xr.DataArray with Sv data for multiple channels (dB)
+        desired_channel(str): Name of the desired frequency channel
+        parameters: parameter dict, should contain:
+            r0 (int): minimum range below which the search will be performed (m).
+            r1 (int): maximum range above which the search will be performed (m).
+            roff (int): seabed range offset (m).
+            thr (tuple): 2 integers with 1st and 2nd Sv threshold (dB).
 
     Returns:
-        bool: 2D array with seabed mask.
+        xr.DataArray: A DataArray containing the mask for the Sv data.
+            Regions satisfying the thresholding criteria are True, others are False
     """
+    parameter_names = ["r0", "r1", "roff", "thr"]
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be: "
+            + str(parameter_names)
+            + ", are: "
+            + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    roff = parameters["roff"]
+    thr = parameters["thr"]
+
+    channel_Sv = Sv_ds.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values.T
+    r = Sv_ds["echo_range"].values[0, 0]
 
     # get offset and range indexes
     roff = np.nanargmin(abs(r - roff))
@@ -93,27 +159,51 @@ def _get_seabed_mask_maxSv(Sv, r, r0=10, r1=1000, roff=0, thr=(-40, -60)):
                 i = 0
             mask[i:, j] = True
 
-    return mask
+    mask = np.logical_not(mask.T)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+    return return_mask
 
 
-def _get_seabed_mask_deltaSv(Sv, r, r0=10, r1=1000, roff=0, thr=20):
+def _deltaSv(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_DEFAULT_PARAMS):
     """
     Examines the difference in Sv over a 2-samples moving window along
     every ping, and returns the range of the first value that exceeded
     a user-defined dB threshold (likely, the seabed).
 
     Args:
-        Sv (float): 2D Sv array (dB).
-        r (float): 1D range array (m).
-        r0 (int): minimum range below which the search will be performed (m).
-        r1 (int): maximum range above which the search will be performed (m).
-        roff (int): seabed range offset (m).
-        thr (int): threshold value (dB).
-        start (int): ping index to start processing.
+        Sv_ds (xr.DataArray): xr.DataArray with Sv data for multiple channels (dB)
+        desired_channel(str): Name of the desired frequency channel
+        parameters: parameter dict, should contain:
+            r0 (int): minimum range below which the search will be performed (m).
+            r1 (int): maximum range above which the search will be performed (m).
+            roff (int): seabed range offset (m).
+            thr (int): threshold value (dB).
 
     Returns:
-        bool: 2D array with seabed mask.
+        xr.DataArray: A DataArray containing the mask for the Sv data.
+            Regions satisfying the thresholding criteria are True, others are False
     """
+    parameter_names = ["r0", "r1", "roff", "thr"]
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be: "
+            + str(parameter_names)
+            + ", are: "
+            + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    roff = parameters["roff"]
+    thr = parameters["thr"]
+
+    channel_Sv = Sv_ds.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values.T
+    r = Sv_ds["echo_range"].values[0, 0]
+
     # get offset as number of samples
     roff = np.nanargmin(abs(r - roff))
 
@@ -140,43 +230,58 @@ def _get_seabed_mask_deltaSv(Sv, r, r0=10, r1=1000, roff=0, thr=20):
                 i = 0
             mask[i:, j] = True
 
-    return mask
+    mask = np.logical_not(mask.T)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+    return return_mask
 
 
-def _get_seabed_mask_blackwell(
-    Sv,
-    r,
-    theta=None,
-    phi=None,
-    r0=10,
-    r1=1000,
-    tSv=-75,
-    ttheta=702,  # on raw EK60 data
-    tphi=282,  # on raw EK60 data
-    wtheta=28,
-    wphi=52,
-):
+def _blackwell(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_DEFAULT_PARAMS):
     """
     Detects and mask seabed using the split-beam angle and Sv, based in
     "Blackwell et al (2019), Aliased seabed detection in fisheries acoustic
     data". Complete article here: https://arxiv.org/abs/1904.10736
 
     Args:
-        Sv (float): 2D numpy array with Sv data (dB)
-        theta (float): 2D numpy array with the along-ship angle (degrees)
-        phi (float): 2D numpy array with the athwart-ship angle (degrees)
-        r (float): 1D range array (m)
-        r0 (int): minimum range below which the search will be performed (m)
-        r1 (int): maximum range above which the search will be performed (m)
-        tSv (float): Sv threshold above which seabed is pre-selected (dB)
-        ttheta (int): Theta threshold above which seabed is pre-selected (dB)
-        tphi (int): Phi threshold above which seabed is pre-selected (dB)
-        wtheta (int): window's size for mean square operation in Theta field
-        wphi (int): window's size for mean square operation in Phi field
+        Sv_ds (xr.DataArray): xr.DataArray with Sv data for multiple channels (dB)
+        desired_channel(str): Name of the desired frequency channel
+        parameters: parameter dict, should contain:
+            r0 (int): minimum range below which the search will be performed (m)
+            r1 (int): maximum range above which the search will be performed (m)
+            tSv (float): Sv threshold above which seabed is pre-selected (dB)
+            ttheta (int): Theta threshold above which seabed is pre-selected (dB)
+            tphi (int): Phi threshold above which seabed is pre-selected (dB)
+            wtheta (int): window's size for mean square operation in Theta field
+            wphi (int): window's size for mean square operation in Phi field
 
     Returns:
-        bool: 2D array with seabed mask
+        xr.DataArray: A DataArray containing the mask for the Sv data.
+            Regions satisfying the thresholding criteria are True, others are False
     """
+    parameter_names = ["r0", "r1", "tSv", "ttheta", "tphi", "wtheta", "wphi"]
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be: "
+            + str(parameter_names)
+            + ", are: "
+            + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    tSv = parameters["tSv"]
+    ttheta = parameters["ttheta"]
+    tphi = parameters["tphi"]
+    wtheta = parameters["wtheta"]
+    wphi = parameters["wphi"]
+
+    channel_Sv = Sv_ds.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values.T
+    r = Sv_ds["echo_range"].values[0, 0]
+    theta = channel_Sv["angle_alongship"].values.T
+    phi = channel_Sv["angle_athwartship"].values.T
     # apply reverse correction on theta & phi to match Blackwell's constants
     theta = theta * 22 * 128 / 180
     phi = phi * 22 * 128 / 180
@@ -228,25 +333,17 @@ def _get_seabed_mask_blackwell(
     else:
         mask = np.zeros_like(Sv, dtype=bool)
 
-    return mask
+    mask = np.logical_not(mask.T)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+    return return_mask
 
 
-def _get_seabed_mask_blackwell_mod(
-    Sv,
-    r,
-    theta=None,
-    phi=None,
-    r0=10,
-    r1=1000,
-    tSv=-75,
-    ttheta=702,  # on raw EK60 data rather than physical angle
-    tphi=282,  # on raw EK60 data rather than physical angle
-    wtheta=28,
-    wphi=52,
-    rlog=None,
-    tpi=None,
-    freq=None,
-    rank=50,
+def _blackwell_mod(
+    Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_DEFAULT_PARAMS
 ):
     """
     Detects and mask seabed using the split-beam angle and Sv, based in
@@ -259,25 +356,62 @@ def _get_seabed_mask_blackwell_mod(
     rank.
 
     Args:
-        Sv (float): 2D numpy array with Sv data (dB)
-        theta (float): 2D numpy array with the along-ship angle (degrees)
-        phi (float): 2D numpy array with the athwart-ship angle (degrees)
-        r (float): 1D range array (m)
-        r0 (int): minimum range below which the search will be performed (m)
-        r1 (int): maximum range above which the search will be performed (m)
-        tSv (float): Sv threshold above which seabed is pre-selected (dB)
-        ttheta (int): Theta threshold above which seabed is pre-selected (dB)
-        tphi (int): Phi threshold above which seabed is pre-selected (dB)
-        wtheta (int): window's size for mean square operation in Theta field
-        wphi (int): window's size for mean square operation in Phi field
-        rlog (float): Maximum logging range of the echosounder (m)
-        tpi (float): Transmit pulse interval, or ping rate (s)
-        freq (int): frequecy (kHz)
-        rank (int): Rank for percentile operation: [0, 100]
+        Sv_ds (xr.DataArray): xr.DataArray with Sv data for multiple channels (dB)
+        desired_channel(str): Name of the desired frequency channel
+        parameters: parameter dict, should contain:
+            r0 (int): minimum range below which the search will be performed (m)
+            r1 (int): maximum range above which the search will be performed (m)
+            tSv (float): Sv threshold above which seabed is pre-selected (dB)
+            ttheta (int): Theta threshold above which seabed is pre-selected (dB)
+            tphi (int): Phi threshold above which seabed is pre-selected (dB)
+            wtheta (int): window's size for mean square operation in Theta field
+            wphi (int): window's size for mean square operation in Phi field
+            rlog (float): Maximum logging range of the echosounder (m)
+            tpi (float): Transmit pulse interval, or ping rate (s)
+            freq (int): frequecy (kHz)
+            rank (int): Rank for percentile operation: [0, 100]
 
     Returns:
-        bool: 2D array with seabed mask
+        xr.DataArray: A DataArray containing the mask for the Sv data.
+            Regions satisfying the thresholding criteria are True, others are False
     """
+    parameter_names = [
+        "r0",
+        "r1",
+        "tSv",
+        "ttheta",
+        "tphi",
+        "wtheta",
+        "wphi",
+        "rlog",
+        "tpi",
+        "freq",
+        "rank",
+    ]
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be: "
+            + str(parameter_names)
+            + ", are: "
+            + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    tSv = parameters["tSv"]
+    ttheta = parameters["ttheta"]
+    tphi = parameters["tphi"]
+    wtheta = parameters["wtheta"]
+    wphi = parameters["wphi"]
+    rlog = parameters["rlog"]
+    tpi = parameters["tpi"]
+    freq = parameters["freq"]
+    rank = parameters["rank"]
+
+    channel_Sv = Sv_ds.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values.T
+    r = Sv_ds["echo_range"].values[0, 0]
+    theta = channel_Sv["angle_alongship"].values.T
+    phi = channel_Sv["angle_athwartship"].values.T
     # apply reverse correction on theta & phi to match Blackwell's constants
     theta = theta * 22 * 128 / 180
     phi = phi * 22 * 128 / 180
@@ -351,7 +485,13 @@ def _get_seabed_mask_blackwell_mod(
     else:
         mask = np.zeros_like(Sv, dtype=bool)
 
-    return mask
+    mask = np.logical_not(mask.T)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+    return return_mask
 
 
 def _aliased2seabed(
@@ -418,7 +558,9 @@ def _seabed2aliased(
     return aliased
 
 
-def _get_seabed_mask_experimental(Sv, r, r0=10, r1=1000, roff=0, thr=(-30, -70), ns=150, n_dil=3):
+def _experimental(
+    Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_DEFAULT_PARAMS
+):
     """
     Mask Sv above a threshold to get a potential seabed mask. Then, the mask is
     dilated to fill seabed breaches, and small objects are removed to prevent
@@ -427,18 +569,38 @@ def _get_seabed_mask_experimental(Sv, r, r0=10, r1=1000, roff=0, thr=(-30, -70),
     threshold, Finally, the mask is extended all the way down.
 
     Args:
-        Sv (float): 2D Sv array (dB).
-        r (float): 1D range array (m).
-        r0 (int): minimum range below which the search will be performed (m).
-        r1 (int): maximum range above which the search will be performed (m).
-        roff (int): seabed range offset (m).
-        thr (tuple): 2 integers with 1st and 2nd Sv threshold (dB).
-        ns (int): maximum number of samples for an object to be removed.
-        n_dil (int): number of dilations performed to the seabed mask.
+        Sv_ds (xr.DataArray): xr.DataArray with Sv data for multiple channels (dB)
+        desired_channel(str): Name of the desired frequency channel
+        parameters: parameter dict, should contain:
+            r0 (int): minimum range below which the search will be performed (m).
+            r1 (int): maximum range above which the search will be performed (m).
+            roff (int): seabed range offset (m).
+            thr (tuple): 2 integers with 1st and 2nd Sv threshold (dB).
+            ns (int): maximum number of samples for an object to be removed.
+            n_dil (int): number of dilations performed to the seabed mask.
 
     Returns:
-        bool: 2D array with seabed mask.
+        xr.DataArray: A DataArray containing the mask for the Sv data.
+            Regions satisfying the thresholding criteria are True, others are False
     """
+    parameter_names = ["r0", "r1", "roff", "thr", "ns", "n_dil"]
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be: "
+            + str(parameter_names)
+            + ", are: "
+            + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    roff = parameters["roff"]
+    thr = parameters["thr"]
+    ns = parameters["ns"]
+    n_dil = parameters["n_dil"]
+
+    channel_Sv = Sv_ds.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values.T
+    r = Sv_ds["echo_range"].values[0, 0]
 
     # get indexes for range offset and range limits
     roff = np.nanargmin(abs(r - roff))
@@ -479,12 +641,16 @@ def _get_seabed_mask_experimental(Sv, r, r0=10, r1=1000, roff=0, thr=(-30, -70),
     #    mask = cv2.dilate(np.uint8(mask), kernel, iterations = 2)
     #    mask = np.array(mask, dtype = 'bool')
 
-    return mask
+    mask = np.logical_not(mask.T)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+    return return_mask
 
 
-def _get_seabed_mask_ariza(
-    Sv, r, r0=10, r1=1000, roff=0, thr=-40, ec=1, ek=(1, 3), dc=10, dk=(3, 7)
-):
+def _ariza(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_DEFAULT_PARAMS):
     """
     Mask Sv above a threshold to get potential seabed features. These features
     are eroded first to get rid of fake seabeds (spikes, schools, etc.) and
@@ -494,22 +660,44 @@ def _get_seabed_mask_ariza(
     reconmended for non-supervised processing.
 
     Args:
-        Sv (float): 2D Sv array (dB).
-        r (float): 1D range array (m).
-        r0 (int): minimum range below which the search will be performed (m).
-        r1 (int): maximum range above which the search will be performed (m).
-        roff (int): seabed range offset (m).
-        thr (int): Sv threshold above which seabed might occur (dB).
-        ec (int): number of erosion cycles.
-        ek (int): 2-elements tuple with vertical and horizontal dimensions
-                  of the erosion kernel.
-        dc (int): number of dilation cycles.
-        dk (int): 2-elements tuple with vertical and horizontal dimensions
-                  of the dilation kernel.
+        Sv_ds (xr.DataArray): xr.DataArray with Sv data for multiple channels (dB)
+        desired_channel(str): Name of the desired frequency channel
+        parameters: parameter dict, should contain:
+            r0 (int): minimum range below which the search will be performed (m).
+            r1 (int): maximum range above which the search will be performed (m).
+            roff (int): seabed range offset (m).
+            thr (int): Sv threshold above which seabed might occur (dB).
+            ec (int): number of erosion cycles.
+            ek (int): 2-elements tuple with vertical and horizontal dimensions
+                      of the erosion kernel.
+            dc (int): number of dilation cycles.
+            dk (int): 2-elements tuple with vertical and horizontal dimensions
+                      of the dilation kernel.
 
     Returns:
-        bool: 2D array with seabed mask.
+        xr.DataArray: A DataArray containing the mask for the Sv data.
+            Regions satisfying the thresholding criteria are True, others are False
     """
+    parameter_names = ["r0", "r1", "roff", "thr", "ec", "ek", "dc", "dk"]
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be: "
+            + str(parameter_names)
+            + ", are: "
+            + str(parameters.keys())
+        )
+    r0 = parameters["r0"]
+    r1 = parameters["r1"]
+    roff = parameters["roff"]
+    thr = parameters["thr"]
+    ec = parameters["ec"]
+    ek = parameters["ek"]
+    dc = parameters["dc"]
+    dk = parameters["dk"]
+
+    channel_Sv = Sv_ds.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"].values.T
+    r = Sv_ds["echo_range"].values[0, 0]
 
     # raise errors if wrong arguments
     if r0 > r1:
@@ -562,4 +750,10 @@ def _get_seabed_mask_ariza(
                     i = 0
                 mask[i:, j] = True
 
-    return mask
+    mask = np.logical_not(mask.T)
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+    return return_mask
