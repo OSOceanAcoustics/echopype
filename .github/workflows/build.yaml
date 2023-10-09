@@ -72,6 +72,8 @@ jobs:
           python -m pip install -e .[plot]
       - name: Print installed packages
         run: |
+          which pip
+          pip list
           micromamba list -n ${{ env.CONDA_ENV }}
       - name: Copying test data to services
         shell: bash -l {0}
