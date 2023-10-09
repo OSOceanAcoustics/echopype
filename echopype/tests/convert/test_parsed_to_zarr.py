@@ -15,6 +15,8 @@ from echopype.convert.parsed_to_zarr_ek60 import Parsed2ZarrEK60
 from echopype.echodata.convention import sonarnetcdf_1
 from echopype.convert.api import _check_file, SONAR_MODELS
 
+pytestmark = pytest.mark.skip(reason="Removed Parsed2Zarr")
+
 test_bucket_name = "echopype-test"
 port = 5555
 endpoint_uri = "http://127.0.0.1:%s/" % port
