@@ -5,6 +5,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 import xarray as xr
+from pandas import Index
 
 from ..utils.io import get_dataset, validate_source_ds_da
 from ..utils.misc import frequency_nominal_to_channel
@@ -517,6 +518,32 @@ def frequency_differencing(
     return da
 
 
+def create_multichannel_mask(masks: [xr.Dataset], channels: [str]) -> xr.Dataset:
+    """
+    Given a set of single-channel masks and a list of channels,
+    creates a multichannel mask
+
+    Parameters
+    ==========
+    masks(xr.Dataset): a list of single-channel masks
+    channels(str): a list of channel names
+
+    Returns
+    mask: a multi-channel mask
+    ======
+    """
+    if len(masks) != len(channels):
+        raise ValueError("number of masks and of channels provided should be the same")
+    for i in range(0, len(masks)):
+        mask = masks[i]
+        if "channel" in mask.coords:
+            masks[i] = mask.isel(channel=0)
+    result = xr.concat(
+        masks, Index(channels, name="channel"), data_vars="all", coords="all", join="exact"
+    )
+    return result
+
+
 def get_seabed_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     parameters: dict,
@@ -537,7 +564,7 @@ def get_seabed_mask(
     desired_freuency: int - desired frequency, in case the channel isn't directly specified
     method: str with either "ariza", "experimental", "blackwell_mod",
                                 "blackwell", "deltaSv", "maxSv"
-                                based on the preferred method for signal attenuation mask generation
+                                based on the preferred method for seabed mask generation
     Returns
     -------
     xr.DataArray
@@ -577,4 +604,56 @@ def get_seabed_mask(
             desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
     mask = mask_map[method](source_Sv, desired_channel, parameters)
 
+    return mask
+
+
+def get_seabed_mask_multichannel(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    parameters: dict,
+    method: str = "ariza",
+) -> xr.DataArray:
+    """
+    Create a mask based on the identified signal attenuations of Sv values at 38KHz.
+    Parameters
+    ----------
+    source_Sv: xr.Dataset or str or pathlib.Path
+        If a Dataset this value contains the Sv data to create a mask for,
+        else it specifies the path to a zarr or netcdf file containing
+        a Dataset. This input must correspond to a Dataset that has the
+        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+    method: str with either "ariza", "experimental", "blackwell_mod",
+                                "blackwell", "deltaSv", "maxSv"
+                                based on the preferred method for seabed mask generation
+    Returns
+    -------
+    xr.DataArray
+        A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
+        criteria are filled with ``True``, else the regions are filled with ``False``.
+
+    Raises
+    ------
+    ValueError
+        If neither "ariza", "experimental", "blackwell_mod",
+        "blackwell", "deltaSv", "maxSv" are given
+
+    Notes
+    -----
+
+
+    Examples
+    --------
+
+    """
+    source_Sv = get_dataset(source_Sv)
+    channel_list = source_Sv["channel"].values
+    mask_list = []
+    for channel in channel_list:
+        mask = get_seabed_mask(
+            source_Sv,
+            parameters=parameters,
+            desired_channel=channel,
+            method=method,
+        )
+        mask_list.append(mask)
+    mask = create_multichannel_mask(mask_list, channel_list)
     return mask
