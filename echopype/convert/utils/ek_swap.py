@@ -22,7 +22,7 @@ def _get_datagram_max_shape(datagram_dict: Dict[Any, List[np.ndarray]]) -> Optio
 
 
 def calc_final_shapes(
-    data_types: List[str], ping_data_dict: Dict[Any, List[np.ndarray]]
+    data_types: List[str], ping_data_dict: Dict[Any, Dict[Any, List[np.ndarray]]]
 ) -> Dict[str, Optional[Tuple[int]]]:
     """Calculate the final shapes for each data type.
     The final shape is the max shape across all channels.
