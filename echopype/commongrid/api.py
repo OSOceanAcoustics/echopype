@@ -355,8 +355,8 @@ def get_x_along_channels(
         return xr.merge([ds_Pos, da_MVBS])
     else:
         # Get mean ping_time along distance_nmi
-        # this is a feature only available for NASC
-        # computation
+        # this is only done for NASC computation,
+        # since for MVBS the ping_time is used for binning already.
         ds_ping_time = xarray_reduce(
             ds_Sv["ping_time"],
             ds_Sv[x_var],
@@ -646,7 +646,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
 
 def compute_NASC(
     ds_Sv: xr.Dataset,
-    range_bin: str = "20m",
+    range_bin: str = "10m",
     dist_bin: str = "0.5nmi",
     method: str = "map-reduce",
     closed: Literal["left", "right"] = "left",
@@ -660,7 +660,7 @@ def compute_NASC(
     ds_Sv : xr.Dataset
         A dataset containing Sv data.
         The Sv dataset must contain ``latitude``, ``longitude``, and ``depth`` as data variables.
-    range_bin : str, default '20m'
+    range_bin : str, default '10m'
         bin size along ``depth`` in meters (m).
     dist_bin : str, default '0.5nmi'
         bin size along ``distance`` in nautical miles (nmi).
@@ -685,7 +685,8 @@ def compute_NASC(
     https://support.echoview.com/WebHelp/Reference/Algorithms/Analysis_Variables/PRC_ABC_and_PRC_NASC.htm#PRC_NASC  # noqa
     The difference is that since in echopype masking of the Sv dataset is done explicitly using
     functions in the ``mask`` subpackage, the computation only involves computing the
-    mean Sv and the mean height within each cell.
+    mean Sv and the mean height within each cell, where some Sv "pixels" may have been
+    masked as NaN.
 
     In addition, in echopype the binning of pings into individual cells is based on the actual horizontal
     distance computed from the latitude and longitude coordinates of each ping in the Sv dataset.
