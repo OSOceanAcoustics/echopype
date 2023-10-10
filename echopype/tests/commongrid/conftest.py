@@ -1,11 +1,13 @@
 import pytest
 
-import xarray as xr
 import numpy as np
-import pandas as pd
 
 from echopype.consolidate import add_depth
-import echopype as ep
+from echopype.testing import (
+    _gen_Sv_echo_range_regular,
+    _gen_Sv_echo_range_irregular,
+    _get_expected_mvbs_val,
+)
 
 
 @pytest.fixture
@@ -129,9 +131,7 @@ def mock_mvbs_array_regular(mock_Sv_dataset_regular, mock_mvbs_inputs, mock_para
     ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
     range_bin = mock_mvbs_inputs["range_meter_bin"]
     channel_len = mock_parameters["channel_len"]
-    expected_mvbs_val = _get_expected_mvbs_val(
-        ds_Sv, ping_time_bin, range_bin, channel_len
-    )
+    expected_mvbs_val = _get_expected_mvbs_val(ds_Sv, ping_time_bin, range_bin, channel_len)
 
     return expected_mvbs_val
 
@@ -149,9 +149,7 @@ def mock_mvbs_array_irregular(mock_Sv_dataset_irregular, mock_mvbs_inputs, mock_
     ping_time_bin = mock_mvbs_inputs["ping_time_bin"]
     range_bin = mock_mvbs_inputs["range_meter_bin"]
     channel_len = mock_parameters["channel_len"]
-    expected_mvbs_val = _get_expected_mvbs_val(
-        ds_Sv, ping_time_bin, range_bin, channel_len
-    )
+    expected_mvbs_val = _get_expected_mvbs_val(ds_Sv, ping_time_bin, range_bin, channel_len)
 
     return expected_mvbs_val
 
@@ -317,203 +315,3 @@ def ds_Sv_echo_range_irregular(random_number_generator):
         ping_time_jitter_max_ms=0,
         random_number_generator=random_number_generator,
     )
-
-
-# Helper functions to generate mock Sv and MVBS dataset
-def _get_expected_mvbs_val(
-    ds_Sv: xr.Dataset, ping_time_bin: str, range_bin: float, channel_len: int = 2
-) -> np.ndarray:
-    """
-    Helper functions to generate expected MVBS outputs from mock Sv dataset
-    by brute-force looping and compute the mean
-    
-    Parameters
-    ----------
-    ds_Sv : xr.Dataset
-        Mock Sv dataset
-    ping_time_bin : str
-        Ping time bin
-    range_bin : float
-        Range bin
-    channel_len : int, default 2
-        Number of channels
-    """
-    # create bin information needed for ping_time
-    d_index = (
-        ds_Sv["ping_time"]
-        .resample(ping_time=ping_time_bin, skipna=True)
-        .first()  # Not actually being used, but needed to get the bin groups
-        .indexes["ping_time"]
-    )
-    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)]).values
-
-    # create bin information for echo_range
-    # this computes the echo range max since there might NaNs in the data
-    echo_range_max = ds_Sv["echo_range"].max()
-    range_interval = np.arange(0, echo_range_max + 2, range_bin)
-
-    sv = ds_Sv["Sv"].pipe(ep.utils.compute._log2lin)
-
-    expected_mvbs_val = np.ones((2, len(ping_interval) - 1, len(range_interval) - 1)) * np.nan
-
-    for ch_idx in range(channel_len):
-        for p_idx in range(len(ping_interval) - 1):
-            for r_idx in range(len(range_interval) - 1):
-                echo_range = (
-                    ds_Sv['echo_range']
-                    .isel(channel=ch_idx)
-                    .sel(ping_time=slice(ping_interval[p_idx], ping_interval[p_idx+1]))
-                )
-                r_idx_active = np.logical_and(
-                    echo_range.data >= range_interval[r_idx],
-                    echo_range.data < range_interval[r_idx+1]
-                )
-                sv_tmp = sv.isel(channel=ch_idx).sel(
-                    ping_time=slice(ping_interval[p_idx], ping_interval[p_idx+1])).data[r_idx_active]
-                if 0 in sv_tmp.shape:
-                    expected_mvbs_val[ch_idx, p_idx, r_idx] = np.nan
-                else:
-                    expected_mvbs_val[ch_idx, p_idx, r_idx] = np.mean(sv_tmp)
-    return ep.utils.compute._lin2log(expected_mvbs_val)
-
-
-def _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms=0):
-    ping_time = pd.date_range("2018-07-01", periods=ping_time_len, freq=ping_time_interval)
-    if ping_time_jitter_max_ms != 0:  # if to add jitter
-        jitter = (
-            np.random.randint(ping_time_jitter_max_ms, size=ping_time_len) / 1000
-        )  # convert to seconds
-        ping_time = pd.to_datetime(ping_time.astype(int) / 1e9 + jitter, unit="s")
-    return ping_time
-
-
-def _gen_Sv_echo_range_regular(
-    channel_len=2,
-    depth_len=100,
-    depth_interval=0.5,
-    ping_time_len=600,
-    ping_time_interval="0.3S",
-    ping_time_jitter_max_ms=0,
-    random_number_generator=None,
-):
-    """
-    Generate a Sv dataset with uniform echo_range across all ping_time.
-
-    ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
-    
-    Parameters
-    ------------
-    channel_len
-        number of channels
-    depth_len
-        number of total depth bins
-    depth_interval
-        depth intervals, may have multiple values
-    ping_time_len
-        total number of ping_time
-    ping_time_interval
-        interval between pings
-    ping_time_jitter_max_ms
-        jitter of ping_time in milliseconds
-    """
-
-    if random_number_generator is None:
-        random_number_generator = np.random.default_rng()
-
-    # regular echo_range
-    echo_range = np.array([[np.arange(depth_len)] * ping_time_len] * channel_len) * depth_interval
-
-    # generate dataset
-    ds_Sv = xr.Dataset(
-        data_vars={
-            "Sv": (
-                ["channel", "ping_time", "range_sample"],
-                random_number_generator.random(size=(channel_len, ping_time_len, depth_len)),
-            ),
-            "echo_range": (["channel", "ping_time", "range_sample"], echo_range),
-            "frequency_nominal": (["channel"], np.arange(channel_len)),
-        },
-        coords={
-            "channel": [f"ch_{ch}" for ch in range(channel_len)],
-            "ping_time": _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms),
-            "range_sample": np.arange(depth_len),
-        },
-    )
-
-    return ds_Sv
-
-
-def _gen_Sv_echo_range_irregular(
-    channel_len=2,
-    depth_len=100,
-    depth_interval=[0.5, 0.32, 0.13],
-    depth_ping_time_len=[100, 300, 200],
-    ping_time_len=600,
-    ping_time_interval="0.3S",
-    ping_time_jitter_max_ms=0,
-    random_number_generator=None,
-):
-    """
-    Generate a Sv dataset with uniform echo_range across all ping_time.
-
-    ping_time_jitter_max_ms controlled jitter in milliseconds in ping_time.
-    
-    Parameters
-    ------------
-    channel_len
-        number of channels
-    depth_len
-        number of total depth bins
-    depth_interval
-        depth intervals, may have multiple values
-    depth_ping_time_len
-        the number of pings to use each of the depth_interval
-        for example, with depth_interval=[0.5, 0.32, 0.13] 
-        and depth_ping_time_len=[100, 300, 200],
-        the first 100 pings have echo_range with depth intervals of 0.5 m,
-        the next 300 pings have echo_range with depth intervals of 0.32 m,
-        and the last 200 pings have echo_range with depth intervals of 0.13 m.
-    ping_time_len
-        total number of ping_time
-    ping_time_interval
-        interval between pings
-    ping_time_jitter_max_ms
-        jitter of ping_time in milliseconds
-    """
-    if random_number_generator is None:
-        random_number_generator = np.random.default_rng()
-
-    # check input
-    if len(depth_interval) != len(depth_ping_time_len):
-        raise ValueError("The number of depth_interval and depth_ping_time_len must be equal!")
-
-    if ping_time_len != np.array(depth_ping_time_len).sum():
-        raise ValueError("The number of total pings does not match!")
-
-    # irregular echo_range
-    echo_range_list = []
-    for d, dp in zip(depth_interval, depth_ping_time_len):
-        echo_range_list.append(np.array([[np.arange(depth_len)] * dp] * channel_len) * d)
-    echo_range = np.hstack(echo_range_list)
-
-    # generate dataset
-    ds_Sv = xr.Dataset(
-        data_vars={
-            "Sv": (
-                ["channel", "ping_time", "range_sample"],
-                random_number_generator.random(size=(channel_len, ping_time_len, depth_len)),
-            ),
-            "echo_range": (["channel", "ping_time", "range_sample"], echo_range),
-            "frequency_nominal": (["channel"], np.arange(channel_len)),
-        },
-        coords={
-            "channel": [f"ch_{ch}" for ch in range(channel_len)],
-            "ping_time": _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms),
-            "range_sample": np.arange(depth_len),
-        },
-    )
-
-    return ds_Sv
-
-
-# End helper functions

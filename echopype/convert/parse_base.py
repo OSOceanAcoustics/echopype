@@ -320,10 +320,10 @@ class ParseEK(ParseBase):
             # -------------------------------------------------------------------
 
             # SWAP --------------------------------------------------------------
-            if data_shape[0] != self.ping_time[ch_id].shape[0]:
+            if data_shape[0] != len(self.ping_time[ch_id]):
                 # Let's ensure that the ping time dimension is the same
                 # as the original data shape when written to zarr array
-                data_shape = (self.ping_time[ch_id].shape[0],) + data_shape[1:]
+                data_shape = (len(self.ping_time[ch_id]),) + data_shape[1:]
             # Write to temp zarr for swap
             # then assign the dask array to the dictionary
             # TODO: Figure out how this would work on Windows
