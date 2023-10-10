@@ -1,20 +1,26 @@
 import numpy as np
 import pytest
 
-from echopype.mask.api import shoal_weill
+from echopype.mask.api import get_shoal_mask
+from echopype.mask.shoal import WEILL_DEFAULT_PARAMETERS
 
 DESIRED_CHANNEL = "GPT  38 kHz 009072033fa5 1 ES38"
 
 
 @pytest.mark.parametrize(
-    "desired_channel,expected_tf_counts,expected_tf_counts_",
-    [(DESIRED_CHANNEL, (186650, 1980281), (2166931, 0))],
+    "method, desired_channel,parameters,expected_tf_counts,expected_tf_counts_",
+    [("will", DESIRED_CHANNEL, WEILL_DEFAULT_PARAMETERS, (101550, 2065381), (2166931, 0))],
 )
 def test_get_shoal_mask_weill(
-    sv_dataset_jr161, desired_channel, expected_tf_counts, expected_tf_counts_
+    sv_dataset_jr161, method, desired_channel, parameters, expected_tf_counts, expected_tf_counts_
 ):
     source_Sv = sv_dataset_jr161
-    mask, mask_ = shoal_weill(source_Sv, desired_channel)
+    mask, mask_ = get_shoal_mask(
+        source_Sv,
+        method=method,
+        desired_channel=desired_channel,
+        parameters=parameters,
+    )
 
     count_true = np.count_nonzero(mask)
     count_false = mask.size - count_true

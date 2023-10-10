@@ -35,15 +35,13 @@ import numpy as np
 import scipy.ndimage as nd_img
 import xarray as xr
 
+WEILL_DEFAULT_PARAMETERS = {"thr": -70, "maxvgap": -5, "maxhgap": 0, "minvlen": 0, "minhlen": 0}
+
 
 def _weill(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     desired_channel: str,
-    thr=-70,
-    maxvgap=5,
-    maxhgap=0,
-    minvlen=0,
-    minhlen=0,
+    parameters: dict = WEILL_DEFAULT_PARAMETERS,
 ):
     """
     Detects and masks shoals following the algorithm described in:
@@ -77,16 +75,17 @@ def _weill(
                     a Dataset. This input must correspond to a Dataset that has the
                     coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
         desired_channel (str): channel to generate the mask on
-        thr (int): Sv threshold (dB).
-        maxvgap (int): maximum vertical gap allowed (n samples).
-        maxhgap (int): maximum horizontal gap allowed (n pings).
-        minvlen (int): minimum vertical length for a shoal to be eligible
-                       (n samples).
-        minhlen (int): minimum horizontal length for a shoal to be eligible
-                       (n pings).
-        start (int): ping index to start processing. If greater than zero, it
-                     means that Sv carries data from a preceding file and
-                     the algorithm needs to know where to start processing.
+        parameters (dict): containing the required parameters
+            thr (int): Sv threshold (dB).
+            maxvgap (int): maximum vertical gap allowed (n samples).
+            maxhgap (int): maximum horizontal gap allowed (n pings).
+            minvlen (int): minimum vertical length for a shoal to be eligible
+                           (n samples).
+            minhlen (int): minimum horizontal length for a shoal to be eligible
+                           (n pings).
+            start (int): ping index to start processing. If greater than zero, it
+                         means that Sv carries data from a preceding file and
+                         the algorithm needs to know where to start processing.
 
     Returns
     -------
@@ -98,7 +97,20 @@ def _weill(
         Edge regions are filled with 'False', whereas the portion in which shoals
         could be detected is 'True'
     """
-    # Sv = source_Sv["Sv"].values[0]
+    parameter_names = ["thr", "maxvgap", "maxhgap", "minvlen", "minhlen"]
+    if not all(name in parameters.keys() for name in parameter_names):
+        raise ValueError(
+            "Missing parameters - should be: "
+            + str(parameter_names)
+            + ", are: "
+            + str(parameters.keys())
+        )
+    thr = parameters["thr"]
+    maxvgap = parameters["maxvgap"]
+    maxhgap = parameters["maxhgap"]
+    minvlen = parameters["minvlen"]
+    minhlen = parameters["minhlen"]
+
     channel_Sv = source_Sv.sel(channel=desired_channel)
     Sv = channel_Sv["Sv"].values
 
@@ -165,5 +177,14 @@ def _weill(
     mask_ = np.zeros_like(mask, dtype=bool)
     mask_[minvlen : len(mask_) - minvlen, minhlen : len(mask_[0]) - minhlen] = True
 
-    # return masks, from the start ping onwards
-    return mask, mask_
+    return_mask = xr.DataArray(
+        mask,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return_mask_ = xr.DataArray(
+        mask_,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    )
+    return return_mask, return_mask_

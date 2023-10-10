@@ -5,11 +5,13 @@ from typing import List, Optional, Union
 
 import numpy as np
 import xarray as xr
+from pandas import Index
 
-from ..utils.io import validate_source_ds_da
+from ..utils.io import get_dataset, validate_source_ds_da
+from ..utils.misc import frequency_nominal_to_channel
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from . import shoal
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
-from .shoal import _weill as shoal_weill
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -516,10 +518,38 @@ def frequency_differencing(
     return da
 
 
+def create_multichannel_mask(masks: [xr.Dataset], channels: [str]) -> xr.Dataset:
+    """
+    Given a set of single-channel masks and a list of channels,
+    creates a multichannel mask
+
+    Parameters
+    ==========
+    masks(xr.Dataset): a list of single-channel masks
+    channels(str): a list of channel names
+
+    Returns
+    mask: a multi-channel mask
+    ======
+    """
+    if len(masks) != len(channels):
+        raise ValueError("number of masks and of channels provided should be the same")
+    for i in range(0, len(masks)):
+        mask = masks[i]
+        if "channel" in mask.coords:
+            masks[i] = mask.isel(channel=0)
+    result = xr.concat(
+        masks, Index(channels, name="channel"), data_vars="all", coords="all", join="exact"
+    )
+    return result
+
+
 def get_shoal_mask(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    desired_channel: str,
-    mask_type: str = "will",
+    parameters: dict,
+    desired_channel: str = None,
+    desired_frequency: int = None,
+    method: str = "will",
     **kwargs,
 ):
     """
@@ -533,7 +563,7 @@ def get_shoal_mask(
                     a Dataset. This input must correspond to a Dataset that has the
                     coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
         desired_channel: str specifying the channel to generate the mask on
-        mask_type: string specifying the algorithm to use
+        method: string specifying the algorithm to use
                     currently, 'weill' is the only one implemented
 
     Returns
@@ -552,23 +582,66 @@ def get_shoal_mask(
     ValueError
         If 'weill' is not given
     """
-    assert mask_type in ["will"]
-    if mask_type == "will":
-        # Define a list of the keyword arguments your function can handle
-        valid_args = {"thr", "maxvgap", "maxhgap", "minvlen", "minhlen"}
-        # Filter out any kwargs not in your list
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_args}
-        mask, mask_ = shoal_weill(source_Sv, desired_channel, **filtered_kwargs)
-    else:
-        raise ValueError("The provided mask type must be Will")
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return_mask_ = xr.DataArray(
-        mask_,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask, return_mask_
+    source_Sv = get_dataset(source_Sv)
+    mask_map = {
+        "will": shoal._weill,
+    }
+
+    if method not in mask_map.keys():
+        raise ValueError(f"Unsupported method: {method}")
+    if desired_channel is None:
+        if desired_frequency is None:
+            raise ValueError("Must specify either desired channel or desired frequency")
+        else:
+            desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
+    mask, mask_ = mask_map[method](source_Sv, desired_channel, parameters)
+    return mask, mask_
+
+
+def get_shoal_mask_multichannel(
+    source_Sv: Union[xr.Dataset, str, pathlib.Path],
+    parameters: dict,
+    method: str = "will",
+):
+    """
+    Wrapper function for (future) multiple shoal masking algorithms
+    (currently, only MOVIES-B (Will) is implemented)
+
+    Args:
+        source_Sv: xr.Dataset or str or pathlib.Path
+                        If a Dataset this value contains the Sv data to create a mask for,
+                        else it specifies the path to a zarr or netcdf file containing
+                        a Dataset. This input must correspond to a Dataset that has the
+                        coordinate ``channel`` and variables ``frequency_nominal`` and ``Sv``.
+        mask_type: string specifying the algorithm to use
+                        currently, 'weill' is the only one implemented
+
+    Returns
+    -------
+    mask: xr.DataArray
+            A DataArray containing the multichannel mask for the Sv data.
+            Regions satisfying the thresholding criteria are filled with ``True``,
+            else the regions are filled with ``False``.
+        mask_: xr.DataArray
+            A DataArray containing the multichannel mask for areas in which shoals were searched.
+            Edge regions are filled with 'False', whereas the portion
+            in which shoals could be detected is 'True'
+
+
+    Raises
+    ------
+    ValueError
+            If 'weill' is not given
+    """
+    channel_list = source_Sv["channel"].values
+    mask_list = []
+    _mask_list = []
+    for channel in channel_list:
+        mask, _mask = get_shoal_mask(
+            source_Sv, desired_channel=channel, method=method, parameters=parameters
+        )
+        mask_list.append(mask)
+        _mask_list.append(_mask)
+    mask = create_multichannel_mask(mask_list, channel_list)
+    _mask = create_multichannel_mask(_mask_list, channel_list)
+    return mask, _mask

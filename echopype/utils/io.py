@@ -422,3 +422,21 @@ def validate_source_ds_da(
         check_file_existence(file_path=source_ds_da, storage_options=storage_options)
 
     return source_ds_da, file_type
+
+
+def get_dataset(source: Union[xr.Dataset, str, pathlib.Path]):
+    """
+    Given an input that can be either a dataset or a path to it,
+    returns the dataset
+    """
+    if isinstance(source, xr.Dataset):
+        return source
+    else:
+        validated_source, file_format = validate_source_ds_da(source)
+        open_map = {
+            "netcdf4": xr.open_dataset,
+            "zarr": xr.open_zarr,
+        }
+        with open_map[file_format](validated_source) as ds:
+            dataset = ds.load()
+        return dataset
