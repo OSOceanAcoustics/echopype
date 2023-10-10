@@ -17,3 +17,4 @@ psutil>=5.9.1
 geopy
 scikit-image
 flox>=0.7.2,<1.0.0
+charset-normalizer<3.2
