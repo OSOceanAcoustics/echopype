@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from _echopype_version import version as __version__  # noqa
 
-from . import calibrate, clean, commongrid, consolidate, mask, utils
+from . import calibrate, clean, commongrid, consolidate, mask, qc, utils
 from .convert.api import open_raw
 from .echodata.api import open_converted
 from .echodata.combine import combine_echodata
@@ -24,6 +24,7 @@ __all__ = [
     "metrics",
     "open_converted",
     "open_raw",
+    "qc",
     "utils",
     "verbose",
 ]
