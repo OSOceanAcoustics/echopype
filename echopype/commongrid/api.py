@@ -241,6 +241,31 @@ def _setup_and_validate(
     return ds_Sv, range_bin
 
 
+def _get_reduced_positions(
+    ds_Sv: xr.Dataset, ds_X: xr.Dataset, X: Literal["MVBS", "NASC"], x_interval
+):
+    # Get positions if exists
+    # otherwise None
+    if all(v in ds_Sv for v in POSITION_VARIABLES):
+        x_var = x_dim = "ping_time"
+        if X == "NASC":
+            x_var = "distance_nmi"
+            x_dim = "distance"
+
+        ds_Pos = xarray_reduce(
+            ds_Sv[POSITION_VARIABLES],
+            ds_Sv[x_var],
+            func="nanmean",
+            expected_groups=(x_interval),
+            isbin=True,
+            method="map-reduce",
+        )
+
+        for var in POSITION_VARIABLES:
+            ds_X[var] = ([x_dim], ds_Pos[var].data, ds_Sv[var].attrs)
+    return ds_X
+
+
 def get_x_along_channels(
     ds_Sv: xr.Dataset,
     range_interval: Union[pd.IntervalIndex, np.ndarray],
@@ -319,20 +344,6 @@ def get_x_along_channels(
     # average should be done in linear domain
     sv = ds_Sv["Sv"].pipe(_log2lin)
 
-    # Get positions if exists
-    # otherwise just use an empty dataset
-    ds_Pos = xr.Dataset(attrs={"has_positions": False})
-    if all(v in ds_Sv for v in POSITION_VARIABLES):
-        ds_Pos = xarray_reduce(
-            ds_Sv[POSITION_VARIABLES],
-            ds_Sv[x_var],
-            func="nanmean",
-            expected_groups=(x_interval),
-            isbin=True,
-            method=method,
-        )
-        ds_Pos.attrs["has_positions"] = True
-
     # reduce along ping_time or distance_nmi
     # and echo_range or depth
     # by binning and averaging
@@ -348,11 +359,15 @@ def get_x_along_channels(
         **flox_kwargs,
     )
 
+    # Empty dataset for putting variables together
+    ds = xr.Dataset()
+
     if x_var == "ping_time":
         # This is MVBS computation
         # apply inverse mapping to get back to the original domain and store values
         da_MVBS = sv_mean.pipe(_lin2log)
-        return xr.merge([ds_Pos, da_MVBS])
+        # return xr.merge([ds_Pos, da_MVBS])
+        return xr.merge([ds, da_MVBS])
     else:
         # Get mean ping_time along distance_nmi
         # this is only done for NASC computation,
@@ -401,7 +416,7 @@ def get_x_along_channels(
         raw_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
         raw_NASC.name = "sv"
 
-        return xr.merge([ds_Pos, ds_ping_time, raw_NASC])
+        return xr.merge([ds, ds_ping_time, raw_NASC])
 
 
 @add_processing_level("L3*")
@@ -498,12 +513,9 @@ def compute_MVBS(
         },
     )
 
-    # "has_positions" attribute is inserted in get_x_along_channels
-    # when the dataset has position information
+    # dataset has position information
     # propagate this to the final MVBS dataset
-    if raw_MVBS.attrs.get("has_positions", False):
-        for var in POSITION_VARIABLES:
-            ds_MVBS[var] = (["ping_time"], raw_MVBS[var].data, ds_Sv[var].attrs)
+    ds_MVBS = _get_reduced_positions(ds_Sv, ds_MVBS, "MVBS", ping_interval)
 
     # Add water level if uses echo_range and it exists in Sv dataset
     if range_var == "echo_range" and "water_level" in ds_Sv.data_vars:
@@ -754,12 +766,9 @@ def compute_NASC(
         },
     )
 
-    # "has_positions" attribute is inserted in get_x_along_channels
-    # when the dataset has position information
-    # propagate this to the final MVBS dataset
-    if raw_NASC.attrs.get("has_positions", False):
-        for var in POSITION_VARIABLES:
-            ds_NASC[var] = (["distance"], raw_NASC[var].data, ds_Sv[var].attrs)
+    # dataset has position information
+    # propagate this to the final NASC dataset
+    ds_NASC = _get_reduced_positions(ds_Sv, ds_NASC, "NASC", dist_interval)
 
     # Set ping time binning information
     ds_NASC["ping_time"] = (["distance"], raw_NASC["ping_time"].data, ds_Sv["ping_time"].attrs)
