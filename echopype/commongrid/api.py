@@ -266,7 +266,172 @@ def _get_reduced_positions(
     return ds_X
 
 
-def get_x_along_channels(
+def compute_raw_MVBS(
+    ds_Sv: xr.Dataset,
+    range_interval: Union[pd.IntervalIndex, np.ndarray],
+    ping_interval: Union[pd.IntervalIndex, np.ndarray],
+    range_var: Literal["echo_range", "depth"] = "echo_range",
+    method="map-reduce",
+    **flox_kwargs,
+):
+    """
+    Compute the raw unformatted MVBS of ``ds_Sv``.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        A Dataset containing ``Sv`` and ``echo_range`` data
+        with coordinates ``channel``, ``ping_time``, and ``range_sample``
+        at bare minimum.
+        Or this can contain ``Sv`` and ``depth`` data with similar coordinates.
+    range_interval: pd.IntervalIndex or np.ndarray
+        1D array or interval index representing
+        the bins required for ``range_var``
+    ping_interval : pd.IntervalIndex or np.ndarray
+        1D array or interval index representing
+        the bins required for ``ping_time``.
+    range_var: {'echo_range', 'depth'}, default 'echo_range'
+        The variable to use for range binning.
+        Either ``echo_range`` or ``depth``.
+    method: str
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    **flox_kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function.
+
+    Returns
+    -------
+    xr.Dataset
+        The MVBS dataset of the input ``ds_Sv`` for all channels.
+    """
+    # Set initial variables
+    ds = xr.Dataset()
+    x_var = "ping_time"
+
+    sv_mean = _groupby_x_along_channels(
+        ds_Sv,
+        range_interval,
+        x_interval=ping_interval,
+        x_var=x_var,
+        range_var=range_var,
+        method=method,
+        **flox_kwargs,
+    )
+
+    # This is MVBS computation
+    # apply inverse mapping to get back to the original domain and store values
+    da_MVBS = sv_mean.pipe(_lin2log)
+    # return xr.merge([ds_Pos, da_MVBS])
+    return xr.merge([ds, da_MVBS])
+
+
+def compute_raw_NASC(
+    ds_Sv: xr.Dataset,
+    range_interval: Union[pd.IntervalIndex, np.ndarray],
+    dist_interval: Union[pd.IntervalIndex, np.ndarray],
+    method="map-reduce",
+    **flox_kwargs,
+):
+    """
+    Compute the raw unformatted NASC of ``ds_Sv``.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        A Dataset containing ``Sv`` and ``depth`` data
+        with coordinates ``channel``, ``distance_nmi``, and ``range_sample``.
+    range_interval: pd.IntervalIndex or np.ndarray
+        1D array or interval index representing
+        the bins required for ``range_var``.
+    dist_interval : pd.IntervalIndex or np.ndarray
+        1D array or interval index representing
+        the bins required for ``distance_nmi``.
+    method: str
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    **flox_kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function.
+
+    Returns
+    -------
+    xr.Dataset
+        The MVBS or NASC dataset of the input ``ds_Sv`` for all channels
+    """
+    # Set initial variables
+    ds = xr.Dataset()
+    x_var = "distance_nmi"
+    range_var = "depth"
+
+    # Determine range_dim for NASC computation
+    range_dim = "range_sample"
+    if range_dim not in ds_Sv.dims:
+        range_dim = "depth"
+
+    sv_mean = _groupby_x_along_channels(
+        ds_Sv,
+        range_interval,
+        x_interval=dist_interval,
+        x_var=x_var,
+        range_var=range_var,
+        method=method,
+        **flox_kwargs,
+    )
+
+    # Get mean ping_time along distance_nmi
+    # this is only done for NASC computation,
+    # since for MVBS the ping_time is used for binning already.
+    ds_ping_time = xarray_reduce(
+        ds_Sv["ping_time"],
+        ds_Sv[x_var],
+        func="nanmean",
+        expected_groups=(dist_interval),
+        isbin=True,
+        method=method,
+    )
+
+    # Mean height: approach to use flox
+    # Numerator (h_mean_num):
+    #   - create a dataarray filled with the first difference of sample height
+    #     with 2D coordinate (distance, depth)
+    #   - flox xarray_reduce along both distance and depth, summing over each 2D bin
+    # Denominator (h_mean_denom):
+    #   - create a datararray filled with 1, with 1D coordinate (distance)
+    #   - flox xarray_reduce along distance, summing over each 1D bin
+    # h_mean = N/D
+    da_denom = xr.ones_like(ds_Sv[x_var])
+    h_mean_denom = xarray_reduce(
+        da_denom,
+        ds_Sv[x_var],
+        func="sum",
+        expected_groups=(dist_interval),
+        isbin=[True],
+        method=method,
+    )
+
+    h_mean_num = xarray_reduce(
+        ds_Sv[range_var].diff(dim=range_dim, label="lower"),  # use lower end label after diff
+        ds_Sv["channel"],
+        ds_Sv[x_var],
+        ds_Sv[range_var].isel(**{range_dim: slice(0, -1)}),
+        func="sum",
+        expected_groups=(None, dist_interval, range_interval),
+        isbin=[False, True, True],
+        method=method,
+    )
+    h_mean = h_mean_num / h_mean_denom
+
+    # Combine to compute NASC and name it
+    raw_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
+    raw_NASC.name = "sv"
+
+    return xr.merge([ds, ds_ping_time, raw_NASC])
+
+
+def _groupby_x_along_channels(
     ds_Sv: xr.Dataset,
     range_interval: Union[pd.IntervalIndex, np.ndarray],
     x_interval: Union[pd.IntervalIndex, np.ndarray],
@@ -276,13 +441,8 @@ def get_x_along_channels(
     **flox_kwargs,
 ) -> xr.Dataset:
     """
-    Computes the MVBS or NASC of ``ds_Sv`` along each channel for the given
-    intervals.
-
-    ``x_var`` variable is used to determine if this will compute for
-    MVBS or NASC:
-    * If ``x_var`` is ``ping_time``, then this will compute MVBS.
-    * If ``x_var`` is ``distance_nmi``, then this will compute NASC.
+    Perform groupby of ``ds_Sv`` along each channel for the given
+    intervals to get the 'sv' mean value.
 
     Parameters
     ----------
@@ -335,12 +495,6 @@ def get_x_along_channels(
         logger.warning("x_var is 'distance_nmi', setting range_var to 'depth'")
         range_var = "depth"
 
-    # Determine range_dim for NASC computation,
-    # this is not used for MVBS computation
-    range_dim = "range_sample"
-    if range_dim not in ds_Sv.dims:
-        range_dim = "depth"
-
     # average should be done in linear domain
     sv = ds_Sv["Sv"].pipe(_log2lin)
 
@@ -358,65 +512,7 @@ def get_x_along_channels(
         method=method,
         **flox_kwargs,
     )
-
-    # Empty dataset for putting variables together
-    ds = xr.Dataset()
-
-    if x_var == "ping_time":
-        # This is MVBS computation
-        # apply inverse mapping to get back to the original domain and store values
-        da_MVBS = sv_mean.pipe(_lin2log)
-        # return xr.merge([ds_Pos, da_MVBS])
-        return xr.merge([ds, da_MVBS])
-    else:
-        # Get mean ping_time along distance_nmi
-        # this is only done for NASC computation,
-        # since for MVBS the ping_time is used for binning already.
-        ds_ping_time = xarray_reduce(
-            ds_Sv["ping_time"],
-            ds_Sv[x_var],
-            func="nanmean",
-            expected_groups=(x_interval),
-            isbin=True,
-            method=method,
-        )
-
-        # Mean height: approach to use flox
-        # Numerator (h_mean_num):
-        #   - create a dataarray filled with the first difference of sample height
-        #     with 2D coordinate (distance, depth)
-        #   - flox xarray_reduce along both distance and depth, summing over each 2D bin
-        # Denominator (h_mean_denom):
-        #   - create a datararray filled with 1, with 1D coordinate (distance)
-        #   - flox xarray_reduce along distance, summing over each 1D bin
-        # h_mean = N/D
-        da_denom = xr.ones_like(ds_Sv[x_var])
-        h_mean_denom = xarray_reduce(
-            da_denom,
-            ds_Sv[x_var],
-            func="sum",
-            expected_groups=(x_interval),
-            isbin=[True],
-            method=method,
-        )
-
-        h_mean_num = xarray_reduce(
-            ds_Sv[range_var].diff(dim=range_dim, label="lower"),  # use lower end label after diff
-            ds_Sv["channel"],
-            ds_Sv[x_var],
-            ds_Sv[range_var].isel(**{range_dim: slice(0, -1)}),
-            func="sum",
-            expected_groups=(None, x_interval, range_interval),
-            isbin=[False, True, True],
-            method=method,
-        )
-        h_mean = h_mean_num / h_mean_denom
-
-        # Combine to compute NASC and name it
-        raw_NASC = sv_mean * h_mean * 4 * np.pi * 1852**2
-        raw_NASC.name = "sv"
-
-        return xr.merge([ds, ds_ping_time, raw_NASC])
+    return sv_mean
 
 
 @add_processing_level("L3*")
@@ -492,11 +588,10 @@ def compute_MVBS(
     # Set interval index for groups
     ping_interval = _convert_bins_to_interval_index(ping_interval, closed=closed)
     range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
-    raw_MVBS = get_x_along_channels(
+    raw_MVBS = compute_raw_MVBS(
         ds_Sv,
         range_interval,
         ping_interval,
-        x_var="ping_time",
         range_var=range_var,
         method=method,
         **flox_kwargs,
@@ -513,7 +608,7 @@ def compute_MVBS(
         },
     )
 
-    # dataset has position information
+    # If dataset has position information
     # propagate this to the final MVBS dataset
     ds_MVBS = _get_reduced_positions(ds_Sv, ds_MVBS, "MVBS", ping_interval)
 
@@ -745,12 +840,10 @@ def compute_NASC(
     dist_interval = _convert_bins_to_interval_index(dist_interval, closed=closed)
     range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
 
-    raw_NASC = get_x_along_channels(
+    raw_NASC = compute_raw_NASC(
         ds_Sv,
         range_interval,
         dist_interval,
-        x_var="distance_nmi",
-        range_var=range_var,
         method=method,
         **flox_kwargs,
     )
@@ -766,7 +859,7 @@ def compute_NASC(
         },
     )
 
-    # dataset has position information
+    # If dataset has position information
     # propagate this to the final NASC dataset
     ds_NASC = _get_reduced_positions(ds_Sv, ds_NASC, "NASC", dist_interval)
 

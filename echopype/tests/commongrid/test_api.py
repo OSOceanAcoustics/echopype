@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from flox.xarray import xarray_reduce
 import echopype as ep
-from echopype.commongrid.api import get_x_along_channels, POSITION_VARIABLES, _parse_x_bin
+from echopype.commongrid.api import _parse_x_bin, _groupby_x_along_channels, compute_raw_MVBS, compute_raw_NASC
 from echopype.consolidate import add_location, add_depth
 from echopype.commongrid.nasc import (
     get_distance_from_latlon,
@@ -44,9 +44,9 @@ def test__parse_x_bin(x_bin, x_label, expected_result):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ["range_var", "lat_lon"], [("depth", False), ("echo_range", True), ("echo_range", False)]
+    ["range_var", "lat_lon"], [("depth", False), ("echo_range", False)]
 )
-def test_get_x_along_channels(request, range_var, lat_lon):
+def test__groupby_x_along_channels(request, range_var, lat_lon):
     """Testing the underlying function of compute_MVBS and compute_NASC"""
     range_bin = 20
     ping_time_bin = "20S"
@@ -57,8 +57,6 @@ def test_get_x_along_channels(request, range_var, lat_lon):
     # Retrieve the correct dataset
     if range_var == "depth":
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_depth")
-    elif range_var == "echo_range" and lat_lon is True:
-        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_latlon")
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
 
@@ -74,39 +72,19 @@ def test_get_x_along_channels(request, range_var, lat_lon):
         .indexes["ping_time"]
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
-
-    raw_MVBS = get_x_along_channels(
+    
+    sv_mean = _groupby_x_along_channels(
         ds_Sv,
         range_interval,
-        ping_interval,
+        x_interval=ping_interval,
         x_var="ping_time",
         range_var=range_var,
         method=method,
-        **flox_kwargs,
+        **flox_kwargs
     )
 
     # Check that the range_var is in the dimension
-    assert f"{range_var}_bins" in raw_MVBS.dims
-
-    # When it's echo_range and lat_lon, the dataset should have positions
-    if range_var == "echo_range" and lat_lon is True:
-        assert raw_MVBS.attrs["has_positions"] is True
-        assert all(v in raw_MVBS for v in POSITION_VARIABLES)
-
-        # Compute xarray reduce manually for this
-        expected_Pos = xarray_reduce(
-            ds_Sv[POSITION_VARIABLES],
-            ds_Sv["ping_time"],
-            func="nanmean",
-            expected_groups=(ping_interval),
-            isbin=True,
-            method=method,
-        )
-
-        for v in POSITION_VARIABLES:
-            assert np.array_equal(raw_MVBS[v].data, expected_Pos[v].data)
-    else:
-        assert raw_MVBS.attrs["has_positions"] is False
+    assert f"{range_var}_bins" in sv_mean.dims
 
 
 # NASC Tests
@@ -173,12 +151,10 @@ def test_compute_NASC(request, test_data_samples, compute_mvbs):
 def test_simple_NASC_Echoview_values(mock_Sv_dataset_NASC):
     dist_interval = np.array([-5, 10])
     range_interval = np.array([1, 5])
-    raw_NASC = get_x_along_channels(
+    raw_NASC = compute_raw_NASC(
         mock_Sv_dataset_NASC,
         range_interval,
         dist_interval,
-        x_var="distance_nmi",
-        range_var="range_sample",
     )
     for ch_idx, _ in enumerate(raw_NASC.channel):
         NASC_echoview = get_NASC_echoview(mock_Sv_dataset_NASC, ch_idx)
