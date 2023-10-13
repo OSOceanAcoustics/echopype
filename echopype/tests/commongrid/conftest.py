@@ -6,7 +6,7 @@ import pandas as pd
 from typing import Literal
 
 from echopype.consolidate import add_depth
-from echopype.commongrid.nasc import (
+from echopype.commongrid.utils import (
     get_distance_from_latlon,
 )
 import echopype as ep

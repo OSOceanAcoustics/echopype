@@ -4,10 +4,12 @@ import numpy as np
 import pandas as pd
 from flox.xarray import xarray_reduce
 import echopype as ep
-from echopype.commongrid.api import _parse_x_bin, _groupby_x_along_channels, compute_raw_MVBS, compute_raw_NASC
 from echopype.consolidate import add_location, add_depth
-from echopype.commongrid.nasc import (
+from echopype.commongrid.utils import (
+    _parse_x_bin,
+    _groupby_x_along_channels,
     get_distance_from_latlon,
+    compute_raw_NASC
 )
 from echopype.tests.commongrid.conftest import get_NASC_echoview
 
