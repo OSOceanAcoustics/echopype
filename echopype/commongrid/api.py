@@ -242,10 +242,36 @@ def _setup_and_validate(
 
 
 def _get_reduced_positions(
-    ds_Sv: xr.Dataset, ds_X: xr.Dataset, X: Literal["MVBS", "NASC"], x_interval
-):
+    ds_Sv: xr.Dataset,
+    ds_X: xr.Dataset,
+    X: Literal["MVBS", "NASC"],
+    x_interval: Union[pd.IntervalIndex, np.ndarray],
+) -> xr.Dataset:
+    """Helper function to get reduced positions
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        The input Sv dataset
+    ds_X : xr.Dataset
+        The input X dataset, either ``ds_MVBS`` or ``ds_NASC``
+    X : {'MVBS', 'NASC'}
+        The type of X dataset
+    x_interval : pd.IntervalIndex or np.ndarray
+        1D array or interval index representing
+        the bins required for X dataset.
+
+        MVBS: ``ping_time``
+        NASC: ``distance_nmi``
+
+    Returns
+    -------
+    xr.Dataset
+        The X dataset with reduced position variables
+        such as latitude and longitude
+    """
     # Get positions if exists
-    # otherwise None
+    # otherwise return the input ds_X
     if all(v in ds_Sv for v in POSITION_VARIABLES):
         x_var = x_dim = "ping_time"
         if X == "NASC":
