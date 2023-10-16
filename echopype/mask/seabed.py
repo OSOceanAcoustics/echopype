@@ -31,6 +31,8 @@ Algorithms for masking seabed.
                 ]
 """
 
+import warnings
+
 import numpy as np
 import scipy.ndimage as nd_img
 import xarray as xr
@@ -331,6 +333,7 @@ def _blackwell(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX
 
     # return empty mask if aliased-seabed was not detected in Theta & Phi
     else:
+        warnings.warn("No aliased seabed detected in Theta & Phi. Returning empty mask.")
         mask = np.zeros_like(Sv, dtype=bool)
 
     mask = np.logical_not(mask.T)
@@ -422,7 +425,8 @@ def _blackwell_mod(
 
     # return empty mask if searching range is outside the echosounder range
     if (r0 > r[-1]) or (r1 < r[0]):
-        return np.zeros_like(Sv, dtype=bool)
+        warnings.warn("Search range is outside the echosounder range. Returning empty mask.")
+        mask = np.zeros_like(Sv, dtype=bool)
 
     # delimit the analysis within user-defined range limits
     i0 = np.nanargmin(abs(r - r0))
@@ -483,6 +487,7 @@ def _blackwell_mod(
 
     # return empty mask if aliased-seabed was not detected in Theta & Phi
     else:
+        warnings.warn("Aliased seabed not detected in Theta & Phi. Returning empty mask.")
         mask = np.zeros_like(Sv, dtype=bool)
 
     mask = np.logical_not(mask.T)
@@ -705,7 +710,8 @@ def _ariza(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_
 
     # return empty mask if searching range is outside the echosounder range
     if (r0 > r[-1]) or (r1 < r[0]):
-        return np.zeros_like(Sv, dtype=bool)
+        warnings.warn("Search range is outside the echosounder range. Returning empty mask.")
+        mask = np.zeros_like(Sv, dtype=bool)
 
     # get indexes for range offset and range limits
     r0 = np.nanargmin(abs(r - r0))
@@ -719,8 +725,8 @@ def _ariza(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_
 
     # return empty mask if there is nothing above threshold
     if not (Sv_ > thr).any():
+        warnings.warn("Nothing found above the threshold. Returning empty mask.")
         mask = np.zeros_like(Sv_, dtype=bool)
-        return mask
 
     # search for seabed otherwise
     else:
