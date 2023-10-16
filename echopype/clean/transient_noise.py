@@ -14,6 +14,7 @@ __authors__ = [
     "Mihai Boldeanu",  # adapted the mask transient noise algorithms to echopype
 ]
 
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -189,9 +190,20 @@ def _fielding(
 
     # return empty mask if searching range is outside the echosounder range
     if (r0 > r[-1]) or (r1 < r[0]):
+        # Raise a warning to inform the user
+        warnings.warn(
+            "The searching range is outside the echosounder range. "
+            "A default mask with all False values is returned, "
+            "which won't mask any data points in the dataset."
+        )
         mask = np.zeros_like(Sv, dtype=bool)
         mask_ = np.zeros_like(Sv, dtype=bool)
-        return mask, mask_
+        combined_mask = mask
+        return xr.DataArray(
+            combined_mask,
+            dims=("ping_time", "range_sample"),
+            coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+        )
 
     # get upper and lower range indexes
     up = np.argmin(abs(r - r0))

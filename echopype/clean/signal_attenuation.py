@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import xarray as xr
 from skimage.measure import label
@@ -65,9 +67,9 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters=DEFAULT_RYAN
 
     # return empty mask if searching range is outside the echosounder range
     if (r0 > r[-1]) or (r1 < r[0]):
+        warnings.warn("Searching range is outside the echosounder range. Returning empty mask.")
         mask = np.zeros_like(Sv, dtype=bool)
         mask_ = np.zeros_like(Sv, dtype=bool)
-        return mask, mask_
 
         # turn layer boundaries into arrays with length = Sv.shape[1]
     r0 = np.ones(Sv.shape[1]) * r0
