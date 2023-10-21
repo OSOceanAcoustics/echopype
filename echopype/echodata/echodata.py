@@ -517,9 +517,21 @@ class EchoData:
             if v["ext_time_dim_name"] == "scalar"
         ]
         for platform_var in scalar_vars:
+            # Set time_stamp equal to the first ping time whenever either
+            # latitude or longitude is updated without a time dimension
             ext_var = mappings_expanded[platform_var]["external_var"]
-            # Replace the scalar value and add a history attribute
-            platform[platform_var].data = float(extra_platform_data[ext_var].data)
+            if platform_var == "latitude" or platform_var == "longitude":
+                platform[platform_var].data = np.array([extra_platform_data[ext_var].data])
+                platform[platform_var] = platform[platform_var].assign_coords(
+                    **{
+                        platform[platform_var].dims[0]: [
+                            self["Sonar/Beam_group1"]["ping_time"].data[0]
+                        ]
+                    }
+                )
+            else:
+                # Replace the scalar value and add a history attribute
+                platform[platform_var].data = float(extra_platform_data[ext_var].data)
             platform[platform_var] = platform[platform_var].assign_attrs(
                 **{"history": f"{history_attr}. From external {ext_var} variable."}
             )
