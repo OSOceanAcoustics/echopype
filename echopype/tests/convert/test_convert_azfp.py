@@ -156,7 +156,7 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     check_platform_required_scalar_vars(echodata)
 
 
-def test_convert_azfp_01a_notemperature_notilt(azfp_path):
+def test_convert_azfp_01a_no_temperature_pressure_tilt(azfp_path):
     """Test converting file with no valid temperature or tilt data."""
     azfp_01a_path = azfp_path / 'rutgers_glider_notemperature/22052500.01A'
     azfp_xml_path = azfp_path / 'rutgers_glider_notemperature/22052501.XML'
@@ -169,6 +169,10 @@ def test_convert_azfp_01a_notemperature_notilt(azfp_path):
     assert "temperature" in echodata["Environment"]
     assert echodata["Environment"]["temperature"].isnull().all()
 
+    # Pressure variable is present in the Environment group and its values are all nan
+    assert "pressure" in echodata["Environment"]
+    assert echodata["Environment"]["pressure"].isnull().all()
+
     # Tilt variables are present in the Platform group and their values are all nan
     assert "tilt_x" in echodata["Platform"]
     assert "tilt_y" in echodata["Platform"]
@@ -176,8 +180,8 @@ def test_convert_azfp_01a_notemperature_notilt(azfp_path):
     assert echodata["Platform"]["tilt_y"].isnull().all()
 
 
-def test_convert_azfp_01a_pressure(azfp_path):
-    """Test converting file with valid pressure data."""
+def test_convert_azfp_01a_pressure_temperature(azfp_path):
+    """Test converting file with valid pressure and temperature data."""
     azfp_01a_path = azfp_path / 'pressure' / '22042221.01A'
     azfp_xml_path = azfp_path / 'pressure' / '22042220.XML'
 
@@ -187,7 +191,9 @@ def test_convert_azfp_01a_pressure(azfp_path):
 
     # Pressure variable is present in the Environment group and its values are not all nan
     assert "pressure" in echodata["Environment"]
+    assert "temperature" in echodata["Environment"]
     assert not echodata["Environment"]["pressure"].isnull().all()
+    assert not echodata["Environment"]["temperature"].isnull().all()
 
 
 def test_load_parse_azfp_xml(azfp_path):
