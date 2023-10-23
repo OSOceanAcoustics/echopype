@@ -5,6 +5,9 @@ from typing import List, Optional, Union
 
 import numpy as np
 import xarray as xr
+import dask
+import dask.array
+
 
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
@@ -451,8 +454,8 @@ def frequency_differencing(
     >>> Sv_ds = xr.Dataset(data_vars={"Sv": Sv_da, "frequency_nominal": freq_nom})
     ...
     >>> # compute frequency-differencing mask using channel names
-    >>> echopype.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={},
-    ...                                      freqABEq=None, chanABEq = '"chan1" - "chan2">=10.0')
+    >>> echopype.mask.frequency_differencing(source_Sv=Sv_ds, storage_options={},
+    ...                                      freqABEq=None, chanABEq = '"chan1" - "chan2">=10.0dB')
     <xarray.DataArray 'mask' (ping_time: 5, range_sample: 5)>
     array([[False, False, False, False, False],
            [False, False, False, False, False],
@@ -493,23 +496,72 @@ def frequency_differencing(
         chanA = chanAB[0]
         chanB = chanAB[1]
 
-    # get the left-hand side of condition
-    lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
+        freqA_pos = np.argwhere(source_Sv.channel.values == chanAB[0]).flatten()[0]
+        freqB_pos = np.argwhere(source_Sv.channel.values == chanAB[1]).flatten()[0]
 
-    # create mask using operator lookup table
-    da = xr.where(str2ops[operator](lhs, diff), True, False)
+    # If Sv data is not dask array
+    if source_Sv["Sv"].chunks == None:
+        # get the left-hand side of condition
+        lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
 
-    # assign a name to DataArray
-    da.name = "mask"
+        # create mask using operator lookup table
+        da = xr.where(str2ops[operator](lhs, diff), True, False)
 
-    # assign provenance attributes
-    mask_attrs = {"mask_type": "frequency differencing"}
-    history_attr = (
-        f"{datetime.datetime.utcnow()} +00:00. "
-        "Mask created by mask.frequency_differencing. "
-        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}"
-    )
+        # assign a name to DataArray
+        da.name = "mask"
 
-    da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
+        # assign provenance attributes
+        mask_attrs = {"mask_type": "frequency differencing"}
+        history_attr = (
+            f"{datetime.datetime.utcnow()} +00:00. "
+            "Mask created by mask.frequency_differencing. "
+            f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}"
+        )
 
-    return da
+        da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
+
+        return da
+    # If Sv data is dask array
+    else:
+        num_column_blocks = int(np.ceil(source_Sv["Sv"].shape[2] / source_Sv["Sv"].chunks[2][0]))
+
+        @dask.delayed
+        def _frequency_differencing(sv_block, freqA_pos: int, freqB_pos: int):
+            # sv_block is ndarray.
+            return sv_block[freqA_pos] - sv_block[freqB_pos]
+
+        @dask.delayed
+        def _masking(lhs, diff: float):
+            return dask.array.where(str2ops[operator](lhs, diff), True, False)
+
+        da_list = []
+        # Iterate over all the chunks
+        for c in source_Sv["Sv"].data.blocks.ravel():
+            lhs = _frequency_differencing(c, freqA_pos, freqB_pos)
+            da_delayed = _masking(lhs, diff)
+            da_list.append(
+                # Convert dask delayed fn to dask array
+                dask.array.from_delayed(da_delayed, shape=(c.shape[1], c.shape[2]), dtype=c.dtype)
+            )
+
+        # Concatenate the dask chunks.
+        da_output = []
+        for i in range(0, len(da_list), num_column_blocks):
+            da_output.append(dask.array.concatenate(da_list[i : i + num_column_blocks], axis=1))
+
+        da_output_concat = dask.array.concatenate(da_output, axis=0)
+
+        return xr.DataArray(
+            name="mask",
+            data=da_output_concat,
+            coords={
+                "ping_time": source_Sv["Sv"].coords["ping_time"].values,
+                "range_sample": source_Sv["Sv"].coords["range_sample"].values,
+            },
+            attrs={
+                "mask_type": "frequency differencing",
+                "history": f"{datetime.datetime.utcnow()} +00:00. "
+                "Mask created by mask.frequency_differencing. "
+                f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
+            },
+        )
