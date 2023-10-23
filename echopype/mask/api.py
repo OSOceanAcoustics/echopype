@@ -3,11 +3,10 @@ import operator as op
 import pathlib
 from typing import List, Optional, Union
 
-import numpy as np
-import xarray as xr
 import dask
 import dask.array
-
+import numpy as np
+import xarray as xr
 
 from ..utils.io import validate_source_ds_da
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
