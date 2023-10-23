@@ -157,7 +157,7 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
 
 
 def test_convert_azfp_01a_no_temperature_pressure_tilt(azfp_path):
-    """Test converting file with no valid temperature or tilt data."""
+    """Test converting file with no valid temperature, pressure and tilt data."""
     azfp_01a_path = azfp_path / 'rutgers_glider_notemperature/22052500.01A'
     azfp_xml_path = azfp_path / 'rutgers_glider_notemperature/22052501.XML'
 
