@@ -114,7 +114,16 @@ class SetGroupsAZFP(SetGroupsBase):
                         "standard_name": "sea_water_temperature",
                         "units": "deg_C",
                     },
-                )
+                ),
+                "pressure": (
+                    ["time1"],
+                    self.parser_obj.unpacked_data["pressure"],
+                    {
+                        "long_name": "Sea water pressure",
+                        "standard_name": "sea_water_pressure_due_to_sea_water",
+                        "units": "dbar",
+                    },
+                ),
             },
             coords={
                 "time1": (
