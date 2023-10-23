@@ -191,8 +191,10 @@ def test_convert_azfp_01a_pressure_temperature(azfp_path):
 
     # Pressure variable is present in the Environment group and its values are not all nan
     assert "pressure" in echodata["Environment"]
-    assert "temperature" in echodata["Environment"]
     assert not echodata["Environment"]["pressure"].isnull().all()
+
+    # Temperature variable is present in the Environment group and its values are not all nan
+    assert "temperature" in echodata["Environment"]
     assert not echodata["Environment"]["temperature"].isnull().all()
 
 
