@@ -498,6 +498,13 @@ def frequency_differencing(
         freqA_pos = np.argwhere(source_Sv.channel.values == chanAB[0]).flatten()[0]
         freqB_pos = np.argwhere(source_Sv.channel.values == chanAB[1]).flatten()[0]
 
+    xr_dataarray_attrs = {
+        "mask_type": "frequency differencing",
+        "history": f"{datetime.datetime.utcnow()} +00:00. "
+        "Mask created by mask.frequency_differencing. "
+        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
+    }
+
     # If Sv data is not dask array
     if not isinstance(source_Sv["Sv"].variable._data, dask.array.Array):
         # get the left-hand side of condition
@@ -517,7 +524,7 @@ def frequency_differencing(
             f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}"
         )
 
-        da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
+        da = da.assign_attrs(xr_dataarray_attrs)
 
         return da
     # If Sv data is dask array
@@ -557,10 +564,5 @@ def frequency_differencing(
                 "ping_time": source_Sv["Sv"].coords["ping_time"].values,
                 "range_sample": source_Sv["Sv"].coords["range_sample"].values,
             },
-            attrs={
-                "mask_type": "frequency differencing",
-                "history": f"{datetime.datetime.utcnow()} +00:00. "
-                "Mask created by mask.frequency_differencing. "
-                f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
-            },
+            attrs=xr_dataarray_attrs,
         )
