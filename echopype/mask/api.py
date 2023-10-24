@@ -499,7 +499,7 @@ def frequency_differencing(
         freqB_pos = np.argwhere(source_Sv.channel.values == chanAB[1]).flatten()[0]
 
     # If Sv data is not dask array
-    if source_Sv["Sv"].chunks is None:
+    if not isinstance(source_Sv["Sv"].variable._data, dask.array.Array):
         # get the left-hand side of condition
         lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
 
