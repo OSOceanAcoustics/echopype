@@ -466,6 +466,17 @@ def frequency_differencing(
       * range_sample  (range_sample) int64 0 1 2 3 4
     """
 
+    # Routine to apply frequency differencing
+    def _frequency_diff_and_mask(
+        Sv_block: xr.DataArray, chanA: str, chanB: str, diff: float
+    ) -> xr.DataArray:
+        # get the left-hand side of condition
+        lhs = Sv_block.sel(channel=chanA) - Sv_block.sel(channel=chanB)
+        # create mask using operator lookup table
+        da = xr.where(str2ops[operator](lhs, diff), True, False)
+
+        return da
+
     # check that non-data related inputs were correctly provided
     # _check_freq_diff_non_data_inputs(freqAB, chanAB, operator, diff)
     freqAB, chanAB, operator, diff = _parse_freq_diff_eq(freqABEq, chanABEq)
@@ -495,67 +506,34 @@ def frequency_differencing(
         chanA = chanAB[0]
         chanB = chanAB[1]
 
-        freqA_pos = np.argwhere(source_Sv.channel.values == chanAB[0]).flatten()[0]
-        freqB_pos = np.argwhere(source_Sv.channel.values == chanAB[1]).flatten()[0]
+    # If Sv data is not dask array
+    if not isinstance(source_Sv["Sv"].variable._data, dask.array.Array):
+        da = _frequency_diff_and_mask(source_Sv["Sv"], chanA, chanB, diff)
+    # If Sv data is dask array
+    else:
+        # Get the final data array template
+        template = source_Sv["Sv"].isel(channel=0).drop_vars("channel")
+        # Iterate over all the chunks
+        da = source_Sv["Sv"].map_blocks(
+            _frequency_diff_and_mask,
+            kwargs={
+                "chanA": chanA,
+                "chanB": chanB,
+                "diff": diff,
+            },
+            template=template,
+        )
 
+    # assign a name to DataArray
+    da.name = "mask"
+
+    # assign provenance attributes
     xr_dataarray_attrs = {
         "mask_type": "frequency differencing",
         "history": f"{datetime.datetime.utcnow()} +00:00. "
         "Mask created by mask.frequency_differencing. "
         f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
     }
+    da = da.assign_attrs(xr_dataarray_attrs)
 
-    # If Sv data is not dask array
-    if not isinstance(source_Sv["Sv"].variable._data, dask.array.Array):
-        # get the left-hand side of condition
-        lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
-
-        # create mask using operator lookup table
-        da = xr.where(str2ops[operator](lhs, diff), True, False)
-
-        # assign a name to DataArray
-        da.name = "mask"
-
-        # assign provenance attributes
-        da = da.assign_attrs(xr_dataarray_attrs)
-
-        return da
-    # If Sv data is dask array
-    else:
-        num_column_blocks = int(np.ceil(source_Sv["Sv"].shape[2] / source_Sv["Sv"].chunks[2][0]))
-
-        @dask.delayed
-        def _frequency_differencing(sv_block, freqA_pos: int, freqB_pos: int):
-            # sv_block is ndarray.
-            return sv_block[freqA_pos] - sv_block[freqB_pos]
-
-        @dask.delayed
-        def _masking(lhs, diff: float):
-            return dask.array.where(str2ops[operator](lhs, diff), True, False)
-
-        da_list = []
-        # Iterate over all the chunks
-        for c in source_Sv["Sv"].data.blocks.ravel():
-            lhs = _frequency_differencing(c, freqA_pos, freqB_pos)
-            da_delayed = _masking(lhs, diff)
-            da_list.append(
-                # Convert dask delayed fn to dask array
-                dask.array.from_delayed(da_delayed, shape=(c.shape[1], c.shape[2]), dtype=c.dtype)
-            )
-
-        # Concatenate the dask chunks.
-        da_output = []
-        for i in range(0, len(da_list), num_column_blocks):
-            da_output.append(dask.array.concatenate(da_list[i : i + num_column_blocks], axis=1))
-
-        da_output_concat = dask.array.concatenate(da_output, axis=0)
-
-        return xr.DataArray(
-            name="mask",
-            data=da_output_concat,
-            coords={
-                "ping_time": source_Sv["Sv"].coords["ping_time"].values,
-                "range_sample": source_Sv["Sv"].coords["range_sample"].values,
-            },
-            attrs=xr_dataarray_attrs,
-        )
+    return da
