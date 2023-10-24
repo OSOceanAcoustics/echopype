@@ -517,13 +517,6 @@ def frequency_differencing(
         da.name = "mask"
 
         # assign provenance attributes
-        mask_attrs = {"mask_type": "frequency differencing"}
-        history_attr = (
-            f"{datetime.datetime.utcnow()} +00:00. "
-            "Mask created by mask.frequency_differencing. "
-            f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}"
-        )
-
         da = da.assign_attrs(xr_dataarray_attrs)
 
         return da
