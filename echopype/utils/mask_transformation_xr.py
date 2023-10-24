@@ -91,3 +91,25 @@ def upsample(dataset: xr.DataArray, dataset_size: xr.DataArray):
 
     interpolated = dataset.interp_like(dataset_size, method="nearest")
     return interpolated
+
+
+def line_to_square(one: xr.DataArray, two: xr.DataArray, dim: str):
+    """
+    Given a single dimension dataset and an example dataset with 2 dimensions,
+    returns a two-dimensional dataset that is the single dimension dataset
+    repeated as often as needed
+
+    Args:
+        one (xr.DataArray): data
+        two (xr.DataArray): shape dataset
+        dim (str): name of dimension to concat against
+
+    Returns:
+        xr.DataArray: the input dataset, with the same coords as dataset_size and
+        the values repeated to fill it up
+    """
+    length = len(two[dim])
+    array_list = [one for _ in range(0, length)]
+    array = xr.concat(array_list, dim=dim)
+    # return_data = xr.DataArray(data=array.values, dims=two.dims, coords=two.coords)
+    return array.values

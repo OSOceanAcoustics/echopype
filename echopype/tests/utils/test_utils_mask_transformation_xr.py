@@ -109,3 +109,14 @@ def test_upsample():
     ds_3 = xr.DataArray(data=data_3, dims=dims, coords=coords_2)
     ds_4 = ep.upsample(ds_1, ds_2)
     assert ds_3.equals(ds_4)
+
+
+def test_line_to_square():
+    row = [False, False, True, False]
+    one = xr.DataArray(data=[row], dims=["x", "y"], coords={"x": [1], "y": [1, 2, 3, 4]})
+    two = xr.DataArray(
+        data=[row, row, row], dims=["x", "y"], coords={"x": [1, 2, 3], "y": [1, 2, 3, 4]}
+    )
+    res = ep.line_to_square(one, two, dim="x")
+    print(res)
+    assert res.shape == two.shape
