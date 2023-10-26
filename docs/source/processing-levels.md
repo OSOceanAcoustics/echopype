@@ -5,4 +5,3 @@ The decades-long experience from the satellite remote sensing community has show
 To help address this gap, the `echopype` team is developing a clearly defined progression of echosounder data, by leveraging the collective experience from remote sensing and large-scale, long-term ocean and ecological observatories.
 
 See the[echolevels](http://echolevels.readthedocs.io/) document for the current status, and please chime in with any [input or questions via GitHub issues](https://github.com/uw-echospace/data-processing-levels/issues/new).
-
