@@ -753,7 +753,7 @@ def _rename_and_add_time_vars_ek60(ed_obj):
     the variable time3, renames the variable ``water_level``
     time coordinate to time3, and changes ``ping_time`` to
     ``time2`` for the variables ``pitch/roll/vertical_offset``.
-    2. For EK60's ``Envrionment`` group this function renames
+    2. For EK60's ``Environment`` group this function renames
     ``ping_time`` to ``time1``.
 
     Parameters
