@@ -466,17 +466,6 @@ def frequency_differencing(
       * range_sample  (range_sample) int64 0 1 2 3 4
     """
 
-    # Routine to apply frequency differencing
-    def _frequency_diff_and_mask(
-        Sv_block: xr.DataArray, chanA: str, chanB: str, diff: float
-    ) -> xr.DataArray:
-        # get the left-hand side of condition
-        lhs = Sv_block.sel(channel=chanA) - Sv_block.sel(channel=chanB)
-        # create mask using operator lookup table
-        da = xr.where(str2ops[operator](lhs, diff), True, False)
-
-        return da
-
     # check that non-data related inputs were correctly provided
     # _check_freq_diff_non_data_inputs(freqAB, chanAB, operator, diff)
     freqAB, chanAB, operator, diff = _parse_freq_diff_eq(freqABEq, chanABEq)
@@ -533,10 +522,13 @@ def frequency_differencing(
         num_column_blocks = int(np.ceil(source_Sv["Sv"].shape[2] / source_Sv["Sv"].chunks[2][0]))
 
         da_list = []
-        # Iterate over all the chunks
+
+        # Tranform Sv blocks into a contiguous flattened array and iterate over them to apply the transformation
         for Sv_block in source_Sv["Sv"].data.blocks.ravel():
+            # Apply and delay the _get_lhs and _create_mask function on Sv_block
             lhs = dask.delayed(_get_lhs)(Sv_block, chanA_idx, chanB_idx)
             da_delayed = dask.delayed(_create_mask)(lhs, diff, func=dask.array.where)
+            # Convert da_delayed to dask array and append to da_list
             da_list.append(
                 # Convert dask delayed fn to dask array
                 dask.array.from_delayed(
@@ -544,11 +536,13 @@ def frequency_differencing(
                 )
             )
 
-        # Concatenate the dask chunks.
+        # Reshape the flattened output into source_Sv["Sv"] shape
         da_output = []
+        # Iterate over da_list with the step size equivalent to the number of blocks in the column dimension
         for i in range(0, len(da_list), num_column_blocks):
+            # Concatenate the blocks in da_list[i : i + num_column_blocks] column wise and append it to da_output
             da_output.append(dask.array.concatenate(da_list[i : i + num_column_blocks], axis=1))
-
+        # Concatenate the elements in da_output row wise to get the final output
         da_output_concat = dask.array.concatenate(da_output, axis=0)
 
         da = xr.DataArray(
