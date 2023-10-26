@@ -310,6 +310,10 @@ class ParseEK(ParseBase):
             if data_type == "complex":
                 padded_arr = {"real": np.real(padded_arr), "imag": np.imag(padded_arr)}
 
+                # Take care of 0s in imaginary part data
+                imag_arr = padded_arr["imag"]
+                padded_arr["imag"] = np.where(imag_arr == 0, np.nan, imag_arr)
+
             # NO SWAP -----------------------------------------------------------
             # Directly store the padded array
             # to the existing dictionary for the particular
@@ -633,11 +637,14 @@ class ParseEK(ParseBase):
                 mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T
             else:
                 mask = lens[:, None] > np.arange(lens.max())
+
+            # Create output array from mask
+            out_array = np.full(mask.shape, np.nan)
+
             # Take care of problem of np.nan being implicitly "real"
-            if data_list[0].dtype in {np.dtype("complex64"), np.dtype("complex128")}:
-                out_array = np.full(mask.shape, np.nan + 0j)
-            else:
-                out_array = np.full(mask.shape, np.nan)
+            arr_dtype = data_list[0].dtype
+            if np.issubdtype(arr_dtype, np.complex_):
+                out_array = out_array.astype(arr_dtype)
 
             # Fill in values
             out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
