@@ -182,18 +182,18 @@ class TestParseEK:
         parser, orig_data_dict, fixture_param, mocker = self._setup_rectangularize_data(
             mocker, sonar_model, use_swap, mock_ping_data_dict_complex
         )
-        
+
         for ch, arr_dct in parser.ping_data_dict["complex"].items():
             assert complex_part in arr_dct
-            
+
             # Check if array is of expected type
             arr = arr_dct[complex_part]
             assert isinstance(arr, expected_type)
-            
+
             if use_swap:
                 # Load the dask array into memory
                 arr = arr.compute()
-            
+
             if fixture_param == "regular":
                 # Check if arrays are equal
                 orig_arr = np.array(orig_data_dict["complex"][ch])
@@ -211,17 +211,37 @@ class TestParseEK:
                         assert np.array_equal(darr, orig_arr)
 
     @pytest.mark.parametrize("dest_storage_options", [None, {}])
-    def test_rectangularize_data_empty_storage_options(self, mocker, dest_storage_options, mock_ping_data_dict_power_angle_simple):
+    def test_rectangularize_data_empty_storage_options(
+        self, mocker, dest_storage_options, mock_ping_data_dict_power_angle_simple
+    ):
         sonar_model = "EK60"
         parser = self._get_parser(sonar_model, mock_ping_data_dict_power_angle_simple)
 
         mocker.patch(
             "echopype.convert.parse_base.ParseEK._ParseEK__should_use_swap", return_value=True
         )
-        
+
         expected_error_msg = r"Please provide storage options for remote destination."
         with pytest.raises(ValueError, match=expected_error_msg):
             parser.rectangularize_data(
                 dest_path="s3://my-bucket/my-folder/",
                 dest_storage_options=dest_storage_options,
+            )
+
+    def test__parse_and_pad_datagram_no_zarr_root(self, mock_ping_data_dict_power_angle_simple):
+        sonar_model = "EK60"
+        parser = self._get_parser(sonar_model, mock_ping_data_dict_power_angle_simple)
+
+        raw_type = "receive"
+        expanded_data_shapes = parser._get_data_shapes()
+        data_type_shapes = expanded_data_shapes[raw_type]
+
+        expected_error_message = r"zarr_root cannot be None when use_swap is True"
+        with pytest.raises(ValueError, match=expected_error_message):
+            parser._parse_and_pad_datagram(
+                data_type="power",
+                data_type_shapes=data_type_shapes,
+                raw_type=raw_type,
+                use_swap=True,
+                zarr_root=None,
             )
