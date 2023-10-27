@@ -59,7 +59,6 @@ class ParseEK(ParseBase):
         self.ch_ids = defaultdict(
             list
         )  # Stores the channel ids for each data type (power, angle, complex)
-        self.data_type = self._select_datagrams(params)
 
         self.nmea = defaultdict(list)  # Dictionary to store NMEA data(timestamp and string)
         self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
@@ -371,19 +370,7 @@ class ParseEK(ParseBase):
                         # and in the form of floats separated by semicolons
                         v["pulse_duration"] = [float(x) for x in v["pulse_length"].split(";")]
 
-            # If exporting to XML file (EK80/EA640 only), print a message
-            if "print_export_msg" in self.data_type:
-                if "ENV" in self.data_type:
-                    xml_type = "environment"
-                elif "CONFIG" in self.data_type:
-                    xml_type = "configuration"
-                logger.info(f"exporting {xml_type} XML file")
-                # Don't parse anything else if only the config xml is required.
-                if "CONFIG" in self.data_type:
-                    return
-            # If not exporting to XML, print the usual converting message
-            else:
-                self._print_status()
+            self._print_status()
 
             # Check if reading an ME70 file with a CON1 datagram.
             next_datagram = fid.peek()
@@ -398,11 +385,8 @@ class ParseEK(ParseBase):
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
-        if "ALL" in self.data_type:
-            # Convert ping time to 1D numpy array, stored in dict indexed by channel,
-            #  this will help merge data from all channels into a cube
-            for ch, val in self.ping_time.items():
-                self.ping_time[ch] = np.array(val, dtype="datetime64[ns]")
+        for ch, val in self.ping_time.items():
+            self.ping_time[ch] = np.array(val, dtype="datetime64[ns]")
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -494,25 +478,13 @@ class ParseEK(ParseBase):
 
             num_datagrams_parsed += 1
 
-            # Skip any datagram that the user does not want to save
-            if (
-                not any(new_datagram["type"].startswith(dgram) for dgram in self.data_type)
-                and "ALL" not in self.data_type
-            ):
-                continue
-
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram["type"].startswith("XML"):
-                if new_datagram["subtype"] == "environment" and (
-                    "ENV" in self.data_type or "ALL" in self.data_type
-                ):
+                if new_datagram["subtype"] == "environment":
                     self.environment = new_datagram["environment"]
                     self.environment["xml"] = new_datagram["xml"]
                     self.environment["timestamp"] = new_datagram["timestamp"]
-                    # Don't parse anything else if only the environment xml is required.
-                    if "ENV" in self.data_type:
-                        break
-                elif new_datagram["subtype"] == "parameter" and ("ALL" in self.data_type):
+                elif new_datagram["subtype"] == "parameter":
                     current_parameters = new_datagram["parameter"]
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
@@ -661,17 +633,3 @@ class ParseEK(ParseBase):
         else:
             out_array = np.array(data_list)
         return out_array
-
-    def _select_datagrams(self, params):
-        """Translates user input into specific datagrams or ALL
-
-        Valid use cases:
-        # get GPS info only (EK60, EK80)
-        # ec.to_netcdf(data_type='GPS')
-
-        # get configuration XML only (EK80)
-        # ec.to_netcdf(data_type='CONFIG')
-
-        # get environment XML only (EK80)
-        # ec.to_netcdf(data_type='ENV')
-        """
