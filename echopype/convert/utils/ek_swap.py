@@ -8,6 +8,20 @@ def _get_datagram_max_shape(datagram_dict: Dict[Any, List[np.ndarray]]) -> Optio
     """
     Get the max shape across all channels for a given datagram.
     """
+
+    def _max_shape(shapes: List[Tuple]) -> Tuple:
+        """Go through each shape and grab
+        the max value from each dimension"""
+        max_shape = None
+        for shape in shapes:
+            if max_shape is None:
+                max_shape = list(shape)
+            for i in range(0, len(shape)):
+                if shape[i] > max_shape[i]:
+                    max_shape[i] = shape[i]
+
+        return tuple(max_shape)
+
     # Go through each array list and get the max shape
     # then for each channel append max shape to the n number of arrays
     arr_shapes = []
@@ -18,7 +32,7 @@ def _get_datagram_max_shape(datagram_dict: Dict[Any, List[np.ndarray]]) -> Optio
             arr_shapes.append((len(arr_list),) + max(i.shape for i in arr_list))
     if len(arr_shapes) == 0:
         return None
-    return max(arr_shapes, key=itemgetter(1))
+    return _max_shape(arr_shapes)
 
 
 def calc_final_shapes(
