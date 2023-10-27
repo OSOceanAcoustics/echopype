@@ -56,30 +56,6 @@ class TestParseEK:
         parser.ping_time = parser.ping_data_dict["timestamp"]
         return parser
 
-    @pytest.fixture
-    def mock_ek60_parser_obj(self, mocker, mock_ping_data_dict_power_angle):
-        parser = ParseEK(
-            file=self.file,
-            params=self.params,
-            storage_options=self.storage_options,
-            sonar_model="EK60",
-        )
-        parser.ping_data_dict = copy.deepcopy(mock_ping_data_dict_power_angle)
-        parser.ping_time = parser.ping_data_dict["timestamp"]
-        return parser
-
-    @pytest.fixture
-    def mock_ek80_parser_obj(self, mocker, mock_ping_data_dict_complex):
-        parser = ParseEK(
-            file=self.file,
-            params=self.params,
-            storage_options=self.storage_options,
-            sonar_model="EK80",
-        )
-        parser.ping_data_dict = copy.deepcopy(mock_ping_data_dict_complex)
-        parser.ping_time = parser.ping_data_dict["timestamp"]
-        return parser
-
     @pytest.mark.parametrize("sonar_model", ["EK60", "EK80"])
     def test_constructor(self, sonar_model):
         parser = ParseEK(
