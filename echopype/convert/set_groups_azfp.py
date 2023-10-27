@@ -7,6 +7,7 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_time_encodings
+from ..utils.misc import depth_from_pressure
 from .set_groups_base import SetGroupsBase
 
 
@@ -167,6 +168,7 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Platform group."""
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
+        depth = depth_from_pressure(unpacked_data["pressure"], latitude=30, atm_pres_surf=0)
 
         # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
         time1 = [np.nan]
@@ -177,7 +179,9 @@ class SetGroupsAZFP(SetGroupsBase):
         tilt_y = [np.nan] if np.isnan(unpacked_data["tilt_y"]).all() else unpacked_data["tilt_y"]
         if (len(tilt_x) == 1 and np.isnan(tilt_x)) and (len(tilt_y) == 1 and np.isnan(tilt_y)):
             time2 = [self.parser_obj.ping_time[0]]
+            depth = [depth[0]]
         else:
+            depth = -1 * depth
             time2 = self.parser_obj.ping_time
 
         # Handle potential nan timestamp for time1 and time2
@@ -208,7 +212,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "vertical_offset": (
                     ["time2"],
-                    [np.nan] * len(time2),
+                    depth,
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "water_level": (
