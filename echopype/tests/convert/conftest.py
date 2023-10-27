@@ -12,6 +12,10 @@ def irregular_ch_range_sample_len():
 def irregular_ch_range_sample_ping_time_len():
     return [[20, 100, 20], [120, 10, 5], [50, 20, 20]]
 
+@pytest.fixture
+def mock_ping_data_dict_power_angle_simple():
+    return _gen_ping_data_dict_power_angle()
+
 
 @pytest.fixture(params=["regular", "irregular"])
 def mock_ping_data_dict_power_angle(

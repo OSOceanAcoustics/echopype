@@ -146,7 +146,7 @@ class ParseEK(ParseBase):
             use_swap = SWAP_MAP[dest_path]
         elif dest_path is not None:
             use_swap = True
-            if "://" in dest_path and dest_storage_options is None:
+            if "://" in dest_path and not dest_storage_options:
                 raise ValueError(
                     (
                         "Please provide storage options for remote destination. ",

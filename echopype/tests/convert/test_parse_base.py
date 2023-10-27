@@ -102,7 +102,6 @@ class TestParseEK:
         pass
 
     def _setup_rectangularize_data(self, mocker, sonar_model, use_swap, data_fixture):
-        sonar_model = sonar_model
         fixture_param, orig_data_dict = data_fixture
         parser = self._get_parser(sonar_model, orig_data_dict)
 
@@ -210,3 +209,19 @@ class TestParseEK:
                         orig_arr = orig_data_dict["complex"][ch][i]
                         orig_arr = complex_keys[complex_part](orig_arr)
                         assert np.array_equal(darr, orig_arr)
+
+    @pytest.mark.parametrize("dest_storage_options", [None, {}])
+    def test_rectangularize_data_empty_storage_options(self, mocker, dest_storage_options, mock_ping_data_dict_power_angle_simple):
+        sonar_model = "EK60"
+        parser = self._get_parser(sonar_model, mock_ping_data_dict_power_angle_simple)
+
+        mocker.patch(
+            "echopype.convert.parse_base.ParseEK._ParseEK__should_use_swap", return_value=True
+        )
+        
+        expected_error_msg = r"Please provide storage options for remote destination."
+        with pytest.raises(ValueError, match=expected_error_msg):
+            parser.rectangularize_data(
+                dest_path="s3://my-bucket/my-folder/",
+                dest_storage_options=dest_storage_options,
+            )
