@@ -4,7 +4,7 @@ import numpy as np
 
 import pytest
 from echopype.convert.parse_base import FILENAME_DATETIME_EK60, ParseBase, ParseEK, INDEX2POWER
-
+from echopype.convert.utils.ek_swap import calc_final_shapes
 
 class TestParseBase:
     file = "./my_file.raw"
@@ -129,15 +129,30 @@ class TestParseEK:
         parser, orig_data_dict, fixture_param, mocker = self._setup_rectangularize_data(
             mocker, sonar_model, use_swap, mock_ping_data_dict_power_angle
         )
-
+        
+        # Check for each channel for the array values
         for ch, arr in parser.ping_data_dict[data_type].items():
             if arr is not None:
-                # For cases that angle data is not available
+                # Check for expected type
                 assert isinstance(arr, expected_type)
+                
+                # Check expanded shape
                 if use_swap:
+                    # Check for each channel for the array expansion shape
+                    expected_final_shape = calc_final_shapes(self.data_types, orig_data_dict)
+                    data_shape = expected_final_shape[data_type]
+                    # Check that the array ping time dimension matches
+                    assert len(parser.ping_time[ch]) == arr.shape[0]
+                    assert arr.shape == (len(parser.ping_time[ch]),) + data_shape[1:]
+                    
                     # Load the dask array into memory
                     arr = arr.compute()
+                else:
+                    # This is separate since the array is not expanded until later point
+                    # for across channels
+                    assert parser.pad_shorter_ping(orig_data_dict[data_type][ch]).shape == arr.shape
 
+                # Check for array values for regular dataset
                 if fixture_param == "regular":
                     orig_arr = np.array(orig_data_dict[data_type][ch])
                     if data_type == "power":
@@ -145,6 +160,7 @@ class TestParseEK:
                         orig_arr = orig_arr.astype("float32") * INDEX2POWER
                     # Check if arrays are equal
                     assert np.array_equal(orig_arr, arr)
+                # Check for array values for irregular dataset
                 elif fixture_param == "irregular":
                     # Iterate through each range sample
                     for i in range(len(arr) - 1):
@@ -191,14 +207,27 @@ class TestParseEK:
             assert isinstance(arr, expected_type)
 
             if use_swap:
+                # Check for each channel for the array expansion shape
+                expected_final_shape = calc_final_shapes(self.data_types, orig_data_dict)
+                data_shape = expected_final_shape["complex"]
+                # Check that the array ping time dimension matches
+                assert len(parser.ping_time[ch]) == arr.shape[0]
+                assert arr.shape == (len(parser.ping_time[ch]),) + data_shape[1:]
+                
                 # Load the dask array into memory
                 arr = arr.compute()
+            else:
+                # This is separate since the array is not expanded until later point
+                # for across channels
+                assert parser.pad_shorter_ping(orig_data_dict["complex"][ch]).shape == arr.shape
 
+            # Check for array values for regular dataset
             if fixture_param == "regular":
                 # Check if arrays are equal
                 orig_arr = np.array(orig_data_dict["complex"][ch])
                 orig_arr = complex_keys[complex_part](orig_arr)
                 assert np.array_equal(arr, orig_arr)
+            # Check for array values for irregular dataset
             elif fixture_param == "irregular":
                 # Iterate through each range sample
                 for i in range(len(arr) - 1):
