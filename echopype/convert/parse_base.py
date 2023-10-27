@@ -1,7 +1,6 @@
 import os
 from collections import defaultdict
 from datetime import datetime as dt
-from operator import itemgetter
 from typing import Literal, Optional, Tuple
 
 import dask
@@ -184,28 +183,6 @@ class ParseEK(ParseBase):
                     zarr_root=zarr_root,
                     max_chunk_size=max_chunk_size,
                 )
-
-    def _calc_max_dim_shape(self, swap_vars):
-        """
-        Calculate the maximum dimension shape
-        across all swap variables.
-        """
-
-        all_max_var_shapes = []
-        for var in swap_vars:
-            # Get all valid array shapes
-            arr_shapes = [arr.shape for arr in self.ping_data_dict[var].values() if arr is not None]
-            # Determine the maximum array shape
-            max_arr_shape = max(arr_shapes, key=itemgetter(1))
-            if var == "angle":
-                # Angle data has 2 variables within,
-                # so just take the first 2 dimension shapes
-                max_arr_shape = max_arr_shape[:2]
-            all_max_var_shapes.append(max_arr_shape)
-
-        # Get the maximum dimension shape across all variables
-        max_dim_shape = max(all_max_var_shapes, key=itemgetter(1))
-        return max_dim_shape
 
     @staticmethod
     def _write_to_temp_zarr(
