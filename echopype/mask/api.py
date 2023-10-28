@@ -523,8 +523,8 @@ def frequency_differencing(
 
         da_list = []
 
-        # Tranform Sv blocks into a contiguous flattened array and
-        # iterate over them to apply the transformation
+        # Transform Sv blocks into a contiguous flattened array
+        # and iterate over them to apply the transformation
         for Sv_block in source_Sv["Sv"].data.blocks.ravel():
             # Apply and delay the _get_lhs and _create_mask function on Sv_block
             lhs = dask.delayed(_get_lhs)(Sv_block, chanA_idx, chanB_idx)
