@@ -4,6 +4,7 @@ from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
+from scipy.spatial.transform import Rotation as R
 
 from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
@@ -51,6 +52,8 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
 
 def add_depth(
     ds: xr.Dataset,
+    echodata: EchoData = None,
+    echodata_strict=False,
     depth_offset: float = 0,
     tilt: float = 0,
     downward: bool = True,
@@ -67,16 +70,20 @@ def add_depth(
     ds : xr.Dataset
         Source Sv dataset to which a depth variable will be added.
         Must contain `echo_range`.
-    depth_offset : float
+    echodata : EchoData, default=None
+        ``EchoData`` object from which the ``Sv` dataset originated.
+        It must contain transducer position and orientation information.
+    echodata_strict : bool, default=False
+        If set to True and EchoData object is passed, check for invalid
+        or suspect values in the source data arrays.
+        CURRENTLY NOT BEING USED.
+    depth_offset : float, default=0
         Offset along the vertical (depth) dimension to account for actual transducer
         position in water, since `echo_range` is counted from transducer surface.
-        Default is 0.
-    tilt : float
-        Transducer tilt angle [degree].
-        Default is 0 (transducer mounted vertically).
-    downward : bool
-        Whether or not the transducers point downward.
-        Default to True.
+    tilt : float, default=0
+        Transducer tilt angle [degree]. 0 corresponds to a transducer pointing vertically.
+    downward : bool, default=True
+        The transducers point downward.
 
     Returns
     -------
@@ -84,6 +91,8 @@ def add_depth(
 
     Notes
     -----
+    See https://echopype.readthedocs.io/en/stable/data-proc-additional.html#vertical-coordinate-z-axis-variables # noqa
+
     Currently this function only scalar inputs of depth_offset and tilt angle.
     In future expansion we plan to add the following options:
 
@@ -91,42 +100,155 @@ def add_depth(
     * Use data stored in the EchoData object or raw-converted file from which the Sv is derived,
       specifically `water_level`, `vertical_offtset` and `tilt` in the `Platform` group.
     """
-    # TODO: add options to use water_depth, vertical_offset, tilt stored in EchoData
-    # # Water level has to come from somewhere
-    # if depth_offset is None:
-    #     if "water_level" in ds:
-    #         depth_offset = ds["water_level"]
-    #     else:
-    #         raise ValueError(
-    #             "water_level not found in dataset and needs to be supplied by the user"
-    #         )
 
-    # # If not vertical needs to have tilt
-    # if not vertical:
-    #     if tilt is None:
-    #         if "tilt" in ds:
-    #             tilt = ds["tilt"]
-    #         else:
-    #             raise ValueError(
-    #                 "tilt not found in dataset and needs to be supplied by the user. "
-    #                 "Required when vertical=False"
-    #             )
-    # else:
-    #     tilt = 0
+    if echodata is None:
+        # depth_offset, tilt and downward are scalars passed as arguments to add_depth,
+        # and echodata is None
+        transducer_depth = depth_offset
 
-    # Multiplication factor depending on if transducers are pointing downward
-    mult = 1 if downward else -1
+        # Multiplication factor depending on if transducers are pointing downward
+        orientation_mult = 1 if downward else -1
+        echo_range_z_scaling = orientation_mult * np.cos(np.deg2rad(tilt))
+    else:
+        # TODO: TODOs and notes for AZFP:
+        #  - Assume tilt_x/y data has been translated into pitch & roll variables.
+        #  - vertical_offset will typically not be populated. An external pressure variable is
+        #    needed. Could it be added to the Environment group first, then look for it here?
+        #    Other transducer position variables will be empty, too.
+        #  - tilt_x/y: interpretation will depend on deployment configuration of the transducer
+        #    relative to the cylinder where the inclinometer is located. Configurations are too
+        #    variable to allow educated guesses
+
+        sonar_model = echodata["Sonar"].attrs["sonar_model"]
+        # For EK80 data with two Sonar/Beam_groupX groups, the Sv Dataset (ds) contains data
+        # for channels from only one of the groups (depending on waveform_mode and encode_mode)
+        if (
+            sonar_model == "EK80"
+            and "Sonar/Beam_group2" in echodata.group_paths
+            and ds["channel"][0] in echodata["Sonar/Beam_group2"]
+        ):
+            beam_group_source = "Sonar/Beam_group2"
+        else:
+            beam_group_source = "Sonar/Beam_group1"
+
+        def _z_var(z_var):
+            """
+            Returns a DataArray.
+            If all nan, replace nan with 0 or 1
+            """
+            group = beam_group_source if z_var.startswith("beam_direction_") else "Platform"
+            if sonar_model == "EK80" and z_var == "transducer_offset_z":
+                # Platform group channel dimension includes channels from both beam groups.
+                # Keep only the relevant channels.
+                z_var_da = echodata[group][z_var].sel(channel=ds["channel"])
+            else:
+                z_var_da = echodata[group][z_var]
+
+            # If the variable is not present, its dimensions would have to be hardwired here.
+            # So, assume a very recent echopype version and that the variables exist.
+            # TODO: Behavior should depend on echodata_strict.
+            #  If False, return default values. If True, raise ValueError?
+            #  Also, if True, treat 0 values in some source dataarrays skeptically?
+            if not z_var_da.isnull().all():
+                return z_var_da
+            else:
+                if z_var == "beam_direction_z":
+                    # Returning 1 for beam_direction_z (and 0 for _x/y) will result in
+                    # the z-axis unit vector, [0, 0, 1]
+                    return xr.ones_like(echodata[group][z_var])
+                else:
+                    return xr.zeros_like(echodata[group][z_var])
+
+        # Scalars
+        water_level = _z_var("water_level")
+        # With time dimension only
+        vertical_offset = _z_var("vertical_offset")
+        pitch = _z_var("pitch")
+        roll = _z_var("roll")
+        # With channel dimension only
+        transducer_offset_z = _z_var("transducer_offset_z")
+        beam_direction_x = _z_var("beam_direction_x")
+        beam_direction_y = _z_var("beam_direction_y")
+        beam_direction_z = _z_var("beam_direction_z")
+
+        # 1. Perform z translation for transducer position vs water level
+        # The dimensions of transducer_depth will be (channel x time), based on broadcasting
+        # from transducer_offset_z (channel) and vertical_offset (time), in that order
+        transducer_depth = transducer_offset_z - (water_level + vertical_offset)
+
+        # Interpolate transducer_depth to ping_time
+        da_time_dim_name = list(vertical_offset.dims)[0]
+        transducer_depth = transducer_depth.interp(**{da_time_dim_name: ds["ping_time"]}).drop_vars(
+            da_time_dim_name
+        )
+
+        # 2. Perform rotations
+        # - Pitch & Roll. Set up stack of rotations, where each element (intrinsic euler angles)
+        # corresponds to a pitch-roll timestep. rot_pitch_roll then has an implicit "time" dimension
+        pitch_roll_euler_angles_stack = np.column_stack(
+            (np.zeros_like(pitch.values), pitch.values, roll.values)
+        )
+        rot_pitch_roll = R.from_euler("ZYX", pitch_roll_euler_angles_stack, degrees=True)
+        # - Beam direction. Set up stack of rotations, where each element (rotation matrix)
+        # corresponds to a beam_direction channel. rot_beam_direction then has an implicit
+        # "channel" dimension
+        beam_dir_rotmatrix_stack = [
+            [
+                np.array([0, 0, beam_direction_x[c]]),
+                np.array([0, 0, beam_direction_y[c]]),
+                np.array([0, 0, beam_direction_z[c]]),
+            ]
+            for c in range(len(beam_direction_x))
+        ]
+        rot_beam_direction = R.from_matrix(beam_dir_rotmatrix_stack)
+
+        # Total rotation
+        # rot_total should have rotation elements for a channel x time 2D array
+        # The two rotations will need to have aligned dimensions
+        # Or use a ufunc?
+        # https://stackoverflow.com/questions/71413808/understanding-xarray-apply-ufunc
+        echo_range_z_scaling_bychannnel = []
+        for c in range(len(rot_beam_direction)):
+            # The beam direction rotation is a single rotation and pitch-roll is a
+            # time-varying rotation stack.
+            # rot_beam_direction[c] is applied to all elements of rot_pitch_roll
+            rot_total_bychannel = rot_beam_direction[c] * rot_pitch_roll
+            echo_range_z_scaling_bychannnel.append(rot_total_bychannel.as_matrix()[:, -1, -1])
+
+        # Create echo_range_z_scaling DataArray with dimensions (channel x time)
+        echo_range_z_scaling = xr.DataArray(
+            np.column_stack(tuple([erz for erz in echo_range_z_scaling_bychannnel])).T,
+            coords=dict(
+                channel=("channel", beam_direction_z["channel"].data),
+                time=("time", pitch[list(pitch.dims)[0]].data),
+            ),
+        )
+
+        # Interpolate echo_range_z_scaling to ping_time
+        echo_range_z_scaling = echo_range_z_scaling.interp(**{"time": ds["ping_time"]}).drop_vars(
+            "time"
+        )
+
+    # TODO: Review nan and "extrapolation" handling on interpolation
+
+    # TODO: What to do if both echodata and external data parameters
+    #  (depth_offset, etc) are passed? Should specified external parameters be used
+    #  instead of echodata variables?
 
     # Compute depth
-    ds["depth"] = mult * ds["echo_range"] * np.cos(tilt / 180 * np.pi) + depth_offset
-    ds["depth"].attrs = {"long_name": "Depth", "standard_name": "depth", "units": "m"}
+    # ds["echo_range"] dimensions: (channel, ping_time, range_sample)
+    ds["depth"] = transducer_depth + ds["echo_range"] * echo_range_z_scaling
 
-    # Add history attribute
+    # Add attributes, including history attribute
+    # TODO: In history_attr, specify whether the offset & angle data originated in
+    #  external data or the source echodata object
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. "
         "Added based on echo_range or other data in Sv dataset."  # noqa
     )
-    ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})
+    ds["depth"] = ds["depth"].assign_attrs(
+        {"long_name": "Depth", "standard_name": "depth", "units": "m", "history": history_attr}
+    )
 
     return ds
 

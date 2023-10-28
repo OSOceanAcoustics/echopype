@@ -178,6 +178,27 @@ def test_add_depth():
     # assert ds_Sv_depth["depth"].attrs == {"long_name": "Depth", "standard_name": "depth"}
 
 
+def test_add_depth_from_echodata(test_path):
+    """
+    Test add_depth with data from echodata object.
+    """
+    raw_file = test_path["EK80"] / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw"
+    sonar_model = "EK80"
+    waveform_mode, encode_mode = "CW", "power"
+    # Assuming (for now!) these waveform_mode & encode_mode properties
+    # b/c it only has one beam group and no backscatter_i
+
+    ed = ep.open_raw(raw_file, sonar_model=sonar_model)
+
+    Sv_ds = ep.calibrate.compute_Sv(ed, waveform_mode=waveform_mode, encode_mode=encode_mode)
+
+    ep.consolidate.add_depth(Sv_ds, ed)
+
+    assert "depth" in Sv_ds
+    assert Sv_ds["depth"].dims == Sv_ds["echo_range"].dims
+    assert not Sv_ds["depth"].isnull().all()
+
+
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
     """
     Opens each mat file in ``paths_to_echoview_mat``, selects the first ``ping_time``,
