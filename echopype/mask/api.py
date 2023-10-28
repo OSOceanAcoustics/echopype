@@ -523,7 +523,8 @@ def frequency_differencing(
 
         da_list = []
 
-        # Tranform Sv blocks into a contiguous flattened array and iterate over them to apply the transformation
+        # Tranform Sv blocks into a contiguous flattened array and
+        # iterate over them to apply the transformation
         for Sv_block in source_Sv["Sv"].data.blocks.ravel():
             # Apply and delay the _get_lhs and _create_mask function on Sv_block
             lhs = dask.delayed(_get_lhs)(Sv_block, chanA_idx, chanB_idx)
@@ -538,9 +539,10 @@ def frequency_differencing(
 
         # Reshape the flattened output into source_Sv["Sv"] shape
         da_output = []
-        # Iterate over da_list with the step size equivalent to the number of blocks in the column dimension
+        # Iterate over da_list with the step size
+        # equivalent to the number of blocks in the column dimension
         for i in range(0, len(da_list), num_column_blocks):
-            # Concatenate the blocks in da_list[i : i + num_column_blocks] column wise and append it to da_output
+            # Concatenate the blocks in da_list[i : i + num_column_blocks] column wise
             da_output.append(dask.array.concatenate(da_list[i : i + num_column_blocks], axis=1))
         # Concatenate the elements in da_output row wise to get the final output
         da_output_concat = dask.array.concatenate(da_output, axis=0)
