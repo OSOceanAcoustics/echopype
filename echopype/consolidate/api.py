@@ -102,13 +102,9 @@ def add_depth(
     """
 
     if echodata is None:
-        # depth_offset, tilt and downward are scalars passed as arguments to add_depth,
-        # and echodata is None
+        # depth_offset and tilt scalars passed as arguments to add_depth,
         transducer_depth = depth_offset
-
-        # Multiplication factor depending on if transducers are pointing downward
-        orientation_mult = 1 if downward else -1
-        echo_range_z_scaling = orientation_mult * np.cos(np.deg2rad(tilt))
+        echo_range_z_scaling = np.cos(np.deg2rad(tilt))
     else:
         # TODO: TODOs and notes for AZFP:
         #  - Assume tilt_x/y data has been translated into pitch & roll variables.
@@ -236,8 +232,10 @@ def add_depth(
     #  instead of echodata variables?
 
     # Compute depth
+    # Multiplication factor depending on if transducers are pointing downward
+    orientation_mult = 1 if downward else -1
     # ds["echo_range"] dimensions: (channel, ping_time, range_sample)
-    ds["depth"] = transducer_depth + ds["echo_range"] * echo_range_z_scaling
+    ds["depth"] = transducer_depth + orientation_mult * ds["echo_range"] * echo_range_z_scaling
 
     # Add attributes, including history attribute
     # TODO: In history_attr, specify whether the offset & angle data originated in
