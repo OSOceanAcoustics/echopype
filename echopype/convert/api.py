@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union
 
 import fsspec
 from datatree import DataTree
@@ -313,10 +313,9 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    destination_path: Optional[str] = "auto",
-    destination_storage_options: Optional[Dict[str, str]] = None,
+    use_swap: Union[Literal["auto"], bool] = "auto",
     max_chunk_size: str = "100MB",
-) -> Optional[EchoData]:
+) -> EchoData:
     """Create an EchoData object containing parsed data from a single raw data file.
 
     The EchoData object can be used for adding metadata and ancillary data
@@ -344,15 +343,11 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict, optional
         options for cloud storage
-    destination_path: str
-        The path to a swap directory in a case of a large memory footprint.
-        This path can be a remote path like s3://bucket/swap_dir.
+    use_swap: "auto" | bool
+        Flag to use disk swap in a case of a large memory footprint.
         By default, it will create a temporary zarr store at
-        ``~/.echopype/temp_output/parsed2zarr_temp_files`` if needed,
+        the operating system's temporary directory if needed,
         when set to "auto".
-    destination_storage_options: dict, optional
-        Options for remote storage for the swap directory ``destination_path``
-        argument.
     max_mb : int
         The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
@@ -378,11 +373,14 @@ def open_raw(
     In a case of a large memory footprint, the program will determine if using
     a temporary swap space is needed. If so, it will use that space
     during conversion to prevent out of memory errors.
-    Users can override this behaviour by either passing ``"swap"`` or ``"no_swap"``
-    into the ``destination_path`` argument.
+
+    Users can override this behaviour by either passing
+    ``use_swap=True`` or ``use_swap=False``. By default a keyword "auto" is
+    used for the ``use_swap`` parameter, which will determine the usage of
+    swap space automatically.
+
     This feature is only available for the following
-    echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
-    is currently in beta.
+    echosounders: EK60, ES70, EK80, ES80, EA640.
     """
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
@@ -436,8 +434,7 @@ def open_raw(
         # Perform rectangularization and offload to zarr
         # if the data expansion is too large to fit in memory
         parser.rectangularize_data(
-            dest_path=destination_path,
-            dest_storage_options=destination_storage_options,
+            use_swap=use_swap,
             max_chunk_size=max_chunk_size,
         )
 
