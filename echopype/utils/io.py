@@ -9,7 +9,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path, WindowsPath
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import fsspec
 import xarray as xr
@@ -448,65 +448,22 @@ def _create_zarr_store_map(path: str, storage_options: dict) -> FSMap:
     return fsspec.get_mapper(file_path, **storage_options)
 
 
-def create_temp_zarr_store(
-    dest_path: Optional[str] = None, dest_storage_options: Dict[Any, Any] = {}, retries: int = 10
-) -> FSMap:
+def create_temp_zarr_store() -> FSMap:
     """Create a temporary zarr store for swapping data.
-
-    Parameters
-    ----------
-    dest_path : str, optional
-        The destination path to create the swap file, by default None.
-        If None, then use system temp directory.
-    dest_storage_options : dict, optional
-        The storage options for the destination path
-    retries : int, default 10
-        The number of retries to attempt to create a unique swap file
 
     Returns
     -------
     FSMap
         The zarr store for swapping data
 
-    Raises
-    ------
-    RuntimeError
-        If unable to construct an unused zarr file name for swap after retries
     """
-    if dest_path is None:
-        # Use system temp directory to create swap file by default
-        with tempfile.TemporaryDirectory(
-            suffix=".zarr",
-            prefix=f"{_SWAP_PREFIX}--",
-            dir=ECHOPYPE_TEMP_DIR,
-        ) as zarr_path:
-            return fsspec.get_mapper(zarr_path)
-
-    # User is able to specify a path to create the swap file
-    temp_zarr_dir = str(dest_path)
-
-    # Set default storage options if None
-    if dest_storage_options is None:
-        dest_storage_options = {}
-
-    # attempt to find different zarr_file_name
-    attempt = 0
-    exists = True
-    while exists:
-        zarr_store = _create_zarr_store_map(
-            path=temp_zarr_dir, storage_options=dest_storage_options
-        )
-        exists = zarr_store.fs.exists(zarr_store.root)
-        attempt += 1
-
-        if attempt == retries and exists:
-            raise RuntimeError(
-                (
-                    "Unable to construct an unused zarr file name for swap ",
-                    f"after {retries} retries!",
-                )
-            )
-    return zarr_store
+    # Use system temp directory to create swap file by default
+    with tempfile.TemporaryDirectory(
+        suffix=".zarr",
+        prefix=f"{_SWAP_PREFIX}--",
+        dir=ECHOPYPE_TEMP_DIR,
+    ) as zarr_path:
+        return fsspec.get_mapper(zarr_path)
 
 
 def delete_zarr_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] = None) -> None:

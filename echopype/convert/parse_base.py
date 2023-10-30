@@ -21,12 +21,6 @@ FILENAME_DATETIME_EK60 = (
 # Manufacturer-specific power conversion factor
 INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
-# Determine whether to use swap
-SWAP_MAP = {
-    "swap": True,
-    "no_swap": False,
-}
-
 logger = _init_logger(__name__)
 
 
@@ -127,8 +121,7 @@ class ParseEK(ParseBase):
 
     def rectangularize_data(
         self,
-        dest_path: Optional[str] = None,
-        dest_storage_options: Optional[dict] = None,
+        use_swap: "bool | Literal['auto']" = "auto",
         max_chunk_size: str = "100MB",
     ) -> None:
         """
@@ -136,33 +129,15 @@ class ParseEK(ParseBase):
         Additionally, convert the data to a numpy array
         indexed by channel.
         """
-        # Default to not use swap
-        use_swap = False
-
         # Determine use_swap
-        if dest_path == "auto":
+        if use_swap == "auto":
             use_swap = self.__should_use_swap()
-        elif dest_path in SWAP_MAP:
-            use_swap = SWAP_MAP[dest_path]
-        elif dest_path is not None:
-            use_swap = True
-            if "://" in dest_path and not dest_storage_options:
-                raise ValueError(
-                    (
-                        "Please provide storage options for remote destination. ",
-                        "If access is already configured locally, ",
-                        "simply put an empty dictionary.",
-                    )
-                )
 
         # Perform rectangularization
         zarr_root = None
         if use_swap:
-            # Set destination path to None if "swap" keyword is used
-            if dest_path in ["swap", "auto"]:
-                dest_path = None
             # Setup temp store
-            zarr_store = create_temp_zarr_store(dest_path, dest_storage_options)
+            zarr_store = create_temp_zarr_store()
             # Setup zarr store
             zarr_root = zarr.group(
                 store=zarr_store, overwrite=True, synchronizer=zarr.ThreadSynchronizer()
@@ -304,22 +279,32 @@ class ParseEK(ParseBase):
             if data_shape[0] != len(self.ping_time[ch_id]):
                 # Let's ensure that the ping time dimension is the same
                 # as the original data shape when written to zarr array
+                # since this will become the coordinate dimension
+                # of the channel data when set in set_groups operation
                 data_shape = (len(self.ping_time[ch_id]),) + data_shape[1:]
             # Write to temp zarr for swap
             # then assign the dask array to the dictionary
-            # TODO: Figure out how this would work on Windows
             if data_type == "complex":
                 # Save real and imaginary components separately
                 ping_data_dict[data_type][ch_id] = {}
-                for name, arr in padded_arr.items():
+                # Go through real and imaginary components
+                for complex_part, arr in padded_arr.items():
                     d_arr = self._write_to_temp_zarr(
-                        arr, zarr_root, f"{raw_type}/{data_type}/{ch_id}/{name}", data_shape, chunks
+                        arr,
+                        zarr_root,
+                        os.path.join(raw_type, data_type, str(ch_id), complex_part),
+                        data_shape,
+                        chunks,
                     )
-                    ping_data_dict[data_type][ch_id][name] = d_arr
+                    ping_data_dict[data_type][ch_id][complex_part] = d_arr
 
             else:
                 d_arr = self._write_to_temp_zarr(
-                    padded_arr, zarr_root, f"{raw_type}/{data_type}/{ch_id}", data_shape, chunks
+                    padded_arr,
+                    zarr_root,
+                    os.path.join(raw_type, data_type, str(ch_id)),
+                    data_shape,
+                    chunks,
                 )
                 ping_data_dict[data_type][ch_id] = d_arr
             # -------------------------------------------------------------------
