@@ -54,13 +54,13 @@ def compare_zarr_vars(
 
 
 @pytest.mark.parametrize(
-    ["raw_file", "sonar_model", "destination_path"],
+    ["raw_file", "sonar_model", "use_swap"],
     [
-        ("L0003-D20040909-T161906-EK60.raw", "EK60", "swap"),
+        ("L0003-D20040909-T161906-EK60.raw", "EK60", True),
         pytest.param(
             "L0003-D20040909-T161906-EK60.raw",
             "EK60",
-            "no_swap",
+            False,
             marks=pytest.mark.xfail(
                 run=False,
                 reason="Expected out of memory error. See https://github.com/OSOceanAcoustics/echopype/issues/489",
@@ -70,17 +70,17 @@ def compare_zarr_vars(
     ids=["noaa_offloaded", "noaa_not_offloaded"],
 )
 @pytest.mark.integration
-def test_raw2zarr(raw_file, sonar_model, destination_path, ek60_path):
+def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
     """Tests for memory expansion relief"""
     import os
     from tempfile import TemporaryDirectory
     from echopype.echodata.echodata import EchoData
 
     name = os.path.basename(raw_file).replace(".raw", "")
-    fname = f"{name}__{destination_path}.zarr"
+    fname = f"{name}__{use_swap}.zarr"
     file_path = ek60_path / raw_file
     echodata = open_raw(
-        raw_file=file_path, sonar_model=sonar_model, destination_path=destination_path
+        raw_file=file_path, sonar_model=sonar_model, use_swap=use_swap
     )
     # Most likely succeed if it doesn't crash
     assert isinstance(echodata, EchoData)
@@ -139,8 +139,8 @@ def test_direct_to_zarr_integration(
 
     raw_file_path = test_path[path_model] / raw_file
 
-    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, max_chunk_size="100MB", destination_path="swap")
-    ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model)
+    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, max_chunk_size="100MB", use_swap=True)
+    ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model, use_swap=False)
 
     for grp in ed_zarr.group_paths:
         # remove conversion time so we can do a direct comparison
