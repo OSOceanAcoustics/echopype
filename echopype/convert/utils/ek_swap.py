@@ -1,4 +1,3 @@
-from operator import itemgetter
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -63,7 +62,7 @@ def calc_final_shapes(
         Dictionary of final shapes for each data type
     """
     # Compute the max dimension shape for each data type
-    datagram_max_shapes = []
+    datagram_max_shapes = {}
     for data_type in data_types:
         # Get the max shape across all channels for a given datagram
         max_shape = _get_datagram_max_shape(ping_data_dict[data_type])
@@ -72,28 +71,23 @@ def calc_final_shapes(
                 # Angle data has 2 variables within,
                 # so just take the first 2 dimension shapes
                 max_shape = max_shape[:2]
-            datagram_max_shapes.append(max_shape)
-
-    all_type_max_shape = None
-    if len(datagram_max_shapes) > 0:
-        # The the max shape across all data types
-        # This should be the maximum expansion shape for all data types
-        all_type_max_shape = max(datagram_max_shapes, key=itemgetter(1))
+            datagram_max_shapes[data_type] = max_shape
 
     # Compute final shapes for each data type
     data_type_shapes = {}
     for data_type in data_types:
         # Check the number of channels for a given data type
         n_channels = len(ping_data_dict[data_type])
-        if n_channels == 0:
+        max_shape = datagram_max_shapes.get(data_type, None)
+        if n_channels == 0 or max_shape is None:
             # If no channels, then set the shape to None
             # since this means no data for this data type
             data_type_shapes[data_type] = None
         elif data_type == "angle":
             # Add 2 to the max shape since angle is 2D array
-            data_type_shapes[data_type] = all_type_max_shape + (2,)
+            data_type_shapes[data_type] = datagram_max_shapes[data_type] + (2,)
         else:
             # For all other data types, just add the max shape
-            data_type_shapes[data_type] = all_type_max_shape
+            data_type_shapes[data_type] = datagram_max_shapes[data_type]
 
     return data_type_shapes
