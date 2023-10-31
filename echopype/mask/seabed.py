@@ -331,9 +331,12 @@ def _blackwell(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX
         below = np.zeros((len(r) - r1, maskchunk.shape[1]), dtype=bool)
         mask = np.r_[above, maskchunk, below]
 
-    # return empty mask if aliased-seabed was not detected in Theta & Phi
+    # give empty mask if aliased-seabed was not detected in Theta & Phi
     else:
-        warnings.warn("No aliased seabed detected in Theta & Phi. Returning empty mask.")
+        warnings.warn(
+            "No aliased seabed detected in Theta & Phi. "
+            "A default mask with all True values is returned."
+        )
         mask = np.zeros_like(Sv, dtype=bool)
 
     mask = np.logical_not(mask.T)
@@ -423,9 +426,12 @@ def _blackwell_mod(
     if r0 > r1:
         raise Exception("Minimum range has to be shorter than maximum range")
 
-    # return empty mask if searching range is outside the echosounder range
+    # give empty mask if searching range is outside the echosounder range
     if (r0 > r[-1]) or (r1 < r[0]):
-        warnings.warn("Search range is outside the echosounder range. Returning empty mask.")
+        warnings.warn(
+            "Search range is outside the echosounder range."
+            "A default mask with all True values is returned."
+        )
         mask = np.zeros_like(Sv, dtype=bool)
 
     # delimit the analysis within user-defined range limits
@@ -485,9 +491,12 @@ def _blackwell_mod(
         below = np.zeros((len(r) - i1, maskchunk.shape[1]), dtype=bool)
         mask = np.r_[above, maskchunk, below]
 
-    # return empty mask if aliased-seabed was not detected in Theta & Phi
+    # give empty mask if aliased-seabed was not detected in Theta & Phi
     else:
-        warnings.warn("Aliased seabed not detected in Theta & Phi. Returning empty mask.")
+        warnings.warn(
+            "Aliased seabed not detected in Theta & Phi."
+            "A default mask with all True values is returned."
+        )
         mask = np.zeros_like(Sv, dtype=bool)
 
     mask = np.logical_not(mask.T)
@@ -708,9 +717,12 @@ def _ariza(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_
     if r0 > r1:
         raise Exception("Minimum range has to be shorter than maximum range")
 
-    # return empty mask if searching range is outside the echosounder range
+    # give empty mask if searching range is outside the echosounder range
     if (r0 > r[-1]) or (r1 < r[0]):
-        warnings.warn("Search range is outside the echosounder range. Returning empty mask.")
+        warnings.warn(
+            "Search range is outside the echosounder range. "
+            "A default mask with all True values is returned."
+        )
         mask = np.zeros_like(Sv, dtype=bool)
 
     # get indexes for range offset and range limits
@@ -723,9 +735,11 @@ def _ariza(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX_SV_
     Sv_[0:r0, :] = -999
     Sv_[r1:, :] = -999
 
-    # return empty mask if there is nothing above threshold
+    # give empty mask if there is nothing above threshold
     if not (Sv_ > thr).any():
-        warnings.warn("Nothing found above the threshold. Returning empty mask.")
+        warnings.warn(
+            "Nothing found above the threshold. " "A default mask with all True values is returned."
+        )
         mask = np.zeros_like(Sv_, dtype=bool)
 
     # search for seabed otherwise
