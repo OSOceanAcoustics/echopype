@@ -280,15 +280,17 @@ class ParseEK(ParseBase):
                 # Get the number of transducer sectors
                 num_transducer_sectors = self.num_transducer_sectors
 
-                # Reshape the padded array
-                # based on the number of transducer sectors
-                data_shape = padded_arr.shape
-                data_shape = (
-                    data_shape[0],
-                    int(data_shape[1] / num_transducer_sectors[ch_id]),
-                    num_transducer_sectors[ch_id],
-                )
-                padded_arr = padded_arr.reshape(data_shape)
+                if num_transducer_sectors:
+                    # Reshape the padded array
+                    # based on the number of transducer sectors
+                    # if it exists
+                    data_shape = padded_arr.shape
+                    data_shape = (
+                        data_shape[0],
+                        int(data_shape[1] / num_transducer_sectors[ch_id]),
+                        num_transducer_sectors[ch_id],
+                    )
+                    padded_arr = padded_arr.reshape(data_shape)
 
                 # Split the complex data into real and imaginary components
                 padded_arr = {
