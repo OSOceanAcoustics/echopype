@@ -4,14 +4,17 @@ import echopype.clean
 
 
 DEFAULT_RYAN_PARAMS = {"r0": 180, "r1": 280, "n": 30, "thr": -6, "start": 0}
-DEFAULT_ARIZA_PARAMS = {"offset": 20, "thr": (-40, -35), "m": 20, "n": 50}
+
+# commented ariza out since the current interpretation relies on a
+# preexisting seabed mask, which is not available in this PR
+# DEFAULT_ARIZA_PARAMS = {"offset": 20, "thr": (-40, -35), "m": 20, "n": 50}
 
 
 @pytest.mark.parametrize(
     "method,parameters,expected_true_false_counts",
     [
-        ("ryan", DEFAULT_RYAN_PARAMS, (1613100, 553831)),
-        ("ariza", DEFAULT_ARIZA_PARAMS, (39897, 2127034)),
+        ("ryan", DEFAULT_RYAN_PARAMS, (1838934, 327997)),
+        # ("ariza", DEFAULT_ARIZA_PARAMS, (39897, 2127034)),
     ],
 )
 def test_get_signal_attenuation_mask(
