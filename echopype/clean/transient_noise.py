@@ -12,6 +12,7 @@ Algorithms for masking transient noise.
 __authors__ = [
     "Alejandro Ariza",  # wrote ryan(), fielding()
     "Mihai Boldeanu",  # adapted the mask transient noise algorithms to echopype
+    "Ruxandra Valcu",  # modified ryan and fielding to run off xarray functionality
 ]
 
 import warnings
@@ -19,14 +20,17 @@ import warnings
 import numpy as np
 import xarray as xr
 
-from ..utils.mask_transformation import lin as _lin, log as _log
+# from ..utils.mask_transformation import lin as _lin, log as _log
+from ..utils.mask_transformation_xr import lin as _lin, line_to_square, log as _log
 
 RYAN_DEFAULT_PARAMS = {
+    #    "m": 5,
+    #    "n": 20,
     "m": 5,
-    "n": 20,
+    "n": 5,
     "thr": 20,
     "excludeabove": 250,
-    "operation": "percentile15",
+    "operation": "mean",
 }
 FIELDING_DEFAULT_PARAMS = {
     "r0": 200,
@@ -83,45 +87,43 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters: dict = RYAN
     excludeabove = parameters["excludeabove"]
     operation = parameters["operation"]
 
-    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
-    Sv = selected_channel_Sv["Sv"].values
-    r = source_Sv["echo_range"].values[0, 0]
+    channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"]
+    range = channel_Sv["echo_range"][0]
 
-    # offsets for i and j indexes
-    ioff = n
-    joff = np.argmin(abs(r - m))
+    # calculate offsets
+    ping_offset = n * 2 + 1
+    range_offset = abs(range - m).argmin(dim="range_sample").values
+    range_offset = int(range_offset) * 2 + 1
 
-    # preclude processing above a user-defined range
-    r0 = np.argmin(abs(r - excludeabove))
+    r0 = abs(range - excludeabove).argmin(dim="range_sample").values
 
-    # mask if Sv sample greater than averaged block
-    # TODO: find out a faster method. The iteration below is too slow.
-    mask = np.ones(Sv.shape, dtype=bool)
-    mask[:, 0:r0] = False
+    mask = Sv > 0  # just to create it at the right size
 
-    for i in range(len(Sv)):
-        for j in range(r0, len(Sv[0])):
-            # proceed only if enough room for setting the block
-            if (i - ioff >= 0) & (i + ioff < len(Sv)) & (j - joff >= 0) & (j + joff < len(Sv[0])):
-                sample = Sv[i, j]
-                if operation == "mean":
-                    block = _log(np.nanmean(_lin(Sv[i - ioff : i + ioff, j - joff : j + joff])))
-                elif operation == "median":
-                    block = _log(np.nanmedian(_lin(Sv[i - ioff : i + ioff, j - joff : j + joff])))
-                else:
-                    block = _log(
-                        np.nanpercentile(
-                            _lin(Sv[i - ioff : i + ioff, j - joff : j + joff]), int(operation[-2:])
-                        )
-                    )
-                mask[i, j] = sample - block > thr
-    mask = np.logical_not(mask)
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask
+    # create averaged/median value block
+    block = _lin(Sv)
+    if operation == "mean":
+        # block = block.rolling(ping_time=n, range_sample=range_offset).mean()
+        block = block.rolling(ping_time=ping_offset, range_sample=range_offset, center=True).reduce(
+            func=np.nanmean
+        )
+    elif operation == "median":
+        block = block.rolling(ping_time=ping_offset, range_sample=range_offset, center=True).reduce(
+            func=np.nanmedian
+        )
+    else:  # percentile
+        q = int(operation[-2:])
+        block = block.rolling(ping_time=ping_offset, range_sample=range_offset, center=True).reduce(
+            func=np.nanpercentile, q=q
+        )
+    block = _log(block)
+
+    mask = Sv - block > thr
+
+    mask = mask.where(~(mask["range_sample"] < r0), False)
+    mask = ~mask
+
+    return mask
 
 
 def _fielding(
@@ -175,14 +177,14 @@ def _fielding(
     r1 = parameters["r1"]
     n = parameters["n"]
     thr = parameters["thr"]
-    roff = parameters["roff"]
+    # roff = parameters["roff"]
     maxts = parameters["maxts"]
     jumps = parameters["jumps"]
-    start = parameters["start"]
+    # start = parameters["start"]
 
-    selected_channel_Sv = source_Sv.sel(channel=desired_channel)
-    Sv = selected_channel_Sv["Sv"].values
-    r = source_Sv["echo_range"].values[0, 0]
+    channel_Sv = source_Sv.sel(channel=desired_channel)
+    Sv = channel_Sv["Sv"]
+    r = channel_Sv["echo_range"][0]
 
     # raise errors if wrong arguments
     if r0 > r1:
@@ -193,57 +195,92 @@ def _fielding(
         # Raise a warning to inform the user
         warnings.warn(
             "The searching range is outside the echosounder range. "
-            "A default mask with all False values is returned, "
+            "A default mask with all True values is returned, "
             "which won't mask any data points in the dataset."
         )
-        mask = np.zeros_like(Sv, dtype=bool)
-        mask_ = np.zeros_like(Sv, dtype=bool)
-        combined_mask = mask
         return xr.DataArray(
-            combined_mask,
+            np.ones_like(Sv, dtype=bool),
             dims=("ping_time", "range_sample"),
             coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
         )
 
     # get upper and lower range indexes
-    up = np.argmin(abs(r - r0))
-    lw = np.argmin(abs(r - r1))
+    up = abs(r - r0).argmin(dim="range_sample").values
+    lw = abs(r - r1).argmin(dim="range_sample").values
 
     # get minimum range index admitted for processing
-    rmin = np.argmin(abs(r - roff))
+    # rmin = abs(r - roff).argmin(dim="range_sample").values
     # get scaling factor index
-    sf = np.argmin(abs(r - jumps))
-    # start masking process
-    mask_ = np.zeros(Sv.shape, dtype=bool)
-    mask = np.zeros(Sv.shape, dtype=bool)
-    for j in range(start, len(Sv)):
-        # mask where TN evaluation is unfeasible (e.g. edge issues, all-NANs)
-        if (j - n < 0) | (j + n > len(Sv) - 1) | np.all(np.isnan(Sv[j, up:lw])):
-            mask_[j, :] = True
-        # evaluate ping and block averages otherwise
+    sf = abs(r - jumps).argmin(dim="range_sample").values
 
-        else:
-            pingmedian = _log(np.nanmedian(_lin(Sv[j, up:lw])))
-            pingp75 = _log(np.nanpercentile(_lin(Sv[j, up:lw]), 75))
-            blockmedian = _log(np.nanmedian(_lin(Sv[j - n : j + n, up:lw])))
+    range_mask = (Sv.range_sample >= up) & (Sv.range_sample <= lw)
+    Sv_range = Sv.where(range_mask, np.nan)
 
-            # if ping median below 'maxts' permitted, and above enough from the
-            # block median, mask all the way up until noise disappears
-            if (pingp75 < maxts) & ((pingmedian - blockmedian) > thr[0]):
-                r0, r1 = lw - sf, lw
-                while r0 > rmin:
-                    pingmedian = _log(np.nanmedian(_lin(Sv[j, r0:r1])))
-                    blockmedian = _log(np.nanmedian(_lin(Sv[j - n : j + n, r0:r1])))
-                    r0, r1 = r0 - sf, r1 - sf
-                    if (pingmedian - blockmedian) < thr[1]:
-                        break
-                mask[j, r0:] = True
-
-    mask = mask[:, start:] | mask_[:, start:]
-    mask = np.logical_not(mask)
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
+    # get columns in which no processing can be done - question, do we want to mask them out?
+    nan_mask = Sv_range.isnull()
+    nan_mask = nan_mask.reduce(np.any, dim="range_sample")
+    nan_mask[0:n] = False
+    nan_mask[-n:] = False
+    """
+    nan_full_mask = xr.DataArray(
+        data=line_to_square(nan_mask, Sv, "range_sample").transpose(),
+        dims=Sv.dims,
+        coords=Sv.coords,
     )
-    return return_mask
+    """
+
+    ping_median = _log(_lin(Sv_range).median(dim="range_sample", skipna=True))
+    ping_75q = _log(_lin(Sv_range).reduce(np.nanpercentile, q=75, dim="range_sample"))
+
+    block = Sv_range[:, up:lw]
+    block_list = [block.shift({"ping_time": i}) for i in range(-n, n)]
+    concat_block = xr.concat(block_list, dim="range_sample")
+    block_median = _log(_lin(concat_block).median(dim="range_sample", skipna=True))
+
+    # identify columns in which noise can be found
+    noise_column = (ping_75q < maxts) & ((ping_median - block_median) < thr[0])
+
+    noise_column_mask = xr.DataArray(
+        data=line_to_square(noise_column, Sv, "range_sample").transpose(),
+        dims=Sv.dims,
+        coords=Sv.coords,
+    )
+
+    # figure out how far noise extends
+    ping_median = _log(_lin(Sv_range).rolling(range_sample=sf).reduce(func=np.nanmedian))
+    block_median = _log(
+        _lin(Sv_range).rolling(range_sample=sf, ping_time=2 * n + 1).reduce(func=np.nanmedian)
+    )
+    height_mask = ping_median - block_median < thr[1]
+
+    height_noise_mask = height_mask | noise_column_mask
+
+    flipped_mask = height_noise_mask.isel(range_sample=slice(None, None, -1))
+    flipped_mask["range_sample"] = height_mask["range_sample"]
+    neg_mask = ~height_noise_mask
+
+    # propagate break upward
+    flipped_mask = neg_mask.isel(range_sample=slice(None, None, -1))
+    flipped_mask["range_sample"] = height_mask["range_sample"]
+    flipped_mask = ~flipped_mask
+    ft = len(flipped_mask.range_sample) - flipped_mask.argmax(dim="range_sample")
+
+    first_true_indices = xr.DataArray(
+        line_to_square(ft, flipped_mask, dim="range_sample").transpose(),
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+
+    indices = xr.DataArray(
+        line_to_square(height_noise_mask["range_sample"], height_noise_mask, dim="ping_time"),
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
+    )
+
+    noise_spike_mask = height_noise_mask.where(indices > first_true_indices, True)
+
+    mask = noise_spike_mask
+
+    # uncomment if we want to mask out the columns where no processing could be done,
+    # mask = nan_full_mask & noise_spike_mask
+    return mask

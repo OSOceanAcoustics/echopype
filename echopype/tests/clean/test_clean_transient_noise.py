@@ -11,8 +11,8 @@ from echopype.clean.transient_noise import RYAN_DEFAULT_PARAMS, FIELDING_DEFAULT
 @pytest.mark.parametrize(
     "method, parameters ,expected_true_false_counts",
     [
-        ("ryan", RYAN_DEFAULT_PARAMS, (1941916, 225015)),
-        ("fielding", FIELDING_DEFAULT_PARAMS, (1890033, 276898)),
+        ("ryan", RYAN_DEFAULT_PARAMS, (2115052, 51879)),
+        ("fielding", FIELDING_DEFAULT_PARAMS, (2117327, 49604)),
     ],
 )
 def test_get_transient_mask(
