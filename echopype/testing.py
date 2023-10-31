@@ -308,6 +308,7 @@ def _gen_ping_data_dict_power_angle(
     ch_range_sample_len=[[100], [100], [100]],
     ch_range_sample_ping_time_len=[[20], [20], [20]],
     has_angle=[True, True, True],
+    ping_time_jitter_max_ms=0,
 ):
     """
     Mock parser.ping_data_dict for EK60/EK80 power-angle data.
@@ -360,7 +361,9 @@ def _gen_ping_data_dict_power_angle(
     )
 
     # Ping time generation
-    ping_data_dict["timestamp"] = _gen_timestamp_data(ch_name, ch_range_sample_ping_time_len)
+    ping_data_dict["timestamp"] = _gen_timestamp_data(
+        ch_name, ch_range_sample_ping_time_len, ping_time_jitter_max_ms
+    )
 
     return ping_data_dict
 
@@ -370,6 +373,7 @@ def _gen_ping_data_dict_complex(
     ch_range_sample_len=[[100], [100], [100]],
     ch_range_sample_ping_time_len=[[20], [20], [20]],
     has_angle=[False, False, False],
+    ping_time_jitter_max_ms=0,
 ):
     """
     Mock parser.ping_data_dict for EK80 complex data.
@@ -413,7 +417,9 @@ def _gen_ping_data_dict_complex(
     )
 
     # Ping time generation
-    ping_data_dict["timestamp"] = _gen_timestamp_data(ch_name, ch_range_sample_ping_time_len)
+    ping_data_dict["timestamp"] = _gen_timestamp_data(
+        ch_name, ch_range_sample_ping_time_len, ping_time_jitter_max_ms
+    )
 
     return ping_data_dict
 

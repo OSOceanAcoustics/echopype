@@ -6,9 +6,11 @@ import xarray as xr
 
 from echopype.convert.api import open_raw
 
+
 @pytest.fixture
 def ek60_path(test_path):
     return test_path["EK60"]
+
 
 def compare_zarr_vars(
     ed_zarr: xr.Dataset, ed_no_zarr: xr.Dataset, var_to_comp: List[str], ed_path
@@ -79,9 +81,7 @@ def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
     name = os.path.basename(raw_file).replace(".raw", "")
     fname = f"{name}__{use_swap}.zarr"
     file_path = ek60_path / raw_file
-    echodata = open_raw(
-        raw_file=file_path, sonar_model=sonar_model, use_swap=use_swap
-    )
+    echodata = open_raw(raw_file=file_path, sonar_model=sonar_model, use_swap=use_swap)
     # Most likely succeed if it doesn't crash
     assert isinstance(echodata, EchoData)
     with TemporaryDirectory() as tmpdir:
@@ -89,6 +89,7 @@ def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
         echodata.to_zarr(output_save_path)
         # If it goes all the way to here it is most likely successful
         assert os.path.exists(output_save_path)
+
 
 @pytest.mark.parametrize(
     ["path_model", "raw_file", "sonar_model"],
@@ -139,7 +140,9 @@ def test_direct_to_zarr_integration(
 
     raw_file_path = test_path[path_model] / raw_file
 
-    ed_zarr = open_raw(raw_file_path, sonar_model=sonar_model, max_chunk_size="100MB", use_swap=True)
+    ed_zarr = open_raw(
+        raw_file_path, sonar_model=sonar_model, max_chunk_size="100MB", use_swap=True
+    )
     ed_no_zarr = open_raw(raw_file_path, sonar_model=sonar_model, use_swap=False)
 
     for grp in ed_zarr.group_paths:

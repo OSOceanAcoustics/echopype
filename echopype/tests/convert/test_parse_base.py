@@ -6,6 +6,7 @@ import pytest
 from echopype.convert.parse_base import FILENAME_DATETIME_EK60, ParseBase, ParseEK, INDEX2POWER
 from echopype.convert.utils.ek_swap import calc_final_shapes
 
+
 class TestParseBase:
     file = "./my_file.raw"
     storage_options = {}
@@ -104,13 +105,13 @@ class TestParseEK:
         parser, orig_data_dict, fixture_param, mocker = self._setup_rectangularize_data(
             mocker, sonar_model, use_swap, mock_ping_data_dict_power_angle
         )
-        
+
         # Check for each channel for the array values
         for ch, arr in parser.ping_data_dict[data_type].items():
             if arr is not None:
                 # Check for expected type
                 assert isinstance(arr, expected_type)
-                
+
                 # Check expanded shape
                 if use_swap:
                     # Check for each channel for the array expansion shape
@@ -119,7 +120,7 @@ class TestParseEK:
                     # Check that the array ping time dimension matches
                     assert len(parser.ping_time[ch]) == arr.shape[0]
                     assert arr.shape == (len(parser.ping_time[ch]),) + data_shape[1:]
-                    
+
                     # Load the dask array into memory
                     arr = arr.compute()
                 else:
@@ -188,7 +189,7 @@ class TestParseEK:
                 # Check that the array ping time dimension matches
                 assert len(parser.ping_time[ch]) == arr.shape[0]
                 assert arr.shape == (len(parser.ping_time[ch]),) + data_shape[1:]
-                
+
                 # Load the dask array into memory
                 arr = arr.compute()
             else:
