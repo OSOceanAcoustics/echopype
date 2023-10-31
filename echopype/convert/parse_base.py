@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict
 from datetime import datetime as dt
-from typing import Literal, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple
 
 import dask
 import dask.array as da
@@ -75,6 +75,23 @@ class ParseEK(ParseBase):
         logger.info(
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
+
+    @property
+    def num_transducer_sectors(self) -> Dict[Any, int]:
+        """Get the number of transducer sectors for each channel.
+        This is for receive raw type only."""
+        num_sectors = {}
+        if self.ping_data_dict["n_complex"]:
+            n_complex = self.ping_data_dict["n_complex"]
+            for ch_id, n_complex_list in n_complex.items():
+                num_transducer_sectors = np.unique(np.array(n_complex_list))
+                if num_transducer_sectors.size > 1:  # this is not supposed to happen
+                    raise ValueError("Transducer sector number changes in the middle of the file!")
+                else:
+                    num_transducer_sectors = num_transducer_sectors[0]
+
+                num_sectors[ch_id] = int(num_transducer_sectors)
+        return num_sectors
 
     def _get_data_shapes(self) -> dict:
         """Get all the expanded data shapes"""
@@ -260,7 +277,24 @@ class ParseEK(ParseBase):
 
             # Split complex data into real and imaginary components
             if data_type == "complex":
-                padded_arr = {"real": np.real(padded_arr), "imag": np.imag(padded_arr)}
+                # Get the number of transducer sectors
+                num_transducer_sectors = self.num_transducer_sectors
+
+                # Reshape the padded array
+                # based on the number of transducer sectors
+                data_shape = padded_arr.shape
+                data_shape = (
+                    data_shape[0],
+                    int(data_shape[1] / num_transducer_sectors[ch_id]),
+                    num_transducer_sectors[ch_id],
+                )
+                padded_arr = padded_arr.reshape(data_shape)
+
+                # Split the complex data into real and imaginary components
+                padded_arr = {
+                    "real": np.real(padded_arr).astype("float64"),
+                    "imag": np.imag(padded_arr).astype("float64"),
+                }
 
                 # Take care of 0s in imaginary part data
                 imag_arr = padded_arr["imag"]

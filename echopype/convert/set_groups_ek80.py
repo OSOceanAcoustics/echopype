@@ -708,30 +708,13 @@ class SetGroupsEK80(SetGroupsBase):
         return ds_tmp
 
     def _assemble_ds_complex(self, ch):
-        num_transducer_sectors = np.unique(
-            np.array(self.parser_obj.ping_data_dict["n_complex"][ch])
-        )
-        if num_transducer_sectors.size > 1:  # this is not supposed to happen
-            raise ValueError("Transducer sector number changes in the middle of the file!")
-        else:
-            num_transducer_sectors = num_transducer_sectors[0]
-
-        reshaped_data = {}
-        for name, arr in self.parser_obj.ping_data_dict["complex"][ch].items():
-            data_shape = arr.shape
-            data_shape = (
-                data_shape[0],
-                int(data_shape[1] / num_transducer_sectors),
-                num_transducer_sectors,
-            )
-            data = arr.reshape(data_shape)
-            reshaped_data[name] = data
-
+        num_transducer_sectors = self.parser_obj.num_transducer_sectors[ch]
+        data_shape = self.parser_obj.ping_data_dict["complex"][ch]["real"].shape
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
                     ["ping_time", "range_sample", "beam"],
-                    reshaped_data["real"],
+                    self.parser_obj.ping_data_dict["complex"][ch]["real"],
                     {
                         "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
                             "long_name"
@@ -741,7 +724,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "backscatter_i": (
                     ["ping_time", "range_sample", "beam"],
-                    reshaped_data["imag"],
+                    self.parser_obj.ping_data_dict["complex"][ch]["imag"],
                     {
                         "long_name": self._varattrs["beam_var_default"]["backscatter_i"][
                             "long_name"
