@@ -280,7 +280,7 @@ class ParseEK(ParseBase):
                 # Get the number of transducer sectors
                 num_transducer_sectors = self.num_transducer_sectors
 
-                if num_transducer_sectors and num_transducer_sectors[ch_id] > 0:
+                if (ch_id in num_transducer_sectors) and (num_transducer_sectors[ch_id] > 0):
                     # Reshape the padded array
                     # based on the number of transducer sectors
                     # if it exists
