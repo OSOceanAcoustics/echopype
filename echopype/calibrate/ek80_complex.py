@@ -294,15 +294,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
 
         pc_all.append(pc)
 
-    pc_all = xr.DataArray(
-        pc_all,
-        coords={
-            "channel": backscatter["channel"],
-            "ping_time": backscatter["ping_time"],
-            "beam": backscatter["beam"],
-            "range_sample": backscatter["range_sample"],
-        },
-    )
+    pc_all = xr.concat(pc_all, dim="channel")
 
     return pc_all
 
