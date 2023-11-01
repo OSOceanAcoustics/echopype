@@ -3,6 +3,7 @@ from typing import Dict, Literal, Optional, Union
 
 import numpy as np
 import xarray as xr
+import dask.array
 from scipy import signal
 
 from ..convert.set_groups_ek80 import DECIMATION, FILTER_IMAG, FILTER_REAL
@@ -273,21 +274,34 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         A data array containing pulse compression output.
     """
     pc_all = []
+
     for chan in backscatter["channel"]:
+        # Select channel `chan` and drop the specific beam dimension if all of the values are nan.
         backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
 
         tx = chirp[str(chan.values)]
         replica = np.flipud(np.conj(tx))
+
+        def _signal_convolve(m):
+            return signal.convolve(m, replica, mode="full")[replica.size - 1 :]
+
+        def _dask_map_overlap(m_out):
+            # TODO: Check if this is the best chunk size.
+            m_out = dask.array.from_array(m_out, chunks=(2000))
+            return dask.array.map_overlap(
+                _signal_convolve,
+                m_out,
+                depth=replica.size,
+            ).compute()
+
+        # Do convolution parallelly on backscatter_chan dask array using map_overlap
         pc = xr.apply_ufunc(
-            lambda m: np.apply_along_axis(
-                lambda m: (signal.convolve(m, replica, mode="full")[tx.size - 1 :]),
-                axis=2,
-                arr=m,
-            ),
+            _dask_map_overlap,
             backscatter_chan,
             input_core_dims=[["range_sample"]],
             output_core_dims=[["range_sample"]],
-            # exclude_dims={"range_sample"},
+            dask="parallelized",
+            vectorize=True,
         )
 
         pc_all.append(pc)
