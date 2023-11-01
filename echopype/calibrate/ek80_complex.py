@@ -1,9 +1,9 @@
 from collections import defaultdict
 from typing import Dict, Literal, Optional, Union
 
+import dask.array
 import numpy as np
 import xarray as xr
-import dask.array
 from scipy import signal
 
 from ..convert.set_groups_ek80 import DECIMATION, FILTER_IMAG, FILTER_REAL
