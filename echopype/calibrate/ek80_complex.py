@@ -282,27 +282,15 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         tx = chirp[str(chan.values)]
         replica = np.flipud(np.conj(tx))
 
-        def _signal_convolve(m):
-            return signal.convolve(m, replica, mode="full")[replica.size - 1 :]
-
-        def _dask_map_overlap(m_out):
-            # TODO: Check if this is the best chunk size.
-            m_out = dask.array.from_array(m_out, chunks=(2000))
-            return dask.array.map_overlap(
-                _signal_convolve,
-                m_out,
-                depth=replica.size,
-            ).compute()
-
-        # Do convolution parallelly on backscatter_chan dask array using map_overlap
         pc = xr.apply_ufunc(
-            _dask_map_overlap,
+            lambda m: (signal.convolve(m, replica, mode="full")[replica.size - 1 :]),
             backscatter_chan,
             input_core_dims=[["range_sample"]],
             output_core_dims=[["range_sample"]],
             dask="parallelized",
             vectorize=True,
-        )
+            output_dtypes=[np.complex64],
+        ).compute()
 
         pc_all.append(pc)
 
