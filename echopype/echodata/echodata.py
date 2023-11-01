@@ -517,7 +517,7 @@ class EchoData:
             if v["ext_time_dim_name"] == "scalar"
         ]
         for platform_var in scalar_vars:
-            # Set time_stamp equal to the first ping time whenever either
+            # Set timestamp equal to the first ping time whenever either
             # latitude or longitude is updated without a time dimension
             ext_var = mappings_expanded[platform_var]["external_var"]
             if platform_var == "latitude" or platform_var == "longitude":
