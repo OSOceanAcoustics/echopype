@@ -92,7 +92,7 @@ def get_transient_noise_mask(
     method: str = "ryan",
 ) -> xr.DataArray:
     """
-    Create a mask based on the identified signal attenuations of Sv values at 38KHz.
+    Create a transient noise mask.
     This method is based on:
     Ryan et al. (2015) ‘Reducing bias due to noise and attenuation in
         open-ocean echo integration data’, ICES Journal of Marine Science,
