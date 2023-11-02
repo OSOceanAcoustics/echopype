@@ -40,7 +40,10 @@ def depth_from_pressure(
     latitude : Union[float, FloatSequence], default=30.0
         Latitude in decimal degrees.
     atm_pres_surf : Union[float, FloatSequence], default=0.0
-        Atmospheric pressure at the surface in dbar
+        Atmospheric pressure at the surface in dbar.
+        Use the default 0.0 value if pressure is corrected to be 0 at the surface.
+        Otherwise, enter a correction for pressure due to air, sea ice and any other 
+        medium that may be present
 
     Returns
     -------
