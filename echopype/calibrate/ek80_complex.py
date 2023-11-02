@@ -1,7 +1,6 @@
 from collections import defaultdict
 from typing import Dict, Literal, Optional, Union
 
-import dask.array
 import numpy as np
 import xarray as xr
 from scipy import signal
