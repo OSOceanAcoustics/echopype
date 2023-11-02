@@ -148,7 +148,7 @@ def test_param2da(p_val, channel, da_output):
             marks=pytest.mark.xfail(strict=True, reason="input sa_correction does not contain a 'channel' coordinate"),
         ),
         # input individual param:
-        #   - with channel cooridinate but not identical to argin channel: fail with value error
+        #   - with channel coordinate but not identical to argin channel: fail with value error
         pytest.param(
             "EK80",
             {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "B"]})},
@@ -157,7 +157,7 @@ def test_param2da(p_val, channel, da_output):
                 reason="input sa_correction contains a 'channel' coordinate but it is not identical with input channel"),
         ),
         # input individual param:
-        #   - with channel cooridinate identical to argin channel: should pass
+        #   - with channel coordinate identical to argin channel: should pass
         pytest.param(
             "EK80",
             {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})},

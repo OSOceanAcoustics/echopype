@@ -3,6 +3,9 @@ import xarray as xr
 import echopype as ep
 import pytest
 from numpy.random import default_rng
+from echopype.clean.transient_noise import RYAN_DEFAULT_PARAMS as RYAN_DEFAULT_PARAMS_TR
+from echopype.clean.signal_attenuation import DEFAULT_RYAN_PARAMS
+from echopype.clean.impulse_noise import RYAN_DEFAULT_PARAMS
 
 
 def test_remove_noise():
@@ -24,9 +27,9 @@ def test_remove_noise():
     Sv = xr.DataArray(
         [data],
         coords=[
-            ('channel', chan),
-            ('ping_time', ping_index),
-            ('range_sample', range_sample),
+            ("channel", chan),
+            ("ping_time", ping_index),
+            ("range_sample", range_sample),
         ],
     )
     Sv.name = "Sv"
@@ -40,30 +43,22 @@ def test_remove_noise():
     )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.clean.remove_noise(
-        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
-    )
+    ds_Sv = ep.clean.remove_noise(ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0)
 
     # Test if noise points are nan
-    assert np.isnan(
-        ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=30)
-    )
-    assert np.isnan(
-        ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=60)
-    )
+    assert np.isnan(ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=30))
+    assert np.isnan(ds_Sv.Sv_corrected.isel(channel=0, ping_time=0, range_sample=60))
 
     # Test remove noise on a normal distribution
     np.random.seed(1)
-    data = np.random.normal(
-        loc=-100, scale=2, size=(nchan, npings, nrange_samples)
-    )
+    data = np.random.normal(loc=-100, scale=2, size=(nchan, npings, nrange_samples))
     # Make Dataset to pass into remove_noise
     Sv = xr.DataArray(
         data,
         coords=[
-            ('channel', chan),
-            ('ping_time', ping_index),
-            ('range_sample', range_sample),
+            ("channel", chan),
+            ("ping_time", ping_index),
+            ("range_sample", range_sample),
         ],
     )
     Sv.name = "Sv"
@@ -77,15 +72,10 @@ def test_remove_noise():
     )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.clean.remove_noise(
-        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
-    )
+    ds_Sv = ep.clean.remove_noise(ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0)
     null = ds_Sv.Sv_corrected.isnull()
     # Test to see if the right number of points are removed before the range gets too large
-    assert (
-        np.count_nonzero(null.isel(channel=0, range_sample=slice(None, 50)))
-        == 6
-    )
+    assert np.count_nonzero(null.isel(channel=0, range_sample=slice(None, 50))) == 6
 
 
 def test_remove_noise_no_sound_absorption():
@@ -94,5 +84,31 @@ def test_remove_noise_no_sound_absorption():
     not have sound absorption as a variable.
     """
 
-    pytest.xfail(f"Tests for remove_noise have not been implemented" +
-                 " when no sound absorption is provided!")
+    pytest.xfail(
+        f"Tests for remove_noise have not been implemented"
+        + " when no sound absorption is provided!"
+    )
+
+
+def test_transient_mask_all(sv_dataset_jr161):
+    source_Sv = sv_dataset_jr161
+    ml = ep.clean.api.get_transient_noise_mask_multichannel(
+        source_Sv, method="ryan", parameters=RYAN_DEFAULT_PARAMS_TR
+    )
+    assert np.all(ml["channel"] == source_Sv["channel"])
+
+
+def test_impulse_mask_all(sv_dataset_jr230):
+    source_Sv = sv_dataset_jr230
+    ml = ep.clean.api.get_impulse_noise_mask_multichannel(
+        source_Sv, method="ryan", parameters=RYAN_DEFAULT_PARAMS
+    )
+    assert np.all(ml["channel"] == source_Sv["channel"])
+
+
+def test_attenuation_mask_all(sv_dataset_jr161):
+    source_Sv = sv_dataset_jr161
+    ml = ep.clean.api.get_attenuation_mask_multichannel(
+        source_Sv, method="ryan", parameters=DEFAULT_RYAN_PARAMS
+    )
+    assert np.all(ml["channel"] == source_Sv["channel"])

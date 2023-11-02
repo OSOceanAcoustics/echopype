@@ -12,7 +12,7 @@ from echopype.utils.io import (
     validate_output_path,
     env_indep_joinpath,
     validate_source_ds_da,
-    init_ep_dir
+    init_ep_dir,
 )
 import echopype.utils.io
 
@@ -20,30 +20,30 @@ import echopype.utils.io
 @pytest.mark.parametrize(
     "file_path, should_fail, file_type",
     [
-        ('https://example.com/test.nc', True, 'nc'),
-        ('https://example.com/test.zarr', False, 'zarr'),
-        (os.path.join('folder', 'test.nc'), False, 'nc'),
-        (os.path.join('folder', 'test.zarr'), False, 'zarr'),
-        (Path('https:/example.com/test.nc'), True, 'nc'),
-        (Path('https:/example.com/test.zarr'), True, 'zarr'),
-        (Path('folder/test.nc'), False, 'nc'),
-        (Path('folder/test.zarr'), False, 'zarr'),
-        (fsspec.get_mapper('https://example.com/test.nc'), True, 'nc'),
-        (fsspec.get_mapper('https:/example.com/test.zarr'), False, 'zarr'),
-        (fsspec.get_mapper('folder/test.nc'), False, 'nc'),
-        (fsspec.get_mapper('folder/test.zarr'), False, 'zarr'),
-        ('https://example.com/test.jpeg', True, 'jpeg'),
-        (Path('https://example.com/test.jpeg'), True, 'jpeg'),
-        (fsspec.get_mapper('https://example.com/test.jpeg'), True, 'jpeg'),
+        ("https://example.com/test.nc", True, "nc"),
+        ("https://example.com/test.zarr", False, "zarr"),
+        (os.path.join("folder", "test.nc"), False, "nc"),
+        (os.path.join("folder", "test.zarr"), False, "zarr"),
+        (Path("https:/example.com/test.nc"), True, "nc"),
+        (Path("https:/example.com/test.zarr"), True, "zarr"),
+        (Path("folder/test.nc"), False, "nc"),
+        (Path("folder/test.zarr"), False, "zarr"),
+        (fsspec.get_mapper("https://example.com/test.nc"), True, "nc"),
+        (fsspec.get_mapper("https:/example.com/test.zarr"), False, "zarr"),
+        (fsspec.get_mapper("folder/test.nc"), False, "nc"),
+        (fsspec.get_mapper("folder/test.zarr"), False, "zarr"),
+        ("https://example.com/test.jpeg", True, "jpeg"),
+        (Path("https://example.com/test.jpeg"), True, "jpeg"),
+        (fsspec.get_mapper("https://example.com/test.jpeg"), True, "jpeg"),
     ],
 )
 def test_sanitize_file_path(file_path, should_fail, file_type):
     try:
         sanitized = sanitize_file_path(file_path)
         if not should_fail:
-            if file_type == 'nc':
+            if file_type == "nc":
                 assert isinstance(sanitized, Path) is True
-            elif file_type == 'zarr':
+            elif file_type == "zarr":
                 assert isinstance(sanitized, fsspec.FSMap) is True
     except Exception as e:
         assert isinstance(e, ValueError) is True
@@ -53,41 +53,41 @@ def test_sanitize_file_path(file_path, should_fail, file_type):
     "save_path, engine",
     [
         # Netcdf tests
-        (os.path.join('folder', 'new_test.nc'), 'netcdf4'),
-        (os.path.join('folder', 'new_test.nc'), 'zarr'),
-        (os.path.join('folder', 'path', 'new_test.nc'), 'netcdf4'),
-        ('folder/', 'netcdf4'),
-        ('s3://ooi-raw-data/', 'netcdf4'),
-        (Path('folder/'), 'netcdf4'),
-        (Path('folder/new_test.nc'), 'netcdf4'),
+        (os.path.join("folder", "new_test.nc"), "netcdf4"),
+        (os.path.join("folder", "new_test.nc"), "zarr"),
+        (os.path.join("folder", "path", "new_test.nc"), "netcdf4"),
+        ("folder/", "netcdf4"),
+        ("s3://ooi-raw-data/", "netcdf4"),
+        (Path("folder/"), "netcdf4"),
+        (Path("folder/new_test.nc"), "netcdf4"),
         # Zarr tests
-        (os.path.join('folder', 'new_test.zarr'), 'zarr'),
-        (os.path.join('folder', 'new_test.zarr'), 'netcdf4'),
-        (os.path.join('folder', 'path', 'new_test.zarr'), 'zarr'),
-        ('folder/', 'zarr'),
+        (os.path.join("folder", "new_test.zarr"), "zarr"),
+        (os.path.join("folder", "new_test.zarr"), "netcdf4"),
+        (os.path.join("folder", "path", "new_test.zarr"), "zarr"),
+        ("folder/", "zarr"),
         # Empty tests
-        (None, 'netcdf4'),
-        (None, 'zarr'),
+        (None, "netcdf4"),
+        (None, "zarr"),
         # Remotes
-        ('https://example.com/test.zarr', 'zarr'),
-        ('https://example.com/', 'zarr'),
-        ('https://example.com/test.nc', 'netcdf4'),
-        ('s3://ooi-raw-data/new_test.zarr', 'zarr'),
-        ('s3://ooi-raw-data/new_test.nc', 'netcdf4'),
+        ("https://example.com/test.zarr", "zarr"),
+        ("https://example.com/", "zarr"),
+        ("https://example.com/test.nc", "netcdf4"),
+        ("s3://ooi-raw-data/new_test.zarr", "zarr"),
+        ("s3://ooi-raw-data/new_test.nc", "netcdf4"),
     ],
 )
 def test_validate_output_path(save_path, engine, minio_bucket):
-    output_root_path = os.path.join('.', 'echopype', 'test_data', 'dump')
-    source_file = 'test.raw'
-    if engine == 'netcdf4':
-        ext = '.nc'
+    output_root_path = os.path.join(".", "echopype", "test_data", "dump")
+    source_file = "test.raw"
+    if engine == "netcdf4":
+        ext = ".nc"
     else:
-        ext = '.zarr'
+        ext = ".zarr"
 
     if save_path is not None:
-        if '://' not in str(save_path):
+        if "://" not in str(save_path):
             save_path = os.path.join(output_root_path, save_path)
-        is_dir = True if Path(save_path).suffix == '' else False
+        is_dir = True if Path(save_path).suffix == "" else False
     else:
         is_dir = True
         save_path = output_root_path
@@ -101,31 +101,29 @@ def test_validate_output_path(save_path, engine, minio_bucket):
         )
 
     try:
-        output_path = validate_output_path(
-            source_file, engine, output_storage_options, save_path
-        )
+        output_path = validate_output_path(source_file, engine, output_storage_options, save_path)
 
         assert isinstance(output_path, str) is True
         assert Path(output_path).suffix == ext
 
         if is_dir:
-            assert Path(output_path).name == source_file.replace('.raw', '') + ext
+            assert Path(output_path).name == source_file.replace(".raw", "") + ext
         else:
             output_file = Path(save_path)
-            assert Path(output_path).name == output_file.name.replace(output_file.suffix, '') + ext
+            assert Path(output_path).name == output_file.name.replace(output_file.suffix, "") + ext
     except Exception as e:
-        if 'https://' in save_path:
-            if save_path == 'https://example.com/':
+        if "https://" in save_path:
+            if save_path == "https://example.com/":
                 assert isinstance(e, ValueError) is True
-                assert str(e) == 'Input file type not supported!'
-            elif save_path == 'https://example.com/test.nc':
+                assert str(e) == "Input file type not supported!"
+            elif save_path == "https://example.com/test.nc":
                 assert isinstance(e, ValueError) is True
-                assert str(e) == 'Only local netcdf4 is supported.'
+                assert str(e) == "Only local netcdf4 is supported."
             else:
                 assert isinstance(e, PermissionError) is True
-        elif save_path == 's3://ooi-raw-data/new_test.nc':
+        elif save_path == "s3://ooi-raw-data/new_test.nc":
             assert isinstance(e, ValueError) is True
-            assert str(e) == 'Only local netcdf4 is supported.'
+            assert str(e) == "Only local netcdf4 is supported."
 
 
 def mock_windows_return(*args: Tuple[str, ...]):
@@ -176,9 +174,11 @@ def mock_unix_return(*args: Tuple[str, ...]):
         (r"C:\folder", True, False),
         (r"s3://folder", False, True),
         (r"s3://folder", True, True),
-    ]
+    ],
 )
-def test_env_indep_joinpath_mock_return(save_path: str, is_windows: bool, is_cloud: bool, monkeypatch):
+def test_env_indep_joinpath_mock_return(
+    save_path: str, is_windows: bool, is_cloud: bool, monkeypatch
+):
     """
     Tests the function ``env_indep_joinpath`` using a mock return on varying OS and cloud
     path scenarios by adding a folder and a file to the input ``save_path``.
@@ -202,9 +202,9 @@ def test_env_indep_joinpath_mock_return(save_path: str, is_windows: bool, is_clo
 
     # assign the appropriate mock return for os.path.join
     if is_windows:
-        monkeypatch.setattr(os.path, 'join', mock_windows_return)
+        monkeypatch.setattr(os.path, "join", mock_windows_return)
     else:
-        monkeypatch.setattr(os.path, 'join', mock_unix_return)
+        monkeypatch.setattr(os.path, "join", mock_unix_return)
 
     # add folder and file to path
     joined_path = env_indep_joinpath(save_path, "output", "data.zarr")
@@ -222,7 +222,7 @@ def test_env_indep_joinpath_mock_return(save_path: str, is_windows: bool, is_clo
         (r"C:\root\folder", True, False),
         (r"s3://root/folder", False, True),
         (r"s3://root/folder", True, True),
-    ]
+    ],
 )
 def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cloud: bool):
     """
@@ -253,14 +253,12 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
         assert joined_path == r"s3://root/folder/output/data.zarr"
 
     elif is_windows:
-
         if platform.system() == "Windows":
             assert joined_path == r"C:\root\folder\output\data.zarr"
         else:
             pytest.skip("Skipping Windows parameters because we are not on a Windows machine.")
 
     else:
-
         if platform.system() != "Windows":
             assert joined_path == r"/root/folder/output/data.zarr"
         else:
@@ -270,22 +268,29 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
 @pytest.mark.parametrize(
     ("source_ds_da_input", "storage_options_input", "true_file_type"),
     [
-        pytest.param(42, {}, None,
-                     marks=pytest.mark.xfail(
-                         strict=True,
-                         reason='This test should fail because source_ds is not of the correct type.')
-                     ),
+        pytest.param(
+            42,
+            {},
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="This test should fail because source_ds is not of the correct type.",
+            ),
+        ),
         pytest.param(xr.DataArray(), {}, None),
-        pytest.param({}, 42, None,
-                     marks=pytest.mark.xfail(
-                         strict=True,
-                         reason='This test should fail because storage_options is not of the correct type.')
-                     ),
+        pytest.param(
+            {},
+            42,
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="This test should fail because storage_options is not of the correct type.",
+            ),
+        ),
         (xr.Dataset(attrs={"test": 42}), {}, None),
-        (os.path.join('folder', 'new_test.nc'), {}, 'netcdf4'),
-        (os.path.join('folder', 'new_test.zarr'), {}, 'zarr')
-    ]
-
+        (os.path.join("folder", "new_test.nc"), {}, "netcdf4"),
+        (os.path.join("folder", "new_test.zarr"), {}, "zarr"),
+    ],
 )
 def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_file_type):
     """
@@ -294,7 +299,9 @@ def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_f
     are tested in ``test_validate_output_path`` and are therefore not included here.
     """
 
-    source_ds_output, file_type_output = validate_source_ds_da(source_ds_da_input, storage_options_input)
+    source_ds_output, file_type_output = validate_source_ds_da(
+        source_ds_da_input, storage_options_input
+    )
 
     if isinstance(source_ds_da_input, (xr.Dataset, xr.DataArray)):
         assert source_ds_output.identical(source_ds_da_input)
@@ -302,6 +309,7 @@ def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_f
     else:
         assert isinstance(source_ds_output, str)
         assert file_type_output == true_file_type
+
 
 def test_init_ep_dir(monkeypatch):
     temp_user_dir = tempfile.TemporaryDirectory()
@@ -319,3 +327,8 @@ def test_init_ep_dir(monkeypatch):
     assert echopype.utils.io.ECHOPYPE_DIR.exists() is True
 
     temp_user_dir.cleanup()
+
+
+def test_get_dataset(sv_dataset_jr161):
+    gd = echopype.utils.io.get_dataset(sv_dataset_jr161)
+    assert gd == sv_dataset_jr161
