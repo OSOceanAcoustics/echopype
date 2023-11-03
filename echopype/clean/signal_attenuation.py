@@ -107,6 +107,7 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters=DEFAULT_RYAN
     # nan_mask[-n:] = False
 
     mask = nan_mask & noise_column_mask
+    mask = mask.drop("channel")
     return mask
 
 
@@ -143,6 +144,7 @@ def _ariza(source_Sv, desired_channel, parameters=DEFAULT_ARIZA_PARAMS):
     Sv_sb = Sv.copy(deep=True).where(seabed, np.isnan)
     seabed_percentile = _log(_lin(Sv_sb).reduce(dim="range_sample", func=np.nanpercentile, q=95))
     mask = line_to_square(seabed_percentile < thr[0], Sv, dim="range_sample").transpose()
+    mask = mask.drop("channel")
     return_mask = xr.DataArray(
         mask,
         dims=("ping_time", "range_sample"),

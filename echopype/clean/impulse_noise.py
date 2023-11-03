@@ -93,6 +93,7 @@ def _ryan(
     mask_in[-n:, :] = True
 
     mask = mask | mask_in
+    mask = mask.drop("channel")
     return mask
 
 
