@@ -261,6 +261,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     return ds_MVBS
 
 
+@add_processing_level("L4")
 def compute_NASC(
     ds_Sv: xr.Dataset,
     range_bin: str = "10m",
