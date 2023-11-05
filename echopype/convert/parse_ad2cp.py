@@ -219,7 +219,7 @@ class NoMorePackets(Exception):
 
 
 class ParseAd2cp(ParseBase):
-    def __init__(self, file, params, storage_options={}, dgram_zarr_vars={}, sonar_model="AD2CP"):
+    def __init__(self, file, storage_options={}, dgram_zarr_vars={}, sonar_model="AD2CP"):
         super().__init__(file, storage_options, sonar_model)
         self.config = None
         self.packets: List[Ad2cpDataPacket] = []

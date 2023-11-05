@@ -370,6 +370,7 @@ class ParseEK(ParseBase):
                         # and in the form of floats separated by semicolons
                         v["pulse_duration"] = [float(x) for x in v["pulse_length"].split(";")]
 
+            # print the usual converting message
             self._print_status()
 
             # Check if reading an ME70 file with a CON1 datagram.
