@@ -101,12 +101,15 @@ class ParseEK(ParseBase):
             ping_data_dict = (
                 self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
             )
+            # data_types: ["power", "angle", "complex"]
             data_type_shapes = calc_final_shapes(self.data_types, ping_data_dict)
             all_data_shapes[raw_type] = data_type_shapes
 
         return all_data_shapes
 
-    def __should_use_swap(self, mem_mult: float = 0.4) -> bool:
+    def __should_use_swap(
+        self, expanded_data_shapes: Dict[str, Any], mem_mult: float = 0.4
+    ) -> bool:
         import sys
 
         import psutil
@@ -114,7 +117,7 @@ class ParseEK(ParseBase):
         # Calculate expansion and current data sizes
         total_req_mem = 0
         current_data_size = 0
-        for raw_type, expanded_shapes in self._get_data_shapes().items():
+        for raw_type, expanded_shapes in expanded_data_shapes.items():
             ping_data_dict = (
                 self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
             )
@@ -146,9 +149,12 @@ class ParseEK(ParseBase):
         Additionally, convert the data to a numpy array
         indexed by channel.
         """
+        # Compute the final expansion shapes for each data type
+        expanded_data_shapes = self._get_data_shapes()
+
         # Determine use_swap
         if use_swap == "auto":
-            use_swap = self.__should_use_swap()
+            use_swap = self.__should_use_swap(expanded_data_shapes)
 
         # Perform rectangularization
         zarr_root = None
@@ -159,9 +165,6 @@ class ParseEK(ParseBase):
             zarr_root = zarr.group(
                 store=zarr_store, overwrite=True, synchronizer=zarr.ThreadSynchronizer()
             )
-
-        # Compute the final expansion shapes for each data type
-        expanded_data_shapes = self._get_data_shapes()
 
         for raw_type in self.raw_types:
             data_type_shapes = expanded_data_shapes[raw_type]
