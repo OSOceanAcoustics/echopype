@@ -313,7 +313,7 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    use_swap: Union[Literal["auto"], bool] = "auto",
+    use_swap: Union[bool, Literal["auto"]] = False,
     max_chunk_size: str = "100MB",
 ) -> EchoData:
     """Create an EchoData object containing parsed data from a single raw data file.
