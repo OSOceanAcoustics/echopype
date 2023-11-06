@@ -274,6 +274,10 @@ class ParseEK(ParseBase):
             # this is the first small expansion
             padded_arr = self.pad_shorter_ping(arr_list)
 
+            # POWER and COMPLEX Pre-processing --------
+            # data_type="angle" does not require extra manipulation, so below
+            # only handles power and complex data
+
             # Multiply power data by conversion factor
             if data_type == "power":
                 padded_arr = padded_arr.astype("float32") * INDEX2POWER
@@ -304,6 +308,8 @@ class ParseEK(ParseBase):
                 # Take care of 0s in imaginary part data
                 imag_arr = padded_arr["imag"]
                 padded_arr["imag"] = np.where(imag_arr == 0, np.nan, imag_arr)
+
+            # END POWER and COMPLEX Pre-processing -------
 
             # NO SWAP -----------------------------------------------------------
             # Directly store the padded array
