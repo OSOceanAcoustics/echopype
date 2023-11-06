@@ -343,11 +343,11 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict, optional
         options for cloud storage
-    use_swap: "auto" | bool
-        Flag to use disk swap in a case of a large memory footprint.
-        By default, it will create a temporary zarr store at
-        the operating system's temporary directory if needed,
-        when set to "auto".
+    use_swap: bool or "auto", default False
+        Flag to use disk swap in case of a large memory footprint.
+        When set to ``True`` (or when set to "auto" and large memory footprint is needed,
+        this function will create a temporary zarr store at the operating system's
+        temporary directory.
     max_mb : int
         The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
@@ -370,13 +370,13 @@ def open_raw(
 
     Notes
     -----
-    In a case of a large memory footprint, the program will determine if using
+    In case of a large memory footprint, the program will determine if using
     a temporary swap space is needed. If so, it will use that space
     during conversion to prevent out of memory errors.
 
     Users can override this behaviour by either passing
-    ``use_swap=True`` or ``use_swap=False``. By default a keyword "auto" is
-    used for the ``use_swap`` parameter, which will determine the usage of
+    ``use_swap=True`` or ``use_swap=False``. If a keyword "auto" is
+    used for the ``use_swap`` parameter, echopype will determine the usage of
     swap space automatically.
 
     This feature is only available for the following
