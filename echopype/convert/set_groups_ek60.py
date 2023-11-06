@@ -619,16 +619,17 @@ class SetGroupsEK60(SetGroupsBase):
                         "comment": "From transmit_mode in the EK60 datagram",
                     },
                 ),
+                "backscatter_r": (
+                    ["ping_time", "range_sample"],
+                    self.parser_obj.ping_data_dict["power"][ch],
+                    {
+                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
+                            "long_name"
+                        ],
+                        "units": "dB",
+                    },
+                ),
             }
-
-            var_dict["backscatter_r"] = (
-                ["ping_time", "range_sample"],
-                self.parser_obj.ping_data_dict["power"][ch],
-                {
-                    "long_name": self._varattrs["beam_var_default"]["backscatter_r"]["long_name"],
-                    "units": "dB",
-                },
-            )
 
             ds_tmp = xr.Dataset(
                 var_dict,
