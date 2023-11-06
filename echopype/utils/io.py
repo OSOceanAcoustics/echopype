@@ -4,7 +4,6 @@ echopype utilities for file handling
 import os
 import pathlib
 import platform
-import secrets
 import sys
 import tempfile
 import uuid
@@ -436,18 +435,6 @@ def validate_source_ds_da(
 
 
 # Utilities for creating temporary swap zarr files -------------------------------------
-def _create_zarr_store_map(path: str, storage_options: dict) -> FSMap:
-    """Create a zarr store map"""
-    file_path = validate_output_path(
-        # Use same swap prefix for swap zarr files
-        source_file=f"{_SWAP_PREFIX}--{secrets.token_hex(16)[:8]}",
-        engine="zarr",
-        save_path=path,
-        output_storage_options=storage_options,
-    )
-    return fsspec.get_mapper(file_path, **storage_options)
-
-
 def create_temp_zarr_store() -> FSMap:
     """Create a temporary zarr store for swapping data.
 
