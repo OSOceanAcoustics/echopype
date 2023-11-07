@@ -5,6 +5,7 @@ import tempfile
 
 import pytest
 
+from datatree import DataTree
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -146,6 +147,56 @@ def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     )
 
 
+def _build_ed_for_add_depth(mock_data_dct):
+    """
+    Build a mock EchoData object that only has the variables used when passing an
+    EchoData object to consolidate.add_depth
+    """
+    channels = [f"ch{i + 1}" for i in range(len(mock_data_dct["transducer_offset_z"]))]
+    sonar_model = mock_data_dct["sonar_model"]
+
+    ed = ep.echodata.echodata.EchoData(sonar_model=sonar_model)
+
+    tree = DataTree.from_dict(
+        {
+            'Platform': xr.Dataset(
+                {
+                    # Note: transducer_offset_x/y are not necessary for add_depth testing
+                    "transducer_offset_z": (["channel"], mock_data_dct["transducer_offset_z"]),
+                    "water_level": ([], mock_data_dct["water_level"]),
+                    "vertical_offset": (["time2"], mock_data_dct["vertical_offset"]),
+                    "pitch": (["time2"], mock_data_dct["pitch"]),
+                    "roll": (["time2"], mock_data_dct["roll"]),
+                },
+                coords={
+                    "channel": (["channel"], channels),
+                    # Hardwired to 3 time steps
+                    "time2": (
+                        ["time2"],
+                        np.array(['2021-07-01T01:30:00.01', '2021-07-01T01:31:00.01',
+                                  '2021-07-01T01:32:00.01'], dtype='datetime64[ns]')
+                    ),
+                }
+            ),
+            'Sonar': xr.Dataset(attrs={"sonar_model": sonar_model}),
+            'Sonar/Beam_group1': xr.Dataset(
+                {
+                    "beam_direction_x": (["channel"], mock_data_dct["beam_direction_x"]),
+                    "beam_direction_y": (["channel"], mock_data_dct["beam_direction_y"]),
+                    "beam_direction_z": (["channel"], mock_data_dct["beam_direction_z"]),
+                },
+                coords={
+                    "channel": (["channel"], channels)
+                }
+            ),
+        },
+        name='root'
+    )
+    ed._set_tree(tree)
+
+    return ed
+
+
 def test_add_depth():
     # Build test Sv dataset
     channel = ["channel_0", "channel_1", "channel_2"]
@@ -176,6 +227,49 @@ def test_add_depth():
 
     # check attributes
     # assert ds_Sv_depth["depth"].attrs == {"long_name": "Depth", "standard_name": "depth"}
+
+
+def test_add_depth_from_echodata_mock():
+    """
+    Test add_depth with data from a mocked, minimal EchoData object
+    and a mocked Sv dataset consistent with that object.
+    """
+    # Create mocked EchoData object
+    mock_data_dct = dict(
+        sonar_model="EK60",
+        transducer_offset_z=[15.0, 15.0],
+        water_level=10.0,
+        vertical_offset=[0.1, -0.1, 0.6],
+        pitch=[2.0, 3.0, -1.0],
+        roll=[-1.0, 5.0, 4.0],
+        beam_direction_x=[0.0, 0.0],
+        beam_direction_y=[0.0, 0.05],
+        beam_direction_z=[1.0, 0.9975],
+    )
+    ed = _build_ed_for_add_depth(mock_data_dct)
+
+    # Create mocked Sv Dataset
+    channel = ed["Sonar/Beam_group1"]["channel"].values
+    # TODO: modify ping_time a bit, so it's not identical to time2 and interpolation is needed?
+    ping_time = ed["Platform"]["time2"].values
+    range_sample = np.arange(6)
+    sample_interval = 0.1
+    ds_Sv = _build_ds_Sv(channel, range_sample, ping_time, sample_interval)
+
+    # add_depth
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, ed)
+
+    # These depths were pre-calculated with consolidate.add_depth
+    # Replace with inline calculations? That may get involved, though.
+    target_depth = np.array(
+        [[[4.9, 4.9999, 5.0998, 5.1998, 5.2997, 5.3996],
+          [5.1, 5.1995, 5.2990, 5.3984, 5.4979, 5.5974],
+          [4.4, 4.4997, 4.5995, 4.6992, 4.7990, 4.8987]],
+         [[4.9, 4.9999, 5.0998, 5.1997, 5.2995, 5.3994],
+          [5.1, 5.1989, 5.2978, 5.3968, 5.4957, 5.5946],
+          [4.4, 4.4993, 4.5985, 4.6978, 4.7971, 4.8963]]]
+    )
+    np.isclose(ds_Sv_depth["depth"].values, target_depth).all()
 
 
 def test_add_depth_from_echodata(test_path):
