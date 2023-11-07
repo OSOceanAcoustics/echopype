@@ -70,7 +70,7 @@ def add_depth(
     ds : xr.Dataset
         Source Sv dataset to which a depth variable will be added.
         Must contain `echo_range`.
-    echodata : EchoData, default=None
+    echodata : EchoData, optional
         ``EchoData`` object from which the ``Sv` dataset originated.
         It must contain transducer position and orientation information.
     echodata_strict : bool, default=False
