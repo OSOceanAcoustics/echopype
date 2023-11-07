@@ -118,9 +118,15 @@ if __name__ == "__main__":
     for k, v in test_to_run.items():
         print(f"=== RUNNING {k.upper()} TESTS===")
         print(f"Touched files: {','.join([os.path.basename(p) for p in v])}")
-        if all(os.path.exists(f) for f in v):
+        # Run specific test files
+        # The input files must all starts with "test" in their name
+        # otherwise module globbing for specific test files will
+        # be used
+        if all(f.name.startswith("test") for f in v):
+            # For specific test files
             test_files = [str(p) for p in v]
         else:
+            # Run all tests in a module
             if k == "root":
                 file_glob_str = "echopype/tests/test_*.py"
                 cov_mod_arg = ["--cov=echopype"]
