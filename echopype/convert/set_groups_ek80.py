@@ -74,7 +74,7 @@ class SetGroupsEK80(SetGroupsBase):
         # if we have zarr files, create parser_obj.ch_ids
         if self.parsed2zarr_obj.temp_zarr_dir:
             for k, v in self.parsed2zarr_obj.p2z_ch_ids.items():
-                self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
+                self.parser_obj.ch_ids[k] = self.parsed2zarr_obj._get_channel_ids(v)
 
         # obtain sorted channel dict in ascending order for each usage scenario
         self.sorted_channel = {
@@ -1067,26 +1067,25 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.zarr_file_name
-        backscatter_r = self._get_power_dataarray(zarr_path)
-        angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
+        backscatter_r = self.parsed2zarr_obj.power_dataarray
+        angle_athwartship, angle_alongship = self.parsed2zarr_obj.angle_dataarrays
+
+        # Obtain RAW4 transmit pulse data if it exists
+        tx_pulse_list = []
+        if (
+            hasattr(self.parsed2zarr_obj, "tx_complex_dataarrays")
+            and self.parsed2zarr_obj.tx_complex_dataarrays is not None
+        ):
+            tx_pulse_list = list(self.parsed2zarr_obj.tx_complex_dataarrays)
 
         # create power related ds using DataArrays created from zarr file
-        ds_power = xr.merge([backscatter_r, angle_athwartship, angle_alongship])
+        ds_power = xr.merge(
+            [backscatter_r, angle_athwartship, angle_alongship] + tx_pulse_list,
+            combine_attrs="override",
+        )
         ds_power = set_time_encodings(ds_power)
 
-        # obtain additional variables that need to be added to ds_power
-        ds_tmp = []
-        for ch in self.sorted_channel["power"]:
-            ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
-            ds_data = set_time_encodings(ds_data)
-
-            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_power.range_sample.size)
-            ds_tmp.append(ds_data)
-
-        ds_tmp = self.merge_save(ds_tmp, ds_invariant_power)
-
-        return xr.merge([ds_tmp, ds_power], combine_attrs="override")
+        return xr.merge([ds_invariant_power, ds_power], combine_attrs="override")
 
     def _get_ds_complex_zarr(self, ds_invariant_complex: xr.Dataset) -> xr.Dataset:
         """
@@ -1109,8 +1108,7 @@ class SetGroupsEK80(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.zarr_file_name
-        backscatter_r, backscatter_i = self._get_complex_dataarrays(zarr_path)
+        backscatter_r, backscatter_i = self.parsed2zarr_obj.complex_dataarrays
 
         # create power related ds using DataArrays created from zarr file
         ds_complex = xr.merge([backscatter_r, backscatter_i])
