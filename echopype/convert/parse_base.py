@@ -291,6 +291,9 @@ class ParseEK(ParseBase):
                     # Reshape the padded array
                     # based on the number of transducer sectors
                     # if it exists
+                    # This reshaping is the same as what was done for angle data
+                    # in ek_raw_parsers.py.SimradRawParser._unpack_contents
+                    # TODO: consider moving this reshaping there
                     data_shape = padded_arr.shape
                     data_shape = (
                         data_shape[0],
