@@ -52,7 +52,7 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
 
 def add_depth(
     ds: xr.Dataset,
-    echodata: EchoData = None,
+    echodata: Optional[EchoData] = None,
     echodata_strict=False,
     depth_offset: float = 0,
     tilt: float = 0,
