@@ -1,3 +1,4 @@
+import dask.array as da
 import numpy as np
 import xarray as xr
 
@@ -113,3 +114,21 @@ def line_to_square(one: xr.DataArray, two: xr.DataArray, dim: str):
     array = xr.concat(array_list, dim=dim)
     # return_data = xr.DataArray(data=array.values, dims=two.dims, coords=two.coords)
     return array.values
+
+
+def dask_nanmedian(array, axis=None):
+    """
+    Nanmedian wrapper that insures the input is a Dask array
+    """
+    if not isinstance(array, da.Array):
+        raise TypeError("Expected a Dask array, got {}.".format(type(array)))
+    return da.nanmedian(array, axis=axis)
+
+
+def dask_nanmean(array, axis=None):
+    """
+    Nanmean wrapper that insures the input is a Dask array
+    """
+    if not isinstance(array, da.Array):
+        raise TypeError("Expected a Dask array, got {}.".format(type(array)))
+    return da.nanmean(array, axis=axis)

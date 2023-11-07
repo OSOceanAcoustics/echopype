@@ -21,7 +21,13 @@ import numpy as np
 import xarray as xr
 
 # from ..utils.mask_transformation import lin as _lin, log as _log
-from ..utils.mask_transformation_xr import lin as _lin, line_to_square, log as _log
+from ..utils.mask_transformation_xr import (
+    dask_nanmean,
+    dask_nanmedian,
+    lin as _lin,
+    line_to_square,
+    log as _log,
+)
 
 RYAN_DEFAULT_PARAMS = {
     #    "m": 5,
@@ -31,6 +37,7 @@ RYAN_DEFAULT_PARAMS = {
     "thr": 20,
     "excludeabove": 250,
     "operation": "mean",
+    "dask_chunking": {"ping_time": 100},
 }
 FIELDING_DEFAULT_PARAMS = {
     "r0": 200,
@@ -41,6 +48,7 @@ FIELDING_DEFAULT_PARAMS = {
     "jumps": 5,
     "maxts": -35,
     "start": 0,
+    "dask_chunking": {"ping_time": 100},
 }
 
 
@@ -71,14 +79,15 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters: dict = RYAN
                 'percentileXX'
                 'median'
                 'mode'#not in numpy
+            dask_chunking(dict): specify what dask chunking to use
 
     Returns:
         xarray.DataArray: xr.DataArray with mask indicating the presence of transient noise.
     """
-    parameter_names = ("m", "n", "thr", "excludeabove", "operation")
+    parameter_names = ("m", "n", "thr", "excludeabove", "operation", "dask_chunking")
     if not all(name in parameters.keys() for name in parameter_names):
         raise ValueError(
-            "Missing parameters - should be m, n, thr, excludeabove, operation, are"
+            "Missing parameters - should be m, n, thr, excludeabove, operation, dask_chunking, are"
             + str(parameters.keys())
         )
     m = parameters["m"]
@@ -86,6 +95,12 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters: dict = RYAN
     thr = parameters["thr"]
     excludeabove = parameters["excludeabove"]
     operation = parameters["operation"]
+    dask_chunking = parameters["dask_chunking"]
+
+    om = {"mean": dask_nanmean, "median": dask_nanmedian}
+
+    if operation not in om.keys():
+        raise ValueError("Wrong operation type {}".format(operation))
 
     channel_Sv = source_Sv.sel(channel=desired_channel)
     Sv = channel_Sv["Sv"]
@@ -98,24 +113,16 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters: dict = RYAN
 
     r0 = abs(range - excludeabove).argmin(dim="range_sample").values
 
-    mask = Sv > 0  # just to create it at the right size
+    Sv = Sv.chunk(dask_chunking)
+    # mask = Sv > 0  # just to create it at the right size
 
     # create averaged/median value block
-    block = _lin(Sv)
-    if operation == "mean":
-        # block = block.rolling(ping_time=n, range_sample=range_offset).mean()
-        block = block.rolling(ping_time=ping_offset, range_sample=range_offset, center=True).reduce(
-            func=np.nanmean
-        )
-    elif operation == "median":
-        block = block.rolling(ping_time=ping_offset, range_sample=range_offset, center=True).reduce(
-            func=np.nanmedian
-        )
-    else:  # percentile
-        q = int(operation[-2:])
-        block = block.rolling(ping_time=ping_offset, range_sample=range_offset, center=True).reduce(
-            func=np.nanpercentile, q=q
-        )
+    block = (
+        _lin(Sv)
+        .rolling(ping_time=ping_offset, range_sample=range_offset, center=True)
+        .reduce(om[operation])
+        .compute()
+    )
     block = _log(block)
 
     mask = Sv - block > thr
@@ -159,29 +166,27 @@ def _fielding(
             r1    (int  ): range above which transient noise is evaluated (m).
             n     (int  ): n of preceding & subsequent pings defining the block.
             thr   (int  ): user-defined threshold for side-comparisons (dB).
-            roff  (int  ): range above which masking is excluded (m).
             maxts (int  ): max transient noise permitted, prevents to interpret
                            seabed as transient noise (dB).
             jumps (int  ): height of vertical steps (m).
-            start (int  ): ping index to start processing.
+            dask_chunking(dict): dask array chunking parameters
 
     Returns:
         xarray.DataArray: xr.DataArray with mask indicating the presence of transient noise.
     """
-    parameter_names = ("r0", "r1", "n", "thr", "roff", "maxts", "jumps", "start")
+    parameter_names = ("r0", "r1", "n", "thr", "maxts", "jumps", "dask_chunking")
     if not all(name in parameters.keys() for name in parameter_names):
         raise ValueError(
-            "Missing parameters - should be r0, r1, n, thr, roff, maxts, jumps, start, are"
+            "Missing parameters - should be r0, r1, n, thr, maxts, jumps, dask_chunking are"
             + str(parameters.keys())
         )
     r0 = parameters["r0"]
     r1 = parameters["r1"]
     n = parameters["n"]
     thr = parameters["thr"]
-    # roff = parameters["roff"]
     maxts = parameters["maxts"]
     jumps = parameters["jumps"]
-    # start = parameters["start"]
+    dask_chunking = parameters["dask_chunking"]
 
     channel_Sv = source_Sv.sel(channel=desired_channel)
     Sv = channel_Sv["Sv"]
@@ -222,13 +227,6 @@ def _fielding(
     nan_mask = nan_mask.reduce(np.any, dim="range_sample")
     nan_mask[0:n] = False
     nan_mask[-n:] = False
-    """
-    nan_full_mask = xr.DataArray(
-        data=line_to_square(nan_mask, Sv, "range_sample").transpose(),
-        dims=Sv.dims,
-        coords=Sv.coords,
-    )
-    """
 
     ping_median = _log(_lin(Sv_range).median(dim="range_sample", skipna=True))
     ping_75q = _log(_lin(Sv_range).reduce(np.nanpercentile, q=75, dim="range_sample"))
@@ -247,11 +245,19 @@ def _fielding(
         coords=Sv.coords,
     )
 
-    # figure out how far noise extends
-    ping_median = _log(_lin(Sv_range).rolling(range_sample=sf).reduce(func=np.nanmedian))
-    block_median = _log(
-        _lin(Sv_range).rolling(range_sample=sf, ping_time=2 * n + 1).reduce(func=np.nanmedian)
+    # Chunk the data if not already chunked
+    Sv_range_chunked = Sv_range.chunk(dask_chunking)
+
+    # Apply rolling operation and reduce using the custom Dask-aware function
+    ping_median = _lin(Sv_range_chunked).rolling(range_sample=sf).reduce(dask_nanmedian)
+    block_median = (
+        _lin(Sv_range_chunked).rolling(range_sample=sf, ping_time=2 * n + 1).reduce(dask_nanmedian)
     )
+
+    # Compute the results
+    ping_median = _log(ping_median.compute())
+    block_median = _log(block_median.compute())
+
     height_mask = ping_median - block_median < thr[1]
 
     height_noise_mask = height_mask | noise_column_mask
