@@ -145,13 +145,20 @@ the latter via `minio <https://minio.io>`_.
 will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
 or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``,
 ``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
-as an argument a comma-separated list of the modules that have changed. For example:
+as an argument a comma-separated list of the modules that have changed or also run only particular test
+files by passing a comma-separated list of test files that you want to run. For example:
 
 .. code-block:: bash
 
     python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/preprocess/noise_est.py
 
 will run only tests associated with the ``calibrate`` and ``preprocess`` subpackages.
+
+.. code-block:: bash
+
+    python .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
+
+will run only the tests in the ``test_convert_azfp.py`` and ``test_noise.py`` files.
 For ``run-test.py`` usage information, use the ``-h`` argument:
 ``python .ci_helpers/run-test.py -h``
 

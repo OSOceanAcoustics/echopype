@@ -253,7 +253,7 @@ class Parsed2ZarrEK60(Parsed2Zarr):
 
         return mem.total * mem_mult < req_mem
 
-    def datagram_to_zarr(self, max_mb: int) -> None:
+    def datagram_to_zarr(self, dest_path: str, dest_storage_options: dict, max_mb: int) -> None:
         """
         Facilitates the conversion of a list of
         datagrams to a form that can be written
@@ -275,7 +275,7 @@ class Parsed2ZarrEK60(Parsed2Zarr):
         the same.
         """
 
-        self._create_zarr_info()
+        self._create_zarr_info(dest_path=dest_path, dest_storage_options=dest_storage_options)
 
         # create datagram df, if it does not exist
         if not isinstance(self.datagram_df, pd.DataFrame):

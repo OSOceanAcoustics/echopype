@@ -1,5 +1,4 @@
 import datetime
-import shutil
 import warnings
 from html import escape
 from pathlib import Path
@@ -76,18 +75,19 @@ class EchoData:
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
+    def cleanup(self):
+        if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.store is not None):
+            # get Path object of temporary zarr file created by Parsed2Zarr
+            p2z_temp_file = self.parsed2zarr_obj.store
+
+            # remove temporary directory created by Parsed2Zarr, if it exists
+            if p2z_temp_file.fs.exists(p2z_temp_file.root):
+                p2z_temp_file.fs.rm(p2z_temp_file.root, recursive=True)
+
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
         #  even clear all outputs is used. It will work if you explicitly delete the object
-
-        if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.zarr_file_name is not None):
-            # get Path object of temporary zarr file created by Parsed2Zarr
-            p2z_temp_file = Path(self.parsed2zarr_obj.zarr_file_name)
-
-            # remove temporary directory created by Parsed2Zarr, if it exists
-            if p2z_temp_file.exists():
-                # TODO: do we need to check file permissions here?
-                shutil.rmtree(p2z_temp_file)
+        self.cleanup()
 
     def __str__(self) -> str:
         fpath = "Internal Memory"
@@ -517,9 +517,21 @@ class EchoData:
             if v["ext_time_dim_name"] == "scalar"
         ]
         for platform_var in scalar_vars:
+            # Set timestamp equal to the first ping time whenever either
+            # latitude or longitude is updated without a time dimension
             ext_var = mappings_expanded[platform_var]["external_var"]
-            # Replace the scalar value and add a history attribute
-            platform[platform_var].data = float(extra_platform_data[ext_var].data)
+            if platform_var == "latitude" or platform_var == "longitude":
+                platform[platform_var].data = np.array([extra_platform_data[ext_var].data])
+                platform[platform_var] = platform[platform_var].assign_coords(
+                    **{
+                        platform[platform_var].dims[0]: [
+                            self["Sonar/Beam_group1"]["ping_time"].data[0]
+                        ]
+                    }
+                )
+            else:
+                # Replace the scalar value and add a history attribute
+                platform[platform_var].data = float(extra_platform_data[ext_var].data)
             platform[platform_var] = platform[platform_var].assign_attrs(
                 **{"history": f"{history_attr}. From external {ext_var} variable."}
             )

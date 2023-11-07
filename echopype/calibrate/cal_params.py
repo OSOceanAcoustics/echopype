@@ -29,7 +29,7 @@ CAL_PARAMS = {
         "impedance_transceiver",  # z_er
         "receiver_sampling_frequency",
     ),
-    "AZFP": ("EL", "DS", "TVR", "VTX", "equivalent_beam_angle", "Sv_offset"),
+    "AZFP": ("EL", "DS", "TVR", "VTX0", "equivalent_beam_angle", "Sv_offset"),
 }
 
 EK80_DEFAULT_PARAMS = {
@@ -352,7 +352,7 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
                 out_dict[p] = beam[p]  # has only channel dim
 
             # Params from Vendor_specific group
-            elif p in ["EL", "DS", "TVR", "VTX", "Sv_offset"]:
+            elif p in ["EL", "DS", "TVR", "VTX0", "Sv_offset"]:
                 out_dict[p] = vend[p]  # these params only have the channel dimension
 
     return out_dict

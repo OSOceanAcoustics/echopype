@@ -336,9 +336,8 @@ class SetGroupsEK60(SetGroupsBase):
         #  functions below.
 
         # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.zarr_file_name
-        backscatter_r = self._get_power_dataarray(zarr_path)
-        angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
+        backscatter_r = self.parsed2zarr_obj.power_dataarray
+        angle_athwartship, angle_alongship = self.parsed2zarr_obj.angle_dataarrays
 
         # append DataArrays created from zarr file
         ds = ds.assign(

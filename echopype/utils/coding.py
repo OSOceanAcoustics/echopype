@@ -208,6 +208,9 @@ def set_zarr_encodings(
                 chunks = _get_auto_chunk(val, chunk_size=chunk_size)
 
             encoding[name]["chunks"] = chunks
+        if PREFERRED_CHUNKS in encoding[name]:
+            # Remove 'preferred_chunks', use chunks only instead
+            encoding[name].pop(PREFERRED_CHUNKS)
 
     return encoding
 

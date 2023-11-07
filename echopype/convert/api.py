@@ -17,6 +17,7 @@ from ..utils import io
 from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
+from .utils.ek import should_use_swap
 
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
@@ -315,6 +316,8 @@ def open_raw(
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
     use_swap: bool = False,
+    destination_path: Optional[str] = None,
+    destination_storage_options: Optional[Dict[str, str]] = None,
     max_mb: int = 100,
 ) -> Optional[EchoData]:
     """Create an EchoData object containing parsed data from a single raw data file.
@@ -342,11 +345,21 @@ def open_raw(
     convert_params : dict
         parameters (metadata) that may not exist in the raw file
         and need to be added to the converted file
-    storage_options : dict
+    storage_options : dict, optional
         options for cloud storage
     use_swap: bool
+        **DEPRECATED: This flag is ignored**
         If True, variables with a large memory footprint will be
         written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
+    destination_path: str
+        The path to a swap directory in a case of a large memory footprint.
+        This path can be a remote path like s3://bucket/swap_dir.
+        By default, it will create a temporary zarr store at
+        ``~/.echopype/temp_output/parsed2zarr_temp_files`` if needed,
+        when set to "auto".
+    destination_storage_options: dict, optional
+        Options for remote storage for the swap directory ``destination_path``
+        argument.
     max_mb : int
         The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
@@ -369,10 +382,23 @@ def open_raw(
 
     Notes
     -----
-    ``use_swap=True`` is only available for the following
+    In a case of a large memory footprint, the program will determine if using
+    a temporary swap space is needed. If so, it will use that space
+    during conversion to prevent out of memory errors.
+    Users can override this behaviour by either passing ``"swap"`` or ``"no_swap"``
+    into the ``destination_path`` argument.
+    This feature is only available for the following
     echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
     is currently in beta.
     """
+
+    # Initially set use_swap False
+    use_swap = False
+
+    # Set initial destination_path of "no_swap"
+    if destination_path is None:
+        destination_path = "no_swap"
+
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
 
@@ -402,15 +428,6 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
-    # TODO: remove once 'auto' option is added
-    if not isinstance(use_swap, bool):
-        raise ValueError("use_swap must be of type bool.")
-
-    # Ensure use_swap is 'auto', if it is a string
-    # TODO: use the following when we allow for 'auto' option
-    # if isinstance(use_swap, str) and use_swap != "auto":
-    #     raise ValueError("use_swap must be a bool or equal to 'auto'.")
-
     # TODO: the if-else below only works for the AZFP vs EK contrast,
     #  but is brittle since it is abusing params by using it implicitly
     if SONAR_MODELS[sonar_model]["xml"]:
@@ -423,29 +440,49 @@ def open_raw(
 
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
-        file_chk, params=params, storage_options=storage_options, dgram_zarr_vars=dgram_zarr_vars
+        file_chk,
+        params=params,
+        storage_options=storage_options,
+        dgram_zarr_vars=dgram_zarr_vars,
+        sonar_model=sonar_model,
     )
 
     parser.parse_raw()
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        # Create sonar_model-specific p2z object
-        p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
-
-        # Determines if writing to zarr is necessary and writes to zarr
-        p2z_flag = use_swap is True or (
-            use_swap == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
-        )
-
-        if p2z_flag:
-            p2z.datagram_to_zarr(max_mb=max_mb)
-            # Rectangularize the transmit data
-            parser.rectangularize_transmit_ping_data(data_type="complex")
+        swap_map = {
+            "swap": True,
+            "no_swap": False,
+        }
+        if destination_path == "auto":
+            # Overwrite use_swap if it's True below
+            # Use local swap directory
+            use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
+        elif destination_path in swap_map:
+            use_swap = swap_map[destination_path]
         else:
-            del p2z
-            # Create general p2z object
-            p2z = Parsed2Zarr(parser)
+            # TODO: Add docstring about swap path
+            use_swap = True
+            if "://" in destination_path and destination_storage_options is None:
+                raise ValueError(
+                    (
+                        "Please provide storage options for remote destination. ",
+                        "If access is already configured locally, ",
+                        "simply put an empty dictionary.",
+                    )
+                )
+
+        if use_swap:
+            # Create sonar_model-specific p2z object
+            p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
+            p2z.datagram_to_zarr(
+                dest_path=destination_path,
+                dest_storage_options=destination_storage_options,
+                max_mb=max_mb,
+            )
+        else:
+            p2z = Parsed2Zarr(parser)  # Create general p2z object
             parser.rectangularize_data()
 
     else:
