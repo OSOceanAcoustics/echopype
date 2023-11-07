@@ -91,26 +91,35 @@ class ParseAZFP(ParseBase):
         """
 
         xmlmap = fsspec.get_mapper(self.xml_path, **self.storage_options)
-        root = ET.parse(xmlmap.fs.open(xmlmap.root)).getroot()
+        phase_number = None
+        for event, child in ET.iterparse(xmlmap.fs.open(xmlmap.root), events=("start", "end")):
+            if event == "end" and child.tag == "Phases":
+                phase_number = None
+            if event == "start":
+                if len(child.tag) > 3 and not child.tag.startswith("VTX"):
+                    camel_case_tag = camelcase2snakecase(child.tag)
+                else:
+                    camel_case_tag = child.tag
 
-        for child in root.iter():
-            if len(child.tag) > 3 and not child.tag.startswith("VTX"):
-                camel_case_tag = camelcase2snakecase(child.tag)
-            else:
-                camel_case_tag = child.tag
-            if len(child.attrib) > 0:
-                for key, val in child.attrib.items():
-                    self.parameters[camel_case_tag + "_" + camelcase2snakecase(key)].append(val)
+                if len(child.attrib) > 0:
+                    for key, val in child.attrib.items():
+                        attrib_tag = camel_case_tag + "_" + camelcase2snakecase(key)
+                        if phase_number is not None and camel_case_tag != "phase":
+                            attrib_tag += f"_phase{phase_number}"
+                        self.parameters[attrib_tag].append(val)
+                        if child.tag == "Phase":
+                            phase_number = val
 
-            if all(char == "\n" for char in child.text):
-                continue
-            else:
-                try:
-                    val = int(child.text)
-                except ValueError:
-                    val = float(child.text)
-
-            self.parameters[camel_case_tag].append(val)
+                if all(char == "\n" for char in child.text):
+                    continue
+                else:
+                    try:
+                        val = int(child.text)
+                    except ValueError:
+                        val = float(child.text)
+                    if phase_number is not None and camel_case_tag != "phase":
+                        camel_case_tag += f"_phase{phase_number}"
+                    self.parameters[camel_case_tag].append(val)
 
         # Handling the case where there is only one value for each parameter
         for key, val in self.parameters.items():
@@ -188,6 +197,25 @@ class ParseAZFP(ParseBase):
 
         return N * USL5_BAT_CONSTANT
 
+    def _compute_pressure(self, ping_num, is_valid):
+        """
+        Compute pressure in decibar
+
+        Parameters
+        ----------
+        ping_num
+            ping number
+        is_valid
+            whether the associated parameters have valid values
+        """
+        if not is_valid or self.parameters["sensors_flag_pressure_sensor_installed"] == "no":
+            return np.nan
+
+        counts = self.unpacked_data["ancillary"][ping_num][3]
+        v_in = 2.5 * (counts / 65535)
+        P = v_in * self.parameters["a1"] + self.parameters["a0"] - 10.125
+        return P
+
     def parse_raw(self):
         """
         Parse raw data file from AZFP echosounder.
@@ -205,6 +233,7 @@ class ParseAZFP(ParseBase):
                 return True
 
         temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
+        pressure_is_valid = _test_valid_params(["a0", "a1"])
         tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
         tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
 
@@ -225,6 +254,10 @@ class ParseAZFP(ParseBase):
                         # Compute temperature from unpacked_data[ii]['ancillary][4]
                         self.unpacked_data["temperature"].append(
                             self._compute_temperature(ping_num, temperature_is_valid)
+                        )
+                        # Compute pressure from unpacked_data[ii]['ancillary'][3]
+                        self.unpacked_data["pressure"].append(
+                            self._compute_pressure(ping_num, pressure_is_valid)
                         )
                         # compute x tilt from unpacked_data[ii]['ancillary][0]
                         self.unpacked_data["tilt_x"].append(
