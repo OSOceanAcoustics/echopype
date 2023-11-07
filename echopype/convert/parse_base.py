@@ -249,7 +249,7 @@ class ParseEK(ParseBase):
             chunks = auto_chunks(
                 chunks=chunks, shape=data_shape, limit=max_chunk_size, dtype=np.dtype("float64")
             )
-            chunks = chunks + data_shape[2:] # Get the n dimension sizes if > 2D
+            chunks = chunks + data_shape[2:]  # Get the n dimension sizes if > 2D
             chunks = tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
 
         # Go through data for each channel
