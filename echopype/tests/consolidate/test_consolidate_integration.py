@@ -180,7 +180,7 @@ def test_add_depth():
 
 def test_add_depth_from_echodata(test_path):
     """
-    Test add_depth with data from echodata object.
+    Test add_depth with data from EchoData object.
     """
     raw_file = test_path["EK80"] / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw"
     sonar_model = "EK80"
@@ -190,13 +190,13 @@ def test_add_depth_from_echodata(test_path):
 
     ed = ep.open_raw(raw_file, sonar_model=sonar_model)
 
-    Sv_ds = ep.calibrate.compute_Sv(ed, waveform_mode=waveform_mode, encode_mode=encode_mode)
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode=waveform_mode, encode_mode=encode_mode)
 
-    ep.consolidate.add_depth(Sv_ds, ed)
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, ed)
 
-    assert "depth" in Sv_ds
-    assert Sv_ds["depth"].dims == Sv_ds["echo_range"].dims
-    assert not Sv_ds["depth"].isnull().all()
+    assert "depth" in ds_Sv_depth
+    assert ds_Sv_depth["depth"].dims == ds_Sv_depth["echo_range"].dims
+    assert not ds_Sv_depth["depth"].isnull().all()
 
 
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
