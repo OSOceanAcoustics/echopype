@@ -69,7 +69,7 @@ def compare_zarr_vars(
             ),
         ),
     ],
-    ids=["noaa_offloaded", "noaa_not_offloaded"],
+    ids=["noaa_use_swap_true", "noaa_use_swap_false"],
 )
 @pytest.mark.integration
 def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
