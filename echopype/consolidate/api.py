@@ -8,14 +8,14 @@ import xarray as xr
 from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
-from ..utils.io import validate_source_ds_da
+from ..utils.io import open_ds_da_ed_path, validate_source_ds_da_ed
 from ..utils.prov import add_processing_level
 from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
 POSITION_VARIABLES = ["latitude", "longitude"]
 
 
-def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
+def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.Dataset:
     """
     Use frequency_nominal in place of channel to be dataset dimension and coorindate.
 
@@ -24,8 +24,9 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
 
     Parameters
     ----------
-    ds : xr.Dataset
-        Dataset for which the dimension will be swapped
+    ds : xr.Dataset or str or pathlib.Path
+        Dataset or path to a file containing the Dataset
+        for which the dimension will be swapped
 
     Returns
     -------
@@ -35,6 +36,7 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
     -----
     This operation is only possible when there are no duplicated frequencies present in the file.
     """
+    ds, _ = open_ds_da_ed_path(ds, None, {})
     # Only possible if no duplicated frequencies
     if np.unique(ds["frequency_nominal"]).size == ds["frequency_nominal"].size:
         return (
@@ -50,7 +52,7 @@ def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
 
 
 def add_depth(
-    ds: xr.Dataset,
+    ds: Union[xr.Dataset, str, pathlib.Path],
     depth_offset: float = 0,
     tilt: float = 0,
     downward: bool = True,
@@ -64,8 +66,9 @@ def add_depth(
 
     Parameters
     ----------
-    ds : xr.Dataset
-        Source Sv dataset to which a depth variable will be added.
+    ds : xr.Dataset or str or pathlib.Path
+        Source Sv dataset or path to a file containing the Source Sv dataset
+        to which a depth variable will be added.
         Must contain `echo_range`.
     depth_offset : float
         Offset along the vertical (depth) dimension to account for actual transducer
@@ -114,6 +117,7 @@ def add_depth(
     # else:
     #     tilt = 0
 
+    ds, _ = open_ds_da_ed_path(ds, None, {})
     # Multiplication factor depending on if transducers are pointing downward
     mult = 1 if downward else -1
 
@@ -132,7 +136,11 @@ def add_depth(
 
 
 @add_processing_level("L2A")
-def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optional[str] = None):
+def add_location(
+    ds: Union[xr.Dataset, str, pathlib.Path],
+    echodata: Optional[Union[EchoData, str, pathlib.Path]],
+    nmea_sentence: Optional[str] = None,
+):
     """
     Add geographical location (latitude/longitude) to the Sv dataset.
 
@@ -142,10 +150,12 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
 
     Parameters
     ----------
-    ds : xr.Dataset
-        An Sv or MVBS dataset for which the geographical locations will be added to
-    echodata
-        An `EchoData` object holding the raw data
+    ds : xr.Dataset or str or pathlib.Path
+        An Sv or MVBS dataset or path to a file containing the Sv or MVBS
+        dataset for which the geographical locations will be added to
+    echodata : EchoData or str or pathlib.Path
+        An ``EchoData`` object or path to a file containing the ``EchoData``
+        object holding the raw data
     nmea_sentence
         NMEA sentence to select a subset of location data (optional)
 
@@ -174,6 +184,8 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
             # Values may be nan if there are ping_time values outside the time_dim_name range
             return position_var.interp(**{time_dim_name: ds["ping_time"]})
 
+    ds, echodata = open_ds_da_ed_path(ds, echodata, {})
+
     if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
 
@@ -198,7 +210,7 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
 
 def add_splitbeam_angle(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
-    echodata: EchoData,
+    echodata: Union[EchoData, str, pathlib.Path],
     waveform_mode: str,
     encode_mode: str,
     pulse_compression: bool = False,
@@ -218,8 +230,9 @@ def add_splitbeam_angle(
     source_Sv: xr.Dataset or str or pathlib.Path
         The Sv Dataset or path to a file containing the Sv Dataset,
         to which the split-beam angles will be added
-    echodata: EchoData
-        An ``EchoData`` object holding the raw data
+    echodata: EchoData or str or pathlib.Path
+        An ``EchoData`` object or path to a file containing the ``EchoData``
+        object holding the raw data
     waveform_mode : {"CW", "BB"}
         Type of transmit waveform
 
@@ -280,28 +293,17 @@ def add_splitbeam_angle(
     to channels existing in ``source_Sv`` will be added.
     """
 
+    source_ds_da, file_type = validate_source_ds_da_ed(source_Sv, storage_options)
+    source_Sv_path = source_ds_da if isinstance(source_ds_da, str) else None
+
+    source_Sv, echodata = open_ds_da_ed_path(source_Sv, echodata, storage_options)
+
     # ensure that echodata was produced by EK60 or EK80-like sensors
     if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
         raise ValueError(
             "The sonar model that produced echodata does not have split-beam "
             "transducers, split-beam angles cannot be added to source_Sv!"
         )
-
-    # validate the source_Sv type or path (if it is provided)
-    source_Sv, file_type = validate_source_ds_da(source_Sv, storage_options)
-
-    # initialize source_Sv_path
-    source_Sv_path = None
-
-    if isinstance(source_Sv, str):
-        # store source_Sv path so we can use it to write to later
-        source_Sv_path = source_Sv
-
-        # TODO: In the future we can improve this by obtaining the variable names, channels,
-        #  and dimension lengths directly from source_Sv using zarr or netcdf4. This would
-        #  prevent the unnecessary loading in of the coordinates, which the below statement does.
-        # open up Dataset using source_Sv path
-        source_Sv = xr.open_dataset(source_Sv, engine=file_type, chunks={}, **storage_options)
 
     # raise not implemented error if source_Sv corresponds to MVBS
     if source_Sv.attrs["processing_function"] == "commongrid.compute_MVBS":

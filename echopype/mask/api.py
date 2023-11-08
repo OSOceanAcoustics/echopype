@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 import numpy as np
 import xarray as xr
 
-from ..utils.io import validate_source_ds_da
+from ..utils.io import validate_source_ds_da_ed
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
 
@@ -25,7 +25,7 @@ def _validate_source_ds(source_ds, storage_options_ds):
     Validate the input ``source_ds`` and the associated ``storage_options_mask``.
     """
     # Validate the source_ds type or path (if it is provided)
-    source_ds, file_type = validate_source_ds_da(source_ds, storage_options_ds)
+    source_ds, file_type = validate_source_ds_da_ed(source_ds, storage_options_ds)
 
     if isinstance(source_ds, str):
         # open up Dataset using source_ds path
@@ -90,7 +90,7 @@ def _validate_and_collect_mask_input(
 
         for mask_ind in range(len(mask)):
             # validate the mask type or path (if it is provided)
-            mask_val, file_type = validate_source_ds_da(
+            mask_val, file_type = validate_source_ds_da_ed(
                 mask[mask_ind], storage_options_mask[mask_ind]
             )
 
@@ -118,7 +118,7 @@ def _validate_and_collect_mask_input(
             )
 
         # validate the mask type or path (if it is provided)
-        mask, file_type = validate_source_ds_da(mask, storage_options_mask)
+        mask, file_type = validate_source_ds_da_ed(mask, storage_options_mask)
 
         if isinstance(mask, (str, pathlib.Path)):
             # open up DataArray using mask path
@@ -469,7 +469,7 @@ def frequency_differencing(
     freqAB, chanAB, operator, diff = _parse_freq_diff_eq(freqABEq, chanABEq)
 
     # validate the source_Sv type or path (if it is provided)
-    source_Sv, file_type = validate_source_ds_da(source_Sv, storage_options)
+    source_Sv, file_type = validate_source_ds_da_ed(source_Sv, storage_options)
 
     if isinstance(source_Sv, str):
         # open up Dataset using source_Sv path
