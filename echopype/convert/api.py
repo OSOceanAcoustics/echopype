@@ -411,13 +411,11 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
-    params = xml_chk
-
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk,
         # Currently used only for AZFP XML file
-        file_meta=params,
+        file_meta=xml_chk,
         storage_options=storage_options,
         sonar_model=sonar_model,
     )
