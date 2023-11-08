@@ -411,17 +411,11 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
-    # TODO: the if-else below only works for the AZFP vs EK contrast,
-    #  but is brittle since it is abusing params by using it implicitly
-    if SONAR_MODELS[sonar_model]["xml"]:
-        params = xml_chk
-    else:
-        params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
-
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk,
-        params=params,
+        # Currently used only for AZFP XML File
+        file_meta=xml_chk,
         storage_options=storage_options,
         sonar_model=sonar_model,
     )
