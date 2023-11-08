@@ -360,7 +360,6 @@ class EchoData:
             history_attr += ", from file " + extra_platform_data_file_name
 
         platform = self["Platform"]
-        print(platform)
 
         # Retain only variable_mappings items where
         # either the Platform group or extra_platform_data
