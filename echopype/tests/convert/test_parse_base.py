@@ -42,12 +42,14 @@ class TestParseBase:
 class TestParseEK:
     file = "./my_file.raw"
     storage_options = {}
+    file_meta = None
     data_types = ["power", "angle", "complex"]
     raw_types = ["receive", "transmit"]
 
     def _get_parser(self, sonar_model, ping_data_dict):
         parser = ParseEK(
             file=self.file,
+            file_meta=self.file_meta,
             storage_options=self.storage_options,
             sonar_model=sonar_model,
         )
@@ -59,6 +61,7 @@ class TestParseEK:
     def test_constructor(self, sonar_model):
         parser = ParseEK(
             file=self.file,
+            file_meta=self.file_meta,
             storage_options=self.storage_options,
             sonar_model=sonar_model,
         )

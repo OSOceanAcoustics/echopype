@@ -43,7 +43,7 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, storage_options, sonar_model):
+    def __init__(self, file, file_meta, storage_options, sonar_model):
         super().__init__(file, storage_options, sonar_model)
 
         # Parent class attributes
