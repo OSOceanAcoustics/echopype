@@ -445,7 +445,8 @@ def open_ds_da_ed_path(
     storage_options: Optional[dict],
 ) -> Tuple[Optional[Union[xr.Dataset, xr.DataArray]], Optional[EchoData]]:
     source_ds_da, ds_da_file_type = validate_source_ds_da_ed(source_ds_da, storage_options)
-    source_ed, ed_file_type = validate_source_ds_da_ed(source_ed, storage_options)
+    if source_ed is not None:
+        source_ed, ed_file_type = validate_source_ds_da_ed(source_ed, storage_options)
 
     if isinstance(source_ds_da, str):
         source_ds_da = xr.open_dataset(
