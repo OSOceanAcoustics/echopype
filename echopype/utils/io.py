@@ -17,9 +17,8 @@ from fsspec import AbstractFileSystem, FSMap
 from fsspec.implementations.local import LocalFileSystem
 from zarr.storage import FSStore
 
-from echopype import open_converted
-
 from ..echodata import EchoData
+from ..echodata.api import open_converted
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
 
