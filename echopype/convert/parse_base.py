@@ -283,24 +283,6 @@ class ParseEK(ParseBase):
 
             # Split complex data into real and imaginary components
             if data_type == "complex":
-                # Get the number of transducer sectors
-                num_transducer_sectors = self.num_transducer_sectors
-
-                if (ch_id in num_transducer_sectors) and (num_transducer_sectors[ch_id] > 0):
-                    # Reshape the padded array
-                    # based on the number of transducer sectors
-                    # if it exists
-                    # This reshaping is the same as what was done for angle data
-                    # in ek_raw_parsers.py.SimradRawParser._unpack_contents
-                    # TODO: consider moving this reshaping there
-                    data_shape = padded_arr.shape
-                    data_shape = (
-                        data_shape[0],
-                        int(data_shape[1] / num_transducer_sectors[ch_id]),
-                        num_transducer_sectors[ch_id],
-                    )
-                    padded_arr = padded_arr.reshape(data_shape)
-
                 # Split the complex data into real and imaginary components
                 padded_arr = {
                     "real": np.real(padded_arr).astype("float64"),
