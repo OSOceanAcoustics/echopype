@@ -13,7 +13,7 @@ DEFAULT_RYAN_PARAMS = {"r0": 180, "r1": 280, "n": 30, "thr": -6, "start": 0}
 @pytest.mark.parametrize(
     "method,parameters,expected_true_false_counts",
     [
-        ("ryan", DEFAULT_RYAN_PARAMS, (1838934, 327997)),
+        ("ryan", DEFAULT_RYAN_PARAMS, (1881950, 284981)),
         # ("ariza", DEFAULT_ARIZA_PARAMS, (39897, 2127034)),
     ],
 )
@@ -31,5 +31,5 @@ def test_get_signal_attenuation_mask(
     count_true = np.count_nonzero(mask)
     count_false = mask.size - count_true
     true_false_counts = (count_true, count_false)
-    print(true_false_counts)
+
     assert true_false_counts == expected_true_false_counts

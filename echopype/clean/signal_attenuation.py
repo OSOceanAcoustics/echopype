@@ -78,37 +78,31 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters=DEFAULT_RYAN
             coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
         )
 
-    # get upper and lower range indexes
-    up = abs(r - r0).argmin(dim="range_sample").values
-    lw = abs(r - r1).argmin(dim="range_sample").values
+    # find indexes for upper and lower SL limits
+    up = abs(r - r0).argmin(dim="range_sample").item()
+    lw = abs(r - r1).argmin(dim="range_sample").item()
 
-    ping_median = _log(_lin(Sv).median(dim="range_sample", skipna=True))
-    # ping_75q = _log(_lin(Sv).reduce(np.nanpercentile, q=75, dim="range_sample"))
+    layer_mask = (Sv["range_sample"] >= up) & (Sv["range_sample"] <= lw)
+    layer_Sv = Sv.where(layer_mask)
 
-    block = Sv[:, up:lw]
-    block_list = [block.shift({"ping_time": i}) for i in range(-n, n)]
-    concat_block = xr.concat(block_list, dim="range_sample")
-    block_median = _log(_lin(concat_block).median(dim="range_sample", skipna=True))
+    # Creating shifted arrays for block comparison
+    shifted_arrays = [layer_Sv.shift(ping_time=i) for i in range(-n, n + 1)]
+    block = xr.concat(shifted_arrays, dim="shifted_ping_time")
 
-    noise_column = (ping_median - block_median) > thr
+    # Computing the median of the block and the pings
+    ping_median = layer_Sv.median(dim="range_sample", skipna=True)
+    block_median = block.median(dim=["range_sample", "shifted_ping_time"], skipna=True)
 
-    noise_column_mask = xr.DataArray(
-        data=line_to_square(noise_column, Sv, "range_sample").transpose(),
-        dims=Sv.dims,
-        coords=Sv.coords,
+    # Creating the mask based on the threshold
+    mask_condition = (ping_median - block_median) > thr
+    mask = mask_condition.reindex_like(layer_Sv, method="nearest").fillna(True)
+
+    ret_mask = xr.DataArray(
+        data=line_to_square(mask, Sv, "range_sample").transpose(),
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
     )
-    noise_column_mask = ~noise_column_mask
-
-    nan_mask = Sv.isnull()
-    nan_mask = nan_mask.reduce(np.any, dim="range_sample")
-
-    # uncomment these if we want to mask the areas where we couldn't calculate
-    # nan_mask[0:n] = False
-    # nan_mask[-n:] = False
-
-    mask = nan_mask & noise_column_mask
-    mask = mask.drop("channel")
-    return mask
+    return ret_mask
 
 
 def _ariza(source_Sv, desired_channel, parameters=DEFAULT_ARIZA_PARAMS):

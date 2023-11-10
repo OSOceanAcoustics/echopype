@@ -9,14 +9,15 @@ def lin(db: xr.DataArray) -> xr.DataArray:
     return linear
 
 
-def log(linear: xr.DataArray) -> xr.DataArray:
+def log(linear: xr.DataArray, fill_value: float = -999) -> xr.DataArray:
     """
     Turn variable into the logarithmic domain. This function will return -999
     in the case of values less or equal to zero (undefined logarithm). -999 is
     the convention for empty water or vacant sample in fisheries acoustics.
 
     Args:
-        variable (float): array of elements to be transformed.
+        linear (xr.DataArray): array of elements to be transformed.
+        fill_value(float): fill value to use for NA values
 
     Returns:
         float: array of elements transformed
@@ -32,8 +33,9 @@ def log(linear: xr.DataArray) -> xr.DataArray:
             back_single = True
 
     db = xr.apply_ufunc(lambda x: 10 * np.log10(x), linear)
-    db = xr.where(db.isnull(), -999, db)
-    db = xr.where(linear == 0, -999, db)
+    if fill_value is not None:
+        db = xr.where(db.isnull(), fill_value, db)
+        db = xr.where(linear == 0, fill_value, db)
     if back_list:
         db = db.values
     if back_single:
