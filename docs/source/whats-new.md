@@ -14,7 +14,7 @@ This release includes a number of important performance enhancements, bug fixes,
 - Full refactor of the functionality to directly storing parsed data to zarr before set_groups_* (#1185, #1218 [NOT MERGED], #1070)
   - This avoids memory expansion during NaN padding across channel
 - Improve `compute_MVBS` using flox (#1124)
-- Revive and improve `compute_NASC` using flox (#1167) 
+- Revive and improve `compute_NASC` using flox (#1167)
 - Refactor AZFP XML parser
   - Parse more parameters and store in the resulting `EchoData` objects (#1135)
   - Add support for AZFP multiple phase settings (#1182)
