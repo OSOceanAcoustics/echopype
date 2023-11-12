@@ -4,31 +4,36 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
-# v0.8.2 (2023 November 16)
+# v0.8.2 (2023 November 20)
 
 ## Overview
 
 This release includes a number of important performance enhancements, bug fixes, and under-the-hood refactoring to improve code readability.
 
 ## Enhancements
-- Full refactor of the functionality to directly storing parsed data to zarr before set_groups_* (#1185, #1070)
+- Full refactor of the functionality to directly storing parsed data to zarr before set_groups_* (#1185, #1218 [NOT MERGED], #1070)
   - This avoids memory expansion during NaN padding across channel
 - Improve `compute_MVBS` using flox (#1124)
 - Revive and improve `compute_NASC` using flox (#1167) 
 - Refactor AZFP XML parser
   - Parse more parameters and store in the resulting `EchoData` objects (#1135)
   - Add support for AZFP multiple phase settings (#1182)
-- Parse and store AZFP pressure data (#1189)
-- Add `depth_from_pressure` method required for the calculation of `vertical_offset` value (#1207)
+- AZFP pressure data handling
+  - Parse and store AZFP pressure data (#1189)
+  - Add `depth_from_pressure` method and store calculated depth data in Platform group (#1207, #1202 [NOT MERGED])
 - Remove unused mechanism to selectively parse some EK datagrams (#1214)
-- Enhance `EchoData.update_platform` to auto-assign timestamp for fixed-location external data using first `ping_time`(#1196)
-- Refactored `EchoData.update_platform` to improve readability (#1209)
+- Enhancements of `EchoData.update_platform` method
+  - Factor out uility functions to a submodule (#1209)
+  - Auto-assign timestamp for fixed-location external data using first `ping_time`(#1196)
+- Add support for `consolidate` subpackage functions to accept both in-memory or stored datasets (#1216) [NOT MERGED]
 
 ## Bug fixes
 - Fix `EchoData.to_zarr` encoding (#1128)
   - Eliminate preferred chunks
   - Ensuring chunk alignment and encoding only when handling dask arrays
-- Fix scaling bugs in `compute_NASC` (#1167) 
+- Fix scaling bugs in `compute_NASC` (#1167)
+- Fix `UnicodeDecodeError` for ES60 files (#1215) [NOT MERGED]
+- Handle missing `receiver_sampling_frequency` for EK80 data (#1219) [NOT MERGED]
 
 ## Infrastructure and refactoring
 - Add support for running individual test files (#1166)
