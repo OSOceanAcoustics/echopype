@@ -4,6 +4,42 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.8.2 (2023 November 16)
+
+## Overview
+
+This release includes a number of important performance enhancements, bug fixes, and under-the-hood refactoring to improve code readability.
+
+## Enhancements
+- Full refactor of the functionality to directly storing parsed data to zarr before set_groups_* (#1185, #1070)
+  - This avoids memory expansion during NaN padding across channel
+- Improve `compute_MVBS` using flox (#1124)
+- Revive and improve `compute_NASC` using flox (#1167) 
+- Refactor AZFP XML parser
+  - Parse more parameters and store in the resulting `EchoData` objects (#1135)
+  - Add support for AZFP multiple phase settings (#1182)
+- Parse and store AZFP pressure data (#1189)
+- Add `depth_from_pressure` method required for the calculation of `vertical_offset` value (#1207)
+- Remove unused mechanism to selectively parse some EK datagrams (#1214)
+- Enhance `EchoData.update_platform` to auto-assign timestamp for fixed-location external data using first `ping_time`(#1196)
+- Refactored `EchoData.update_platform` to improve readability (#1209)
+
+## Bug fixes
+- Fix `EchoData.to_zarr` encoding (#1128)
+  - Eliminate preferred chunks
+  - Ensuring chunk alignment and encoding only when handling dask arrays
+- Fix scaling bugs in `compute_NASC` (#1167) 
+
+## Infrastructure and refactoring
+- Add support for running individual test files (#1166)
+- Add module based testing (#1180)
+- Update CI to barebone python (#1192)
+
+
+
+
+
+
 # v0.8.1 (2023 September 2)
 
 ## Overview
