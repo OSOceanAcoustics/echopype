@@ -571,11 +571,6 @@ def get_shoal_mask(
     mask: xr.DataArray
         A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
         criteria are filled with ``True``, else the regions are filled with ``False``.
-    mask_: xr.DataArray
-        A DataArray containing the mask for areas in which shoals were searched.
-        Edge regions are filled with 'False', whereas the portion
-        in which shoals could be detected is 'True'
-
 
     Raises
     ------
@@ -594,8 +589,8 @@ def get_shoal_mask(
             raise ValueError("Must specify either desired channel or desired frequency")
         else:
             desired_channel = frequency_nominal_to_channel(source_Sv, desired_frequency)
-    mask, mask_ = mask_map[method](source_Sv, desired_channel, parameters)
-    return mask, mask_
+    mask = mask_map[method](source_Sv, desired_channel, parameters)
+    return mask
 
 
 def get_shoal_mask_multichannel(
@@ -635,13 +630,10 @@ def get_shoal_mask_multichannel(
     """
     channel_list = source_Sv["channel"].values
     mask_list = []
-    _mask_list = []
     for channel in channel_list:
-        mask, _mask = get_shoal_mask(
+        mask = get_shoal_mask(
             source_Sv, desired_channel=channel, method=method, parameters=parameters
         )
         mask_list.append(mask)
-        _mask_list.append(_mask)
     mask = create_multichannel_mask(mask_list, channel_list)
-    _mask = create_multichannel_mask(_mask_list, channel_list)
-    return mask, _mask
+    return mask

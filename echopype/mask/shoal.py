@@ -23,7 +23,7 @@ SOFTWARE.
 
 
 authors = ['Alejandro Ariza'   # wrote will(), echoview()
-            'Ruxandra Valcu'    # adapted the code for echopype]
+            'Ruxandra Valcu'    # rewrote will() to involve xarray+dask functionality]
 credits = ['Rob Blackwell'     # supervised the code and provided ideas
                'Sophie Fielding'   # supervised the code and provided ideas
                'Nhan Vu'           # contributed to will()]
@@ -32,10 +32,17 @@ import pathlib
 from typing import Union
 
 import numpy as np
-import scipy.ndimage as nd_img
 import xarray as xr
+from dask_image.ndmorph import binary_closing, binary_opening
 
-WEILL_DEFAULT_PARAMETERS = {"thr": -70, "maxvgap": -5, "maxhgap": 0, "minvlen": 0, "minhlen": 0}
+WEILL_DEFAULT_PARAMETERS = {
+    "thr": -70,
+    "maxvgap": 5,
+    "maxhgap": 5,
+    "minvlen": 0,
+    "minhlen": 0,
+    "dask_chunking": {"ping_time": 1000, "range_sample": 1000},
+}
 
 
 def _weill(
@@ -83,9 +90,7 @@ def _weill(
                            (n samples).
             minhlen (int): minimum horizontal length for a shoal to be eligible
                            (n pings).
-            start (int): ping index to start processing. If greater than zero, it
-                         means that Sv carries data from a preceding file and
-                         the algorithm needs to know where to start processing.
+            dask_chunking (dict): dask chunking to use
 
     Returns
     -------
@@ -97,7 +102,7 @@ def _weill(
         Edge regions are filled with 'False', whereas the portion in which shoals
         could be detected is 'True'
     """
-    parameter_names = ["thr", "maxvgap", "maxhgap", "minvlen", "minhlen"]
+    parameter_names = ["thr", "maxvgap", "maxhgap", "minvlen", "minhlen", "dask_chunking"]
     if not all(name in parameters.keys() for name in parameter_names):
         raise ValueError(
             "Missing parameters - should be: "
@@ -110,81 +115,30 @@ def _weill(
     maxhgap = parameters["maxhgap"]
     minvlen = parameters["minvlen"]
     minhlen = parameters["minhlen"]
+    dask_chunking = parameters["dask_chunking"]
 
     channel_Sv = source_Sv.sel(channel=desired_channel)
-    Sv = channel_Sv["Sv"].values
+    Sv = channel_Sv["Sv"].chunk(dask_chunking)
 
-    # mask Sv above threshold
-    mask = np.ma.masked_greater(Sv, thr).mask
+    mask = xr.where(Sv > thr, True, False).chunk(dask_chunking)
 
-    # for each ping in the mask...
-    for jdx, ping in enumerate(list(np.transpose(mask))):
-        # find gaps between masked features, and give them a label number
-        pinglabelled = nd_img.label(np.invert(ping))[0]
+    # close shoal gaps smaller than the specified box
+    if maxvgap > 0 & maxhgap > 0:
+        closing_array = np.ones(maxhgap, maxvgap)
+        mask = binary_closing(
+            mask,
+            structure=closing_array,
+            iterations=1,
+        )
 
-        # proceed only if the ping presents gaps
-        if (not (pinglabelled == 0).all()) & (not (pinglabelled == 1).all()):
-            # get list of gap labels and iterate through gaps
-            labels = np.arange(1, np.max(pinglabelled) + 1)
-            for label in labels:
-                # if vertical gaps are equal/shorter than maxvgap...
-                gap = pinglabelled == label
-                if np.sum(gap) <= maxvgap:
-                    # get gap indexes and fill in with True values (masked)
-                    idx = np.where(gap)[0]
-                    if (0 not in idx) & (len(mask) - 1 not in idx):  # (exclude edges)
-                        mask[idx, jdx] = True
+    # drop shoals smaller than the specified box
+    if minvlen > 0 & minhlen > 0:
+        opening_array = np.ones(minhlen, minhlen)
+        mask = binary_opening(
+            mask,
+            structure=opening_array,
+            iterations=1,
+        )
 
-    # for each depth in the mask...
-    for idx, depth in enumerate(list(mask)):
-        # find gaps between masked features, and give them a label number
-        depthlabelled = nd_img.label(np.invert(depth))[0]
-
-        # proceed only if the ping presents gaps
-        if (not (depthlabelled == 0).all()) & (not (depthlabelled == 1).all()):
-            # get list of gap labels and iterate through gaps
-            labels = np.arange(1, np.max(depthlabelled) + 1)
-            for label in labels:
-                # if horizontal gaps are equal/shorter than maxhgap...
-                gap = depthlabelled == label
-                if np.sum(gap) <= maxhgap:
-                    # get gap indexes and fill in with True values (masked)
-                    jdx = np.where(gap)[0]
-                    if (0 not in jdx) & (len(mask) - 1 not in jdx):  # (exclude edges)
-                        mask[idx, jdx] = True
-
-    # label connected features in the mask
-    masklabelled = nd_img.label(mask)[0]
-
-    # get list of features labelled and iterate through them
-    labels = np.arange(1, np.max(masklabelled) + 1)
-    for label in labels:
-        # target feature & calculate its maximum vertical/horizontal length
-        feature = masklabelled == label
-        idx, jdx = np.where(feature)
-        featurehlen = max(idx + 1) - min(idx)
-        featurevlen = max(jdx + 1) - min(jdx)
-
-        # remove feature from mask if its maximum vertical length < minvlen
-        if featurevlen < minvlen:
-            mask[idx, jdx] = False
-
-        # remove feature from mask if its maximum horizontal length < minhlen
-        if featurehlen < minhlen:
-            mask[idx, jdx] = False
-
-    # get mask_ indicating the valid samples for mask
-    mask_ = np.zeros_like(mask, dtype=bool)
-    mask_[minvlen : len(mask_) - minvlen, minhlen : len(mask_[0]) - minhlen] = True
-
-    return_mask = xr.DataArray(
-        mask,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return_mask_ = xr.DataArray(
-        mask_,
-        dims=("ping_time", "range_sample"),
-        coords={"ping_time": source_Sv.ping_time, "range_sample": source_Sv.range_sample},
-    )
-    return return_mask, return_mask_
+    mask = mask.drop("channel")
+    return mask

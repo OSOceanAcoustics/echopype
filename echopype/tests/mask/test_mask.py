@@ -975,8 +975,7 @@ def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
 
 def test_shoal_mask_all(sv_dataset_jr161):
     source_Sv = sv_dataset_jr161
-    ml, _ml = echopype.mask.api.get_shoal_mask_multichannel(
+    ml= echopype.mask.api.get_shoal_mask_multichannel(
         source_Sv, method="will", parameters=ep.mask.shoal.WEILL_DEFAULT_PARAMETERS
     )
     assert np.all(ml["channel"] == source_Sv["channel"])
-    assert np.all(_ml["channel"] == source_Sv["channel"])
