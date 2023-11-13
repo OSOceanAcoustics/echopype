@@ -88,6 +88,7 @@ def depth_from_pressure(
     return depth
 
 
+
 def frequency_nominal_to_channel(source_Sv, frequency_nominal: int):
     """
     Given a value for a nominal frequency, returns the channel associated with it
@@ -98,4 +99,3 @@ def frequency_nominal_to_channel(source_Sv, frequency_nominal: int):
     assert len(chan) == 1, "Frequency not uniquely identified"
     channel = chan[0]
     return channel
-
