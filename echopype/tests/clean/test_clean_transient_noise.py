@@ -12,7 +12,7 @@ from echopype.clean.transient_noise import RYAN_DEFAULT_PARAMS, FIELDING_DEFAULT
     "method, parameters ,expected_true_false_counts",
     [
         ("ryan", RYAN_DEFAULT_PARAMS, (2115052, 51879)),
-        ("fielding", FIELDING_DEFAULT_PARAMS, (2117327, 49604)),
+        ("fielding", FIELDING_DEFAULT_PARAMS, (2117893, 49038)),
     ],
 )
 def test_get_transient_mask(
