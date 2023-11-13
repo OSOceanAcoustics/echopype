@@ -979,4 +979,3 @@ def test_shoal_mask_all(sv_dataset_jr161):
         source_Sv, method="will", parameters=ep.mask.shoal.WEILL_DEFAULT_PARAMETERS
     )
     assert np.all(ml["channel"] == source_Sv["channel"])
-
