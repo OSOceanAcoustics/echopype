@@ -708,7 +708,6 @@ class SetGroupsEK80(SetGroupsBase):
         return ds_tmp
 
     def _assemble_ds_complex(self, ch):
-        num_transducer_sectors = self.parser_obj.num_transducer_sectors[ch]
         data_shape = self.parser_obj.ping_data_dict["complex"][ch]["real"].shape
         ds_tmp = xr.Dataset(
             {
@@ -746,7 +745,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "beam": (
                     ["beam"],
-                    np.arange(start=1, stop=num_transducer_sectors + 1).astype(str),
+                    np.arange(start=1, stop=data_shape[2] + 1).astype(str),
                     self._varattrs["beam_coord_default"]["beam"],
                 ),
             },
