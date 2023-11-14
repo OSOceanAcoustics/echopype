@@ -30,25 +30,23 @@ from ..utils.mask_transformation_xr import (
 )
 
 RYAN_DEFAULT_PARAMS = {
-    #    "m": 5,
-    #    "n": 20,
     "m": 5,
     "n": 5,
     "thr": 20,
     "excludeabove": 250,
     "operation": "mean",
-    "dask_chunking": {"ping_time": 100},
+    "dask_chunking": {"ping_time": 100, "range_sample": 100},
 }
 FIELDING_DEFAULT_PARAMS = {
     "r0": 200,
     "r1": 1000,
-    "n": 20,
+    "n": 5,
     "thr": [2, 0],
     "roff": 250,
     "jumps": 5,
     "maxts": -35,
     "start": 0,
-    "dask_chunking": {"ping_time": 100},
+    "dask_chunking": {"ping_time": 100, "range_sample": 100},
 }
 
 
@@ -223,10 +221,10 @@ def _fielding(
     Sv_range = Sv.where(layer_mask)
 
     # get columns in which no processing can be done - question, do we want to mask them out?
-    nan_mask = Sv_range.isnull()
-    nan_mask = nan_mask.reduce(np.any, dim="range_sample")
-    nan_mask[0:n] = False
-    nan_mask[-n:] = False
+    # nan_mask = Sv_range.isnull()
+    # nan_mask = nan_mask.reduce(np.any, dim="range_sample")
+    # nan_mask[0:n] = False
+    # nan_mask[-n:] = False
 
     # Chunk the data if not already chunked
     Sv_range = Sv_range.chunk(dask_chunking)
@@ -239,7 +237,8 @@ def _fielding(
     block_median = block.median(dim=["range_sample", "shifted_ping_time"], skipna=True)
 
     # identify columns in which noise can be found
-    noise_column = (ping_75q.compute() < maxts) & ((ping_median - block_median).compute() < thr[0])
+    noise_col = (ping_75q < maxts) & ((ping_median - block_median) < thr[0])
+    noise_column = noise_col.compute()
 
     noise_column_mask = xr.DataArray(
         data=line_to_square(noise_column, Sv, "range_sample").transpose(),
@@ -250,22 +249,16 @@ def _fielding(
     # Apply rolling operation and reduce using the custom Dask-aware function
     ping_median = Sv_range.rolling(range_sample=sf).reduce(dask_nanmedian)
     block_median = Sv_range.rolling(range_sample=sf, ping_time=2 * n + 1).reduce(dask_nanmedian)
-
     height_mask = (ping_median - block_median).compute() < thr[1]
-    height_noise_mask = height_mask | noise_column_mask
 
+    height_noise_mask = height_mask | noise_column_mask
+    # propagate break upward
     flipped_mask = height_noise_mask.isel(range_sample=slice(None, None, -1))
     flipped_mask["range_sample"] = height_mask["range_sample"]
-    neg_mask = ~height_noise_mask
-
-    # propagate break upward
-    flipped_mask = neg_mask.isel(range_sample=slice(None, None, -1))
-    flipped_mask["range_sample"] = height_mask["range_sample"]
-    flipped_mask = ~flipped_mask
     ft = len(flipped_mask.range_sample) - flipped_mask.argmax(dim="range_sample")
 
     first_true_indices = xr.DataArray(
-        line_to_square(ft, flipped_mask, dim="range_sample").transpose(),
+        line_to_square(ft, height_noise_mask, dim="range_sample").transpose(),
         dims=("ping_time", "range_sample"),
         coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
     )
@@ -275,12 +268,9 @@ def _fielding(
         dims=("ping_time", "range_sample"),
         coords={"ping_time": channel_Sv.ping_time, "range_sample": channel_Sv.range_sample},
     )
-
     noise_spike_mask = height_noise_mask.where(indices > first_true_indices, True)
 
     mask = noise_spike_mask
     mask = mask.drop("channel")
 
-    # uncomment if we want to mask out the columns where no processing could be done,
-    # mask = nan_full_mask & noise_spike_mask
     return mask
