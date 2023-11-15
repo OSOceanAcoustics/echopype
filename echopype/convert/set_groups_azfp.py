@@ -101,43 +101,89 @@ class SetGroupsAZFP(SetGroupsBase):
 
     def set_env(self) -> xr.Dataset:
         """Set the Environment group."""
-        # TODO Look at why this cannot be encoded without the modifications
-        # @ngkavin: what modification?
-        ping_time = self.parser_obj.ping_time
+
+        # Mandatory variables
         ds = xr.Dataset(
             {
-                "temperature": (
-                    ["time1"],
-                    self.parser_obj.unpacked_data["temperature"],
+                "absorption_indicative": (
+                    ["channel"],
+                    [np.nan] * len(self.channel_ids_sorted),
                     {
-                        "long_name": "Water temperature",
-                        "standard_name": "sea_water_temperature",
-                        "units": "deg_C",
+                        "long_name": "Indicative acoustic absorption",
+                        "units": "dB/m",
+                        "valid_min": 0.0,
                     },
                 ),
-                "pressure": (
-                    ["time1"],
-                    self.parser_obj.unpacked_data["pressure"],
+                "sound_speed_indicative": (
+                    [],
+                    np.nan,
                     {
-                        "long_name": "Sea water pressure",
-                        "standard_name": "sea_water_pressure_due_to_sea_water",
-                        "units": "dbar",
+                        "long_name": "Indicative sound speed",
+                        "standard_name": "speed_of_sound_in_sea_water",
+                        "units": "m/s",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "frequency_nominal": (
+                    ["channel"],
+                    self.freq_sorted,
+                    {
+                        "units": "Hz",
+                        "long_name": "Transducer frequency",
+                        "valid_min": 0.0,
+                        "standard_name": "sound_frequency",
                     },
                 ),
             },
             coords={
-                "time1": (
-                    ["time1"],
-                    ping_time,
-                    {
-                        "axis": "T",
-                        "long_name": "Timestamp of each ping",
-                        "standard_name": "time",
-                        "comment": "Time coordinate corresponding to environmental variables.",
-                    },
-                )
+                "channel": (
+                    ["channel"],
+                    self.channel_ids_sorted,
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
             },
         )
+
+        # Additional variables, if present
+        temp_press = dict()
+        if not np.isnan(self.parser_obj.unpacked_data["temperature"]).all():
+            temp_press["temperature"] = (
+                ["time1"],
+                self.parser_obj.unpacked_data["temperature"],
+                {
+                    "long_name": "Water temperature",
+                    "standard_name": "sea_water_temperature",
+                    "units": "deg_C",
+                },
+            )
+        if not np.isnan(self.parser_obj.unpacked_data["pressure"]).all():
+            temp_press["pressure"] = (
+                ["time1"],
+                self.parser_obj.unpacked_data["pressure"],
+                {
+                    "long_name": "Sea water pressure",
+                    "standard_name": "sea_water_pressure_due_to_sea_water",
+                    "units": "dbar",
+                },
+            )
+
+        if len(temp_press) > 0:
+            ds_temp_press = xr.Dataset(
+                temp_press,
+                coords={
+                    "time1": (
+                        ["time1"],
+                        self.parser_obj.ping_time,
+                        {
+                            "axis": "T",
+                            "long_name": "Timestamp of each ping",
+                            "standard_name": "time",
+                            "comment": "Time coordinate corresponding to environmental variables.",
+                        },
+                    )
+                },
+            )
+            ds = xr.merge([ds, ds_temp_press], combine_attrs="override")
 
         return set_time_encodings(ds)
 
