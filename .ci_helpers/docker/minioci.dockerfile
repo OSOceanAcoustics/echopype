@@ -1,4 +1,4 @@
-FROM minio/minio
+FROM minio/minio:RELEASE.2023-10-25T06-33-25Z.fips
 ARG TARGETPLATFORM
 
 # Install git
