@@ -168,21 +168,21 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Platform group."""
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
-        depth = depth_from_pressure(unpacked_data["pressure"], latitude=30, atm_pres_surf=0)
+        time2 = self.parser_obj.ping_time
+        if np.isnan(unpacked_data["pressure"]).all():
+            depth = [np.nan] * len(time2)
+            water_level = [np.nan]
+        else:
+            depth = -1 * depth_from_pressure(
+                unpacked_data["pressure"], latitude=30, atm_pres_surf=0
+            )
+            water_level = [0.0]
 
         # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
         time1 = [np.nan]
 
-        # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
-        # and single-value (np.nan) tilt_x and tilt_y
-        tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
-        tilt_y = [np.nan] if np.isnan(unpacked_data["tilt_y"]).all() else unpacked_data["tilt_y"]
-        if (len(tilt_x) == 1 and np.isnan(tilt_x)) and (len(tilt_y) == 1 and np.isnan(tilt_y)):
-            time2 = [self.parser_obj.ping_time[0]]
-            depth = [depth[0]]
-        else:
-            depth = -1 * depth
-            time2 = self.parser_obj.ping_time
+        tilt_x = unpacked_data["tilt_x"]
+        tilt_y = unpacked_data["tilt_y"]
 
         # Handle potential nan timestamp for time1 and time2
         time1 = self._nan_timestamp_handler(time1)
@@ -216,8 +216,8 @@ class SetGroupsAZFP(SetGroupsBase):
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "water_level": (
-                    [],
-                    np.nan,
+                    ["time1"],
+                    water_level,
                     self._varattrs["platform_var_default"]["water_level"],
                 ),
                 "tilt_x": (
