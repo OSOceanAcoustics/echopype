@@ -170,13 +170,13 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         time2 = self.parser_obj.ping_time
         if np.isnan(unpacked_data["pressure"]).all():
-            depth = [np.nan] * len(time2)
-            water_level = [np.nan]
+            vertical_offset = [np.nan] * len(time2)
+            water_level = np.nan
         else:
-            depth = -1 * depth_from_pressure(
+            vertical_offset = -1 * depth_from_pressure(
                 unpacked_data["pressure"], latitude=30, atm_pres_surf=0
             )
-            water_level = [0.0]
+            water_level = 0.0
 
         # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
         time1 = [np.nan]
@@ -212,11 +212,11 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "vertical_offset": (
                     ["time2"],
-                    depth,
+                    vertical_offset,
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "water_level": (
-                    ["time1"],
+                    [],
                     water_level,
                     self._varattrs["platform_var_default"]["water_level"],
                 ),

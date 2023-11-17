@@ -213,7 +213,7 @@ class ParseAZFP(ParseBase):
 
         counts = self.unpacked_data["ancillary"][ping_num][3]
         v_in = 2.5 * (counts / 65535)
-        P = v_in * self.parameters["a1"] + self.parameters["a0"] - 10.125
+        P = v_in * self.parameters["a1"] + self.parameters["a0"] - 10.1325
         return P
 
     def parse_raw(self):
