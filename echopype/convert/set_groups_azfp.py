@@ -183,6 +183,11 @@ class SetGroupsAZFP(SetGroupsBase):
 
         tilt_x = unpacked_data["tilt_x"]
         tilt_y = unpacked_data["tilt_y"]
+        if np.isnan(tilt_x).all() and np.isnan(tilt_y).all() and np.isnan(vertical_offset).all():
+            tilt_x = [np.nan]
+            tilt_y = [np.nan]
+            vertical_offset = [np.nan]
+            time2 = [self.parser_obj.ping_time[0]]
 
         # Handle potential nan timestamp for time1 and time2
         time1 = self._nan_timestamp_handler(time1)
