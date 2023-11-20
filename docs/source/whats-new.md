@@ -21,7 +21,7 @@ This release includes a number of important performance enhancements, bug fixes,
   - Add partial support for AZFP multiple phase settings (#1182)
 - Overhaul AZFP Environment group
   - Set mandatory variables not in data to NaN (`sounds_speed_indicative`, `absorption_indicative`) (#1226)
-  - Parse and store AZFP pressure data when exist (#1189)
+  - Parse and store AZFP pressure data when exist (#1189, #1226)
 - Add `utils.misc.depth_from_pressure` function for converting pressure to depth (#1207)
 - Remove unused mechanism to selectively parse some EK datagrams (#1214)
 - Enhancements of `EchoData.update_platform` method
