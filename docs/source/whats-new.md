@@ -11,15 +11,16 @@ See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases
 This release includes a number of important performance enhancements, bug fixes, and under-the-hood refactoring to improve code readability.
 
 ## Enhancements
-- Full refactor of the functionality to directly storing parsed data to zarr before set_groups_* (#1185, #1218 [NOT MERGED], #1070)
+- Full refactor of the functionality to directly storing parsed data to zarr before set_groups_* (#1185, #1218, #1070)
   - This avoids memory expansion during NaN padding across channel
 - Improve `compute_MVBS` using flox (#1124)
 - Revive and improve `compute_NASC` using flox (#1167)
 - Refactor AZFP XML parser
   - Parse more parameters and store in the resulting `EchoData` objects (#1135)
   - Add support for AZFP multiple phase settings (#1182)
-- AZFP pressure data handling
-  - Parse and store AZFP pressure data (#1189)
+- Overhaul AZFP Environment group
+  - Set mandatory variables not in data to NaN (`sounds_speed_indicative`, `absorption_indicative`) (#1226)
+  - Parse and store AZFP pressure data when exist (#1189)
   - Add `depth_from_pressure` method and store calculated depth data in Platform group (#1207, #1202 [NOT MERGED])
 - Remove unused mechanism to selectively parse some EK datagrams (#1214)
 - Enhancements of `EchoData.update_platform` method
@@ -32,8 +33,8 @@ This release includes a number of important performance enhancements, bug fixes,
   - Eliminate preferred chunks
   - Ensuring chunk alignment and encoding only when handling dask arrays
 - Fix scaling bugs in `compute_NASC` (#1167)
-- Fix `UnicodeDecodeError` for ES60 files (#1215) [NOT MERGED]
-- Handle missing `receiver_sampling_frequency` for EK80 data (#1219) [NOT MERGED]
+- Fix `UnicodeDecodeError` for ES60 files (#1215)
+- Handle missing `receiver_sampling_frequency` for EK80 data (#1219)
 
 ## Infrastructure and refactoring
 - Add support for running individual test files (#1166)
