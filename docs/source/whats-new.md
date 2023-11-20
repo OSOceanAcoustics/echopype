@@ -16,8 +16,9 @@ This release includes a number of important performance enhancements, bug fixes,
 - Improve `compute_MVBS` using flox (#1124)
 - Revive and improve `compute_NASC` using flox (#1167)
 - Refactor AZFP XML parser
+  - Improved XML parsing by using `xml.etree.ElementTree` to be consistent with other XML parsers in echopype (#1135)
   - Parse more parameters and store in the resulting `EchoData` objects (#1135)
-  - Add support for AZFP multiple phase settings (#1182)
+  - Add partial support for AZFP multiple phase settings (#1182)
 - Overhaul AZFP Environment group
   - Set mandatory variables not in data to NaN (`sounds_speed_indicative`, `absorption_indicative`) (#1226)
   - Parse and store AZFP pressure data when exist (#1189)
@@ -39,7 +40,7 @@ This release includes a number of important performance enhancements, bug fixes,
 ## Infrastructure and refactoring
 - Add support for running individual test files (#1166)
 - Add module based testing (#1180)
-- Update CI to barebone python (#1192)
+- Update CI to barebone python, without conda (#1192)
 
 
 
