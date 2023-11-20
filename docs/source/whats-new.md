@@ -22,10 +22,10 @@ This release includes a number of important performance enhancements, bug fixes,
 - Overhaul AZFP Environment group
   - Set mandatory variables not in data to NaN (`sounds_speed_indicative`, `absorption_indicative`) (#1226)
   - Parse and store AZFP pressure data when exist (#1189)
-  - Add `depth_from_pressure` method and store calculated depth data in Platform group (#1207, #1202 [NOT MERGED])
+- Add `utils.misc.depth_from_pressure` function for converting pressure to depth (#1207)
 - Remove unused mechanism to selectively parse some EK datagrams (#1214)
 - Enhancements of `EchoData.update_platform` method
-  - Factor out uility functions to a submodule (#1209)
+  - Factor out utility functions to a submodule (#1209)
   - Auto-assign timestamp for fixed-location external data using first `ping_time`(#1196)
 - Add support for `consolidate` subpackage functions to accept both in-memory or stored datasets (#1216) [NOT MERGED]
 
