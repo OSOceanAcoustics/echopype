@@ -16,6 +16,7 @@ from collections import Counter
 import numpy as np
 
 from ...utils.log import _init_logger
+from ...utils.misc import camelcase2snakecase
 from .ek_date_conversion import nt_to_unix
 
 TCVR_CH_NUM_MATCHER = re.compile(r"\d{6}-\w{1,2}|\w{12}-\w{1,2}")
@@ -706,22 +707,6 @@ class SimradXMLParser(_SimradDatagramParser):
         :returns: None
         """
 
-        def from_CamelCase(xml_param):
-            """
-            convert name from CamelCase to fit with existing naming convention by
-            inserting an underscore before each capital and then lowering the caps
-            e.g. CamelCase becomes camel_case.
-            """
-            idx = list(reversed([i for i, c in enumerate(xml_param) if c.isupper()]))
-            param_len = len(xml_param)
-            for i in idx:
-                #  check if we should insert an underscore
-                if i > 0 and i < param_len:
-                    xml_param = xml_param[:i] + "_" + xml_param[i:]
-            xml_param = xml_param.lower()
-
-            return xml_param
-
         def dict_to_dict(xml_dict, data_dict, parse_opts):
             """
             dict_to_dict appends the ETree xml value dicts to a provided dictionary
@@ -760,13 +745,13 @@ class SimradXMLParser(_SimradDatagramParser):
                         data_dict[parse_opts[k][1]] = data
                     else:
                         #  add using the default key name wrangling
-                        data_dict[from_CamelCase(k)] = data
+                        data_dict[camelcase2snakecase(k)] = data
                 else:
                     #  nothing to do with the value string
                     data = xml_dict[k]
 
                     #  add the parameter to the provided dictionary
-                    data_dict[from_CamelCase(k)] = data
+                    data_dict[camelcase2snakecase(k)] = data
 
         header_values = struct.unpack(
             self.header_fmt(version), raw_string[: self.header_size(version)]
@@ -1556,7 +1541,7 @@ class SimradRawParser(_SimradDatagramParser):
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
             if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
+                data[field] = data[field].decode(encoding="unicode_escape")
 
         data["timestamp"] = nt_to_unix((data["low_date"], data["high_date"]))
         data["bytes_read"] = bytes_read
@@ -1636,6 +1621,8 @@ class SimradRawParser(_SimradDatagramParser):
                         dtype=data["complex_dtype"],
                     )
                     data["complex"].dtype = np.complex64
+                    if version == 3:
+                        data["complex"] = data["complex"].reshape((-1, data["n_complex"]))
                 else:
                     data["complex"] = None
 

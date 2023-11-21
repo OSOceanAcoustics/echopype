@@ -71,11 +71,6 @@ class SetGroupsEK80(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # if we have zarr files, create parser_obj.ch_ids
-        if self.parsed2zarr_obj.temp_zarr_dir:
-            for k, v in self.parsed2zarr_obj.p2z_ch_ids.items():
-                self.parser_obj.ch_ids[k] = self._get_channel_ids(v)
-
         # obtain sorted channel dict in ascending order for each usage scenario
         self.sorted_channel = {
             "all": self._sort_list(list(self.parser_obj.config_datagram["configuration"].keys())),
@@ -713,27 +708,12 @@ class SetGroupsEK80(SetGroupsBase):
         return ds_tmp
 
     def _assemble_ds_complex(self, ch):
-        num_transducer_sectors = np.unique(
-            np.array(self.parser_obj.ping_data_dict["n_complex"][ch])
-        )
-        if num_transducer_sectors.size > 1:  # this is not supposed to happen
-            raise ValueError("Transducer sector number changes in the middle of the file!")
-        else:
-            num_transducer_sectors = num_transducer_sectors[0]
-
-        data_shape = self.parser_obj.ping_data_dict["complex"][ch].shape
-        data_shape = (
-            data_shape[0],
-            int(data_shape[1] / num_transducer_sectors),
-            num_transducer_sectors,
-        )
-        data = self.parser_obj.ping_data_dict["complex"][ch].reshape(data_shape)
-
+        data_shape = self.parser_obj.ping_data_dict["complex"][ch]["real"].shape
         ds_tmp = xr.Dataset(
             {
                 "backscatter_r": (
                     ["ping_time", "range_sample", "beam"],
-                    np.real(data),
+                    self.parser_obj.ping_data_dict["complex"][ch]["real"],
                     {
                         "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
                             "long_name"
@@ -743,7 +723,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "backscatter_i": (
                     ["ping_time", "range_sample", "beam"],
-                    np.imag(data),
+                    self.parser_obj.ping_data_dict["complex"][ch]["imag"],
                     {
                         "long_name": self._varattrs["beam_var_default"]["backscatter_i"][
                             "long_name"
@@ -765,7 +745,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "beam": (
                     ["beam"],
-                    np.arange(start=1, stop=num_transducer_sectors + 1).astype(str),
+                    np.arange(start=1, stop=data_shape[2] + 1).astype(str),
                     self._varattrs["beam_coord_default"]["beam"],
                 ),
             },
@@ -803,7 +783,9 @@ class SetGroupsEK80(SetGroupsBase):
                 {
                     "transmit_sample": (
                         ["transmit_sample"],
-                        np.arange(self.parser_obj.ping_data_dict_tx["complex"][ch].shape[1]),
+                        np.arange(
+                            self.parser_obj.ping_data_dict_tx["complex"][ch]["real"].shape[1]
+                        ),
                         {
                             "long_name": "Transmit pulse sample number, base 0",
                             "comment": "Only exist for Simrad EK80 file with RAW4 datagrams",
@@ -816,7 +798,7 @@ class SetGroupsEK80(SetGroupsBase):
                 {
                     "transmit_pulse_r": (
                         ["ping_time", "transmit_sample"],
-                        np.real(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                        self.parser_obj.ping_data_dict_tx["complex"][ch]["real"],
                         {
                             "long_name": "Real part of the transmit pulse",
                             "units": "V",
@@ -825,7 +807,7 @@ class SetGroupsEK80(SetGroupsBase):
                     ),
                     "transmit_pulse_i": (
                         ["ping_time", "transmit_sample"],
-                        np.imag(self.parser_obj.ping_data_dict_tx["complex"][ch]),
+                        self.parser_obj.ping_data_dict_tx["complex"][ch]["imag"],
                         {
                             "long_name": "Imaginary part of the transmit pulse",
                             "units": "V",
@@ -1006,7 +988,8 @@ class SetGroupsEK80(SetGroupsBase):
     @staticmethod
     def merge_save(ds_combine: List[xr.Dataset], ds_invariant: xr.Dataset) -> xr.Dataset:
         """Merge data from all complex or all power/angle channels"""
-        ds_combine = xr.merge(ds_combine)
+        # Combine all channels into one Dataset
+        ds_combine = xr.concat(ds_combine, dim="channel")
 
         ds_combine = xr.merge(
             [ds_invariant, ds_combine], combine_attrs="override"
@@ -1046,93 +1029,6 @@ class SetGroupsEK80(SetGroupsBase):
 
         return ds_data
 
-    def _get_ds_beam_power_zarr(self, ds_invariant_power: xr.Dataset) -> xr.Dataset:
-        """
-        Constructs the data set `ds_beam_power` when
-        there are zarr variables present.
-
-        Parameters
-        ----------
-        ds_invariant_power : xr.Dataset
-            Dataset for ping-invariant params associated with power
-
-        Returns
-        -------
-        A Dataset representing `ds_beam_power`.
-        """
-
-        # TODO: In the future it would be nice to have a dictionary of
-        #  attributes stored in one place for all of the variables.
-        #  This would reduce unnecessary code duplication in the
-        #  functions below.
-
-        # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.zarr_file_name
-        backscatter_r = self._get_power_dataarray(zarr_path)
-        angle_athwartship, angle_alongship = self._get_angle_dataarrays(zarr_path)
-
-        # create power related ds using DataArrays created from zarr file
-        ds_power = xr.merge([backscatter_r, angle_athwartship, angle_alongship])
-        ds_power = set_time_encodings(ds_power)
-
-        # obtain additional variables that need to be added to ds_power
-        ds_tmp = []
-        for ch in self.sorted_channel["power"]:
-            ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
-            ds_data = set_time_encodings(ds_data)
-
-            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_power.range_sample.size)
-            ds_tmp.append(ds_data)
-
-        ds_tmp = self.merge_save(ds_tmp, ds_invariant_power)
-
-        return xr.merge([ds_tmp, ds_power], combine_attrs="override")
-
-    def _get_ds_complex_zarr(self, ds_invariant_complex: xr.Dataset) -> xr.Dataset:
-        """
-        Constructs the data set `ds_complex` when
-        there are zarr variables present.
-
-        Parameters
-        ----------
-        ds_invariant_complex : xr.Dataset
-            Dataset for ping-invariant params associated with complex data
-
-        Returns
-        -------
-        A Dataset representing `ds_complex`.
-        """
-
-        # TODO: In the future it would be nice to have a dictionary of
-        #  attributes stored in one place for all of the variables.
-        #  This would reduce unnecessary code duplication in the
-        #  functions below.
-
-        # obtain DataArrays using zarr variables
-        zarr_path = self.parsed2zarr_obj.zarr_file_name
-        backscatter_r, backscatter_i = self._get_complex_dataarrays(zarr_path)
-
-        # create power related ds using DataArrays created from zarr file
-        ds_complex = xr.merge([backscatter_r, backscatter_i])
-        ds_complex = set_time_encodings(ds_complex)
-
-        # obtain additional variables that need to be added to ds_complex
-        ds_tmp = []
-        for ch in self.sorted_channel["complex"]:
-            ds_data = self._add_trasmit_pulse_complex(ds_tmp=xr.Dataset(), ch=ch)
-            ds_data = self._add_freq_start_end_ds(ds_data, ch)
-
-            ds_data = set_time_encodings(ds_data)
-
-            ds_data = self._attach_vars_to_ds_data(
-                ds_data, ch, rs_size=ds_complex.range_sample.size
-            )
-            ds_tmp.append(ds_data)
-
-        ds_tmp = self.merge_save(ds_tmp, ds_invariant_complex)
-
-        return xr.merge([ds_tmp, ds_complex], combine_attrs="override")
-
     def set_beam(self) -> List[xr.Dataset]:
         """Set the /Sonar/Beam_group1 group."""
 
@@ -1161,57 +1057,35 @@ class SetGroupsEK80(SetGroupsBase):
         if self.sorted_channel["power"]:
             ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
 
-        if not self.parsed2zarr_obj.temp_zarr_dir:
-            # Assemble dataset for backscatter data and other ping-by-ping data
-            ds_complex = []
-            ds_power = []
-            for ch in self.sorted_channel["all"]:
-                if ch in self.sorted_channel["complex"]:
-                    ds_data = self._assemble_ds_complex(ch)
-                elif ch in self.sorted_channel["power"]:
-                    ds_data = self._assemble_ds_power(ch)
-                else:  # skip for channels containing no data
-                    continue
+        # Assemble dataset for backscatter data and other ping-by-ping data
+        ds_complex = []
+        ds_power = []
+        for ch in self.sorted_channel["all"]:
+            if ch in self.sorted_channel["complex"]:
+                ds_data = self._assemble_ds_complex(ch)
+            elif ch in self.sorted_channel["power"]:
+                ds_data = self._assemble_ds_power(ch)
+            else:  # skip for channels containing no data
+                continue
 
-                ds_data = self._attach_vars_to_ds_data(
-                    ds_data, ch, rs_size=ds_data.range_sample.size
-                )
+            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
 
-                if ch in self.sorted_channel["complex"]:
-                    ds_complex.append(ds_data)
-                else:
-                    ds_power.append(ds_data)
-
-            # Merge and save group:
-            #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
-            #   and power data in /Sonar/Beam_group2
-            #  if only one type of data exist: data in /Sonar/Beam_group1 group
-            ds_beam_power = None
-            if len(ds_complex) > 0:
-                ds_beam = self.merge_save(ds_complex, ds_invariant_complex)
-                if len(ds_power) > 0:
-                    ds_beam_power = self.merge_save(ds_power, ds_invariant_power)
+            if ch in self.sorted_channel["complex"]:
+                ds_complex.append(ds_data)
             else:
-                ds_beam = self.merge_save(ds_power, ds_invariant_power)
+                ds_power.append(ds_data)
+
+        # Merge and save group:
+        #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
+        #   and power data in /Sonar/Beam_group2
+        #  if only one type of data exist: data in /Sonar/Beam_group1 group
+        ds_beam_power = None
+        if len(ds_complex) > 0:
+            ds_beam = self.merge_save(ds_complex, ds_invariant_complex)
+            if len(ds_power) > 0:
+                ds_beam_power = self.merge_save(ds_power, ds_invariant_power)
         else:
-            if self.sorted_channel["power"]:
-                ds_power = self._get_ds_beam_power_zarr(ds_invariant_power)
-            else:
-                ds_power = None
-
-            if self.sorted_channel["complex"]:
-                ds_complex = self._get_ds_complex_zarr(ds_invariant_complex)
-            else:
-                ds_complex = None
-
-            # correctly assign the beam groups
-            ds_beam_power = None
-            if ds_complex:
-                ds_beam = ds_complex
-                if ds_power:
-                    ds_beam_power = ds_power
-            else:
-                ds_beam = ds_power
+            ds_beam = self.merge_save(ds_power, ds_invariant_power)
 
         # Manipulate some Dataset dimensions to adhere to convention
         if isinstance(ds_beam_power, xr.Dataset):
