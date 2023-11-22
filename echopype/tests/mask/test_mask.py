@@ -497,6 +497,49 @@ def test_validate_and_collect_mask_input(
 
 
 @pytest.mark.parametrize(
+    ("mask_list"),
+    [
+    pytest.param(
+        [xr.DataArray([np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0']})]
+    ),
+    pytest.param(
+        [xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']})]
+    ),
+    pytest.param(
+        [xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']}),
+        xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']})]
+    ),
+    pytest.param(
+        [xr.DataArray([np.identity(3), np.identity(3)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']}),
+        xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']})],
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="This should fail because the channel dims are not uniform."
+        ))
+    ],
+    ids=["single_channel_mask", "double_channel", "double_channel_double_masks",
+         "inconsistent_channels_across_two_masks"]
+)
+def test_multi_mask_validate_and_collect_mask(mask_list: List[xr.DataArray]):
+    """
+    Tests the allowable types and dimensions for multimask input.
+
+    Parameters
+    ----------
+    mask_list: List[xr.DataArray]
+        Multimask input to be tested in validate and collect mask input.
+    """
+
+    _validate_and_collect_mask_input(mask=mask_list, storage_options_mask={})
+
+
+@pytest.mark.parametrize(
     ("n", "n_chan", "var_name", "fill_value"),
     [
         pytest.param(4, 2, 2.0, np.nan,

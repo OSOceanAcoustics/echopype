@@ -117,6 +117,15 @@ def _validate_and_collect_mask_input(
                     "('channel', 'ping_time', 'depth')"
                 )
 
+        # Check for the channel dimension consistency
+        channel_dim_shapes = set()
+        for mask_indiv in mask:
+            if "channel" in mask_indiv.dims:
+                for mask_chan_ind in range(len(mask_indiv["channel"])):
+                    channel_dim_shapes.add(mask_indiv.isel(channel=mask_chan_ind).shape)
+        if len(channel_dim_shapes) > 1:
+            raise ValueError("All masks must have the same shape in the 'channel' dimension.")
+
     else:
         if not isinstance(storage_options_mask, dict):
             raise ValueError(
