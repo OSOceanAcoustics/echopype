@@ -105,10 +105,17 @@ def _validate_and_collect_mask_input(
             # the coordinate sequence matters, so fix the tuple form
             allowed_dims = [
                 ("ping_time", "range_sample"),
+                ("ping_time", "depth"),
                 ("channel", "ping_time", "range_sample"),
+                ("channel", "ping_time", "depth"),
             ]
             if mask[mask_ind].dims not in allowed_dims:
-                raise ValueError("All masks must have dimensions ('ping_time', 'range_sample')!")
+                raise ValueError(
+                    "Masks must have one of the following dimensions: "
+                    "('ping_time', 'range_sample'), ('ping_time', 'depth'), "
+                    "('channel', 'ping_time', 'range_sample'), "
+                    "('channel', 'ping_time', 'depth')"
+                )
 
     else:
         if not isinstance(storage_options_mask, dict):
@@ -248,7 +255,7 @@ def apply_mask(
     source_ds: Union[xr.Dataset, str, pathlib.Path],
     mask: Union[xr.DataArray, str, pathlib.Path, List[Union[xr.DataArray, str, pathlib.Path]]],
     var_name: str = "Sv",
-    fill_value: Union[int, float, np.ndarray, xr.DataArray] = np.nan,
+    fill_value: Union[int, float, xr.DataArray] = np.nan,
     storage_options_ds: dict = {},
     storage_options_mask: Union[dict, List[dict]] = {},
 ) -> xr.Dataset:
@@ -263,16 +270,17 @@ def apply_mask(
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
         The mask(s) to be applied.
         Can be a single input or list that corresponds to a DataArray or a path.
-        Each entry in the list must have dimensions ``('ping_time', 'range_sample')``.
-        Multi-channel masks are not currently supported.
+        Each entry in the list must have dimensions ``('ping_time', 'range_sample')`` or
+        dimensions ``('ping_time', 'depth')``.
         If a path is provided this should point to a zarr or netcdf file with only
         one data variable in it.
         If the input ``mask`` is a list, a logical AND will be used to produce the final
         mask that will be applied to ``var_name``.
     var_name: str, default="Sv"
         The Sv variable name in ``source_ds`` that the mask should be applied to.
-        This variable needs to have coordinates ``ping_time`` and ``range_sample``,
-        and can optionally also have coordinate ``channel``.
+        This variable needs to have coordinates ``('ping_time', 'range_sample')`` or
+        coordinates ``('ping_time', 'depth')``, and can optionally also have coordinate
+        ``channel``.
         In the case of a multi-channel Sv data variable, the ``mask`` will be broadcast
         to all channels.
     fill_value: int, float, np.ndarray, or xr.DataArray, default=np.nan
