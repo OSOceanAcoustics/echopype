@@ -554,13 +554,12 @@ def test_multi_mask_validate_and_collect_mask(mask_list: List[xr.DataArray]):
                                              reason="This should fail because fill_value is an incorrect type.")),
         (4, 2, "var1", 1),
         (4, 2, "var1", 1.0),
-        (2, 1, "var1", np.identity(2)[None, :]),
+        pytest.param(2, 1, "var1", np.identity(2)[None, :],
+                     marks=pytest.mark.xfail(strict=True,
+                     reason="This should fail because fill_value is an incorrect type.")),
         (2, 1, "var1", xr.DataArray(data=np.array([[[1.0, 0], [0, 1]]]),
                                     coords={"channel": ["chan1"], "ping_time": [0, 1], "depth": [0, 1]})
-         ),
-        pytest.param(4, 2, "var2", np.identity(2),
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because fill_value is not the right shape.")),
+         ),          
         pytest.param(4, 2, "var2",
                      xr.DataArray(data=np.array([[1.0, 0], [0, 1]]),
                                   coords={"ping_time": [0, 1], "range_sample": [0, 1]}),
@@ -569,7 +568,7 @@ def test_multi_mask_validate_and_collect_mask(mask_list: List[xr.DataArray]):
     ],
     ids=["wrong_var_name_type", "no_var_name_ds", "wrong_fill_value_type", "fill_value_int",
          "fill_value_float", "fill_value_np_array", "fill_value_DataArray",
-         "fill_value_np_array_wrong_shape", "fill_value_DataArray_wrong_shape"]
+         "fill_value_DataArray_wrong_shape"]
 )
 def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
                                    fill_value: Union[int, float, np.ndarray, xr.DataArray]):
@@ -605,8 +604,11 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
         # single_mask_float_fill
         (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]]), False),
         # single_mask_np_array_fill
-        (2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
-         False, np.array([[1, np.nan], [np.nan, 1]]), False),
+        pytest.param(
+            2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
+            False, np.array([[1, np.nan], [np.nan, 1]]), False,
+            marks=pytest.mark.xfail(strict=True,
+            reason="This should fail because fill_value is an incorrect type.")),
         # single_mask_DataArray_fill
         (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
                                                           coords={"channel": ["chan1"],
