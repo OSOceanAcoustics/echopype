@@ -144,7 +144,7 @@ def _validate_and_collect_mask_input(
 
 
 def _check_var_name_fill_value(
-    source_ds: xr.Dataset, var_name: str, fill_value: Union[int, float, np.ndarray, xr.DataArray]
+    source_ds: xr.Dataset, var_name: str, fill_value: Union[int, float, xr.DataArray]
 ) -> Union[int, float, np.ndarray, xr.DataArray]:
     """
     Ensures that the inputs ``var_name`` and ``fill_value`` for the function
@@ -156,12 +156,12 @@ def _check_var_name_fill_value(
         A Dataset that contains the variable ``var_name``
     var_name: str
         The variable name in ``source_ds`` that the mask should be applied to
-    fill_value: int or float or np.ndarray or xr.DataArray
+    fill_value: int, float, or xr.DataArray
         Specifies the value(s) at false indices
 
     Returns
     -------
-    fill_value: int or float or np.ndarray or xr.DataArray
+    fill_value: int, float, or xr.DataArray
         fill_value with sanitized dimensions
 
     Raises
@@ -183,17 +183,12 @@ def _check_var_name_fill_value(
         raise ValueError("The Dataset source_ds does not contain the variable var_name!")
 
     # check the type of fill_value
-    if not isinstance(fill_value, (int, float, np.ndarray, xr.DataArray)):
-        raise TypeError(
-            "The input fill_value must be of type int or " "float or np.ndarray or xr.DataArray!"
-        )
+    if not isinstance(fill_value, (int, float, xr.DataArray)):
+        raise TypeError("The input fill_value must be of type int, float, or xr.DataArray!")
 
     # make sure that fill_values is the same shape as var_name
-    if isinstance(fill_value, (np.ndarray, xr.DataArray)):
-        if isinstance(fill_value, xr.DataArray):
-            fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
-        elif isinstance(fill_value, np.ndarray):
-            fill_value = fill_value.squeeze()  # squeeze out length=1 channel dimension
+    if isinstance(fill_value, xr.DataArray):
+        fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
 
         source_ds_shape = (
             source_ds[var_name].isel(channel=0).shape
@@ -292,10 +287,10 @@ def apply_mask(
         ``channel``.
         In the case of a multi-channel Sv data variable, the ``mask`` will be broadcast
         to all channels.
-    fill_value: int, float, np.ndarray, or xr.DataArray, default=np.nan
+    fill_value: int, float, or xr.DataArray, default=np.nan
         Value(s) at masked indices.
-        If ``fill_value`` is of type ``np.ndarray`` or ``xr.DataArray``,
-        it must have the same shape as each entry of ``mask``.
+        If ``fill_value`` is of type ``xr.DataArray`` it must have the same shape as each
+        entry of ``mask``.
     storage_options_ds: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_ds``
