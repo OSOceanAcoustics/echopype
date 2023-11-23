@@ -401,7 +401,7 @@ def validate_source_ds_da_ed(
 
     Returns
     -------
-    source_ds_da_ed: xr.Dataset or xr.DataArray or EchoData or str
+    source: xr.Dataset or xr.DataArray or EchoData or str
         A Dataset or DataArray or EchoData which will be the same as the input ``source``
         or a validated path to a zarr or netcdf file
     file_type: {"netcdf4", "zarr"}, optional
@@ -415,17 +415,15 @@ def validate_source_ds_da_ed(
     if not isinstance(storage_options, dict):
         raise TypeError("storage_options must be a dict!")
 
-    # check that source_ds_da is of the correct type, if it is a path validate
+    # check that source is of the correct type, if it is a path validate
     # the path and open the Dataset or DataArray using xarray
     if not isinstance(source, (xr.Dataset, xr.DataArray, EchoData, str, Path)):
-        raise TypeError(
-            "source_ds_da must be a Dataset or DataArray or EchoData or str or pathlib.Path!"
-        )
+        raise TypeError("source must be a Dataset or DataArray or EchoData or str or pathlib.Path!")
     elif isinstance(source, (str, Path)):
         # determine if we obtained a zarr or netcdf file
         file_type = get_file_format(source)
 
-        # validate source_ds_da if it is a path
+        # validate source if it is a path
         source = validate_output_path(
             source_file="blank",  # will be unused since source_ds cannot be none
             engine=file_type,
