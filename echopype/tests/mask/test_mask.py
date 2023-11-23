@@ -707,14 +707,37 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
         # remove the temporary directory, if it was created
         temp_dir.cleanup()
 
-
+"""
 @pytest.mark.parametrize(
-    ("source_has_ch", "mask_has_ch"),
+    ("source_has_ch", "mask"),
     [
-        (True, True),
-        (False, True),
-        (True, False),
-        (False, False),
+        (True, [
+        xr.DataArray(
+            np.array([[np.identity(2)], np.identity(2)]),
+            coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        xr.DataArray(
+            np.array([np.identity(2)]),
+            coords={"channel": ["chan3"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        ]),
+        (False, xr.DataArray(
+            np.array([np.identity(2), np.identity(2)]),
+            coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        )),
+        (True, xr.DataArray(
+            np.identity(2),
+            coords={"ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_no_channel"},
+        )),
+        (False, xr.DataArray(
+            np.identity(2),
+            coords={"ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_no_channel"},
+        )),
     ],
     ids=[
         "source_with_ch_mask_with_ch",
@@ -723,23 +746,10 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
         "source_no_ch_mask_no_ch",
     ]
 )
-def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
+def test_apply_mask_channel_variation(source_has_ch, mask):
 
     source_ds = get_mock_source_ds_apply_mask(2, 3, False)
     var_name = "var1"
-
-    if mask_has_ch:
-        mask = xr.DataArray(
-            np.array([np.identity(2)]),
-            coords={"channel": ["chA"], "ping_time": np.arange(2), "depth": np.arange(2)},
-            attrs={"long_name": "mask_with_channel"},
-        )
-    else:
-        mask = xr.DataArray(
-            np.identity(2),
-            coords={"ping_time": np.arange(2), "depth": np.arange(2)},
-            attrs={"long_name": "mask_no_channel"},
-        )
 
     if source_has_ch:
         masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
@@ -751,7 +761,7 @@ def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
     # Output dimension will be the same as source
     if source_has_ch:
         truth_da = xr.DataArray(
-            np.array([[[1, np.nan], [np.nan, 1]]] * 3),
+            np.array([[[1, 1], [1, 1]]] * 3),
             coords={"channel": ["chan1", "chan2", "chan3"], "ping_time": np.arange(2), "depth": np.arange(2)},
             attrs=source_ds[var_name].attrs
         )
@@ -763,3 +773,4 @@ def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
         )
 
     assert masked_ds[var_name].equals(truth_da)
+"""

@@ -317,26 +317,30 @@ def apply_mask(
 
     # Obtain final mask to be applied to var_name
     if isinstance(mask, list):
-        # perform a logical AND element-wise operation across the masks
-        final_mask = np.logical_and.reduce(mask)
+        # Broadcast all input masks together before combining them (element-wise multiplication)
+        broadcasted_masks = xr.broadcast(*mask)
+
+        # Perform a logical AND element-wise operation across the masks
+        final_mask = np.logical_and.reduce(broadcasted_masks)
 
         # xr.where has issues with attrs when final_mask is an array, so we make it a DataArray
-        final_mask = xr.DataArray(final_mask, coords=mask[0].coords)
+        final_mask = xr.DataArray(final_mask, coords=broadcasted_masks[0].coords)
     else:
         final_mask = mask
 
-    # Sanity check: final_mask should be of the same shape as source_ds[var_name]
-    #               along the ping_time and range_sample dimensions
-    def get_ch_shape(da):
-        return da.isel(channel=0).shape if "channel" in da.dims else da.shape
-
-    # Below operate on the actual data array to be masked
+    # Operate on the actual data array to be masked
     source_da = source_ds[var_name]
 
-    source_da_shape = get_ch_shape(source_da)
-    final_mask_shape = get_ch_shape(final_mask)
+    # Sanity check: final_mask should be of the same shape as source_ds[var_name]
+    # along the ping_time and range_sample dimensions.
+    source_da_chan_shape = (
+        source_da.isel(channel=0).shape if "channel" in source_da.dims else source_da.shape
+    )
+    final_mask_chan_shape = (
+        final_mask.isel(channel=0).shape if "channel" in final_mask.dims else final_mask.shape
+    )
 
-    if final_mask_shape != source_da_shape:
+    if final_mask_chan_shape != source_da_chan_shape:
         raise ValueError(
             f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
             "along the ping_time and range_sample dimensions!"
@@ -368,12 +372,11 @@ def apply_mask(
         _variable_prov_attrs(output_ds[var_name], mask)
     )
 
+    # Attribute handling
     process_type = "mask"
     prov_dict = echopype_prov_attrs(process_type=process_type)
     prov_dict[f"{process_type}_function"] = "mask.apply_mask"
-
     output_ds = output_ds.assign_attrs(prov_dict)
-
     output_ds = insert_input_processing_level(output_ds, input_ds=source_ds)
 
     return output_ds
