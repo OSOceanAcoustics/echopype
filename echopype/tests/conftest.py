@@ -1,4 +1,5 @@
 """``pytest`` configuration."""
+from ftplib import FTP
 
 import os
 import subprocess
@@ -8,6 +9,49 @@ import xarray as xr
 
 import echopype as ep
 from echopype.testing import TEST_DATA_FOLDER
+
+
+def _setup_file(file_name):
+    FTP_MAIN = "ftp.bas.ac.uk"
+    FTP_PARTIAL_PATH = "rapidkrill/ek60/"
+    with FTP(FTP_MAIN) as ftp:
+        ftp.login()
+        print(TEST_DATA_FOLDER)
+        download_ftp_file(ftp, FTP_PARTIAL_PATH, file_name, TEST_DATA_FOLDER)
+    return os.path.join(TEST_DATA_FOLDER, file_name)
+
+
+def download_ftp_file(ftp, remote_path, file_name, local_path):
+    # Construct the full paths
+    remote_file_path = os.path.join(remote_path, file_name)
+    local_file_path = os.path.join(local_path, file_name)
+
+    try:
+        # Ensure the local directory exists
+        os.makedirs(local_path, exist_ok=True)
+
+        # Check if the file already exists locally
+        if not os.path.exists(local_file_path):
+            with open(local_file_path, "wb") as local_file:
+                ftp.retrbinary("RETR " + remote_file_path, local_file.write)
+        else:
+            print(f"File {local_file_path} already exists. Skipping download.")
+
+    except Exception as e:
+        print(f"Error downloading {remote_file_path}. Error: {e}")
+
+
+def _get_sv_dataset(file_path, enriched: bool = False, waveform: str = "CW", encode: str = "power"):
+    ed = ep.open_raw(file_path, sonar_model="ek60")
+    Sv = ep.calibrate.compute_Sv(ed).compute()
+    if enriched is True:
+        Sv = ep.consolidate.add_splitbeam_angle(Sv, ed, waveform, encode)
+    return Sv
+
+
+def _get_raw_dataset(file_path):
+    ed = ep.open_raw(file_path, sonar_model="ek60")
+    return ed
 
 
 @pytest.fixture(scope="session")
@@ -74,8 +118,6 @@ def _setup_file(file_name):
 
 
 # Separate Sv dataset fixtures for each file
-
-
 @pytest.fixture(scope="session")
 def sv_dataset_jr230(setup_test_data_jr230) -> xr.DataArray:
     return _get_sv_dataset(setup_test_data_jr230)
@@ -97,20 +139,26 @@ def complete_dataset_jr179(setup_test_data_jr179):
     return Sv
 
 
-def _get_sv_dataset(file_path, enriched: bool = False, waveform: str = "CW", encode: str = "power"):
-    ed = ep.open_raw(file_path, sonar_model="ek60")
-    Sv = ep.calibrate.compute_Sv(ed).compute()
-    if enriched is True:
-        Sv = ep.consolidate.add_splitbeam_angle(Sv, ed, waveform, encode)
-    return Sv
-
-
-def _get_raw_dataset(file_path):
-    ed = ep.open_raw(file_path, sonar_model="ek60")
-    return ed
-
-
 @pytest.fixture(scope="session")
 def raw_dataset_jr179(setup_test_data_jr179):
     ed = _get_raw_dataset(setup_test_data_jr179)
     return ed
+
+
+@pytest.fixture(scope="session")
+def ed_ek_60_for_Sv():
+    bucket = "ncei-wcsd-archive"
+    base_path = "data/raw/Bell_M._Shimada/SH1707/EK60/"
+    filename = "Summer2017-D20170620-T011027.raw"
+    rawdirpath = base_path + filename
+
+    s3raw_fpath = f"s3://{bucket}/{rawdirpath}"
+    storage_opts = {"anon": True}
+    ed = ep.open_raw(s3raw_fpath, sonar_model="EK60", storage_options=storage_opts)  # type: ignore
+    return ed
+
+
+@pytest.fixture(scope="session")
+def ek60_Sv(ed_ek_60_for_Sv):
+    sv_echopype_EK60 = ep.calibrate.compute_Sv(ed_ek_60_for_Sv).compute()
+    return sv_echopype_EK60

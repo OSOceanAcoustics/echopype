@@ -31,17 +31,18 @@ credits = ['Rob Blackwell'     # supervised the code and provided ideas
 import pathlib
 from typing import Union
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 from dask_image.ndmorph import binary_closing, binary_opening
 
 WEILL_DEFAULT_PARAMETERS = {
-    "thr": -70,
+    "thr": -55,
     "maxvgap": 5,
     "maxhgap": 5,
-    "minvlen": 0,
-    "minhlen": 0,
-    "dask_chunking": {"ping_time": 1000, "range_sample": 1000},
+    "minvlen": 5,
+    "minhlen": 5,
+    "dask_chunking": {"ping_time": 100, "range_sample": 100},
 }
 
 
@@ -97,10 +98,6 @@ def _weill(
     mask: xr.DataArray
         A DataArray containing the mask for the Sv data. Regions satisfying the thresholding
         criteria are filled with ``True``, else the regions are filled with ``False``.
-    mask_: xr.DataArray
-        A DataArray containing the mask for areas in which shoals were searched.
-        Edge regions are filled with 'False', whereas the portion in which shoals
-        could be detected is 'True'
     """
     parameter_names = ["thr", "maxvgap", "maxhgap", "minvlen", "minhlen", "dask_chunking"]
     if not all(name in parameters.keys() for name in parameter_names):
@@ -115,30 +112,45 @@ def _weill(
     maxhgap = parameters["maxhgap"]
     minvlen = parameters["minvlen"]
     minhlen = parameters["minhlen"]
+
     dask_chunking = parameters["dask_chunking"]
+
+    # Convert values to integers, handling possible NaN
+    dask_chunking = tuple(map(lambda x: int(x) if not np.isnan(x) else x, dask_chunking.values()))
 
     channel_Sv = source_Sv.sel(channel=desired_channel)
     Sv = channel_Sv["Sv"].chunk(dask_chunking)
 
-    mask = xr.where(Sv > thr, True, False).chunk(dask_chunking)
+    remove_nan = xr.where(Sv, Sv, thr - 1)  # so we have no nan values
+    mask = xr.where(remove_nan > thr, 1, 0).drop("channel").chunk(dask_chunking)
+
+    dask_mask = da.asarray(mask, allow_unknown_chunksizes=False)
+    dask_mask.compute_chunk_sizes()
 
     # close shoal gaps smaller than the specified box
-    if maxvgap > 0 & maxhgap > 0:
-        closing_array = np.ones(maxhgap, maxvgap)
-        mask = binary_closing(
-            mask,
-            structure=closing_array,
-            iterations=1,
+    if maxvgap > 0 and maxhgap > 0:
+        closing_array = da.ones(shape=(maxhgap, maxvgap), dtype=bool)
+        dask_mask = (
+            binary_closing(
+                dask_mask,
+                structure=closing_array,
+                iterations=1,
+            ).compute()
+            # .chunk(dask_chunking)
         )
+        dask_mask = da.asarray(dask_mask, allow_unknown_chunksizes=False)
 
     # drop shoals smaller than the specified box
-    if minvlen > 0 & minhlen > 0:
-        opening_array = np.ones(minhlen, minhlen)
-        mask = binary_opening(
-            mask,
+
+    if minvlen > 0 and minhlen > 0:
+        opening_array = da.ones(shape=(minhlen, minvlen), dtype=bool)
+        dask_mask = binary_opening(
+            dask_mask,
             structure=opening_array,
             iterations=1,
-        )
+        ).compute()
+        dask_mask = da.asarray(dask_mask, allow_unknown_chunksizes=False)
 
-    mask = mask.drop("channel")
+    mask.values = dask_mask
+
     return mask
