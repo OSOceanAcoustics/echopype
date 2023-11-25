@@ -252,3 +252,18 @@ def test_ek80_BB_power_echoview(ek80_path):
     ep_vals = pc_mean.values.real[:, :]
     assert np.allclose(ev_vals[:, 69:8284], ep_vals[:, 69:], atol=1e-4)
     assert np.allclose(ev_vals[:, 90:8284], ep_vals[:, 90:], atol=1e-5)
+
+
+def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
+    ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+
+    # Calibration object
+    waveform_mode = "CW"
+    encode_mode = "complex"
+    ds_Sv = ep.calibrate.compute_Sv(
+        ed, waveform_mode=waveform_mode, encode_mode=encode_mode
+    )
+
+    assert ds_Sv["receiver_sampling_frequency"] is not None
+    assert np.allclose(ds_Sv["receiver_sampling_frequency"].data, 1500000)
