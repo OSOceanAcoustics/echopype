@@ -35,7 +35,7 @@ jobs:
           run: |
             echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
         - name: Setup miniconda w/mamba
-          uses: conda-incubator/setup-miniconda@v2
+          uses: conda-incubator/setup-miniconda@v3
           with:
             python-version: ${{ matrix.python-version }}
             mamba-version: "*"
