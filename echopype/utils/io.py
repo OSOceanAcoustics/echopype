@@ -5,14 +5,17 @@ import os
 import pathlib
 import platform
 import sys
+import tempfile
 import uuid
 from pathlib import Path, WindowsPath
 from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import fsspec
 import xarray as xr
-from fsspec import FSMap
+from dask.array import Array as DaskArray
+from fsspec import AbstractFileSystem, FSMap
 from fsspec.implementations.local import LocalFileSystem
+from zarr.storage import FSStore
 
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
@@ -30,14 +33,20 @@ SUPPORTED_ENGINES = {
 
 logger = _init_logger(__name__)
 
-
-ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".echopype"
+# Get root echopype package name
+ECHOPYPE = __name__.split(".")[0]
+ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".{ECHOPYPE}"
+ECHOPYPE_TEMP_DIR = Path(tempfile.gettempdir()) / ECHOPYPE
+_SWAP_PREFIX = "ep-swap"
 
 
 def init_ep_dir():
     """Initialize hidden directory for echopype"""
     if not ECHOPYPE_DIR.exists():
         ECHOPYPE_DIR.mkdir(exist_ok=True)
+
+    if not ECHOPYPE_TEMP_DIR.exists():
+        ECHOPYPE_TEMP_DIR.mkdir(exist_ok=True)
 
 
 def get_files_from_dir(folder):
@@ -61,7 +70,8 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
     elif engine == "zarr":
         # Ensure that encoding and chunks match
         for var, enc in encoding.items():
-            ds[var] = ds[var].chunk(enc.get("chunks", {}))
+            if isinstance(ds[var].data, DaskArray):
+                ds[var] = ds[var].chunk(enc.get("chunks", {}))
         ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding, **kwargs)
     else:
         raise ValueError(f"{engine} is not a supported save format")
@@ -422,3 +432,62 @@ def validate_source_ds_da(
         check_file_existence(file_path=source_ds_da, storage_options=storage_options)
 
     return source_ds_da, file_type
+
+
+# Utilities for creating temporary swap zarr files -------------------------------------
+def create_temp_zarr_store() -> FSMap:
+    """Create a temporary zarr store for swapping data.
+
+    Returns
+    -------
+    FSMap
+        The zarr store for swapping data
+
+    """
+    # Use system temp directory to create swap file by default
+    with tempfile.TemporaryDirectory(
+        suffix=".zarr",
+        prefix=f"{_SWAP_PREFIX}--",
+        dir=ECHOPYPE_TEMP_DIR,
+    ) as zarr_path:
+        return fsspec.get_mapper(zarr_path)
+
+
+def delete_zarr_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] = None) -> None:
+    """
+    Delete the zarr store and all its contents.
+
+    Parameters
+    ----------
+    store : FSStore or str
+        The store or store path to delete.
+    fs : AbstractFileSystem, optional
+        The fsspec file system to use
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If store is a string path and fs is not provided
+    """
+    if isinstance(store, str):
+        if fs is None:
+            raise ValueError("Must provide fs if store is a path string")
+        store_path = store
+    else:
+        # Get the file system, this should already have the
+        # correct storage options
+        fs = store.fs
+
+        # Get the string path to the store
+        store_path: str = store.dir_path()
+
+    if fs.exists(store_path):
+        # Delete the store when it exists
+        fs.rm(store_path, recursive=True)
+
+
+# End of utilities for creating temporary swap zarr files ------------------------------

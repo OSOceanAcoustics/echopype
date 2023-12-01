@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union
 
 import fsspec
 from datatree import DataTree
@@ -7,7 +7,6 @@ from datatree import DataTree
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
 from ..core import SONAR_MODELS
-from .parsed_to_zarr import Parsed2Zarr
 
 if TYPE_CHECKING:
     from ..core import EngineHint, PathHint, SonarModelsHint
@@ -17,7 +16,6 @@ from ..utils import io
 from ..utils.coding import COMPRESSION_SETTINGS
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
-from .utils.ek import should_use_swap
 
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
@@ -315,11 +313,9 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    use_swap: bool = False,
-    destination_path: Optional[str] = None,
-    destination_storage_options: Optional[Dict[str, str]] = None,
-    max_mb: int = 100,
-) -> Optional[EchoData]:
+    use_swap: Union[bool, Literal["auto"]] = False,
+    max_chunk_size: str = "100MB",
+) -> EchoData:
     """Create an EchoData object containing parsed data from a single raw data file.
 
     The EchoData object can be used for adding metadata and ancillary data
@@ -347,19 +343,11 @@ def open_raw(
         and need to be added to the converted file
     storage_options : dict, optional
         options for cloud storage
-    use_swap: bool
-        **DEPRECATED: This flag is ignored**
-        If True, variables with a large memory footprint will be
-        written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
-    destination_path: str
-        The path to a swap directory in a case of a large memory footprint.
-        This path can be a remote path like s3://bucket/swap_dir.
-        By default, it will create a temporary zarr store at
-        ``~/.echopype/temp_output/parsed2zarr_temp_files`` if needed,
-        when set to "auto".
-    destination_storage_options: dict, optional
-        Options for remote storage for the swap directory ``destination_path``
-        argument.
+    use_swap: bool or "auto", default False
+        Flag to use disk swap in case of a large memory footprint.
+        When set to ``True`` (or when set to "auto" and large memory footprint is needed,
+        this function will create a temporary zarr store at the operating system's
+        temporary directory.
     max_mb : int
         The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
@@ -382,23 +370,18 @@ def open_raw(
 
     Notes
     -----
-    In a case of a large memory footprint, the program will determine if using
+    In case of a large memory footprint, the program will determine if using
     a temporary swap space is needed. If so, it will use that space
     during conversion to prevent out of memory errors.
-    Users can override this behaviour by either passing ``"swap"`` or ``"no_swap"``
-    into the ``destination_path`` argument.
+
+    Users can override this behaviour by either passing
+    ``use_swap=True`` or ``use_swap=False``. If a keyword "auto" is
+    used for the ``use_swap`` parameter, echopype will determine the usage of
+    swap space automatically.
+
     This feature is only available for the following
-    echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
-    is currently in beta.
+    echosounders: EK60, ES70, EK80, ES80, EA640.
     """
-
-    # Initially set use_swap False
-    use_swap = False
-
-    # Set initial destination_path of "no_swap"
-    if destination_path is None:
-        destination_path = "no_swap"
-
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
 
@@ -428,66 +411,26 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
-    # TODO: the if-else below only works for the AZFP vs EK contrast,
-    #  but is brittle since it is abusing params by using it implicitly
-    if SONAR_MODELS[sonar_model]["xml"]:
-        params = xml_chk
-    else:
-        params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
-
-    # obtain dict associated with directly writing to zarr
-    dgram_zarr_vars = SONAR_MODELS[sonar_model]["dgram_zarr_vars"]
-
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk,
-        params=params,
+        # Currently used only for AZFP XML File
+        file_meta=xml_chk,
         storage_options=storage_options,
-        dgram_zarr_vars=dgram_zarr_vars,
         sonar_model=sonar_model,
     )
-
+    # Actually parse the raw datagrams from source file
     parser.parse_raw()
 
     # Direct offload to zarr and rectangularization only available for some sonar models
+    # No rectangularization for other sonar models not listed below
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        swap_map = {
-            "swap": True,
-            "no_swap": False,
-        }
-        if destination_path == "auto":
-            # Overwrite use_swap if it's True below
-            # Use local swap directory
-            use_swap = should_use_swap(parser.zarr_datagrams, dgram_zarr_vars, mem_mult=0.4)
-        elif destination_path in swap_map:
-            use_swap = swap_map[destination_path]
-        else:
-            # TODO: Add docstring about swap path
-            use_swap = True
-            if "://" in destination_path and destination_storage_options is None:
-                raise ValueError(
-                    (
-                        "Please provide storage options for remote destination. ",
-                        "If access is already configured locally, ",
-                        "simply put an empty dictionary.",
-                    )
-                )
-
-        if use_swap:
-            # Create sonar_model-specific p2z object
-            p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
-            p2z.datagram_to_zarr(
-                dest_path=destination_path,
-                dest_storage_options=destination_storage_options,
-                max_mb=max_mb,
-            )
-        else:
-            p2z = Parsed2Zarr(parser)  # Create general p2z object
-            parser.rectangularize_data()
-
-    else:
-        # No rectangularization for other sonar models
-        p2z = Parsed2Zarr(parser)  # Create general p2z object
+        # Perform rectangularization and offload to zarr
+        # if the data expansion is too large to fit in memory
+        parser.rectangularize_data(
+            use_swap=use_swap,
+            max_chunk_size=max_chunk_size,
+        )
 
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
@@ -496,7 +439,6 @@ def open_raw(
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
-        parsed2zarr_obj=p2z,
     )
 
     # Setup tree dictionary
@@ -547,9 +489,7 @@ def open_raw(
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
-    echodata = EchoData(
-        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model, parsed2zarr_obj=p2z
-    )
+    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     echodata._set_tree(tree)
     echodata._load_tree()
 

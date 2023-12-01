@@ -7,7 +7,7 @@ exclude: |
   )
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -24,7 +24,7 @@ repos:
         args: ["--profile", "black", "--filter-files"]
 
   - repo: https://github.com/psf/black
-    rev: 23.9.1
+    rev: 23.11.0
     hooks:
       - id: black
 
@@ -34,7 +34,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.5
+    rev: v2.2.6
     hooks:
       - id: codespell
         # Checks spelling in `docs/source` and `echopype` dirs ONLY

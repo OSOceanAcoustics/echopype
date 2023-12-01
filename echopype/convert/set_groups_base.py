@@ -27,7 +27,6 @@ class SetGroupsBase(abc.ABC):
         compress=True,
         overwrite=True,
         params=None,
-        parsed2zarr_obj=None,
     ):
         # parser object ParseEK60/ParseAZFP/etc...
         self.parser_obj = parser_obj
@@ -42,15 +41,12 @@ class SetGroupsBase(abc.ABC):
         self.compress = compress
         self.overwrite = overwrite
 
-        # parsed data written directly to zarr object
-        self.parsed2zarr_obj = parsed2zarr_obj
-
         if not self.compress:
             self.compression_settings = None
         else:
             self.compression_settings = COMPRESSION_SETTINGS[self.engine]
 
-        self._varattrs = self.parsed2zarr_obj._varattrs
+        self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
         # self._beamgroups must be a list of dicts, eg:
         # [{"name":"Beam_group1", "descr":"contains complex backscatter data
         # and other beam or channel-specific data."}]

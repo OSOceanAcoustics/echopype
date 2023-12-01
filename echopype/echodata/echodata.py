@@ -4,6 +4,7 @@ from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Set, Tuple, Union
 
+import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
@@ -13,8 +14,9 @@ from zarr.errors import GroupNotFoundError, PathNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
+from ..echodata.utils_platform import _clip_by_time_dim, get_mappings_expanded
 from ..utils.coding import sanitize_dtypes, set_time_encodings
-from ..utils.io import check_file_existence, sanitize_file_path
+from ..utils.io import check_file_existence, delete_zarr_store, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
@@ -52,7 +54,6 @@ class EchoData:
         xml_path: Optional["PathHint"] = None,
         sonar_model: Optional["SonarModelsHint"] = None,
         open_kwargs: Optional[Dict[str, Any]] = None,
-        parsed2zarr_obj=None,
     ):
         # TODO: consider if should open datasets in init
         #  or within each function call when echodata is used. Need to benchmark.
@@ -67,27 +68,40 @@ class EchoData:
         self.converted_raw_path: Optional["PathHint"] = converted_raw_path
         self._tree: Optional["DataTree"] = None
 
-        # object associated with directly writing to a zarr file
-        self.parsed2zarr_obj = parsed2zarr_obj
-
         self.__setup_groups()
         # self.__read_converted(converted_raw_path)
 
         self._varattrs = sonarnetcdf_1.yaml_dict["variable_and_varattributes"]
 
-    def cleanup(self):
-        if (self.parsed2zarr_obj is not None) and (self.parsed2zarr_obj.store is not None):
-            # get Path object of temporary zarr file created by Parsed2Zarr
-            p2z_temp_file = self.parsed2zarr_obj.store
-
-            # remove temporary directory created by Parsed2Zarr, if it exists
-            if p2z_temp_file.fs.exists(p2z_temp_file.root):
-                p2z_temp_file.fs.rm(p2z_temp_file.root, recursive=True)
+    def cleanup_swap_files(self):
+        """
+        Clean up the swap files during raw data conversion
+        """
+        sonar_group = "Sonar"
+        beam_group_var = "beam_group"
+        for beam_group in self[sonar_group][beam_group_var].to_numpy():
+            # Go through each beam group
+            for var in self[f"{sonar_group}/{beam_group}"].data_vars.values():
+                # Go through each variable and only delete if it's a dask array
+                if isinstance(var.data, dask.array.Array):
+                    da = var.data
+                    # Get the dask graph so we have access to the underlying
+                    # zarr stores
+                    dask_graph = da.__dask_graph__()
+                    # Get the zarr stores
+                    zarr_stores = [
+                        v.store for k, v in dask_graph.items() if "original-from-zarr" in k
+                    ]
+                    fs = zarr_stores[0].fs
+                    for store in zarr_stores:
+                        delete_zarr_store(store, fs)
 
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
         #  even clear all outputs is used. It will work if you explicitly delete the object
-        self.cleanup()
+        if self.converted_raw_path is None:
+            # Assumes raw data is in memory
+            self.cleanup_swap_files()
 
     def __str__(self) -> str:
         fpath = "Internal Memory"
@@ -340,61 +354,6 @@ class EchoData:
             obs_dim = list(extra_platform_data[time_dim].dims)[0]
             extra_platform_data = extra_platform_data.swap_dims({obs_dim: time_dim})
 
-        def _extvar_properties(ds, name):
-            """Test the external variable for presence and all-nan values,
-            and extract its time dimension name.
-            Returns <presence>, <valid values>, <time dim name>
-            """
-            if name in ds:
-                # Assumes the only dimension in the variable is a time dimension
-                time_dim_name = ds[name].dims[0] if len(ds[name].dims) > 0 else "scalar"
-                if not ds[name].isnull().all():
-                    return True, True, time_dim_name
-                else:
-                    return True, False, time_dim_name
-            else:
-                return False, False, None
-
-        # clip incoming time to 1 less than min of EchoData["Sonar/Beam_group1"]["ping_time"] and
-        #   1 greater than max of EchoData["Sonar/Beam_group1"]["ping_time"]
-        # account for unsorted external time by checking whether each time value is between
-        #   min and max ping_time instead of finding the 2 external times corresponding to the
-        #   min and max ping_time and taking all the times between those indices
-        def _clip_by_time_dim(external_ds, ext_time_dim_name):
-            # external_ds is extra_platform_data[vars-list-on-time_dim_name]
-            sorted_external_time = external_ds[ext_time_dim_name].data
-            sorted_external_time.sort()
-            # fmt: off
-            min_index = max(
-                np.searchsorted(
-                    sorted_external_time,
-                    self["Sonar/Beam_group1"]["ping_time"].min(),
-                    side="left"
-                ) - 1,
-                0,
-            )
-            # fmt: on
-            max_index = min(
-                np.searchsorted(
-                    sorted_external_time,
-                    self["Sonar/Beam_group1"]["ping_time"].max(),
-                    side="right",
-                ),
-                len(sorted_external_time) - 1,
-            )
-            # TODO: this element-wise comparison is expensive and seems an ad-hoc patch
-            # to deal with potentially reversed timestamps in the external dataset.
-            # Review at workflow stage to see if to clean up timestamp reversals
-            # and just find start/end timestamp for slicing.
-            return external_ds.sel(
-                {
-                    ext_time_dim_name: np.logical_and(
-                        sorted_external_time[min_index] <= external_ds[ext_time_dim_name],
-                        external_ds[ext_time_dim_name] <= sorted_external_time[max_index],
-                    )
-                }
-            )
-
         # History attribute to be included in each updated variable
         history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
@@ -405,62 +364,9 @@ class EchoData:
         # Retain only variable_mappings items where
         # either the Platform group or extra_platform_data
         # contain the corresponding variables or contain valid (not all nan) data
-        mappings_expanded = {}
-        for platform_var, external_var in variable_mappings.items():
-            # TODO: instead of using existing Platform group variables, a better practice is to
-            # define a set of allowable Platform variables (sonar_model dependent) for this check.
-            # This set can be dynamically generated from an external source like a CDL or yaml.
-            if platform_var in platform:
-                platform_validvalues = not platform[platform_var].isnull().all()
-                ext_present, ext_validvalues, ext_time_dim_name = _extvar_properties(
-                    extra_platform_data, external_var
-                )
-                if ext_present and ext_validvalues:
-                    mappings_expanded[platform_var] = dict(
-                        external_var=external_var,
-                        ext_time_dim_name=ext_time_dim_name,
-                        platform_validvalues=platform_validvalues,
-                    )
-
-        # Generate warning if mappings_expanded is empty
-        if not mappings_expanded:
-            logger.warning(
-                "No variables will be updated, "
-                "check variable_mappings to ensure variable names are correctly specified!"
-            )
-
-        # If longitude or latitude are requested, verify that both are present
-        # and they share the same external time dimension
-        if "longitude" in mappings_expanded or "latitude" in mappings_expanded:
-            if "longitude" not in mappings_expanded or "latitude" not in mappings_expanded:
-                raise ValueError(
-                    "Only one of latitude and longitude are specified. Please include both, or neither."  # noqa
-                )
-            if (
-                mappings_expanded["longitude"]["ext_time_dim_name"]
-                != mappings_expanded["latitude"]["ext_time_dim_name"]
-            ):
-                raise ValueError(
-                    "The external latitude and longitude use different time dimensions. "
-                    "They must share the same time dimension."
-                )
-
-        # Generate warnings regarding variables that will be updated
-        vars_not_handled = set(variable_mappings.keys()).difference(mappings_expanded.keys())
-        if len(vars_not_handled) > 0:
-            logger.warning(
-                f"The following requested variables will not be updated: {', '.join(vars_not_handled)}"  # noqa
-            )
-
-        vars_notnan_replaced = [
-            platform_var
-            for platform_var, v in mappings_expanded.items()
-            if v["platform_validvalues"]
-        ]
-        if len(vars_notnan_replaced) > 0:
-            logger.warning(
-                f"Some variables with valid data in the original Platform group will be overwritten: {', '.join(vars_notnan_replaced)}"  # noqa
-            )
+        mappings_expanded = get_mappings_expanded(
+            logger, extra_platform_data, variable_mappings, platform
+        )
 
         # Create names for required new time dimensions
         ext_time_dims = list(
@@ -482,7 +388,9 @@ class EchoData:
                 k: v for k, v in mappings_expanded.items() if v["ext_time_dim_name"] == ext_time_dim
             }
             ext_vars = [v["external_var"] for v in mappings_selected.values()]
-            ext_ds = _clip_by_time_dim(extra_platform_data[ext_vars], ext_time_dim)
+            ext_ds = _clip_by_time_dim(
+                extra_platform_data[ext_vars], ext_time_dim, self["Sonar/Beam_group1"]["ping_time"]
+            )
 
             # Create new time coordinate and dimension
             platform = platform.assign_coords(**{time_dim: ext_ds[ext_time_dim].values})
@@ -517,9 +425,21 @@ class EchoData:
             if v["ext_time_dim_name"] == "scalar"
         ]
         for platform_var in scalar_vars:
+            # Set timestamp equal to the first ping time whenever either
+            # latitude or longitude is updated without a time dimension
             ext_var = mappings_expanded[platform_var]["external_var"]
-            # Replace the scalar value and add a history attribute
-            platform[platform_var].data = float(extra_platform_data[ext_var].data)
+            if platform_var == "latitude" or platform_var == "longitude":
+                platform[platform_var].data = np.array([extra_platform_data[ext_var].data])
+                platform[platform_var] = platform[platform_var].assign_coords(
+                    **{
+                        platform[platform_var].dims[0]: [
+                            self["Sonar/Beam_group1"]["ping_time"].data[0]
+                        ]
+                    }
+                )
+            else:
+                # Replace the scalar value and add a history attribute
+                platform[platform_var].data = float(extra_platform_data[ext_var].data)
             platform[platform_var] = platform[platform_var].assign_attrs(
                 **{"history": f"{history_attr}. From external {ext_var} variable."}
             )
