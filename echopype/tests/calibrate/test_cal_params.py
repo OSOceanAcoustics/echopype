@@ -4,8 +4,13 @@ import numpy as np
 import xarray as xr
 
 from echopype.calibrate.cal_params import (
-    CAL_PARAMS, param2da, sanitize_user_cal_dict, _get_interp_da,
-    get_cal_params_AZFP, get_cal_params_EK, get_vend_cal_params_power
+    CAL_PARAMS,
+    param2da,
+    sanitize_user_cal_dict,
+    _get_interp_da,
+    get_cal_params_AZFP,
+    get_cal_params_EK,
+    get_vend_cal_params_power,
 )
 
 
@@ -14,7 +19,7 @@ def freq_center():
     return xr.DataArray(
         [[25, 55]],
         dims=["ping_time", "channel"],
-        coords={"channel": ["chA", "chB"], "ping_time": [1]}
+        coords={"channel": ["chA", "chB"], "ping_time": [1]},
     )
 
 
@@ -59,15 +64,11 @@ def vend_EK():
             coords={"channel": ["chA", "chB"], "pulse_length_bin": [0, 1, 2, 3]},
         )
     vend["pulse_length"] = xr.DataArray(
-            np.array([[64, 128, 256, 512], [128, 256, 512, 1024]]),
-            coords={"channel": vend["channel"], "pulse_length_bin": vend["pulse_length_bin"]}
+        np.array([[64, 128, 256, 512], [128, 256, 512, 1024]]),
+        coords={"channel": vend["channel"], "pulse_length_bin": vend["pulse_length_bin"]},
     )
-    vend["impedance_transceiver"] = xr.DataArray(
-        [1000, 2000], coords={"channel": vend["channel"]}
-    )
-    vend["transceiver_type"] = xr.DataArray(
-        ["WBT", "WBT"], coords={"channel": vend["channel"]}
-    )
+    vend["impedance_transceiver"] = xr.DataArray([1000, 2000], coords={"channel": vend["channel"]})
+    vend["transceiver_type"] = xr.DataArray(["WBT", "WBT"], coords={"channel": vend["channel"]})
     return vend
 
 
@@ -79,16 +80,21 @@ def beam_EK():
     beam = xr.Dataset()
     for p_name in [
         "equivalent_beam_angle",
-        "angle_offset_alongship", "angle_offset_athwartship",
-        "angle_sensitivity_alongship", "angle_sensitivity_athwartship",
-        "beamwidth_twoway_alongship", "beamwidth_twoway_athwartship"
+        "angle_offset_alongship",
+        "angle_offset_athwartship",
+        "angle_sensitivity_alongship",
+        "angle_sensitivity_athwartship",
+        "beamwidth_twoway_alongship",
+        "beamwidth_twoway_athwartship",
     ]:
         beam[p_name] = xr.DataArray(
             np.array([[123], [456]]),
             dims=["channel", "ping_time"],
             coords={"channel": ["chA", "chB"], "ping_time": [1]},
         )
-    beam["frequency_nominal"] = xr.DataArray([25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]})
+    beam["frequency_nominal"] = xr.DataArray(
+        [25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]}
+    )
     return beam.transpose("channel", "ping_time")
 
 
@@ -96,24 +102,32 @@ def beam_EK():
     ("p_val", "channel", "da_output"),
     [
         # input p_val a scalar, input channel a list
-        (1, ["chA", "chB"], xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})),
+        (
+            1,
+            ["chA", "chB"],
+            xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]}),
+        ),
         # input p_val a list, input channel an xr.DataArray
         (
             [1, 2],
             xr.DataArray(["chA", "chB"], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-            xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]})
+            xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}),
         ),
         # input p_val a list with the wrong length: this should fail
         pytest.param(
-            [1, 2, 3], ["chA", "chB"], None,
-            marks=pytest.mark.xfail(strict=True, reason="Fail since lengths of p_val and channel are not identical")
+            [1, 2, 3],
+            ["chA", "chB"],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="Fail since lengths of p_val and channel are not identical"
+            ),
         ),
     ],
     ids=[
         "in_p_val_scalar_channel_list",
         "in_p_val_list_channel_xrda",
         "in_p_val_list_wrong_length",
-    ]
+    ],
 )
 def test_param2da(p_val, channel, da_output):
     da_assembled = param2da(p_val, channel)
@@ -125,14 +139,24 @@ def test_param2da(p_val, channel, da_output):
     [
         # sonar_type only allows EK or AZFP
         pytest.param(
-            "XYZ", None, None, None,
-            marks=pytest.mark.xfail(strict=True, reason="Fail since sonar_type is not 'EK' nor 'AZFP'")
+            "XYZ",
+            None,
+            None,
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="Fail since sonar_type is not 'EK' nor 'AZFP'"
+            ),
         ),
         # input channel
         #   - is not a list nor an xr.DataArray: fail with value error
         pytest.param(
-            "EK80", 1, None, None,
-            marks=pytest.mark.xfail(strict=True, reason="Fail since channel has to be either a list or an xr.DataArray"),
+            "EK80",
+            1,
+            None,
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="Fail since channel has to be either a list or an xr.DataArray"
+            ),
         ),
         # TODO: input channel has different order than those in the inarg channel
         # input param dict
@@ -143,27 +167,51 @@ def test_param2da(p_val, channel, da_output):
         #   - is xr.DataArray without channel coorindate: fail with value error
         pytest.param(
             "EK80",
-            {"sa_correction": xr.DataArray([1, 1], dims=["some_coords"], coords={"some_coords": ["A", "B"]})},
-            ["chA", "chB"], None,
-            marks=pytest.mark.xfail(strict=True, reason="input sa_correction does not contain a 'channel' coordinate"),
+            {
+                "sa_correction": xr.DataArray(
+                    [1, 1], dims=["some_coords"], coords={"some_coords": ["A", "B"]}
+                )
+            },
+            ["chA", "chB"],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="input sa_correction does not contain a 'channel' coordinate"
+            ),
         ),
         # input individual param:
         #   - with channel coordinate but not identical to argin channel: fail with value error
         pytest.param(
             "EK80",
-            {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "B"]})},
-            ["chA", "chB"], None,
-            marks=pytest.mark.xfail(strict=True,
-                reason="input sa_correction contains a 'channel' coordinate but it is not identical with input channel"),
+            {
+                "sa_correction": xr.DataArray(
+                    [1, 1], dims=["channel"], coords={"channel": ["chA", "B"]}
+                )
+            },
+            ["chA", "chB"],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="input sa_correction contains a 'channel' coordinate but it is not identical with input channel",
+            ),
         ),
         # input individual param:
         #   - with channel coordinate identical to argin channel: should pass
         pytest.param(
             "EK80",
-            {"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})},
+            {
+                "sa_correction": xr.DataArray(
+                    [1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                )
+            },
             ["chA", "chB"],
-            dict(dict.fromkeys(CAL_PARAMS["EK80"]),
-                **{"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
+            dict(
+                dict.fromkeys(CAL_PARAMS["EK80"]),
+                **{
+                    "sa_correction": xr.DataArray(
+                        [1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    )
+                },
+            ),
         ),
         # input individual param:
         #   - a scalar needing to be organized to xr.DataArray at output via param2da: should pass
@@ -171,8 +219,14 @@ def test_param2da(p_val, channel, da_output):
             "EK80",
             {"sa_correction": 1},
             ["chA", "chB"],
-            dict(dict.fromkeys(CAL_PARAMS["EK80"]),
-                **{"sa_correction": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
+            dict(
+                dict.fromkeys(CAL_PARAMS["EK80"]),
+                **{
+                    "sa_correction": xr.DataArray(
+                        [1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    )
+                },
+            ),
         ),
         # input individual param:
         #   - a list needing to be organized to xr.DataArray at output via param2da: should pass
@@ -180,15 +234,26 @@ def test_param2da(p_val, channel, da_output):
             "EK80",
             {"sa_correction": [1, 2]},
             ["chA", "chB"],
-            dict(dict.fromkeys(CAL_PARAMS["EK80"]),
-                **{"sa_correction": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]})}),
-        ),    
+            dict(
+                dict.fromkeys(CAL_PARAMS["EK80"]),
+                **{
+                    "sa_correction": xr.DataArray(
+                        [1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    )
+                },
+            ),
+        ),
         # input individual param:
         #   - a list with wrong length (ie not identical to channel): fail with value error
         pytest.param(
-            "EK80", {"sa_correction": [1, 2, 3]}, ["chA", "chB"], None,
-            marks=pytest.mark.xfail(strict=True,
-                reason="input sa_correction contains a list of wrong length that does not match that of channel"),
+            "EK80",
+            {"sa_correction": [1, 2, 3]},
+            ["chA", "chB"],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="input sa_correction contains a list of wrong length that does not match that of channel",
+            ),
         ),
     ],
     ids=[
@@ -221,27 +286,45 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
         (
             None,
             1,
-            xr.DataArray([[1], [1]], dims=["channel", "ping_time"], coords={"channel": ["chA", "chB"], "ping_time": [1]})
+            xr.DataArray(
+                [[1], [1]],
+                dims=["channel", "ping_time"],
+                coords={"channel": ["chA", "chB"], "ping_time": [1]},
+            ),
         ),
         # da_param: alternative is xr.DataArray: output selected with the right channel
         (
             None,
             xr.DataArray([1, 1, 2], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}),
-            xr.DataArray([[1], [1]], dims=["channel", "ping_time"], coords={"channel": ["chA", "chB"], "ping_time": [1]})
+            xr.DataArray(
+                [[1], [1]],
+                dims=["channel", "ping_time"],
+                coords={"channel": ["chA", "chB"], "ping_time": [1]},
+            ),
         ),
         # da_param: xr.DataArray with freq-dependent values/coordinates
         #   - output should be interpolated with the right values
         (
             xr.DataArray(
-                np.array([[1, 2, 3, np.nan, np.nan, np.nan],
-                          [np.nan, np.nan, np.nan, 4, 5, 6],
-                          [np.nan, 2, 3, 4, np.nan, np.nan]]),
+                np.array(
+                    [
+                        [1, 2, 3, np.nan, np.nan, np.nan],
+                        [np.nan, np.nan, np.nan, 4, 5, 6],
+                        [np.nan, 2, 3, 4, np.nan, np.nan],
+                    ]
+                ),
                 dims=["cal_channel_id", "cal_frequency"],
-                coords={"cal_channel_id": ["chA", "chB", "chC"],
-                        "cal_frequency": [10, 20, 30, 40, 50, 60]},
+                coords={
+                    "cal_channel_id": ["chA", "chB", "chC"],
+                    "cal_frequency": [10, 20, 30, 40, 50, 60],
+                },
             ),
             None,
-            xr.DataArray([[2.5], [5.5]], dims=["channel", "ping_time"], coords={"ping_time": [1], "channel": ["chA", "chB"]}),
+            xr.DataArray(
+                [[2.5], [5.5]],
+                dims=["channel", "ping_time"],
+                coords={"ping_time": [1], "channel": ["chA", "chB"]},
+            ),
         ),
         # da_param: xr.DataArray with only one channel having freq-dependent values/coordinates
         #   - that single channel should be interpolated with the right value
@@ -252,14 +335,13 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
             xr.DataArray(
                 np.array([[np.nan, np.nan, np.nan, 4, 5, 6]]),
                 dims=["cal_channel_id", "cal_frequency"],
-                coords={"cal_channel_id": ["chB"],
-                        "cal_frequency": [10, 20, 30, 40, 50, 60]},
+                coords={"cal_channel_id": ["chB"], "cal_frequency": [10, 20, 30, 40, 50, 60]},
             ),
             75,
             xr.DataArray(
                 [[75], [5.5]],
                 dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]}
+                coords={"ping_time": [1], "channel": ["chA", "chB"]},
             ),
         ),
         #       - xr.DataArray with coordinates channel, ping_time
@@ -267,8 +349,7 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
             xr.DataArray(
                 np.array([[np.nan, np.nan, np.nan, 4, 5, 6]]),
                 dims=["cal_channel_id", "cal_frequency"],
-                coords={"cal_channel_id": ["chB"],
-                        "cal_frequency": [10, 20, 30, 40, 50, 60]},
+                coords={"cal_channel_id": ["chB"], "cal_frequency": [10, 20, 30, 40, 50, 60]},
             ),
             xr.DataArray(
                 np.array([[100], [200]]),
@@ -278,15 +359,15 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
             xr.DataArray(
                 [[100], [5.5]],
                 dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]}
+                coords={"ping_time": [1], "channel": ["chA", "chB"]},
             ),
-        # TODO: cases where freq_center does not have the ping_time dimension
-        #       this is the case for CW data since freq_center = beam["frequency_nominal"]
-        #       this was caught by the file in test_compute_Sv_ek80_CW_complex()
-        # TODO: cases where freq_center contains only a single frequency
-        #       in this case had to use freq_center.sel(channel=ch_id).size because
-        #       len(freq_center.sel(channel=ch_id)) is an invalid statement
-        #       this was caught by the file in test_compute_Sv_ek80_CW_power_BB_complex()
+            # TODO: cases where freq_center does not have the ping_time dimension
+            #       this is the case for CW data since freq_center = beam["frequency_nominal"]
+            #       this was caught by the file in test_compute_Sv_ek80_CW_complex()
+            # TODO: cases where freq_center contains only a single frequency
+            #       in this case had to use freq_center.sel(channel=ch_id).size because
+            #       len(freq_center.sel(channel=ch_id)) is an invalid statement
+            #       this was caught by the file in test_compute_Sv_ek80_CW_power_BB_complex()
         ),
     ],
     ids=[
@@ -295,7 +376,7 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
         "in_da_all_channel_out_interp",
         "in_da_some_channel_alt_scalar",
         "in_da_some_channel_alt_da2coords",  # channel, ping_time
-    ]
+    ],
 )
 def test_get_interp_da(freq_center, da_param, alternative, da_output):
     da_interp = _get_interp_da(da_param, freq_center, alternative)
@@ -309,50 +390,90 @@ def test_get_interp_da(freq_center, da_param, alternative, da_output):
         (
             {"EL": 1, "equivalent_beam_angle": 2},
             dict(
-                {p_name: xr.DataArray([10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}) for p_name in CAL_PARAMS["AZFP"]},
+                {
+                    p_name: xr.DataArray(
+                        [10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    )
+                    for p_name in CAL_PARAMS["AZFP"]
+                },
                 **{
-                    "EL": xr.DataArray([1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-                    "equivalent_beam_angle": xr.DataArray([2, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-                }
+                    "EL": xr.DataArray(
+                        [1, 1], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    ),
+                    "equivalent_beam_angle": xr.DataArray(
+                        [2, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    ),
+                },
             ),
         ),
         # input param is a list
         (
             {"EL": [1, 2], "equivalent_beam_angle": [3, 4]},
             dict(
-                {p_name: xr.DataArray([10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}) for p_name in CAL_PARAMS["AZFP"]},
+                {
+                    p_name: xr.DataArray(
+                        [10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    )
+                    for p_name in CAL_PARAMS["AZFP"]
+                },
                 **{
-                    "EL": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-                    "equivalent_beam_angle": xr.DataArray([3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-                }
+                    "EL": xr.DataArray(
+                        [1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    ),
+                    "equivalent_beam_angle": xr.DataArray(
+                        [3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    ),
+                },
             ),
         ),
         # input param is a list of wrong length: this should fail
         pytest.param(
-            {"EL": [1, 2, 3], "equivalent_beam_angle": [3, 4]}, None,
-            marks=pytest.mark.xfail(strict=True, reason="Fail since lengths of input list and channel are not identical"),
+            {"EL": [1, 2, 3], "equivalent_beam_angle": [3, 4]},
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="Fail since lengths of input list and channel are not identical"
+            ),
         ),
         # input param is an xr.DataArray with coordinate 'channel'
         (
             {
                 "EL": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-                "equivalent_beam_angle": xr.DataArray([3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}),
+                "equivalent_beam_angle": xr.DataArray(
+                    [3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                ),
             },
             dict(
-                {p_name: xr.DataArray([10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}) for p_name in CAL_PARAMS["AZFP"]},
+                {
+                    p_name: xr.DataArray(
+                        [10, 20], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    )
+                    for p_name in CAL_PARAMS["AZFP"]
+                },
                 **{
-                    "EL": xr.DataArray([1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-                    "equivalent_beam_angle": xr.DataArray([3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}),
-                }
+                    "EL": xr.DataArray(
+                        [1, 2], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    ),
+                    "equivalent_beam_angle": xr.DataArray(
+                        [3, 4], dims=["channel"], coords={"channel": ["chA", "chB"]}
+                    ),
+                },
             ),
         ),
         # input param is an xr.DataArray with coordinate 'channel' but wrong length: this should fail
         pytest.param(
             {
-                "EL": xr.DataArray([1, 2, 3], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}),
-                "equivalent_beam_angle": xr.DataArray([3, 4, 5], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}),
-            }, None,
-            marks=pytest.mark.xfail(strict=True, reason="Fail since lengths of input data array channel and data channel are not identical"),
+                "EL": xr.DataArray(
+                    [1, 2, 3], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}
+                ),
+                "equivalent_beam_angle": xr.DataArray(
+                    [3, 4, 5], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}
+                ),
+            },
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="Fail since lengths of input data array channel and data channel are not identical",
+            ),
         ),
     ],
     ids=[
@@ -361,7 +482,7 @@ def test_get_interp_da(freq_center, da_param, alternative, da_output):
         "in_list_wrong_length",
         "in_da",
         "in_da_wrong_length",
-    ]
+    ],
 )
 def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
     cal_dict = get_cal_params_AZFP(beam=beam_AZFP, vend=vend_AZFP, user_dict=user_dict)
@@ -386,14 +507,20 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
         (
             {
                 "gain_correction": xr.DataArray(
-                    np.array([[1, 2, 3, np.nan, np.nan, np.nan], [np.nan, np.nan, np.nan, 4, 5, 6]]),
+                    np.array(
+                        [[1, 2, 3, np.nan, np.nan, np.nan], [np.nan, np.nan, np.nan, 4, 5, 6]]
+                    ),
                     dims=["cal_channel_id", "cal_frequency"],
-                    coords={"cal_channel_id": ["chA", "chB"],
-                            "cal_frequency": [10, 20, 30, 40, 50, 60]},
+                    coords={
+                        "cal_channel_id": ["chA", "chB"],
+                        "cal_frequency": [10, 20, 30, 40, 50, 60],
+                    },
                 ),
                 # add sa_correction here to bypass things going into get_vend_cal_params_power
                 "sa_correction": xr.DataArray(
-                    np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]},
+                    np.array([111, 222]),
+                    dims=["channel"],
+                    coords={"channel": ["chA", "chB"]},
                 ),
             },
             dict(
@@ -412,20 +539,20 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                         coords={"ping_time": [1], "channel": ["chA", "chB"]},
                     ),
                     "sa_correction": xr.DataArray(
-                        np.array([111, 222]), dims=["channel"],
-                        coords={"channel": ["chA", "chB"]}
+                        np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]}
                     ),
                     "impedance_transducer": xr.DataArray(
-                        np.array([[75], [75]]), dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": [1]}
+                        np.array([[75], [75]]),
+                        dims=["channel", "ping_time"],
+                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
                     ),
                     "impedance_transceiver": xr.DataArray(
-                        np.array([1000, 2000]), dims=["channel"],
-                        coords={"channel": ["chA", "chB"]}
+                        np.array([1000, 2000]), dims=["channel"], coords={"channel": ["chA", "chB"]}
                     ),
                     "receiver_sampling_frequency": xr.DataArray(
-                        np.array([1500000, 1500000]), dims=["channel"],
-                        coords={"channel": ["chA", "chB"]}
+                        np.array([1500000, 1500000]),
+                        dims=["channel"],
+                        coords={"channel": ["chA", "chB"]},
                     ),
                 },
             ),
@@ -436,14 +563,20 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
         (
             {
                 "gain_correction": xr.DataArray(
-                    np.array([[1, 2, 3, np.nan, np.nan, np.nan], [np.nan, np.nan, np.nan, 4, 5, 6]]),
+                    np.array(
+                        [[1, 2, 3, np.nan, np.nan, np.nan], [np.nan, np.nan, np.nan, 4, 5, 6]]
+                    ),
                     dims=["cal_channel_id", "cal_frequency"],
-                    coords={"cal_channel_id": ["chA", "chB"],
-                            "cal_frequency": [10, 20, 30, 40, 50, 60]},
+                    coords={
+                        "cal_channel_id": ["chA", "chB"],
+                        "cal_frequency": [10, 20, 30, 40, 50, 60],
+                    },
                 ),
                 # add sa_correction here to bypass things going into get_vend_cal_params_power
                 "sa_correction": xr.DataArray(
-                    np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]},
+                    np.array([111, 222]),
+                    dims=["channel"],
+                    coords={"channel": ["chA", "chB"]},
                 ),
             },
             dict(
@@ -457,53 +590,59 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                 },
                 **{
                     "gain_correction": xr.DataArray(
-                        np.array([[2.5], [5.5]]) * 0.79,  # scaled by the factor as freq_center in function body
+                        np.array([[2.5], [5.5]])
+                        * 0.79,  # scaled by the factor as freq_center in function body
                         dims=["channel", "ping_time"],
                         coords={"ping_time": [1], "channel": ["chA", "chB"]},
                     ),
                     "sa_correction": xr.DataArray(
-                        np.array([111, 222]), dims=["channel"],
-                        coords={"channel": ["chA", "chB"]}
+                        np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]}
                     ),
                     "impedance_transducer": xr.DataArray(
-                        np.array([[75], [75]]), dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": [1]}
+                        np.array([[75], [75]]),
+                        dims=["channel", "ping_time"],
+                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
                     ),
                     "impedance_transceiver": xr.DataArray(
-                        np.array([1000, 2000]), dims=["channel"],
-                        coords={"channel": ["chA", "chB"]}
+                        np.array([1000, 2000]), dims=["channel"], coords={"channel": ["chA", "chB"]}
                     ),
                     "receiver_sampling_frequency": xr.DataArray(
-                        np.array([1500000, 1500000]), dims=["channel"],
-                        coords={"channel": ["chA", "chB"]}
+                        np.array([1500000, 1500000]),
+                        dims=["channel"],
+                        coords={"channel": ["chA", "chB"]},
                     ),
                 },
             ),
             0.79,  # with scaling of freq_center
-        ),        
+        ),
         pytest.param(
             {
                 "gain_correction": xr.DataArray(
                     np.array([[1, 2, 3, np.nan], [np.nan, 4, 5, 6], [np.nan, 2, 3, np.nan]]),
                     dims=["cal_channel_id", "cal_frequency"],
-                    coords={"cal_channel_id": ["chA", "chB", "chC"],
-                            "cal_frequency": [10, 20, 30, 40]},
+                    coords={
+                        "cal_channel_id": ["chA", "chB", "chC"],
+                        "cal_frequency": [10, 20, 30, 40],
+                    },
                 ),
             },
             None,
             1,
-            marks=pytest.mark.xfail(strict=True, reason="Fail since cal_channel_id in input param does not match channel of data"),
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="Fail since cal_channel_id in input param does not match channel of data",
+            ),
         ),
-
     ],
     ids=[
         "in_da_freq_dep_no_scaling",
         "in_da_freq_dep_with_scaling",
         "in_da_freq_dep_channel_mismatch",
-    ]
+    ],
 )
-def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_dict, freq_center_scaling):
-
+def test_get_cal_params_EK80_BB(
+    beam_EK, vend_EK, freq_center, user_dict, out_dict, freq_center_scaling
+):
     # If freq_center != beam_EK["frequency_nominal"], the following params will be scaled:
     #   - angle_sensitivity_alongship/athwartship (by fc/fn)
     #   - beamwidth_alongship/athwartship (by fn/fc)
@@ -513,10 +652,10 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
         out_dict[p] = out_dict[p] * freq_center / beam_EK["frequency_nominal"]
     for p in ["beamwidth_alongship", "beamwidth_athwartship"]:
         out_dict[p] = out_dict[p] * beam_EK["frequency_nominal"] / freq_center
-    out_dict["equivalent_beam_angle"] = (
-        out_dict["equivalent_beam_angle"] + 20 * np.log10(beam_EK["frequency_nominal"] / freq_center)
+    out_dict["equivalent_beam_angle"] = out_dict["equivalent_beam_angle"] + 20 * np.log10(
+        beam_EK["frequency_nominal"] / freq_center
     )
-        
+
     cal_dict = get_cal_params_EK(
         waveform_mode="BB", freq_center=freq_center, beam=beam_EK, vend=vend_EK, user_dict=user_dict
     )
@@ -538,12 +677,16 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
             {
                 # add sa_correction here to bypass things going into get_vend_cal_params_power
                 "gain_correction": xr.DataArray(
-                    [555, 777], dims=["channel"], coords={"channel": ["chA", "chB"]},
+                    [555, 777],
+                    dims=["channel"],
+                    coords={"channel": ["chA", "chB"]},
                 ),
                 # add sa_correction here to bypass things going into get_vend_cal_params_power
                 "sa_correction": xr.DataArray(
-                    [111, 222], dims=["channel"], coords={"channel": ["chA", "chB"]},
-                )
+                    [111, 222],
+                    dims=["channel"],
+                    coords={"channel": ["chA", "chB"]},
+                ),
             },
             dict(
                 {
@@ -553,15 +696,22 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
                         coords={"channel": ["chA", "chB"], "ping_time": [1]},
                     )
                     for p_name in [
-                        "sa_correction", "gain_correction", "equivalent_beam_angle",
-                        "angle_offset_alongship", "angle_offset_athwartship",
-                        "angle_sensitivity_alongship", "angle_sensitivity_athwartship",
-                        "beamwidth_alongship", "beamwidth_athwartship",
+                        "sa_correction",
+                        "gain_correction",
+                        "equivalent_beam_angle",
+                        "angle_offset_alongship",
+                        "angle_offset_athwartship",
+                        "angle_sensitivity_alongship",
+                        "angle_sensitivity_athwartship",
+                        "beamwidth_alongship",
+                        "beamwidth_athwartship",
                     ]
                 },
                 **{
                     "gain_correction": xr.DataArray(
-                        [555, 777], dims=["channel"], coords={"channel": ["chA", "chB"]},
+                        [555, 777],
+                        dims=["channel"],
+                        coords={"channel": ["chA", "chB"]},
                     ),
                     "sa_correction": xr.DataArray(
                         [111, 222], dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -572,15 +722,18 @@ def test_get_cal_params_EK80_BB(beam_EK, vend_EK, freq_center, user_dict, out_di
     ],
     ids=[
         "in_da",
-    ]
+    ],
 )
 def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict):
     # Remove some variables from Vendor group to mimic EK60 data
     vend_EK = vend_EK.drop("impedance_transceiver").drop("transceiver_type")
     cal_dict = get_cal_params_EK(
-        waveform_mode="CW", freq_center=freq_center,
-        beam=beam_EK, vend=vend_EK,
-        user_dict=user_dict, sonar_type="EK60"
+        waveform_mode="CW",
+        freq_center=freq_center,
+        beam=beam_EK,
+        vend=vend_EK,
+        user_dict=user_dict,
+        sonar_type="EK60",
     )
     for p_name, p_val in cal_dict.items():
         # remove name for all da
@@ -597,15 +750,51 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
         (
             "sa_correction",
             xr.DataArray(
-                np.array([[64, 256, 128, 512], [512, 1024, 256, 128]]).T,
+                np.array(
+                    [
+                        [64, 256, 128, 512],
+                        [512, 1024, 256, 128],
+                    ]
+                ).T,
                 dims=["ping_time", "channel"],
                 coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
                 name="transmit_duration_nominal",
             ).to_dataset(),
             xr.DataArray(
-                np.array([[10, 30, 20, 40], [130, 140, 120, 110]]).T,
+                np.array(
+                    [
+                        [10, 30, 20, 40],
+                        [130, 140, 120, 110],
+                    ]
+                ).T,
                 dims=["ping_time", "channel"],
                 coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
+                name="sa_correction",
+            ).astype(np.float64),
+        ),
+        # no NaN entry in transmit_duration_nominal but channel order is different in vend and beam
+        (
+            "sa_correction",
+            xr.DataArray(
+                np.array(
+                    [
+                        [512, 1024, 256, 128],
+                        [64, 256, 128, 512],
+                    ]
+                ).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chB", "chA"]},
+                name="transmit_duration_nominal",
+            ).to_dataset(),
+            xr.DataArray(
+                np.array(
+                    [
+                        [130, 140, 120, 110],
+                        [10, 30, 20, 40],
+                    ]
+                ).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chB", "chA"]},
                 name="sa_correction",
             ).astype(np.float64),
         ),
@@ -613,23 +802,61 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
         (
             "sa_correction",
             xr.DataArray(
-                np.array([[64, np.nan, 128, 512], [512, 1024, 256, np.nan]]).T,
+                np.array(
+                    [
+                        [64, np.nan, 128, 512],
+                        [512, 1024, 256, np.nan],
+                    ]
+                ).T,
                 dims=["ping_time", "channel"],
                 coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
                 name="transmit_duration_nominal",
             ).to_dataset(),
             xr.DataArray(
-                np.array([[10, np.nan, 20, 40], [130, 140, 120, np.nan]]).T,
+                np.array(
+                    [
+                        [10, np.nan, 20, 40],
+                        [130, 140, 120, np.nan],
+                    ]
+                ).T,
                 dims=["ping_time", "channel"],
                 coords={"ping_time": [1, 2, 3, 4], "channel": ["chA", "chB"]},
                 name="sa_correction",
             ),
         ),
+        # with NaN entry in transmit_duration_nominal but channel order is different in vend and beam
+        (
+            "sa_correction",
+            xr.DataArray(
+                np.array(
+                    [
+                        [512, 1024, 256, np.nan],
+                        [64, np.nan, 128, 512],
+                    ]
+                ).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chB", "chA"]},
+                name="transmit_duration_nominal",
+            ).to_dataset(),
+            xr.DataArray(
+                np.array(
+                    [
+                        [130, 140, 120, np.nan],
+                        [10, np.nan, 20, 40],
+                    ]
+                ).T,
+                dims=["ping_time", "channel"],
+                coords={"ping_time": [1, 2, 3, 4], "channel": ["chB", "chA"]},
+                name="sa_correction",
+            ),
+        ),
     ],
     ids=[
-        "in_no_nan",
-        "in_with_nan",
-    ]
+        "in_no_nan_channel_order_same",
+        "in_no_nan_channel_order_diff",
+        "in_with_nan_channel_order_same",
+        "in_with_nan_channel_order_diff",
+    ],
 )
 def test_get_vend_cal_params_power(vend_EK, beam, param, da_output):
     da_param = get_vend_cal_params_power(beam, vend_EK, param)
