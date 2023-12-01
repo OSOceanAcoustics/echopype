@@ -1,6 +1,7 @@
 import datetime
 from typing import Dict, List, Literal, Optional, Union
 
+import dask.array
 import numpy as np
 import xarray as xr
 
@@ -55,12 +56,16 @@ def harmonize_env_param_time(
         if p["time1"].size == 1 or p.dropna(dim="time1").size == 1:
             return p.dropna(dim="time1").squeeze(dim="time1").drop("time1")
 
+        if ping_time is None:
+            raise ValueError(
+                f"ping_time needs to be provided for comparison or interpolating {p.name}"
+            )
+
         # Direct assignment if all timestamps are identical (EK60 data)
-        if np.all(p["time1"].values == ping_time.values):
+        if np.array_equal(p["time1"].data, ping_time.data):
             return p.rename({"time1": "ping_time"})
 
-        if ping_time is None:
-            raise ValueError(f"ping_time needs to be provided for interpolating {p.name}")
+        # Interpolate `p` to `ping_time`
         return p.dropna(dim="time1").interp(time1=ping_time)
     return p
 
