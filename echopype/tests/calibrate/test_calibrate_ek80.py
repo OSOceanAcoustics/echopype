@@ -257,8 +257,8 @@ def test_ek80_BB_power_echoview(ek80_path):
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
-# Parsed receiver_sampling_frequency is 0
-assert ed["Vendor_specific"]["receiver_sampling_frequency"] == 0
+    # Parsed receiver_sampling_frequency is 0
+    assert ed["Vendor_specific"]["receiver_sampling_frequency"] == 0
     # Calibration object
     waveform_mode = "CW"
     encode_mode = "complex"
