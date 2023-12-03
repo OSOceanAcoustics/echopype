@@ -600,8 +600,14 @@ class ParseEK(ParseBase):
         lens = np.array([len(item) for item in data_list])
         if np.unique(lens).size != 1:  # if some pings have different lengths along range
             if data_list[0].ndim == 2:
-                # Angle data have an extra dimension for alongship and athwartship samples
-                mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T
+                # Data may have an extra dimension:
+                #  - Angle data have an extra dimension for alongship and athwartship samples
+                #  - Complex data have an extra dimension for different transducer sectors
+                mask = (
+                    lens[:, None, None]
+                    > np.array([np.arange(lens.max())] * data_list[0].shape[1]).T
+                )
+
             else:
                 mask = lens[:, None] > np.arange(lens.max())
 
