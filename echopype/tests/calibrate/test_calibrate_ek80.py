@@ -266,5 +266,6 @@ assert ed["Vendor_specific"]["receiver_sampling_frequency"] == 0
         ed, waveform_mode=waveform_mode, encode_mode=encode_mode
     )
 
+    # receiver_sampling_frequency substituted with default value in compute_Sv
     assert ds_Sv["receiver_sampling_frequency"] is not None
     assert np.allclose(ds_Sv["receiver_sampling_frequency"].data, 1500000)
