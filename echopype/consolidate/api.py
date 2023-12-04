@@ -8,7 +8,7 @@ import xarray as xr
 from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
-from ..utils.io import open_source, validate_source
+from ..utils.io import open_source
 from ..utils.prov import add_processing_level
 from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
@@ -293,10 +293,6 @@ def add_splitbeam_angle(
     `echodata`` will be identical. If this is not the case, only angle data corresponding
     to channels existing in ``source_Sv`` will be added.
     """
-
-    source_ds_da, file_type = validate_source(source_Sv, storage_options)
-    source_Sv_path = source_ds_da if isinstance(source_ds_da, str) else None
-
     source_Sv = open_source(source_Sv, "dataset", storage_options)
     echodata = open_source(echodata, "echodata", storage_options)
 
@@ -368,9 +364,7 @@ def add_splitbeam_angle(
             theta, phi = get_angle_complex_samples(ds_beam, angle_params)
 
     # add theta and phi to source_Sv input
-    source_Sv = add_angle_to_ds(
-        theta, phi, source_Sv, return_dataset, source_Sv_path, file_type, storage_options
-    )
+    source_Sv = add_angle_to_ds(theta, phi, source_Sv, return_dataset)
 
     # Add history attribute
     history_attr = (
