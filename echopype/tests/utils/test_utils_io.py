@@ -11,7 +11,7 @@ from echopype.utils.io import (
     sanitize_file_path,
     validate_output_path,
     env_indep_joinpath,
-    validate_source_ds_da_ed,
+    validate_source,
     init_ep_dir
 )
 import echopype.utils.io
@@ -289,12 +289,12 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
 )
 def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_file_type):
     """
-    Tests that ``validate_source_ds_da_ed`` has the appropriate outputs.
+    Tests that ``validate_source`` has the appropriate outputs.
     An exhaustive list of combinations of ``source_ds_da`` and ``storage_options``
     are tested in ``test_validate_output_path`` and are therefore not included here.
     """
 
-    source_ds_output, file_type_output = validate_source_ds_da_ed(source_ds_da_input, storage_options_input)
+    source_ds_output, file_type_output = validate_source(source_ds_da_input, storage_options_input)
 
     if isinstance(source_ds_da_input, (xr.Dataset, xr.DataArray)):
         assert source_ds_output.identical(source_ds_da_input)

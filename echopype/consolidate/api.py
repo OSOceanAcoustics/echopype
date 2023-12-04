@@ -8,7 +8,7 @@ import xarray as xr
 from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
-from ..utils.io import open_ds_da_ed_path, validate_source_ds_da_ed
+from ..utils.io import open_source, validate_source
 from ..utils.prov import add_processing_level
 from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
@@ -36,7 +36,7 @@ def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.
     -----
     This operation is only possible when there are no duplicated frequencies present in the file.
     """
-    ds = open_ds_da_ed_path(ds, "dataset", {})
+    ds = open_source(ds, "dataset", {})
     # Only possible if no duplicated frequencies
     if np.unique(ds["frequency_nominal"]).size == ds["frequency_nominal"].size:
         return (
@@ -117,7 +117,7 @@ def add_depth(
     # else:
     #     tilt = 0
 
-    ds = open_ds_da_ed_path(ds, "dataset", {})
+    ds = open_source(ds, "dataset", {})
     # Multiplication factor depending on if transducers are pointing downward
     mult = 1 if downward else -1
 
@@ -184,8 +184,8 @@ def add_location(
             # Values may be nan if there are ping_time values outside the time_dim_name range
             return position_var.interp(**{time_dim_name: ds["ping_time"]})
 
-    ds = open_ds_da_ed_path(ds, "dataset", {})
-    echodata = open_ds_da_ed_path(echodata, "echodata", {})
+    ds = open_source(ds, "dataset", {})
+    echodata = open_source(echodata, "echodata", {})
 
     if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
@@ -294,11 +294,11 @@ def add_splitbeam_angle(
     to channels existing in ``source_Sv`` will be added.
     """
 
-    source_ds_da, file_type = validate_source_ds_da_ed(source_Sv, storage_options)
+    source_ds_da, file_type = validate_source(source_Sv, storage_options)
     source_Sv_path = source_ds_da if isinstance(source_ds_da, str) else None
 
-    source_Sv = open_ds_da_ed_path(source_Sv, "dataset", storage_options)
-    echodata = open_ds_da_ed_path(echodata, "echodata", storage_options)
+    source_Sv = open_source(source_Sv, "dataset", storage_options)
+    echodata = open_source(echodata, "echodata", storage_options)
 
     # ensure that echodata was produced by EK60 or EK80-like sensors
     if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:

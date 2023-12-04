@@ -382,7 +382,7 @@ def env_indep_joinpath(*args: Tuple[str, ...]) -> str:
     return joined_path
 
 
-def validate_source_ds_da_ed(
+def validate_source(
     source: Union[xr.Dataset, xr.DataArray, EchoData, str, Path],
     storage_options: Optional[dict],
 ) -> Tuple[Union[xr.Dataset, str, xr.DataArray, EchoData], Optional[str]]:
@@ -437,12 +437,12 @@ def validate_source_ds_da_ed(
     return source, file_type
 
 
-def open_ds_da_ed_path(
+def open_source(
     source: Optional[Union[xr.Dataset, xr.DataArray, EchoData, str, Path]],
     source_type: str,
     storage_options: Optional[dict],
 ) -> Tuple[Union[xr.Dataset, xr.DataArray, EchoData]]:
-    source, file_type = validate_source_ds_da_ed(source, storage_options)
+    source, file_type = validate_source(source, storage_options)
 
     if isinstance(source, str):
         if source_type == "dataset":
