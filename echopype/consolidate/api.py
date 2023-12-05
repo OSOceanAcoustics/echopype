@@ -10,7 +10,7 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import open_source
 from ..utils.prov import add_processing_level
-from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
+from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
 POSITION_VARIABLES = ["latitude", "longitude"]
 
@@ -216,7 +216,6 @@ def add_splitbeam_angle(
     encode_mode: str,
     pulse_compression: bool = False,
     storage_options: dict = {},
-    return_dataset: bool = True,
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
@@ -254,18 +253,10 @@ def add_splitbeam_angle(
     storage_options: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_Sv``
-    return_dataset: bool, default=True
-        If ``True``, ``source_Sv`` with split-beam angles added will be returned.
-        ``return_dataset=False`` is useful when ``source_Sv`` is a path and
-        users only want to write the split-beam angle data to this path.
 
     Returns
     -------
     xr.Dataset or None
-        If ``return_dataset=False``, nothing will be returned.
-        If ``return_dataset=True``, either the input dataset ``source_Sv``
-        or a lazy-loaded Dataset (from the path ``source_Sv``)
-        with split-beam angles added will be returned.
 
     Raises
     ------
@@ -364,7 +355,12 @@ def add_splitbeam_angle(
             theta, phi = get_angle_complex_samples(ds_beam, angle_params)
 
     # add theta and phi to source_Sv input
-    source_Sv = add_angle_to_ds(theta, phi, source_Sv, return_dataset)
+    theta.attrs["long_name"] = "split-beam alongship angle"
+    phi.attrs["long_name"] = "split-beam athwartship angle"
+
+    # add the split-beam angles to the provided Dataset
+    source_Sv["angle_alongship"] = theta
+    source_Sv["angle_athwartship"] = phi
 
     # Add history attribute
     history_attr = (
