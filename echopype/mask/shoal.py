@@ -151,6 +151,6 @@ def _weill(
         ).compute()
         dask_mask = da.asarray(dask_mask, allow_unknown_chunksizes=False)
 
-    mask.values = dask_mask
+    mask.values = dask_mask.compute()
 
     return mask
