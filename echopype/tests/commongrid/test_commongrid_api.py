@@ -9,7 +9,7 @@ from echopype.commongrid.utils import (
     _parse_x_bin,
     _groupby_x_along_channels,
     get_distance_from_latlon,
-    compute_raw_NASC
+    compute_raw_NASC,
 )
 from echopype.tests.commongrid.conftest import get_NASC_echoview
 
@@ -45,9 +45,7 @@ def test__parse_x_bin(x_bin, x_label, expected_result):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    ["range_var", "lat_lon"], [("depth", False), ("echo_range", False)]
-)
+@pytest.mark.parametrize(["range_var", "lat_lon"], [("depth", False), ("echo_range", False)])
 def test__groupby_x_along_channels(request, range_var, lat_lon):
     """Testing the underlying function of compute_MVBS and compute_NASC"""
     range_bin = 20
@@ -74,7 +72,7 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
         .indexes["ping_time"]
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
-    
+
     sv_mean = _groupby_x_along_channels(
         ds_Sv,
         range_interval,
@@ -82,7 +80,7 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
         x_var="ping_time",
         range_var=range_var,
         method=method,
-        **flox_kwargs
+        **flox_kwargs,
     )
 
     # Check that the range_var is in the dimension
@@ -446,3 +444,40 @@ def test_compute_NASC_values(request, er_type):
     assert np.allclose(
         ds_NASC.NASC.values, expected_nasc.values, atol=1e-10, rtol=1e-10, equal_nan=True
     )
+
+
+def test_regrid(request):
+    """Test regrid function on irregular Sv data."""
+    mock_Sv_dataset_irregular = request.getfixturevalue("mock_Sv_dataset_irregular")
+
+    # Confirm that the echo_range values for different ping_times are not equal.
+    assert not np.array_equal(
+        mock_Sv_dataset_irregular["echo_range"].isel(channel=0, ping_time=0).values,
+        mock_Sv_dataset_irregular["echo_range"].isel(channel=0, ping_time=1).values,
+    )
+
+    interpolated_Sv_data = np.interp(
+        mock_Sv_dataset_irregular["echo_range"].isel(channel=0, ping_time=0).data,
+        mock_Sv_dataset_irregular["Sv"].range_sample,
+        mock_Sv_dataset_irregular["Sv"].isel(channel=0, ping_time=0).data,
+    )
+
+    ds_Sv_out = ep.commongrid.api.regrid(
+        ds_Sv=mock_Sv_dataset_irregular,
+        range_wanted=mock_Sv_dataset_irregular["echo_range"].isel(channel=0, ping_time=0),
+        ping_time_wanted=None,
+    )
+
+    assert np.array_equal(
+        interpolated_Sv_data, ds_Sv_out["Sv"].isel(channel=0, ping_time=0).data, equal_nan=True
+    )
+
+    # assert nan values in range_wanted are nans in ds_Sv_out.
+    nan_indices = np.argwhere(
+        np.isnan(mock_Sv_dataset_irregular["echo_range"].isel(channel=0, ping_time=0).data)
+    )[0]
+    for c in ds_Sv_out["Sv"].channel.data:
+        for p in ds_Sv_out["Sv"].ping_time.data:
+            assert np.isnan(
+                np.take(ds_Sv_out["Sv"].sel(channel=c, ping_time=p).data, nan_indices)
+            ).all()

@@ -2,7 +2,7 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 import logging
-from typing import Literal
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -405,5 +405,27 @@ def compute_NASC(
     return ds_NASC
 
 
-def regrid():
-    return 1
+def regrid(
+    ds_Sv: xr.Dataset,
+    range_wanted: xr.DataArray,
+    ping_time_wanted: Optional[np.ndarray] = None,
+) -> xr.Dataset:
+    """
+    Regrid Sv data to a regular grid based on range_wanted and ping_time_wanted.
+    """
+
+    if ping_time_wanted is None:
+        # https://tutorial.xarray.dev/advanced/apply_ufunc/automatic-vectorizing-numpy.html#try-nd-input
+        ds_Sv["Sv"] = xr.apply_ufunc(
+            np.interp,
+            range_wanted.data,
+            ds_Sv["Sv"].range_sample,
+            ds_Sv["Sv"],
+            input_core_dims=[["range_sample"], ["range_sample"], ["range_sample"]],
+            output_core_dims=[["range_sample"]],
+            # exclude_dims={"range_sample"},
+            keep_attrs="identical",
+            vectorize=True,
+        )
+    # TODO: Logic for regrid when ping_time_wanted is not None.
+    return ds_Sv
