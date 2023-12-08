@@ -637,4 +637,6 @@ def _blackwell(Sv_ds: xr.DataArray, desired_channel: str, parameters: dict = MAX
     # get threshold mask with shallow and deep waters masked
     range_filter = (mask["range_sample"] >= up) & (mask["range_sample"] <= lw)
     mask = mask.where(range_filter, other=True)
+
+    mask.data = mask.data.compute()
     return mask
