@@ -1,5 +1,6 @@
 import datetime
 import pathlib
+from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
@@ -294,6 +295,9 @@ def add_splitbeam_angle(
     `echodata`` will be identical. If this is not the case, only angle data corresponding
     to channels existing in ``source_Sv`` will be added.
     """
+    source_Sv_type = None
+    if isinstance(source_Sv, (str, Path)):
+        source_Sv_type = get_file_format(source_Sv)
     source_Sv = open_source(source_Sv, "dataset", storage_options)
     echodata = open_source(echodata, "echodata", storage_options)
 
@@ -369,21 +373,15 @@ def add_splitbeam_angle(
     phi.attrs["long_name"] = "split-beam athwartship angle"
 
     # add the split-beam angles to the provided Dataset
-    source_Sv_type = get_file_format(source_Sv)
+    source_Sv["angle_alongship"] = theta
+    source_Sv["angle_athwartship"] = phi
     if to_disk:
-        splitb_ds = xr.Dataset(
-            data_vars={"angle_alongship": theta, "angle_athwartship": phi},
-            coords=theta.coords,
-            attrs=source_Sv.attrs,
-        )
-        if source_Sv_type == "netcdf4":
-            splitb_ds.to_netcdf(mode="a", **storage_options)
-        else:
-            splitb_ds.to_zarr(mode="a", **storage_options)
-        source_Sv = open_source(source_Sv, "dataset", storage_options)
-    else:
-        source_Sv["angle_alongship"] = theta
-        source_Sv["angle_athwartship"] = phi
+        if source_Sv_type is not None:
+            if source_Sv_type == "netcdf4":
+                source_Sv.to_netcdf(mode="a", **storage_options)
+            else:
+                source_Sv.to_zarr(mode="a", **storage_options)
+            source_Sv = open_source(source_Sv, "dataset", storage_options)
 
     # Add history attribute
     history_attr = (
