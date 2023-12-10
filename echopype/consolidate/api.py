@@ -8,7 +8,7 @@ import xarray as xr
 from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
-from ..utils.io import open_source
+from ..utils.io import get_file_format, open_source
 from ..utils.prov import add_processing_level
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
@@ -216,6 +216,7 @@ def add_splitbeam_angle(
     encode_mode: str,
     pulse_compression: bool = False,
     storage_options: dict = {},
+    to_disk: bool = True,
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
@@ -253,10 +254,19 @@ def add_splitbeam_angle(
     storage_options: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_Sv``
+    to_disk: bool, default=True
+        If ``True``, ``to_disk`` with split-beam angles added will be returned.
+        ``to_disk=False`` is useful when ``source_Sv`` is a path and
+        users only want to write the split-beam angle data to this path.
 
     Returns
     -------
     xr.Dataset or None
+        If ``to_disk=False``, nothing will be returned.
+        If ``to_disk=True``, either the input dataset ``source_Sv``
+        or a lazy-loaded Dataset (from the path ``source_Sv``)
+        with split-beam angles added will be returned.
+
 
     Raises
     ------
@@ -359,8 +369,21 @@ def add_splitbeam_angle(
     phi.attrs["long_name"] = "split-beam athwartship angle"
 
     # add the split-beam angles to the provided Dataset
-    source_Sv["angle_alongship"] = theta
-    source_Sv["angle_athwartship"] = phi
+    source_Sv_type = get_file_format(source_Sv)
+    if to_disk:
+        splitb_ds = xr.Dataset(
+            data_vars={"angle_alongship": theta, "angle_athwartship": phi},
+            coords=theta.coords,
+            attrs=source_Sv.attrs,
+        )
+        if source_Sv_type == "netcdf4":
+            splitb_ds.to_netcdf(mode="a", **storage_options)
+        else:
+            splitb_ds.to_zarr(mode="a", **storage_options)
+        source_Sv = open_source(source_Sv, "dataset", storage_options)
+    else:
+        source_Sv["angle_alongship"] = theta
+        source_Sv["angle_athwartship"] = phi
 
     # Add history attribute
     history_attr = (
