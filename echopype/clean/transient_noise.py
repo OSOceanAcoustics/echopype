@@ -31,10 +31,10 @@ from ..utils.mask_transformation_xr import (
 
 RYAN_DEFAULT_PARAMS = {
     "m": 5,
-    "n": 5,
+    "n": 20,
     "thr": 20,
     "excludeabove": 250,
-    "operation": "mean",
+    "operation": "median",
     "dask_chunking": {"ping_time": 100, "range_sample": 100},
 }
 FIELDING_DEFAULT_PARAMS = {

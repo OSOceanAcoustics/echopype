@@ -10,7 +10,7 @@ from echopype.clean.transient_noise import RYAN_DEFAULT_PARAMS, FIELDING_DEFAULT
 @pytest.mark.parametrize(
     "method, parameters ,expected_true_false_counts",
     [
-        ("ryan", RYAN_DEFAULT_PARAMS, (2115052, 51879)),
+        ("ryan", RYAN_DEFAULT_PARAMS, (1984803, 182128)),
         ("fielding", FIELDING_DEFAULT_PARAMS, (2117333, 49598)),
     ],
 )
