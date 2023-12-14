@@ -256,8 +256,8 @@ def add_splitbeam_angle(
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_Sv``
     to_disk: bool, default=True
-        If ``True``, ``to_disk`` with split-beam angles added will be returned.
-        ``to_disk=False`` is useful when ``source_Sv`` is a path and
+        If ``False``, ``to_disk`` with split-beam angles added will be returned.
+        ``to_disk=True`` is useful when ``source_Sv`` is a path and
         users only want to write the split-beam angle data to this path.
 
     Returns
@@ -295,9 +295,13 @@ def add_splitbeam_angle(
     `echodata`` will be identical. If this is not the case, only angle data corresponding
     to channels existing in ``source_Sv`` will be added.
     """
-    source_Sv_type = None
-    if isinstance(source_Sv, (str, Path)):
-        source_Sv_type = get_file_format(source_Sv)
+    # ensure that when source_Sv is a Dataset then to_disk should be False
+    if not isinstance(source_Sv, (str, Path)) and to_disk:
+        raise ValueError(
+            "The input source_Sv must be a path when to_disk=True, "
+            "so that the split-beam angles can be written to disk!"
+        )
+
     source_Sv = open_source(source_Sv, "dataset", storage_options)
     echodata = open_source(echodata, "echodata", storage_options)
 
@@ -376,12 +380,12 @@ def add_splitbeam_angle(
     source_Sv["angle_alongship"] = theta
     source_Sv["angle_athwartship"] = phi
     if to_disk:
-        if source_Sv_type is not None:
-            if source_Sv_type == "netcdf4":
-                source_Sv.to_netcdf(mode="a", **storage_options)
-            else:
-                source_Sv.to_zarr(mode="a", **storage_options)
-            source_Sv = open_source(source_Sv, "dataset", storage_options)
+        source_Sv_type = get_file_format(source_Sv)
+        if source_Sv_type == "netcdf4":
+            source_Sv.to_netcdf(mode="a", **storage_options)
+        else:
+            source_Sv.to_zarr(mode="a", **storage_options)
+        source_Sv = open_source(source_Sv, "dataset", storage_options)
 
     # Add history attribute
     history_attr = (

@@ -340,7 +340,7 @@ def test_add_location(
                 'splitbeam/DY1801_EK60-D20180211-T164025_angles_T4.mat',
                 'splitbeam/DY1801_EK60-D20180211-T164025_angles_T5.mat'
             ],
-            "CW", "power", False, True
+            "CW", "power", False, False
         ),
         # ek80_CW_complex
         (
@@ -410,7 +410,8 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
     ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed,
                                                waveform_mode=waveform_mode,
                                                encode_mode=encode_mode,
-                                               pulse_compression=pulse_compression)
+                                               pulse_compression=pulse_compression,
+                                               to_disk=write_Sv_to_file)
 
     # obtain corresponding echoview output
     full_echoview_path = [test_path[test_path_key] / path for path in paths_to_echoview_mat]
@@ -458,7 +459,8 @@ def test_add_splitbeam_angle_BB_pc(test_path):
     # add the split-beam angles to Sv dataset
     ds_Sv = ep.consolidate.add_splitbeam_angle(
         source_Sv=ds_Sv, echodata=ed,
-        waveform_mode="BB", encode_mode="complex", pulse_compression=True
+        waveform_mode="BB", encode_mode="complex", pulse_compression=True,
+        to_disk=False
     )
 
     # Load pyecholab pickle
