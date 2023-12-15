@@ -209,7 +209,7 @@ def test_ek80_BB_power_from_complex(
     ek80_raw_path = raw_data_path / raw_file_name  # rx impedance / rx fs / tcvr type
 
     if dask_array:
-        ed = ep.open_raw(ek80_raw_path, sonar_model="EK80", destination_path="swap")
+        ed = ep.open_raw(ek80_raw_path, sonar_model="EK80", use_swap=True)
     else:
         ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
 
@@ -285,7 +285,7 @@ def test_ek80_BB_power_compute_Sv(
     ek80_raw_path = raw_data_path / raw_file_name  # rx impedance / rx fs / tcvr type
 
     if dask_array:
-        ed = ep.open_raw(ek80_raw_path, sonar_model="EK80", destination_path="swap")
+        ed = ep.open_raw(ek80_raw_path, sonar_model="EK80", use_swap=True)
     else:
         ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
 
