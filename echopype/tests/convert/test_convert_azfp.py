@@ -165,13 +165,9 @@ def test_convert_azfp_01a_no_temperature_pressure_tilt(azfp_path):
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
 
-    # Temperature variable is present in the Environment group and its values are all nan
-    assert "temperature" in echodata["Environment"]
-    assert echodata["Environment"]["temperature"].isnull().all()
-
-    # Pressure variable is present in the Environment group and its values are all nan
-    assert "pressure" in echodata["Environment"]
-    assert echodata["Environment"]["pressure"].isnull().all()
+    # Temperature and pressure variables are not present in the Environment group
+    assert "temperature" not in echodata["Environment"]
+    assert "pressure" not in echodata["Environment"]
 
     # Tilt variables are present in the Platform group and their values are all nan
     assert "tilt_x" in echodata["Platform"]
@@ -182,8 +178,8 @@ def test_convert_azfp_01a_no_temperature_pressure_tilt(azfp_path):
 
 def test_convert_azfp_01a_pressure_temperature(azfp_path):
     """Test converting file with valid pressure and temperature data."""
-    azfp_01a_path = azfp_path / 'pressure' / '22042221.01A'
-    azfp_xml_path = azfp_path / 'pressure' / '22042220.XML'
+    azfp_01a_path = azfp_path / 'pressure/22042221.01A'
+    azfp_xml_path = azfp_path / 'pressure/22042220.XML'
 
     echodata = open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
@@ -199,7 +195,6 @@ def test_convert_azfp_01a_pressure_temperature(azfp_path):
 
 
 def test_load_parse_azfp_xml(azfp_path):
-
     azfp_xml_path = azfp_path / '23081211.XML'
     parseAZFP = ParseAZFP(None, str(azfp_xml_path))
     parseAZFP.load_AZFP_xml()

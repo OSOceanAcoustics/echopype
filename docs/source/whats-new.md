@@ -4,6 +4,49 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.8.2 (2023 November 20)
+
+## Overview
+
+This release includes a number of important performance enhancements, bug fixes, and under-the-hood refactoring to improve code readability.
+
+## Enhancements
+- Full refactor of the functionality to directly storing parsed data to zarr before set_groups_* (#1185, #1218, #1070)
+  - This avoids memory expansion during NaN padding across channel
+- Improve `compute_MVBS` using flox (#1124)
+- Revive and improve `compute_NASC` using flox (#1167)
+- Refactor AZFP XML parser
+  - Improved XML parsing by using `xml.etree.ElementTree` to be consistent with other XML parsers in echopype (#1135)
+  - Parse more parameters and store in the resulting `EchoData` objects (#1135)
+  - Add partial support for AZFP multiple phase settings (#1182)
+- Overhaul AZFP Environment group
+  - Set mandatory variables not in data to NaN (`sounds_speed_indicative`, `absorption_indicative`) (#1226)
+  - Parse and store AZFP pressure data when exist (#1189, #1226)
+- Add `utils.misc.depth_from_pressure` function for converting pressure to depth (#1207)
+- Remove unused mechanism to selectively parse some EK datagrams (#1214)
+- Enhancements of `EchoData.update_platform` method
+  - Factor out utility functions to a submodule (#1209)
+  - Auto-assign timestamp for fixed-location external data using first `ping_time`(#1196)
+- Add support for `consolidate` subpackage functions to accept both in-memory or stored datasets (#1216) [NOT MERGED]
+
+## Bug fixes
+- Fix `EchoData.to_zarr` encoding (#1128)
+  - Eliminate preferred chunks
+  - Ensuring chunk alignment and encoding only when handling dask arrays
+- Fix scaling bugs in `compute_NASC` (#1167)
+- Fix `UnicodeDecodeError` for ES60 files (#1215)
+- Handle missing `receiver_sampling_frequency` for EK80 data (#1219)
+
+## Infrastructure and refactoring
+- Add support for running individual test files (#1166)
+- Add module based testing (#1180)
+- Update CI to barebone python, without conda (#1192)
+
+
+
+
+
+
 # v0.8.1 (2023 September 2)
 
 ## Overview

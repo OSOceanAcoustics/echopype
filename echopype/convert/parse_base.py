@@ -1,15 +1,25 @@
 import os
 from collections import defaultdict
 from datetime import datetime as dt
+from typing import Any, Dict, Literal, Optional, Tuple
 
+import dask
+import dask.array as da
 import numpy as np
+import zarr
+from dask.array.core import auto_chunks
 
+from ..utils.io import create_temp_zarr_store
 from ..utils.log import _init_logger
 from .utils.ek_raw_io import RawSimradFile, SimradEOF
+from .utils.ek_swap import calc_final_shapes
 
 FILENAME_DATETIME_EK60 = (
     "(?P<survey>.+)?-?D(?P<date>\\w{1,8})-T(?P<time>\\w{1,6})-?(?P<postfix>\\w+)?.raw"
 )
+
+# Manufacturer-specific power conversion factor
+INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
 logger = _init_logger(__name__)
 
@@ -22,9 +32,9 @@ class ParseBase:
         self.timestamp_pattern = None  # regex pattern used to grab datetime embedded in filename
         self.ping_time = []  # list to store ping time
         self.storage_options = storage_options
-        self.zarr_datagrams = []  # holds all parsed datagrams
-        self.zarr_tx_datagrams = []  # holds all parsed transmit datagrams
         self.sonar_model = sonar_model
+        self.data_types = ["power", "angle", "complex"]
+        self.raw_types = ["receive", "transmit"]
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
@@ -33,7 +43,7 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, params, storage_options, dgram_zarr_vars, sonar_model):
+    def __init__(self, file, storage_options, sonar_model):
         super().__init__(file, storage_options, sonar_model)
 
         # Parent class attributes
@@ -49,7 +59,6 @@ class ParseEK(ParseBase):
         self.ch_ids = defaultdict(
             list
         )  # Stores the channel ids for each data type (power, angle, complex)
-        self.data_type = self._select_datagrams(params)
 
         self.nmea = defaultdict(list)  # Dictionary to store NMEA data(timestamp and string)
         self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
@@ -57,9 +66,6 @@ class ParseEK(ParseBase):
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
-
-        # dgram vars and their associated dims that should be written directly to zarr
-        self.dgram_zarr_vars = dgram_zarr_vars
 
     def _print_status(self):
         time = dt.utcfromtimestamp(self.config_datagram["timestamp"].tolist() / 1e9).strftime(
@@ -69,54 +75,268 @@ class ParseEK(ParseBase):
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
 
-    def rectangularize_data(self):
+    @property
+    def num_transducer_sectors(self) -> Dict[Any, int]:
+        """Get the number of transducer sectors for each channel.
+        This is for receive raw type only."""
+        num_sectors = {}
+        if self.ping_data_dict["n_complex"]:
+            n_complex = self.ping_data_dict["n_complex"]
+            for ch_id, n_complex_list in n_complex.items():
+                num_transducer_sectors = np.unique(np.array(n_complex_list))
+                if num_transducer_sectors.size > 1:  # this is not supposed to happen
+                    raise ValueError("Transducer sector number changes in the middle of the file!")
+                else:
+                    num_transducer_sectors = num_transducer_sectors[0]
+
+                num_sectors[ch_id] = int(num_transducer_sectors)
+        return num_sectors
+
+    def _get_data_shapes(self) -> dict:
+        """Get all the expanded data shapes"""
+        all_data_shapes = {}
+        # Get all data type shapes
+        for raw_type in self.raw_types:
+            ping_data_dict = (
+                self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
+            )
+            # data_types: ["power", "angle", "complex"]
+            data_type_shapes = calc_final_shapes(self.data_types, ping_data_dict)
+            all_data_shapes[raw_type] = data_type_shapes
+
+        return all_data_shapes
+
+    def __should_use_swap(
+        self, expanded_data_shapes: Dict[str, Any], mem_mult: float = 0.4
+    ) -> bool:
+        import sys
+
+        import psutil
+
+        # Calculate expansion and current data sizes
+        total_req_mem = 0
+        current_data_size = 0
+        for raw_type, expanded_shapes in expanded_data_shapes.items():
+            ping_data_dict = (
+                self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
+            )
+            for data_type, shape in expanded_shapes.items():
+                if shape:
+                    # Get current data size
+                    size = sum([sys.getsizeof(val) for val in ping_data_dict[data_type].values()])
+                    current_data_size += size
+
+                    # Estimate expansion sizes
+                    itemsize = np.dtype("float64").itemsize
+                    req_mem = np.prod(shape) * itemsize
+                    total_req_mem += req_mem
+
+        # get statistics about system memory usage
+        mem = psutil.virtual_memory()
+        # approx. the amount of memory that will be used after expansion
+        req_mem = mem.used - current_data_size + total_req_mem
+
+        return mem.total * mem_mult < req_mem
+
+    def rectangularize_data(
+        self,
+        use_swap: "bool | Literal['auto']" = "auto",
+        max_chunk_size: str = "100MB",
+    ) -> None:
         """
         Rectangularize the power, angle, and complex data.
         Additionally, convert the data to a numpy array
         indexed by channel.
         """
+        # Compute the final expansion shapes for each data type
+        expanded_data_shapes = self._get_data_shapes()
 
-        # append zarr datagrams to channel ping data
-        for dgram in self.zarr_datagrams:
-            self._append_channel_ping_data(dgram, zarr_vars=False)
+        # Determine use_swap
+        if use_swap == "auto":
+            use_swap = self.__should_use_swap(expanded_data_shapes)
 
-        # append zarr transmit datagrams to channel ping data
-        for dgram in self.zarr_tx_datagrams:
-            self._append_channel_ping_data(dgram, rx=False, zarr_vars=False)
+        # Perform rectangularization
+        zarr_root = None
+        if use_swap:
+            # Setup temp store
+            zarr_store = create_temp_zarr_store()
+            # Setup zarr store
+            zarr_root = zarr.group(
+                store=zarr_store, overwrite=True, synchronizer=zarr.ThreadSynchronizer()
+            )
 
-        # Rectangularize all data and convert to numpy array indexed by channel
-        for data_type in ["power", "angle", "complex"]:
-            # Receive data
-            for k, v in self.ping_data_dict[data_type].items():
-                if all(
-                    (x is None) or (x.size == 0) for x in v
-                ):  # if no data in a particular channel
-                    self.ping_data_dict[data_type][k] = None
-                else:
-                    # Sort complex and power/angle channels and pad NaN
-                    self.ch_ids[data_type].append(k)
-                    self.ping_data_dict[data_type][k] = self.pad_shorter_ping(v)
-            # Transmit data
-            self.rectangularize_transmit_ping_data(data_type)
+        for raw_type in self.raw_types:
+            data_type_shapes = expanded_data_shapes[raw_type]
+            for data_type in self.data_types:
+                # Parse and pad the datagram
+                self._parse_and_pad_datagram(
+                    data_type=data_type,
+                    data_type_shapes=data_type_shapes,
+                    raw_type=raw_type,
+                    use_swap=use_swap,
+                    zarr_root=zarr_root,
+                    max_chunk_size=max_chunk_size,
+                )
 
-    def rectangularize_transmit_ping_data(self, data_type: str) -> None:
-        """
-        Rectangularize the ``data_type`` data within transmit ping data.
-        Additionally, convert the data to a numpy array
-        indexed by channel.
+    @staticmethod
+    def _write_to_temp_zarr(
+        arr: np.ndarray,
+        zarr_root: zarr.Group,
+        path: str,
+        shape: Tuple[int],
+        chunks: Tuple[int],
+    ) -> dask.array.Array:
+        if shape == arr.shape:
+            z_arr = zarr_root.array(
+                name=path,
+                data=arr,
+                fill_value=np.nan,
+                chunks=chunks,
+                dtype="f8",
+                write_empty_chunks=False,
+            )
+        else:
+            # Figure out current data region
+            region = tuple([slice(0, i) for i in arr.shape])
 
-        Parameters
-        ----------
-        data_type: str
-            The key of ``self.ping_data_dict_tx`` to rectangularize
-        """
+            # Create zarr array
+            z_arr = zarr_root.full(
+                name=path,
+                shape=shape,
+                chunks=chunks,
+                dtype="f8",
+                fill_value=np.nan,  # same as float64
+                write_empty_chunks=False,
+            )
 
-        # Transmit data
-        for k, v in self.ping_data_dict_tx[data_type].items():
-            if all((x is None) or (x.size == 0) for x in v):  # if no data in a particular channel
-                self.ping_data_dict_tx[data_type][k] = None
+            # Fill zarr array with actual data
+            z_arr.set_basic_selection(region, arr)
+
+        # Set dask array from zarr array
+        d_arr = da.from_zarr(z_arr)
+        return d_arr
+
+    def _parse_and_pad_datagram(
+        self,
+        data_type,
+        data_type_shapes: dict = {},
+        raw_type: Literal["transmit", "receive"] = "receive",
+        use_swap: bool = False,
+        zarr_root: Optional[zarr.Group] = None,
+        max_chunk_size: str = "100MB",
+    ) -> None:
+        ping_data_dict = self.ping_data_dict_tx if raw_type == "transmit" else self.ping_data_dict
+
+        # If there's no data, set and skip
+        if data_type_shapes[data_type] is None:
+            no_data_dict = {ch_id: None for ch_id in ping_data_dict[data_type].keys()}
+            ping_data_dict[data_type] = no_data_dict
+            return
+
+        # Set up zarr when using swap
+        # by determining the chunk sizes
+        if use_swap:
+            if zarr_root is None:
+                raise ValueError("zarr_root cannot be None when use_swap is True")
+
+            # Get the final data shape
+            data_shape = data_type_shapes[data_type]
+
+            # Auto chunk on first dimension
+            # since this is ping time
+            chunks = ("auto",) + (data_shape[1],)
+            chunks = auto_chunks(
+                chunks=chunks, shape=data_shape, limit=max_chunk_size, dtype=np.dtype("float64")
+            )
+            chunks = chunks + data_shape[2:]  # Get the n dimension sizes if > 2D
+            chunks = tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
+
+        # Go through data for each channel
+        for ch_id, arr_list in ping_data_dict[data_type].items():
+            # NO DATA -----------------------------------------------------------
+            if all(
+                (arr is None) or (arr.size == 0) for arr in arr_list
+            ):  # if no data in a particular channel
+                # Skip all together if there's no data
+                ping_data_dict[data_type][ch_id] = None
+                continue
+            # -------------------------------------------------------------------
+
+            # If there are data do the following
+            # Add channel id to list if there's data
+            # for "receive" raw type only
+            if raw_type == "receive":
+                self.ch_ids[data_type].append(ch_id)
+
+            # Pad shorter ping with NaN
+            # do this for each channel
+            # this is the first small expansion
+            padded_arr = self.pad_shorter_ping(arr_list)
+
+            # POWER and COMPLEX Pre-processing --------
+            # data_type="angle" does not require extra manipulation, so below
+            # only handles power and complex data
+
+            # Multiply power data by conversion factor
+            if data_type == "power":
+                padded_arr = padded_arr.astype("float32") * INDEX2POWER
+
+            # Split complex data into real and imaginary components
+            if data_type == "complex":
+                # Split the complex data into real and imaginary components
+                padded_arr = {
+                    "real": np.real(padded_arr).astype("float64"),
+                    "imag": np.imag(padded_arr).astype("float64"),
+                }
+
+                # Take care of 0s in imaginary part data
+                imag_arr = padded_arr["imag"]
+                padded_arr["imag"] = np.where(imag_arr == 0, np.nan, imag_arr)
+
+            # END POWER and COMPLEX Pre-processing -------
+
+            # NO SWAP -----------------------------------------------------------
+            # Directly store the padded array
+            # to the existing dictionary for the particular
+            # data type and channel when not using swap
+            if not use_swap:
+                ping_data_dict[data_type][ch_id] = padded_arr
+                continue
+            # -------------------------------------------------------------------
+
+            # SWAP --------------------------------------------------------------
+            if data_shape[0] != len(self.ping_time[ch_id]):
+                # Let's ensure that the ping time dimension is the same
+                # as the original data shape when written to zarr array
+                # since this will become the coordinate dimension
+                # of the channel data when set in set_groups operation
+                data_shape = (len(self.ping_time[ch_id]),) + data_shape[1:]
+            # Write to temp zarr for swap
+            # then assign the dask array to the dictionary
+            if data_type == "complex":
+                # Save real and imaginary components separately
+                ping_data_dict[data_type][ch_id] = {}
+                # Go through real and imaginary components
+                for complex_part, arr in padded_arr.items():
+                    d_arr = self._write_to_temp_zarr(
+                        arr,
+                        zarr_root,
+                        os.path.join(raw_type, data_type, str(ch_id), complex_part),
+                        data_shape,
+                        chunks,
+                    )
+                    ping_data_dict[data_type][ch_id][complex_part] = d_arr
+
             else:
-                self.ping_data_dict_tx[data_type][k] = self.pad_shorter_ping(v)
+                d_arr = self._write_to_temp_zarr(
+                    padded_arr,
+                    zarr_root,
+                    os.path.join(raw_type, data_type, str(ch_id)),
+                    data_shape,
+                    chunks,
+                )
+                ping_data_dict[data_type][ch_id] = d_arr
+            # -------------------------------------------------------------------
 
     def parse_raw(self):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""
@@ -132,19 +352,8 @@ class ParseEK(ParseBase):
                         # and in the form of floats separated by semicolons
                         v["pulse_duration"] = [float(x) for x in v["pulse_length"].split(";")]
 
-            # If exporting to XML file (EK80/EA640 only), print a message
-            if "print_export_msg" in self.data_type:
-                if "ENV" in self.data_type:
-                    xml_type = "environment"
-                elif "CONFIG" in self.data_type:
-                    xml_type = "configuration"
-                logger.info(f"exporting {xml_type} XML file")
-                # Don't parse anything else if only the config xml is required.
-                if "CONFIG" in self.data_type:
-                    return
-            # If not exporting to XML, print the usual converting message
-            else:
-                self._print_status()
+            # print the usual converting message
+            self._print_status()
 
             # Check if reading an ME70 file with a CON1 datagram.
             next_datagram = fid.peek()
@@ -159,11 +368,10 @@ class ParseEK(ParseBase):
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
-        if "ALL" in self.data_type:
-            # Convert ping time to 1D numpy array, stored in dict indexed by channel,
-            #  this will help merge data from all channels into a cube
-            for ch, val in self.ping_time.items():
-                self.ping_time[ch] = np.array(val, dtype="datetime64[ns]")
+        # Convert ping time to 1D numpy array, stored in dict indexed by channel,
+        #  this will help merge data from all channels into a cube
+        for ch, val in self.ping_time.items():
+            self.ping_time[ch] = np.array(val, dtype="datetime64[ns]")
 
     def _read_datagrams(self, fid):
         """Read all datagrams.
@@ -255,25 +463,13 @@ class ParseEK(ParseBase):
 
             num_datagrams_parsed += 1
 
-            # Skip any datagram that the user does not want to save
-            if (
-                not any(new_datagram["type"].startswith(dgram) for dgram in self.data_type)
-                and "ALL" not in self.data_type
-            ):
-                continue
-
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram["type"].startswith("XML"):
-                if new_datagram["subtype"] == "environment" and (
-                    "ENV" in self.data_type or "ALL" in self.data_type
-                ):
+                if new_datagram["subtype"] == "environment":
                     self.environment = new_datagram["environment"]
                     self.environment["xml"] = new_datagram["xml"]
                     self.environment["timestamp"] = new_datagram["timestamp"]
-                    # Don't parse anything else if only the environment xml is required.
-                    if "ENV" in self.data_type:
-                        break
-                elif new_datagram["subtype"] == "parameter" and ("ALL" in self.data_type):
+                elif new_datagram["subtype"] == "parameter":
                     current_parameters = new_datagram["parameter"]
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
@@ -317,7 +513,7 @@ class ParseEK(ParseBase):
 
                 # Append ping by ping data
                 new_datagram.update(current_parameters)
-                self._append_channel_ping_data(new_datagram, rx=False)
+                self._append_channel_ping_data(new_datagram, raw_type="transmit")
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram["type"].startswith("NME"):
@@ -356,51 +552,9 @@ class ParseEK(ParseBase):
             else:
                 logger.info("Unknown datagram type: " + str(new_datagram["type"]))
 
-    def _append_zarr_dgram(self, full_dgram: dict, rx: bool):
-        """
-        Selects a subset of the datagram values that
-        need to be sent directly to a zarr file and
-        appends them to the class variable ``zarr_datagrams``.
-        Additionally, if any power data exists, the
-        conversion factor will be applied to it.
-
-        Parameters
-        ----------
-        full_dgram : dict
-            Successfully parsed datagram containing at least
-            one variable that should be written to a zarr file
-
-        Returns
-        -------
-        reduced_datagram : dict
-            A reduced datagram containing only those variables
-            that should be written to a zarr file and their
-            associated dimensions.
-        """
-
-        wanted_vars = set()
-        for key in self.dgram_zarr_vars.keys():
-            wanted_vars = wanted_vars.union({key, *self.dgram_zarr_vars[key]})
-
-        # construct reduced datagram
-        reduced_datagram = {key: full_dgram[key] for key in wanted_vars if key in full_dgram.keys()}
-
-        # apply conversion factor to power data, if it exists
-        if ("power" in reduced_datagram.keys()) and (
-            isinstance(reduced_datagram["power"], np.ndarray)
-        ):
-            # Manufacturer-specific power conversion factor
-            INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
-
-            reduced_datagram["power"] = reduced_datagram["power"].astype("float32") * INDEX2POWER
-
-        if reduced_datagram:
-            if rx:
-                self.zarr_datagrams.append(reduced_datagram)
-            else:
-                self.zarr_tx_datagrams.append(reduced_datagram)
-
-    def _append_channel_ping_data(self, datagram, rx=True, zarr_vars=True):
+    def _append_channel_ping_data(
+        self, datagram, raw_type: Literal["transmit", "receive"] = "receive"
+    ):
         """
         Append ping by ping data.
 
@@ -408,27 +562,20 @@ class ParseEK(ParseBase):
         ----------
         datagram : dict
             the newly read sample datagram
-        rx : bool
-            whether this is receive ping data
-        zarr_vars : bool
-            whether one should account for zarr vars
+        raw_type : {"transmit", "receive"}, default "receive"
+            The raw type of the datagram. "transmit" is for RAW4 datagrams and
+            "receive" is for other datagrams.
         """
+        if raw_type not in ["transmit", "receive"]:
+            raise ValueError(f"raw_type must be one of 'transmit' or 'receive' not {raw_type}")
 
         # TODO: do a thorough check with the convention and processing
         # unsaved = ['channel', 'channel_id', 'low_date', 'high_date', # 'offset', 'frequency' ,
         #            'transmit_mode', 'spare0', 'bytes_read', 'type'] #, 'n_complex']
         ch_id = datagram["channel_id"] if "channel_id" in datagram else datagram["channel"]
 
-        # append zarr variables, if they exist
-        if zarr_vars:
-            common_vars = set(self.dgram_zarr_vars.keys()).intersection(set(datagram.keys()))
-            if common_vars:
-                self._append_zarr_dgram(datagram, rx=rx)
-                for var in common_vars:
-                    del datagram[var]
-
         for k, v in datagram.items():
-            if rx:
+            if raw_type == "receive":
                 self.ping_data_dict[k][ch_id].append(v)
             else:
                 self.ping_data_dict_tx[k][ch_id].append(v)
@@ -453,32 +600,27 @@ class ParseEK(ParseBase):
         lens = np.array([len(item) for item in data_list])
         if np.unique(lens).size != 1:  # if some pings have different lengths along range
             if data_list[0].ndim == 2:
-                # Angle data have an extra dimension for alongship and athwartship samples
-                mask = lens[:, None, None] > np.array([np.arange(lens.max())] * 2).T
+                # Data may have an extra dimension:
+                #  - Angle data have an extra dimension for alongship and athwartship samples
+                #  - Complex data have an extra dimension for different transducer sectors
+                mask = (
+                    lens[:, None, None]
+                    > np.array([np.arange(lens.max())] * data_list[0].shape[1]).T
+                )
+
             else:
                 mask = lens[:, None] > np.arange(lens.max())
+
+            # Create output array from mask
+            out_array = np.full(mask.shape, np.nan)
+
             # Take care of problem of np.nan being implicitly "real"
-            if data_list[0].dtype in {np.dtype("complex64"), np.dtype("complex128")}:
-                out_array = np.full(mask.shape, np.nan + 0j)
-            else:
-                out_array = np.full(mask.shape, np.nan)
+            arr_dtype = data_list[0].dtype
+            if np.issubdtype(arr_dtype, np.complex_):
+                out_array = out_array.astype(arr_dtype)
 
             # Fill in values
             out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
         else:
             out_array = np.array(data_list)
         return out_array
-
-    def _select_datagrams(self, params):
-        """Translates user input into specific datagrams or ALL
-
-        Valid use cases:
-        # get GPS info only (EK60, EK80)
-        # ec.to_netcdf(data_type='GPS')
-
-        # get configuration XML only (EK80)
-        # ec.to_netcdf(data_type='CONFIG')
-
-        # get environment XML only (EK80)
-        # ec.to_netcdf(data_type='ENV')
-        """

@@ -396,7 +396,10 @@ def get_cal_params_EK(
     # Private function to get fs
     def _get_fs():
         # If receiver_sampling_frequency recorded, use it
-        if "receiver_sampling_frequency" in vend:
+        if (
+            "receiver_sampling_frequency" in vend
+            and not np.isclose(vend["receiver_sampling_frequency"], 0).all()
+        ):
             return vend["receiver_sampling_frequency"]
         else:
             # If receiver_sampling_frequency not recorded, use default value

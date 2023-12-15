@@ -1541,7 +1541,7 @@ class SimradRawParser(_SimradDatagramParser):
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
             if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
+                data[field] = data[field].decode(encoding="unicode_escape")
 
         data["timestamp"] = nt_to_unix((data["low_date"], data["high_date"]))
         data["bytes_read"] = bytes_read
@@ -1621,6 +1621,8 @@ class SimradRawParser(_SimradDatagramParser):
                         dtype=data["complex_dtype"],
                     )
                     data["complex"].dtype = np.complex64
+                    if version == 3:
+                        data["complex"] = data["complex"].reshape((-1, data["n_complex"]))
                 else:
                     data["complex"] = None
 

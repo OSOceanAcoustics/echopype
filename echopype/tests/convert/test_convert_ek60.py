@@ -9,6 +9,10 @@ import pytest
 def ek60_path(test_path):
     return test_path["EK60"]
 
+@pytest.fixture
+def es60_path(test_path):
+    return test_path["ES60"]
+
 
 # raw_paths = ['./echopype/test_data/ek60/set1/' + file
 #  for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
@@ -191,3 +195,16 @@ def test_convert_ek60_splitbeam_no_angle(ek60_path):
 
     assert "angle_athwartship" not in ed["Sonar/Beam_group1"]
     assert "angle_alongship" not in ed["Sonar/Beam_group1"]
+
+
+def test_convert_es60_no_unicode_error(es60_path):
+    """Convert a file should not give unicode error"""
+
+    raw_path = (
+        es60_path
+        / "L0007-D20191202-T060239-ES60.raw"
+    )
+    try:
+        open_raw(raw_path, sonar_model='EK60')
+    except UnicodeDecodeError:
+        pytest.fail("UnicodeDecodeError raised")
