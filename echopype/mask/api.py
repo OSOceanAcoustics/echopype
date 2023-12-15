@@ -495,10 +495,18 @@ def frequency_differencing(
         chanA = chanAB[0]
         chanB = chanAB[1]
 
-    def _get_lhs(Sv_block: np.ndarray, chanA_idx: int, chanB_idx: int) -> np.ndarray:
+    def _get_lhs(
+        Sv_block: np.ndarray, chanA_idx: int, chanB_idx: int, chan_dim_idx: int = 0
+    ) -> np.ndarray:
         """Get left-hand side of condition"""
+
+        def _sel_channel(chan_idx):
+            return tuple(
+                [chan_idx if i == chan_dim_idx else slice(None) for i in range(Sv_block.ndim)]
+            )
+
         # get the left-hand side of condition (lhs)
-        return Sv_block[chanA_idx] - Sv_block[chanB_idx]
+        return Sv_block[_sel_channel(chanA_idx)] - Sv_block[_sel_channel(chanB_idx)]
 
     def _create_mask(lhs: np.ndarray, diff: float) -> np.ndarray:
         """Create mask using operator lookup table"""
@@ -508,11 +516,13 @@ def frequency_differencing(
     channels = list(source_Sv["channel"].to_numpy())
     chanA_idx = channels.index(chanA)
     chanB_idx = channels.index(chanB)
+    # Get the channel dimension index for filtering
+    chan_dim_idx = source_Sv["Sv"].dims.index("channel")
 
     # If Sv data is not dask array
     if not isinstance(source_Sv["Sv"].variable._data, dask.array.Array):
         # get the left-hand side of condition
-        lhs = _get_lhs(source_Sv["Sv"], chanA_idx, chanB_idx)
+        lhs = _get_lhs(source_Sv["Sv"], chanA_idx, chanB_idx, chan_dim_idx=chan_dim_idx)
 
         # create mask using operator lookup table
         da = _create_mask(lhs, diff)
@@ -527,7 +537,14 @@ def frequency_differencing(
             dask_array_data
             # Compute the left-hand side of condition
             # drop the first axis (channel) as it is dropped in the result
-            .map_blocks(_get_lhs, chanA_idx, chanB_idx, dtype=dask_array_data.dtype, drop_axis=0)
+            .map_blocks(
+                _get_lhs,
+                chanA_idx,
+                chanB_idx,
+                chan_dim_idx=chan_dim_idx,
+                dtype=dask_array_data.dtype,
+                drop_axis=0,
+            )
             # create mask using operator lookup table
             .map_blocks(_create_mask, diff)
         )
