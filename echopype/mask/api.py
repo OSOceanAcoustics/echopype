@@ -512,26 +512,29 @@ def frequency_differencing(
         """Create mask using operator lookup table"""
         return xr.where(str2ops[operator](lhs, diff), True, False)
 
+    # Get the Sv data array
+    Sv_data_array = source_Sv["Sv"]
+
     # Determine channel index based on names
     channels = list(source_Sv["channel"].to_numpy())
     chanA_idx = channels.index(chanA)
     chanB_idx = channels.index(chanB)
     # Get the channel dimension index for filtering
-    chan_dim_idx = source_Sv["Sv"].dims.index("channel")
+    chan_dim_idx = Sv_data_array.dims.index("channel")
 
     # If Sv data is not dask array
-    if not isinstance(source_Sv["Sv"].variable._data, dask.array.Array):
+    if not isinstance(Sv_data_array.variable._data, dask.array.Array):
         # get the left-hand side of condition
-        lhs = _get_lhs(source_Sv["Sv"], chanA_idx, chanB_idx, chan_dim_idx=chan_dim_idx)
+        lhs = _get_lhs(Sv_data_array, chanA_idx, chanB_idx, chan_dim_idx=chan_dim_idx)
 
         # create mask using operator lookup table
         da = _create_mask(lhs, diff)
     # If Sv data is dask array
     else:
         # Get the final data array template
-        template = source_Sv["Sv"].isel(channel=0).drop_vars("channel")
+        template = Sv_data_array.isel(channel=0).drop_vars("channel")
 
-        dask_array_data = source_Sv["Sv"].data
+        dask_array_data = Sv_data_array.data
         # Perform block wise computation
         dask_array_result = (
             dask_array_data
