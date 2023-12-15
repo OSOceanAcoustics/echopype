@@ -14,7 +14,13 @@ scientists to make discovery using these new data.
 
 ## Contributors
 
-Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018. It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together with Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)), and previously Brandon Reyes ([@b-reyes](https://github.com/b-reyes)), Kavin Nguyen ([@ngkavin](https://github.com/ngkavin)) and Imran Majeed ([@imranmaj](https://github.com/imranmaj)). Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
+Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018.
+It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together.
+Previously, Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)),
+Brandon Reyes ([@b-reyes](https://github.com/b-reyes)),
+Kavin Nguyen ([@ngkavin](https://github.com/ngkavin))
+and Imran Majeed ([@imranmaj](https://github.com/imranmaj)) contributed significantly to the development of echopype.
+Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
 
 Other contributors include:
 Frederic Cyr ([@cyrf0006](https://github.com/cyrf0006)),
@@ -34,6 +40,12 @@ We also thank Rick Towler ([@rhtowler](https://github.com/rhtowler))
 of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
+
+Echopype have also received software engineering support from
+the University of Washington’s Scientific Software Engineering Center (SSEC) supported by Schmidt Futures,
+as part of the Virtual Institute for Scientific Software (VISS) in 2023.
+We would like to acknowledge SSEC's Graduate Research Scholar
+Anant Mittal ([@anantmittal](https://github.com/anantmittal)) for his contributions to the software.
 
 ## Citing echopype
 
