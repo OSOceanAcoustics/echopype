@@ -1,7 +1,7 @@
 import datetime
 import operator as op
 import pathlib
-from typing import Callable, List, Optional, Union
+from typing import List, Optional, Union
 
 import dask
 import dask.array
@@ -500,9 +500,9 @@ def frequency_differencing(
         # get the left-hand side of condition (lhs)
         return Sv_block[chanA_idx] - Sv_block[chanB_idx]
 
-    def _create_mask(lhs: np.ndarray, diff: float, func: Callable = xr.where) -> np.ndarray:
+    def _create_mask(lhs: np.ndarray, diff: float) -> np.ndarray:
         """Create mask using operator lookup table"""
-        return func(str2ops[operator](lhs, diff), True, False)
+        return xr.where(str2ops[operator](lhs, diff), True, False)
 
     # Determine channel index based on names
     channels = list(source_Sv["channel"].to_numpy())
@@ -515,44 +515,27 @@ def frequency_differencing(
         lhs = _get_lhs(source_Sv["Sv"], chanA_idx, chanB_idx)
 
         # create mask using operator lookup table
-        da = _create_mask(lhs, diff, func=xr.where)
+        da = _create_mask(lhs, diff)
     # If Sv data is dask array
     else:
-        # The number of blocks in the column dimension
-        num_column_blocks = int(np.ceil(source_Sv["Sv"].shape[2] / source_Sv["Sv"].chunks[2][0]))
+        # Get the final data array template
+        template = source_Sv["Sv"].isel(channel=0).drop_vars("channel")
 
-        da_list = []
+        dask_array_data = source_Sv["Sv"].data
+        # Perform block wise computation
+        dask_array_result = (
+            dask_array_data
+            # Compute the left-hand side of condition
+            # drop the first axis (channel) as it is dropped in the result
+            .map_blocks(_get_lhs, chanA_idx, chanB_idx, dtype=dask_array_data.dtype, drop_axis=0)
+            # create mask using operator lookup table
+            .map_blocks(_create_mask, diff)
+        )
 
-        # Transform Sv blocks into a contiguous flattened array
-        # and iterate over them to apply the transformation
-        for Sv_block in source_Sv["Sv"].data.blocks.ravel():
-            # Apply and delay the _get_lhs and _create_mask function on Sv_block
-            lhs = dask.delayed(_get_lhs)(Sv_block, chanA_idx, chanB_idx)
-            da_delayed = dask.delayed(_create_mask)(lhs, diff, func=dask.array.where)
-            # Convert da_delayed to dask array and append to da_list
-            da_list.append(
-                # Convert dask delayed fn to dask array
-                dask.array.from_delayed(
-                    da_delayed, shape=(Sv_block.shape[1], Sv_block.shape[2]), dtype=Sv_block.dtype
-                )
-            )
-
-        # Reshape the flattened output into source_Sv["Sv"] shape
-        da_output = []
-        # Iterate over da_list with the step size
-        # equivalent to the number of blocks in the column dimension
-        for i in range(0, len(da_list), num_column_blocks):
-            # Concatenate the blocks in da_list[i : i + num_column_blocks] column wise
-            da_output.append(dask.array.concatenate(da_list[i : i + num_column_blocks], axis=1))
-        # Concatenate the elements in da_output row wise to get the final output
-        da_output_concat = dask.array.concatenate(da_output, axis=0)
-
+        # Create DataArray of the result
         da = xr.DataArray(
-            data=da_output_concat,
-            coords={
-                "ping_time": source_Sv["Sv"]["ping_time"],
-                "range_sample": source_Sv["Sv"]["range_sample"],
-            },
+            data=dask_array_result,
+            coords=template.coords,
         )
 
     xr_dataarray_attrs = {
