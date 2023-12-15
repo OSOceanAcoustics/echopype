@@ -2,12 +2,10 @@ import pytest
 import numpy as np
 import echopype.clean
 
-
-DEFAULT_RYAN_PARAMS = {"r0": 180, "r1": 280, "n": 30, "thr": -6, "start": 0}
+from echopype.clean.signal_attenuation import DEFAULT_RYAN_PARAMS
 
 # commented ariza out since the current interpretation relies on a
 # preexisting seabed mask, which is not available in this PR
-# DEFAULT_ARIZA_PARAMS = {"offset": 20, "thr": (-40, -35), "m": 20, "n": 50}
 
 
 @pytest.mark.parametrize(
@@ -18,7 +16,10 @@ DEFAULT_RYAN_PARAMS = {"r0": 180, "r1": 280, "n": 30, "thr": -6, "start": 0}
     ],
 )
 def test_get_signal_attenuation_mask(
-    sv_dataset_jr161, method, parameters, expected_true_false_counts
+    sv_dataset_jr161,
+    method,
+    parameters,
+    expected_true_false_counts,
 ):
     # source_Sv = get_sv_dataset(test_data_path)
     desired_channel = "GPT  38 kHz 009072033fa5 1 ES38"

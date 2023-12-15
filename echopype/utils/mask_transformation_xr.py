@@ -134,3 +134,25 @@ def dask_nanmean(array, axis=None):
     if not isinstance(array, da.Array):
         raise TypeError("Expected a Dask array, got {}.".format(type(array)))
     return da.nanmean(array, axis=axis)
+
+
+def block_nanmedian(block, i, n, axis):
+    """
+    Since dask nanmedian doesn't work except when applied on a specific axis,
+    this is a kludge to enable us to calculate block medians without assigning
+    arrays with an extra dimension
+    """
+    start = max(0, i - n)
+    end = min(block.shape[axis], i + n + 1)
+    indices = da.arange(start, end, dtype=int)
+    use_block = da.take(block, indices, axis)
+    res = np.nanmedian(use_block.compute())
+    return res
+
+
+def rolling_median_block(block, window_half_size, axis):
+    """
+    Applies a median block calculation as a rolling function across an axis
+    """
+    res = [block_nanmedian(block, i, window_half_size, axis) for i in range(block.shape[axis])]
+    return np.array(res)

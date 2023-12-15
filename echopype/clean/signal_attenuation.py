@@ -3,9 +3,24 @@ import warnings
 import numpy as np
 import xarray as xr
 
-from ..utils.mask_transformation_xr import lin as _lin, line_to_square, log as _log
+from ..utils.mask_transformation_xr import (
+    lin as _lin,
+    line_to_square,
+    log as _log,
+    rolling_median_block,
+)
 
-DEFAULT_RYAN_PARAMS = {"r0": 180, "r1": 280, "n": 30, "thr": -6, "start": 0}
+# import dask.array as da
+
+
+DEFAULT_RYAN_PARAMS = {
+    "r0": 180,
+    "r1": 280,
+    "n": 30,
+    "thr": -6,
+    "start": 0,
+    "dask_chunking": {"ping_time": 100, "range_sample": 100},
+}
 DEFAULT_ARIZA_PARAMS = {"offset": 20, "thr": (-40, -35), "m": 20, "n": 50}
 
 
@@ -45,15 +60,17 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters=DEFAULT_RYAN
     Returns:
         xr.DataArray: boolean array with AS mask, with ping_time and range_sample dims
     """
-    parameter_names = ("r0", "r1", "n", "thr", "start")
+    parameter_names = ("r0", "r1", "n", "thr", "start", "dask_chunking")
     if not all(name in parameters.keys() for name in parameter_names):
         raise ValueError(
-            "Missing parameters - should be r0, r1, n, thr, start, are" + str(parameters.keys())
+            "Missing parameters - should be r0, r1, n, thr, start, dask_chunking are"
+            + str(parameters.keys())
         )
     r0 = parameters["r0"]
     r1 = parameters["r1"]
     n = parameters["n"]
     thr = parameters["thr"]
+    dask_chunking = parameters["dask_chunking"]
     # start = parameters["start"]
 
     channel_Sv = source_Sv.sel(channel=desired_channel)
@@ -85,13 +102,10 @@ def _ryan(source_Sv: xr.DataArray, desired_channel: str, parameters=DEFAULT_RYAN
     layer_mask = (Sv["range_sample"] >= up) & (Sv["range_sample"] <= lw)
     layer_Sv = Sv.where(layer_mask)
 
-    # Creating shifted arrays for block comparison
-    shifted_arrays = [layer_Sv.shift(ping_time=i) for i in range(-n, n + 1)]
-    block = xr.concat(shifted_arrays, dim="shifted_ping_time")
+    layer_Sv_chunked = layer_Sv.chunk(dask_chunking)
 
-    # Computing the median of the block and the pings
-    ping_median = layer_Sv.median(dim="range_sample", skipna=True)
-    block_median = block.median(dim=["range_sample", "shifted_ping_time"], skipna=True)
+    block_median = rolling_median_block(layer_Sv_chunked.data, window_half_size=n, axis=0)
+    ping_median = layer_Sv_chunked.median(dim="range_sample", skipna=True)
 
     # Creating the mask based on the threshold
     mask_condition = (ping_median - block_median) > thr
