@@ -71,7 +71,13 @@ Contributors
 
 [![Contributors](https://contrib.rocks/image?repo=OSOceanAcoustics/echopype)](https://github.com/OSOceanAcoustics/echopype/graphs/contributors)
 
-Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018. It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together with Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)), and previously Brandon Reyes ([@b-reyes](https://github.com/b-reyes)), Kavin Nguyen ([@ngkavin](https://github.com/ngkavin)) and Imran Majeed ([@imranmaj](https://github.com/imranmaj)). Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
+Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018.
+It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together.
+Previously, Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)),
+Brandon Reyes ([@b-reyes](https://github.com/b-reyes)),
+Kavin Nguyen ([@ngkavin](https://github.com/ngkavin))
+and Imran Majeed ([@imranmaj](https://github.com/imranmaj)) contributed significantly to the development of echopype.
+Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
 
 Other contributors are listed in [echopype documentation](https://echopype.readthedocs.io).
 
