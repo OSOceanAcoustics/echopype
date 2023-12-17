@@ -1,5 +1,6 @@
 import math
 import os
+import dask
 import pathlib
 import tempfile
 
@@ -316,7 +317,7 @@ def test_add_location(
 
 @pytest.mark.parametrize(
     ("sonar_model", "test_path_key", "raw_file_name", "paths_to_echoview_mat",
-     "waveform_mode", "encode_mode", "pulse_compression", "write_Sv_to_file"),
+     "waveform_mode", "encode_mode", "pulse_compression", "to_disk"),
     [
         # ek60_CW_power
         (
@@ -340,7 +341,7 @@ def test_add_location(
                 'splitbeam/DY1801_EK60-D20180211-T164025_angles_T4.mat',
                 'splitbeam/DY1801_EK60-D20180211-T164025_angles_T5.mat'
             ],
-            "CW", "power", False, False
+            "CW", "power", False, True
         ),
         # ek80_CW_complex
         (
@@ -382,7 +383,7 @@ def test_add_location(
 )
 def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_path,
                              paths_to_echoview_mat, waveform_mode, encode_mode,
-                             pulse_compression, write_Sv_to_file):
+                             pulse_compression, to_disk):
 
     # obtain the EchoData object with the data needed for the calculation
     ed = ep.open_raw(test_path[test_path_key] / raw_file_name, sonar_model=sonar_model)
@@ -394,7 +395,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
     temp_dir = None
 
     # allows us to test for the case when source_Sv is a path
-    if write_Sv_to_file:
+    if to_disk:
 
         # create temporary directory for mask_file
         temp_dir = tempfile.TemporaryDirectory()
@@ -411,7 +412,11 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
                                                waveform_mode=waveform_mode,
                                                encode_mode=encode_mode,
                                                pulse_compression=pulse_compression,
-                                               to_disk=write_Sv_to_file)
+                                               to_disk=to_disk)
+
+    if to_disk:
+        assert isinstance(ds_Sv["angle_alongship"].data, dask.array.core.Array)
+        assert isinstance(ds_Sv["angle_athwartship"].data, dask.array.core.Array)
 
     # obtain corresponding echoview output
     full_echoview_path = [test_path[test_path_key] / path for path in paths_to_echoview_mat]

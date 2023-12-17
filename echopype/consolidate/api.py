@@ -302,6 +302,10 @@ def add_splitbeam_angle(
             "so that the split-beam angles can be written to disk!"
         )
 
+    # obtain the file format of source_Sv if it is a path
+    if isinstance(source_Sv, (str, Path)):
+        source_Sv_type = get_file_format(source_Sv)
+
     source_Sv = open_source(source_Sv, "dataset", storage_options)
     echodata = open_source(echodata, "echodata", storage_options)
 
@@ -380,7 +384,6 @@ def add_splitbeam_angle(
     source_Sv["angle_alongship"] = theta
     source_Sv["angle_athwartship"] = phi
     if to_disk:
-        source_Sv_type = get_file_format(source_Sv)
         if source_Sv_type == "netcdf4":
             source_Sv.to_netcdf(mode="a", **storage_options)
         else:
