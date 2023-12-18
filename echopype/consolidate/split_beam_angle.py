@@ -2,7 +2,7 @@
 Contains functions necessary to compute the split-beam (alongship/athwartship)
 angles and add them to a Dataset.
 """
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import xarray as xr
@@ -245,79 +245,3 @@ def get_angle_complex_samples(
         )
 
     return theta, phi
-
-
-def add_angle_to_ds(
-    theta: xr.Dataset,
-    phi: xr.Dataset,
-    ds: xr.Dataset,
-    return_dataset: bool,
-    source_ds_path: Optional[str] = None,
-    file_type: Optional[str] = None,
-    storage_options: dict = {},
-) -> Optional[xr.Dataset]:
-    """
-    Adds the split-beam angle data to the provided input ``ds``.
-
-    Parameters
-    ----------
-    theta: xr.Dataset
-        The calculated split-beam alongship angle
-    phi: xr.Dataset
-        The calculated split-beam athwartship angle
-    ds: xr.Dataset
-        The Dataset that ``theta`` and ``phi`` will be added to
-    return_dataset: bool
-        Whether a dataset will be returned or not
-    source_ds_path: str, optional
-        The path to the file corresponding to ``ds``, if it exists
-    file_type: {"netcdf4", "zarr"}, optional
-        The file type corresponding to ``source_ds_path``
-    storage_options: dict, default={}
-        Any additional parameters for the storage backend, corresponding to the
-        path ``source_ds_path``
-
-    Returns
-    -------
-    xr.Dataset or None
-        If ``return_dataset=False``, nothing will be returned. If ``return_dataset=True``
-        either the input dataset ``ds`` or a lazy-loaded Dataset (obtained from
-        the path provided by ``source_ds_path``) with the split-beam angle data added
-        will be returned.
-    """
-
-    # TODO: do we want to add anymore attributes to these variables?
-    # add appropriate attributes to theta and phi
-    theta.attrs["long_name"] = "split-beam alongship angle"
-    phi.attrs["long_name"] = "split-beam athwartship angle"
-
-    if source_ds_path is not None:
-        # put the variables into a Dataset, so they can be written at the same time
-        # add ds attributes to splitb_ds since they will be overwritten by to_netcdf/zarr
-        splitb_ds = xr.Dataset(
-            data_vars={"angle_alongship": theta, "angle_athwartship": phi},
-            coords=theta.coords,
-            attrs=ds.attrs,
-        )
-
-        # release any resources linked to ds (necessary for to_netcdf)
-        ds.close()
-
-        # write the split-beam angle data to the provided path
-        if file_type == "netcdf4":
-            splitb_ds.to_netcdf(path=source_ds_path, mode="a", **storage_options)
-        else:
-            splitb_ds.to_zarr(store=source_ds_path, mode="a", **storage_options)
-
-        if return_dataset:
-            # open up and return Dataset in source_ds_path
-            return xr.open_dataset(source_ds_path, engine=file_type, chunks={}, **storage_options)
-
-    else:
-        # add the split-beam angles to the provided Dataset
-        ds["angle_alongship"] = theta
-        ds["angle_athwartship"] = phi
-
-        if return_dataset:
-            # return input dataset with split-beam angle data
-            return ds
