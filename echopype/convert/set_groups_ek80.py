@@ -406,6 +406,17 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
+                "heading": (
+                    ["time2"],
+                    np.array(self.parser_obj.mru.get("heading", [np.nan])),
+                    {
+                        "long_name": "Platform heading (true)",
+                        "standard_name": "platform_orientation",
+                        "units": "degrees_north",
+                        "valid_min": 0.0,
+                        "valid_max": 360.0,
+                    },
+                ),
             },
             coords={
                 "channel": (
