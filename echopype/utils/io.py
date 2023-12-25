@@ -17,6 +17,8 @@ from fsspec import AbstractFileSystem, FSMap
 from fsspec.implementations.local import LocalFileSystem
 from zarr.storage import FSStore
 
+from ..echodata import EchoData
+from ..echodata.api import open_converted
 from ..utils.coding import set_storage_encodings
 from ..utils.log import _init_logger
 
@@ -380,29 +382,30 @@ def env_indep_joinpath(*args: Tuple[str, ...]) -> str:
     return joined_path
 
 
-def validate_source_ds_da(
-    source_ds_da: Union[xr.Dataset, xr.DataArray, str, Path], storage_options: Optional[dict]
-) -> Tuple[Union[xr.Dataset, str, xr.DataArray], Optional[str]]:
+def validate_source(
+    source: Union[xr.Dataset, xr.DataArray, EchoData, str, Path],
+    storage_options: Optional[dict],
+) -> Tuple[Union[xr.Dataset, str, xr.DataArray, EchoData], Optional[str]]:
     """
-    This function ensures that ``source_ds_da`` is of the correct
-    type and validates the path of ``source_ds_da``, if it is provided.
+    This function ensures that ``source`` is of the correct
+    type and validates the path of ``source``, if it is provided.
 
     Parameters
     ----------
-    source_ds_da: xr.Dataset, xr.DataArray, str or pathlib.Path
-        A source that points to a Dataset or DataArray. If the input is a path,
+    source: xr.Dataset, xr.DataArray, EchoData, str or pathlib.Path
+        A source that points to a Dataset or DataArray or EchoData. If the input is a path,
         it specifies the path to a zarr or netcdf file.
     storage_options: dict, optional
         Any additional parameters for the storage backend, corresponding to the
-        path provided for ``source_ds_da``
+        path provided for ``source``
 
     Returns
     -------
-    source_ds_da: xr.Dataset or xr.DataArray or str
-        A Dataset or DataArray which will be the same as the input ``source_ds_da`` or
-        a validated path to a zarr or netcdf file
+    source: xr.Dataset or xr.DataArray or EchoData or str
+        A Dataset or DataArray or EchoData which will be the same as the input ``source``
+        or a validated path to a zarr or netcdf file
     file_type: {"netcdf4", "zarr"}, optional
-        The file type of the input path if ``source_ds_da`` is a path, otherwise ``None``
+        The file type of the input path if ``source`` is a path, otherwise ``None``
     """
 
     # initialize file_type
@@ -412,26 +415,42 @@ def validate_source_ds_da(
     if not isinstance(storage_options, dict):
         raise TypeError("storage_options must be a dict!")
 
-    # check that source_ds_da is of the correct type, if it is a path validate
+    # check that source is of the correct type, if it is a path validate
     # the path and open the Dataset or DataArray using xarray
-    if not isinstance(source_ds_da, (xr.Dataset, xr.DataArray, str, Path)):
-        raise TypeError("source_ds_da must be a Dataset or DataArray or str or pathlib.Path!")
-    elif isinstance(source_ds_da, (str, Path)):
+    if not isinstance(source, (xr.Dataset, xr.DataArray, EchoData, str, Path)):
+        raise TypeError("source must be a Dataset or DataArray or EchoData or str or pathlib.Path!")
+    elif isinstance(source, (str, Path)):
         # determine if we obtained a zarr or netcdf file
-        file_type = get_file_format(source_ds_da)
+        file_type = get_file_format(source)
 
-        # validate source_ds_da if it is a path
-        source_ds_da = validate_output_path(
+        # validate source if it is a path
+        source = validate_output_path(
             source_file="blank",  # will be unused since source_ds cannot be none
             engine=file_type,
             output_storage_options=storage_options,
-            save_path=source_ds_da,
+            save_path=source,
         )
 
         # check that the path exists
-        check_file_existence(file_path=source_ds_da, storage_options=storage_options)
+        check_file_existence(file_path=source, storage_options=storage_options)
 
-    return source_ds_da, file_type
+    return source, file_type
+
+
+def open_source(
+    source: Optional[Union[xr.Dataset, xr.DataArray, EchoData, str, Path]],
+    source_type: str,
+    storage_options: Optional[dict],
+) -> Tuple[Union[xr.Dataset, xr.DataArray, EchoData]]:
+    source, file_type = validate_source(source, storage_options)
+
+    if isinstance(source, str):
+        if source_type == "dataset":
+            source = xr.open_dataset(source, engine=file_type, chunks={}, **storage_options)
+        if source_type == "echodata":
+            source = open_converted(source, engine=file_type, **storage_options)
+
+    return source
 
 
 # Utilities for creating temporary swap zarr files -------------------------------------

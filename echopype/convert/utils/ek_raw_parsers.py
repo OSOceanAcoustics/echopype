@@ -502,6 +502,16 @@ class SimradMRUParser(_SimradDatagramParser):
         pitch:        float
         heading:      float
 
+        type:         string == 'MRU1'
+        low_date:     long uint representing LSBytes of 64bit NT date
+        high_date:    long uint representing MSBytes of 64bit NT date
+        timestamp:    datetime.datetime object of NT date, assumed to be UTC
+        heave:        float
+        roll :        float
+        pitch:        float
+        heading:      float
+        length:       long uint
+
     The following methods are defined:
 
         from_string(str):    parse a raw ER60 NMEA datagram
@@ -522,7 +532,17 @@ class SimradMRUParser(_SimradDatagramParser):
                 ("roll", "f"),
                 ("pitch", "f"),
                 ("heading", "f"),
-            ]
+            ],
+            1: [
+                ("type", "4s"),
+                ("low_date", "L"),
+                ("high_date", "L"),
+                ("heave", "f"),
+                ("roll", "f"),
+                ("pitch", "f"),
+                ("heading", "f"),
+                ("length", "L"),
+            ],
         }
 
         _SimradDatagramParser.__init__(self, "MRU", headers)

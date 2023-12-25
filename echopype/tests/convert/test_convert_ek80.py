@@ -5,6 +5,7 @@ from scipy.io import loadmat
 from echopype import open_raw
 
 from echopype.testing import TEST_DATA_FOLDER
+from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 
 
@@ -428,3 +429,16 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
     for t in [WIDE_BAND_TRANS, PULSE_COMPRESS]:
         for p in [FILTER_REAL, FILTER_IMAG, DECIMATION]:
             assert f"{t}_{p}" not in vendor_spec_ds
+
+
+def test_convert_ek80_mru1(ek80_path):
+    """Make sure we can convert EK80 file with MRU1 datagram."""
+    ek80_mru1_path = str(ek80_path.joinpath('20231016_Cal_-D20231016-T220322.raw'))
+    echodata = open_raw(raw_file=ek80_mru1_path, sonar_model='EK80')
+    parser = ParseEK80(str(ek80_mru1_path), None)
+    parser.parse_raw()
+
+    np.all(echodata["Platform"]["pitch"].data == np.array(parser.mru["pitch"]))
+    np.all(echodata["Platform"]["roll"].data == np.array(parser.mru["roll"]))
+    np.all(echodata["Platform"]["vertical_offset"].data == np.array(parser.mru["heave"]))
+    np.all(echodata["Platform"]["heading"].data == np.array(parser.mru["heading"]))

@@ -4,6 +4,26 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.8.3 (2024 December 24)
+
+## Overview
+
+This release includes a bug fix for changes from the previous release and a few functionality enhancements.
+
+## Enhancements
+- Add parser support for EK80 MRU1 datagram (#1242)
+- Add support for `consolidate` subpackage functions to accept both in-memory or stored datasets (#1216)
+- Add test for ES60 spare field decoding issue (#1233)
+- Add test for EK80 missing `receiver_sampling_freq` error (#1234)
+
+## Bug fixes
+- Fixed reshape bug in `pad_shorter_ping` that was remnant from `use_swap` full refactoring (#1234)
+
+
+
+
+
+
 # v0.8.2 (2023 November 20)
 
 ## Overview

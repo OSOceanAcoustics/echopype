@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 from ..echodata.utils_platform import _clip_by_time_dim, get_mappings_expanded
 from ..utils.coding import sanitize_dtypes, set_time_encodings
-from ..utils.io import check_file_existence, delete_zarr_store, sanitize_file_path
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
@@ -93,6 +92,8 @@ class EchoData:
                         v.store for k, v in dask_graph.items() if "original-from-zarr" in k
                     ]
                     fs = zarr_stores[0].fs
+                    from ..utils.io import delete_zarr_store
+
                     for store in zarr_stores:
                         delete_zarr_store(store, fs)
 
@@ -486,11 +487,15 @@ class EchoData:
 
     def _check_path(self, filepath: "PathHint"):
         """Check if converted_raw_path exists"""
+        from ..utils.io import check_file_existence
+
         file_exists = check_file_existence(filepath, self.storage_options)
         if not file_exists:
             raise FileNotFoundError(f"There is no file named {filepath}")
 
     def _sanitize_path(self, filepath: "PathHint") -> "PathHint":
+        from ..utils.io import sanitize_file_path
+
         filepath = sanitize_file_path(filepath, self.storage_options)
         return filepath
 
