@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union
 
 import fsspec
 from datatree import DataTree
@@ -7,7 +7,6 @@ from datatree import DataTree
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
 from ..core import SONAR_MODELS
-from .parsed_to_zarr import Parsed2Zarr
 
 if TYPE_CHECKING:
     from ..core import EngineHint, PathHint, SonarModelsHint
@@ -314,9 +313,9 @@ def open_raw(
     xml_path: Optional["PathHint"] = None,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
-    use_swap: bool = False,
-    max_mb: int = 100,
-) -> Optional[EchoData]:
+    use_swap: Union[bool, Literal["auto"]] = False,
+    max_chunk_size: str = "100MB",
+) -> EchoData:
     """Create an EchoData object containing parsed data from a single raw data file.
 
     The EchoData object can be used for adding metadata and ancillary data
@@ -342,11 +341,13 @@ def open_raw(
     convert_params : dict
         parameters (metadata) that may not exist in the raw file
         and need to be added to the converted file
-    storage_options : dict
+    storage_options : dict, optional
         options for cloud storage
-    use_swap: bool
-        If True, variables with a large memory footprint will be
-        written to a temporary zarr store at ``~/.echopype/temp_output/parsed2zarr_temp_files``
+    use_swap: bool or "auto", default False
+        Flag to use disk swap in case of a large memory footprint.
+        When set to ``True`` (or when set to "auto" and large memory footprint is needed,
+        this function will create a temporary zarr store at the operating system's
+        temporary directory.
     max_mb : int
         The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
@@ -369,9 +370,17 @@ def open_raw(
 
     Notes
     -----
-    ``use_swap=True`` is only available for the following
-    echosounders: EK60, ES70, EK80, ES80, EA640. Additionally, this feature
-    is currently in beta.
+    In case of a large memory footprint, the program will determine if using
+    a temporary swap space is needed. If so, it will use that space
+    during conversion to prevent out of memory errors.
+
+    Users can override this behaviour by either passing
+    ``use_swap=True`` or ``use_swap=False``. If a keyword "auto" is
+    used for the ``use_swap`` parameter, echopype will determine the usage of
+    swap space automatically.
+
+    This feature is only available for the following
+    echosounders: EK60, ES70, EK80, ES80, EA640.
     """
     if raw_file is None:
         raise FileNotFoundError("The path to the raw data file must be specified.")
@@ -402,55 +411,26 @@ def open_raw(
     # Check file extension and existence
     file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
 
-    # TODO: remove once 'auto' option is added
-    if not isinstance(use_swap, bool):
-        raise ValueError("use_swap must be of type bool.")
-
-    # Ensure use_swap is 'auto', if it is a string
-    # TODO: use the following when we allow for 'auto' option
-    # if isinstance(use_swap, str) and use_swap != "auto":
-    #     raise ValueError("use_swap must be a bool or equal to 'auto'.")
-
-    # TODO: the if-else below only works for the AZFP vs EK contrast,
-    #  but is brittle since it is abusing params by using it implicitly
-    if SONAR_MODELS[sonar_model]["xml"]:
-        params = xml_chk
-    else:
-        params = "ALL"  # reserved to control if only wants to parse a certain type of datagram
-
-    # obtain dict associated with directly writing to zarr
-    dgram_zarr_vars = SONAR_MODELS[sonar_model]["dgram_zarr_vars"]
-
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
-        file_chk, params=params, storage_options=storage_options, dgram_zarr_vars=dgram_zarr_vars
+        file_chk,
+        # Currently used only for AZFP XML File
+        file_meta=xml_chk,
+        storage_options=storage_options,
+        sonar_model=sonar_model,
     )
-
+    # Actually parse the raw datagrams from source file
     parser.parse_raw()
 
     # Direct offload to zarr and rectangularization only available for some sonar models
+    # No rectangularization for other sonar models not listed below
     if sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-        # Create sonar_model-specific p2z object
-        p2z = SONAR_MODELS[sonar_model]["parsed2zarr"](parser)
-
-        # Determines if writing to zarr is necessary and writes to zarr
-        p2z_flag = use_swap is True or (
-            use_swap == "auto" and p2z.whether_write_to_zarr(mem_mult=0.4)
+        # Perform rectangularization and offload to zarr
+        # if the data expansion is too large to fit in memory
+        parser.rectangularize_data(
+            use_swap=use_swap,
+            max_chunk_size=max_chunk_size,
         )
-
-        if p2z_flag:
-            p2z.datagram_to_zarr(max_mb=max_mb)
-            # Rectangularize the transmit data
-            parser.rectangularize_transmit_ping_data(data_type="complex")
-        else:
-            del p2z
-            # Create general p2z object
-            p2z = Parsed2Zarr(parser)
-            parser.rectangularize_data()
-
-    else:
-        # No rectangularization for other sonar models
-        p2z = Parsed2Zarr(parser)  # Create general p2z object
 
     setgrouper = SONAR_MODELS[sonar_model]["set_groups"](
         parser,
@@ -459,7 +439,6 @@ def open_raw(
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
-        parsed2zarr_obj=p2z,
     )
 
     # Setup tree dictionary
@@ -510,9 +489,7 @@ def open_raw(
     # Create tree and echodata
     # TODO: make the creation of tree dynamically generated from yaml
     tree = DataTree.from_dict(tree_dict, name="root")
-    echodata = EchoData(
-        source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model, parsed2zarr_obj=p2z
-    )
+    echodata = EchoData(source_file=file_chk, xml_path=xml_chk, sonar_model=sonar_model)
     echodata._set_tree(tree)
     echodata._load_tree()
 

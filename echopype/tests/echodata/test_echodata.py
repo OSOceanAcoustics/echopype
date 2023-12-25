@@ -1,6 +1,5 @@
 from textwrap import dedent
 
-import os
 import fsspec
 from pathlib import Path
 import shutil
@@ -9,7 +8,6 @@ from datatree import DataTree
 from zarr.errors import GroupNotFoundError
 
 import echopype
-from echopype.calibrate.env_params_old import EnvParams
 from echopype.echodata import EchoData
 from echopype import open_converted
 from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
@@ -325,8 +323,8 @@ class TestEchoData:
     def test_to_zarr_consolidated(self, mock_echodata, consolidated):
         """
         Tests to_zarr consolidation. Currently, this test uses a mock EchoData object that only
-        has attributes. The consolidated flag provided will be used in every to_zarr call (which 
-        is used to write each EchoData group to zarr_path). 
+        has attributes. The consolidated flag provided will be used in every to_zarr call (which
+        is used to write each EchoData group to zarr_path).
         """
         zarr_path = Path('test.zarr')
         mock_echodata.to_zarr(str(zarr_path), consolidated=consolidated, overwrite=True)
@@ -693,3 +691,34 @@ def test_update_platform_no_update(test_path):
     variable_mappings = {"longitude": "longitude", "latitude": "latitude"}
 
     ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
+
+def test_update_platform_latlon_notimestamp(test_path):
+    raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
+    ed = echopype.open_raw(raw_file, sonar_model="EK60")
+
+    extra_platform_data = xr.Dataset(
+        {
+            "lon": ([], float(-100.0)),
+            "lat": ([], float(-50.0)),
+        }
+    )
+
+    platform_preexisting_dims = ed["Platform"].dims
+
+    # variable names in mappings different from actual external dataset
+    variable_mappings = {"longitude": "lon", "latitude": "lat"}
+
+    ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
+
+    # Updated variables are not all nan
+    for variable in variable_mappings.keys():
+        assert not np.isnan(ed["Platform"][variable].values).all()
+
+    # Number of dimensions in Platform group should be as previous
+    assert len(ed["Platform"].dims) == len(platform_preexisting_dims)
+
+    # Dimension assignment
+    assert ed["Platform"]["longitude"].dims[0] == ed["Platform"]["latitude"].dims[0]
+    assert ed["Platform"]["longitude"].dims[0] in platform_preexisting_dims
+    assert ed["Platform"]["latitude"].dims[0] in platform_preexisting_dims
+    assert ed['Platform']['longitude'].coords['time1'].values[0] == ed['Sonar/Beam_group1'].ping_time.data[0]

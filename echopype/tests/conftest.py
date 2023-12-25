@@ -20,6 +20,7 @@ def test_path():
         'EK60': TEST_DATA_FOLDER / "ek60",
         'EK80': TEST_DATA_FOLDER / "ek80",
         'EK80_NEW': TEST_DATA_FOLDER / "ek80_new",
+        'ES60': TEST_DATA_FOLDER / "es60",
         'ES70': TEST_DATA_FOLDER / "es70",
         'ES80': TEST_DATA_FOLDER / "es80",
         'AZFP': TEST_DATA_FOLDER / "azfp",

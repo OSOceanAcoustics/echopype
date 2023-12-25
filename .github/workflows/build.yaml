@@ -9,25 +9,20 @@ on:
   workflow_dispatch:
 
 env:
-  CONDA_ENV: echopype
   NUM_WORKERS: 2
 
 jobs:
   test:
     name: ${{ matrix.python-version }}-build
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10"]  # TODO: add back 3.11 once parsed2zarr is fixed
+        python-version: ["3.9", "3.10", "3.11"]
         runs-on: [ubuntu-latest]
         experimental: [false]
-        include:
-        - runs-on: ubuntu-latest
-          python-version: "3.11"
-          experimental: true
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
@@ -46,30 +41,20 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
-      - name: Setup micromamba
-        uses: mamba-org/setup-micromamba@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5.0.0
         with:
-          environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml
-          environment-name: ${{ env.CONDA_ENV }}
-          cache-environment: true
-          post-cleanup: 'all'
-      - name: Print conda environment
-        shell: bash -l {0}
-        run: |
-          micromamba info
-          micromamba list
+          python-version: ${{ matrix.python-version }}
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
       - name: Remove docker-compose python
-        if: ${{ matrix.python-version == '3.10' || matrix.python-version == '3.11' }}
-        shell: bash -l {0}
         run: sed -i "/docker-compose/d" requirements-dev.txt
       - name: Install dev tools
-        shell: bash -l {0}
-        run: |
-          micromamba install -c conda-forge -n ${{ env.CONDA_ENV }} --yes --file requirements-dev.txt
+        run: python -m pip install -r requirements-dev.txt
       - name: Install echopype
-        shell: bash -l {0}
-        run: |
-          python -m pip install -e .[plot]
+        run: python -m pip install -e ".[plot]"
+      - name: Print installed packages
+        run: python -m pip list
       - name: Copying test data to services
         shell: bash -l {0}
         run: |

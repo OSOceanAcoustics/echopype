@@ -236,7 +236,7 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
         xml_path = str(test_path[path_model].joinpath(*xml_path).absolute())
 
     ed = open_raw(
-        sonar_model=sonar_model, raw_file=raw_file, xml_path=xml_path
+        sonar_model=sonar_model, raw_file=raw_file, xml_path=xml_path, use_swap=False
     )
     ed.to_netcdf(overwrite=True)
     for group, details in ed.group_map.items():
@@ -297,6 +297,7 @@ def test_convert_ek(
         raw_file=ipath,
         sonar_model=sonar_model,
         storage_options=input_storage_options,
+        use_swap=False
     )
 
     if (
@@ -370,6 +371,7 @@ def test_convert_azfp(
         xml_path=azfp_xml_paths,
         sonar_model=model,
         storage_options=input_storage_options,
+        use_swap=False
     )
 
     assert echodata.xml_path == azfp_xml_paths

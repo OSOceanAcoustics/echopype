@@ -12,6 +12,7 @@ from echopype.convert.set_groups_base import SetGroupsBase
 from echopype.echodata.echodata import EchoData
 
 
+
 class SetGroupsTest(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
