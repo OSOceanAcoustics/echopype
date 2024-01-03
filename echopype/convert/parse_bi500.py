@@ -22,6 +22,7 @@ class ParseBI500(ParseBase):
         super().__init__(file, storage_options, sonar_model)
 
         self.fsmap = self._validate_folder_path(file)
+        self.index_file = self._get_index_file(self.fsmap)
         self.timestamp_pattern = FILENAME_DATETIME_BI500
         self.file_types = FILE_TYPES
         self.file_type_map = defaultdict(None)
@@ -29,6 +30,7 @@ class ParseBI500(ParseBase):
         self.parameters = defaultdict(list)
         self.ping_counts = defaultdict(list)
         self.vlog_counts = defaultdict(list)
+        self.index_counts = defaultdict(list)
         self.unpacked_data = defaultdict(list)
         self.sonar_type = "BI500"
 
@@ -62,6 +64,18 @@ class ParseBI500(ParseBase):
 
         self._print_files(all_files)
         return fsmap
+
+    def _get_index_file(self, fsmap):
+        """Validate the index file."""
+        if self.file_type_map["-Vlog"] is not None:
+            index_file = self.file_type_map["-Vlog"]
+            self.load_BI500_vlog()
+            self.index_counts = self.vlog_counts
+        else:
+            index_file = self.file_type_map["-Ping"]
+            self.load_BI500_ping()
+            self.index_counts = self.ping_counts
+        return index_file
 
     def _print_files(self, all_files):
         """Prints all the files found to be parsed in the folder to console."""
@@ -194,7 +208,7 @@ class ParseBI500(ParseBase):
             else:
                 eof = True
 
-    def load_BI500_data(self):
+    def parse_raw(self):
         """
         Parses the BI500 Data file.
         """
@@ -203,15 +217,14 @@ class ParseBI500(ParseBase):
         START_FORMAT = ">l"
         trace_vars = ("TargetDepth", "CompTS", "UncompTS", "Alongship", "Athwartship")
 
-        self.load_BI500_ping()
         bi500_data = self.fsmap.fs.open(self.file_type_map["-Data"], mode="rb")
 
         # Unpack the BI500 Data file
-        num_pings = len(self.ping_counts["pelagic_count"])
+        num_pings = len(self.index_counts["pelagic_count"])
         for i in range(num_pings):
-            PELAGIC_COUNT = self.ping_counts["pelagic_count"][i]
-            BOTTOM_COUNT = self.ping_counts["bottom_count"][i]
-            TRACE_COUNT = self.ping_counts["echotrace_count"][i]
+            PELAGIC_COUNT = self.index_counts["pelagic_count"][i]
+            BOTTOM_COUNT = self.index_counts["bottom_count"][i]
+            TRACE_COUNT = self.index_counts["echotrace_count"][i]
             ping_size = PELAGIC_COUNT * 2 + BOTTOM_COUNT * 2 + TRACE_COUNT * 20
 
             loaded_data = bi500_data.read(ping_size)
