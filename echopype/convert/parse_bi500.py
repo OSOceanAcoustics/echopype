@@ -205,6 +205,7 @@ class ParseBI500(ParseBase):
         # BI500 Data file parameters for unpacking
         START_FORMAT = ">"
         trace_vars = ("TargetDepth", "CompTS", "UncompTS", "Alongship", "Athwartship")
+        self.load_BI500_info()
         self.load_BI500_ping()
         bi500_data = self.fsmap.fs.open(self.file_type_map["-Data"], mode="rb")
 
