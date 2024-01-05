@@ -18,7 +18,7 @@ FILE_TYPES = ["-Data", "-Info", "-Ping", "-Vlog", "-Snap", "-Work"]
 class ParseBI500(ParseBase):
     """Class for converting data from Bergen Integrator (BI500) software."""
 
-    def __init__(self, file, storage_options={}, sonar_model="BI500"):
+    def __init__(self, file, file_meta, storage_options={}, sonar_model="BI500"):
         super().__init__(file, storage_options, sonar_model)
 
         self.timestamp_pattern = FILENAME_DATETIME_BI500
