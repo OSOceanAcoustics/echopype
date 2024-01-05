@@ -14,6 +14,33 @@ FILENAME_DATETIME_BI500 = "?(?<prefix>.*)?-?F(?P<frequency>\\w+)?-?T(?P<transduc
 
 FILE_TYPES = ["-Data", "-Info", "-Ping", "-Vlog", "-Snap", "-Work"]
 
+REQUIRED_FILES = ["-Data", "-Info", "-Ping"]
+
+# Common BI500 Ping and Vlog parameters for unpacking
+PV_FILE_FORMAT = ">llfffflffllffllll"
+
+PV_FILE_SIZE = 68
+
+PV_FIELDS = (
+    "Date",
+    "Time",
+    "Distance",
+    "Latitude",
+    "Longitude",
+    "BottomDepth",
+    "EchogramType",
+    "PelagicUpper",
+    "PelagicLower",
+    "PelagicCount",
+    "PelagicOffset",
+    "BottomUpper",
+    "BottomLower",
+    "BottomCount",
+    "BottomOffset",
+    "EchotraceCount",
+    "EchotraceOffset",
+)
+
 
 class ParseBI500(ParseBase):
     """Class for converting data from Bergen Integrator (BI500) software."""
@@ -26,8 +53,8 @@ class ParseBI500(ParseBase):
         self.file_type_map = defaultdict(None)
 
         self.parameters = defaultdict(list)
-        self.ping_counts = defaultdict(list)
-        self.vlog_counts = defaultdict(list)
+        self.ping_data = defaultdict(list)
+        self.vlog_data = defaultdict(list)
         self.index_counts = defaultdict(list)
         self.unpacked_data = defaultdict(list)
         self.fsmap = self._validate_folder_path(file)
@@ -40,24 +67,26 @@ class ParseBI500(ParseBase):
             all_files = fsmap.fs.ls(folder_path)
         except NotADirectoryError:
             raise ValueError(
-                "Expecting a folder containing at least '-Data' and '-Info' files, "
+                "Expecting a folder containing at least '-Data', '-Info' and '-Ping' files, "
                 f"but got {folder_path}"
             )
 
         if isinstance(all_files[0], str):
             reqd_files = [
-                file for file in all_files if file.endswith("-Data") or file.endswith("-Info")
+                file
+                for file in all_files
+                if any(file.endswith(file_type) for file_type in REQUIRED_FILES)
             ]
         else:
             reqd_files = [
                 file
                 for file in all_files
-                if file.get("name").endswith("-Data") or file.get("name").endswith("-Info")
+                if any(file.get("name").endswith(file_type) for file_type in REQUIRED_FILES)
             ]
 
         if len(reqd_files) < 2:
             raise ValueError(
-                "Expecting a folder containing at least '-Data' and '-Info' files, "
+                "Expecting a folder containing at least '-Data', '-Info' and '-Ping' files, "
                 f"but got {folder_path} with at least one required file missing."
             )
 
@@ -72,7 +101,7 @@ class ParseBI500(ParseBase):
             for file_type in self.file_types:
                 if file_name.endswith(file_type):
                     self.file_type_map[file_type] = file_name
-                    logger.info(file_name)
+                    logger.info(f"Found file: {file_name}")
 
     def load_BI500_info(self):
         """
@@ -112,88 +141,36 @@ class ParseBI500(ParseBase):
         Parses the BI500 Ping file.
         """
 
-        # BI500 Ping file parameters for unpacking
-        PING_FILE_FORMAT = ">llfffflffllffllll"
-        PING_FILE_SIZE = 68
-        ping_vars = (
-            "Date",
-            "Time",
-            "Distance",
-            "Latitude",
-            "Longitude",
-            "BottomDepth",
-            "EchogramType",
-            "PelagicUpper",
-            "PelagicLower",
-            "PelagicCount",
-            "PelanvicOffset",
-            "BottomUpper",
-            "BottomLower",
-            "BottomCount",
-            "BottomOffset",
-            "EchotraceCount",
-            "EchotraceOffset",
-        )
-
         bi500_ping = self.fsmap.fs.open(self.file_type_map["-Ping"], mode="rb")
 
         # Unpack the BI500 Ping file
         eof = False
         while not eof:
-            data_read = bi500_ping.read(PING_FILE_SIZE)
+            data_read = bi500_ping.read(PV_FILE_SIZE)
             if data_read:
-                data = unpack(PING_FILE_FORMAT, data_read)
-                for name, data in zip(ping_vars, data):
+                data = unpack(PV_FILE_FORMAT, data_read)
+                for name, data in zip(PV_FIELDS, data):
                     if name == "PelagicCount" or name == "BottomCount" or name == "EchotraceCount":
-                        self.ping_counts[camelcase2snakecase(name)].append(data)
-                    else:
-                        self.parameters[camelcase2snakecase(name)].append(data)
+                        self.index_counts[camelcase2snakecase(name)].append(data)
+                    self.ping_data[camelcase2snakecase(name)].append(data)
             else:
                 eof = True
-        # Set the index counts equal to the ping counts
-        self.index_counts = self.ping_counts
 
     def load_BI500_vlog(self):
         """
         Parses the BI500 Vlog file.
         """
 
-        # BI500 Info file parameters for unpacking
-        VLOG_FILE_FORMAT = ">llfffflffllffllll"
-        VLOG_FILE_SIZE = 68
-        vlog_vars = (
-            "Date",
-            "Time",
-            "Distance",
-            "Latitude",
-            "Longitude",
-            "BottomDepth",
-            "EchogramType",
-            "PelagicUpper",
-            "PelagicLower",
-            "PelagicCount",
-            "PelanvicOffset",
-            "BottomUpper",
-            "BottomLower",
-            "BottomCount",
-            "BottomOffset",
-            "EchotraceCount",
-            "EchotraceOffset",
-        )
-
         bi500_vlog = self.fsmap.fs.open(self.file_type_map["-Vlog"], mode="rb")
 
-        # Unpack the BI500 info file
+        # Unpack the BI500 Vlog file
         eof = False
         while not eof:
-            data_read = bi500_vlog.read(VLOG_FILE_SIZE)
+            data_read = bi500_vlog.read(PV_FILE_SIZE)
             if data_read:
-                data = unpack(VLOG_FILE_FORMAT, data_read)
-                for name, data in zip(vlog_vars, data):
-                    if name == "PelagicCount" or name == "BottomCount" or name == "EchotraceCount":
-                        self.vlog_counts[camelcase2snakecase(name)].append(data)
-                    else:
-                        self.parameters[camelcase2snakecase(name)].append(data)
+                data = unpack(PV_FILE_FORMAT, data_read)
+                for name, data in zip(PV_FIELDS, data):
+                    self.vlog_data[camelcase2snakecase(name)].append(data)
             else:
                 eof = True
 
