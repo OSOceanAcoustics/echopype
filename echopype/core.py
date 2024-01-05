@@ -85,7 +85,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "set_groups": SetGroupsAd2cp,
     },
     "BI500": {
-        "validate_ext": None,
+        "validate_ext": validate_ext(""),
         "xml": False,
         "parser": ParseBI500,
         "parsed2zarr": None,

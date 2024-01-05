@@ -18,11 +18,9 @@ FILE_TYPES = ["-Data", "-Info", "-Ping", "-Vlog", "-Snap", "-Work"]
 class ParseBI500(ParseBase):
     """Class for converting data from Bergen Integrator (BI500) software."""
 
-    def __init__(self, file, file_meta, storage_options={}, sonar_model="BI500"):
+    def __init__(self, file, storage_options={}, sonar_model="BI500"):
         super().__init__(file, storage_options, sonar_model)
 
-        self.fsmap = self._validate_folder_path(file)
-        self.index_file = self._get_index_file(self.fsmap)
         self.timestamp_pattern = FILENAME_DATETIME_BI500
         self.file_types = FILE_TYPES
         self.file_type_map = defaultdict(None)
@@ -32,6 +30,7 @@ class ParseBI500(ParseBase):
         self.vlog_counts = defaultdict(list)
         self.index_counts = defaultdict(list)
         self.unpacked_data = defaultdict(list)
+        self.fsmap = self._validate_folder_path(file)
         self.sonar_type = "BI500"
 
     def _validate_folder_path(self, folder_path):
@@ -64,18 +63,6 @@ class ParseBI500(ParseBase):
 
         self._print_files(all_files)
         return fsmap
-
-    def _get_index_file(self, fsmap):
-        """Validate the index file."""
-        if self.file_type_map["-Vlog"] is not None:
-            index_file = self.file_type_map["-Vlog"]
-            self.load_BI500_vlog()
-            self.index_counts = self.vlog_counts
-        else:
-            index_file = self.file_type_map["-Ping"]
-            self.load_BI500_ping()
-            self.index_counts = self.ping_counts
-        return index_file
 
     def _print_files(self, all_files):
         """Prints all the files found to be parsed in the folder to console."""
@@ -163,6 +150,8 @@ class ParseBI500(ParseBase):
                         self.parameters[camelcase2snakecase(name)].append(data)
             else:
                 eof = True
+        # Set the index counts equal to the ping counts
+        self.index_counts = self.ping_counts
 
     def load_BI500_vlog(self):
         """
@@ -214,9 +203,9 @@ class ParseBI500(ParseBase):
         """
 
         # BI500 Data file parameters for unpacking
-        START_FORMAT = ">l"
+        START_FORMAT = ">"
         trace_vars = ("TargetDepth", "CompTS", "UncompTS", "Alongship", "Athwartship")
-
+        self.load_BI500_ping()
         bi500_data = self.fsmap.fs.open(self.file_type_map["-Data"], mode="rb")
 
         # Unpack the BI500 Data file
@@ -226,7 +215,6 @@ class ParseBI500(ParseBase):
             BOTTOM_COUNT = self.index_counts["bottom_count"][i]
             TRACE_COUNT = self.index_counts["echotrace_count"][i]
             ping_size = PELAGIC_COUNT * 2 + BOTTOM_COUNT * 2 + TRACE_COUNT * 20
-
             loaded_data = bi500_data.read(ping_size)
             if loaded_data:
                 PELAGIC_FORMAT = START_FORMAT + "h" * PELAGIC_COUNT
