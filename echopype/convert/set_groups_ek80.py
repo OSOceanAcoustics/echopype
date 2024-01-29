@@ -170,9 +170,11 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "sound_velocity_profile_depth": (
                     ["sound_velocity_profile_depth"],
-                    self.parser_obj.environment["sound_velocity_profile"][::2]
-                    if "sound_velocity_profile" in self.parser_obj.environment
-                    else [],
+                    (
+                        self.parser_obj.environment["sound_velocity_profile"][::2]
+                        if "sound_velocity_profile" in self.parser_obj.environment
+                        else []
+                    ),
                     {
                         "standard_name": "depth",
                         "units": "m",

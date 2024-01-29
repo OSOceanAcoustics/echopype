@@ -3,6 +3,7 @@
 Script to help bring up docker services for testing.
 
 """
+
 import argparse
 import logging
 import shutil

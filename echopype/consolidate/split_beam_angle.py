@@ -2,6 +2,7 @@
 Contains functions necessary to compute the split-beam (alongship/athwartship)
 angles and add them to a Dataset.
 """
+
 from typing import List, Tuple
 
 import numpy as np

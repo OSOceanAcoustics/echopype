@@ -1,6 +1,7 @@
 """
 Class to save unpacked echosounder data to appropriate groups in netcdf or zarr.
 """
+
 from typing import List
 
 import numpy as np

@@ -500,9 +500,9 @@ def get_cal_params_EK(
                     elif p == "gain_correction":
                         # interpolate or pull from narrowband table
                         out_dict[p] = _get_interp_da(
-                            da_param=None
-                            if "gain" not in vend
-                            else vend["gain"],  # freq-dep values
+                            da_param=(
+                                None if "gain" not in vend else vend["gain"]
+                            ),  # freq-dep values
                             freq_center=freq_center,
                             alternative=get_vend_cal_params_power(beam=beam, vend=vend, param=p),
                         )
