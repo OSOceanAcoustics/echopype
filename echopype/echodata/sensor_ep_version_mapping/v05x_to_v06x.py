@@ -262,21 +262,21 @@ def _change_beam_var_names(ed_obj, sensor):
 
     if sensor in ["EK60", "EK80"]:
         for beam_group in ed_obj._tree["Sonar"].children.values():
-            beam_group.ds.angle_sensitivity_alongship.attrs[
-                "long_name"
-            ] = "alongship angle sensitivity of the transducer"
+            beam_group.ds.angle_sensitivity_alongship.attrs["long_name"] = (
+                "alongship angle sensitivity of the transducer"
+            )
 
-            beam_group.ds.angle_sensitivity_athwartship.attrs[
-                "long_name"
-            ] = "athwartship angle sensitivity of the transducer"
+            beam_group.ds.angle_sensitivity_athwartship.attrs["long_name"] = (
+                "athwartship angle sensitivity of the transducer"
+            )
 
-            beam_group.ds.angle_offset_alongship.attrs[
-                "long_name"
-            ] = "electrical alongship angle offset of the transducer"
+            beam_group.ds.angle_offset_alongship.attrs["long_name"] = (
+                "electrical alongship angle offset of the transducer"
+            )
 
-            beam_group.ds.angle_offset_athwartship.attrs[
-                "long_name"
-            ] = "electrical athwartship angle offset of the transducer"
+            beam_group.ds.angle_offset_athwartship.attrs["long_name"] = (
+                "electrical athwartship angle offset of the transducer"
+            )
 
 
 def _add_comment_to_beam_vars(ed_obj, sensor):
@@ -333,23 +333,23 @@ def _add_comment_to_beam_vars(ed_obj, sensor):
                 "angle corresponds to the major angle in SONAR-netCDF4 vers 2. "
             )
 
-            beam_group.ds.angle_sensitivity_alongship.attrs[
-                "comment"
-            ] = beam_group.ds.angle_offset_alongship.attrs["comment"]
+            beam_group.ds.angle_sensitivity_alongship.attrs["comment"] = (
+                beam_group.ds.angle_offset_alongship.attrs["comment"]
+            )
 
-            beam_group.ds.angle_sensitivity_athwartship.attrs[
-                "comment"
-            ] = beam_group.ds.angle_offset_athwartship.attrs["comment"]
+            beam_group.ds.angle_sensitivity_athwartship.attrs["comment"] = (
+                beam_group.ds.angle_offset_athwartship.attrs["comment"]
+            )
 
             if "angle_alongship" in beam_group.ds:
-                beam_group.ds.angle_alongship.attrs[
-                    "comment"
-                ] = beam_group.ds.angle_offset_alongship.attrs["comment"]
+                beam_group.ds.angle_alongship.attrs["comment"] = (
+                    beam_group.ds.angle_offset_alongship.attrs["comment"]
+                )
 
             if "angle_athwartship" in beam_group.ds:
-                beam_group.ds.angle_athwartship.attrs[
-                    "comment"
-                ] = beam_group.ds.angle_offset_athwartship.attrs["comment"]
+                beam_group.ds.angle_athwartship.attrs["comment"] = (
+                    beam_group.ds.angle_offset_athwartship.attrs["comment"]
+                )
 
 
 def _beam_groups_to_convention(ed_obj, set_grp_cls):

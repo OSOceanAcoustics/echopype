@@ -203,12 +203,14 @@ class SetGroupsAd2cp(SetGroupsBase):
             Union[Tuple[List[str], np.ndarray, Dict[str, str]], Tuple[Tuple[()], None]],
         ] = {
             var_name: (
-                [dim.dimension_name() for dim in dims[field_name]],
-                combined_fields[field_name],
-                attrs.get(field_name, {}),
+                (
+                    [dim.dimension_name() for dim in dims[field_name]],
+                    combined_fields[field_name],
+                    attrs.get(field_name, {}),
+                )
+                if field_exists[field_name]
+                else ((), None)
             )
-            if field_exists[field_name]
-            else ((), None)
             for field_name, var_name in var_names.items()
         }  # type: ignore
         coords: Dict[str, np.ndarray] = dict()

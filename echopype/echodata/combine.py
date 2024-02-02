@@ -733,9 +733,11 @@ def _combine(
             {
                 "is_combined": is_combined,
                 "attrs_dict": _get_prov_attrs(ed["Provenance"], is_combined),
-                "echodata_filename": [str(s) for s in ed["Provenance"][ED_FILENAME].values]
-                if is_combined
-                else [echodata_filenames[idx]],
+                "echodata_filename": (
+                    [str(s) for s in ed["Provenance"][ED_FILENAME].values]
+                    if is_combined
+                    else [echodata_filenames[idx]]
+                ),
             }
         )
     # Get single boolean value to see if there's any combined files
@@ -755,9 +757,11 @@ def _combine(
 
         # select only the appropriate channels from each Dataset
         ds_list = [
-            ds.sel(channel=ed_group_chan_sel[ed_group])
-            if ed_group_chan_sel[ed_group] is not None
-            else ds
+            (
+                ds.sel(channel=ed_group_chan_sel[ed_group])
+                if ed_group_chan_sel[ed_group] is not None
+                else ds
+            )
             for ds in all_chan_ds_list
         ]
 
