@@ -1,28 +1,33 @@
 # Development Roadmap
 
-This roadmap describes the major areas of `echopype` development currently envisioned, planned or under active work. For information about upcoming releases, especially the next release, see the [Milestones page.](https://github.com/OSOceanAcoustics/echopype/milestones)
 
-`Echopype` is a library aimed at enabling interoperability and scalability in processing ocean sonar data. The current focus and scope are on scientific echosounders that are widely used in fisheries and marine ecological surveys. We envision that `echopype` will provide "building blocks" that can be strung together to construct data processing pipelines to bring raw data files collected by these instruments to "analysis-ready" data products that can be used by a wider community of researchers in the ocean science domain. We also plan for `echopype` to be flexible in accommodating both local and cloud computing environments, such that data processing pipelines can be prototyped locally and scaled up for larger scale processing on the cloud.
+## Scope and goals
+`Echopype` is a library aimed at enabling interoperability and scalability in processing ocean sonar data. The current focus and scope are on scientific echosounders widely used in fisheries and marine ecological surveys. We envision that `echopype` will provide "building blocks" that can be strung together to construct data processing pipelines to bring raw data files collected by these instruments to "analysis-ready" data products that can be used by researchers in the ocean sciences community. We also plan for `echopype` to be flexible in accommodating both local and cloud computing environments, such that data processing pipelines can be prototyped locally and scaled up for larger scale processing on the cloud.
+
+To achieve these goals, we develop a workflow that focuses first on standardizing data to the widely supported netCDF data model, and based on the standardized data build computation and visualization routines by leveraging open-source libraries in the scientific Python software ecosystem, especially those in [the Pandata stack](https://github.com/panstacks/pandata?tab=readme-ov-file).
+
+![workflow](./images/workflow_v2.png)
+
+
+
+## Data standardization
+
+At the core of `echopype` is a data conversion and standardization module that returns an `EchoData` object that allows easy and intuitive access and understanding of echosounder data in a netCDF data model. Currently echopype converts raw instrument data files into netCDF4 or Zarr files following a modified version of the [ICES SONAR-netCDF4 convention](https://github.com/ices-publications/SONAR-netCDF4/) that we believe improves the data coherence and efficiency of data access (see [details here](./data-format-sonarnetcdf4)). This conversion step ensures that downstream processing can be developed and executed in an instrument-agnostic manner, which is critical for tackling the tedious and labor-intensive data wrangling operations.
+
+As the core data representation stabilizes across [a few echosounder models](https://echopype.readthedocs.io/en/stable/convert.html#supported-raw-file-types), going forward we plan to:
+- Continue maintaining and updating the standardized `EchoData` object in accordance with the evolution of community raw data conventions
+- Enhance adherence to community conventions of metadata and processed data, such as the [ICES AcMeta](https://github.com/ices-publications/AcMeta), the new Gridded group introduced in SONAR-netCDF4 v2.0, and the [Australia IMOS SOOP-BA conventions](https://imos.org.au/fileadmin/user_upload/shared/SOOP/BASOOP/SOOP-BA_NetCDF_Conventions_Version_2.2.pdf)
+- Add support for data from other echosounder models, including historical data from Simrad EK/BI500 and the Biosonics [DT4 files](https://www.biosonicsinc.com/download/dt4-file-format-specification/)
+- Develop converter between data from major versions of echopype
+
+
 
 ## Data processing levels and provenance
-
 A core goal of `echopype` is to enable sonar data analysis pipelines that are agnostic of the instrument that generated the data and span the continuum from raw data files to acoustically derived  biological information. Converting raw data to a standardized form facilitates this goal. This scope and our attention to the processing "chain" expose the need for well-articulated definitions of ["data processing levels"](https://earthdata.nasa.gov/collaborate/open-data-services-and-software/data-information-policy/data-levels/) that can lead directly to broad and highly productive use of the data. However, no such community agreement exists for active acoustic data.
 
 `Echopype` developers are [working towards such definitions](https://github.com/uw-echospace/data-processing-levels/blob/main/from_proposal.md), which will span raw data in vendor formats ("level 0"), standardized (converted) raw data ("level 1"), calibrated acoustic quantities at raw data resolution ("level 2"), and more processed products such as mean volume backscattering strength (MVBS). `Echopype` will implement such data level categorizations as standardized metadata in all its outputs.
 
 In addition to clear data level definitions and metadata, we are identifying [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing information that should be preserved in a standardized form and carried out from one data level to the next. Initial steps already implemented include parameters passed to processing functions and information about the software and functions used. [Other near-term improvements have been identified](https://github.com/OSOceanAcoustics/echopype/issues?q=is%3Aissue+is%3Aopen+provenance), but a more comprehensive approach will require substantial additional developments.
-
-### Standardized raw data
-
-At the core of `echopype` is a data conversion and standardization module that returns an `EchoData` object that allows easy and intuitive access and understanding of ocean sonar data in a netCDF data model. Currently echopype converts raw instrument data files into netCDF4 or Zarr files following the [ICES SONAR-netCDF4 convention](https://github.com/ices-publications/SONAR-netCDF4/) version 1, except for a small number of exceptions that we feel improve the data coherence and efficiency of data access. This conversion step ensures that downstream processing can be developed and executed in an instrument-agnostic manner, which is critical for tackling the currently tedious and labor-intensive data wrangling operations associated with integrative analysis of data from heterogeneous instrument sources.
-
-See [Open converted files](convert) and [Data format](data-format) for more details.
-
-We also would like to explore support for metadata-oriented standards such as [ICES AcMeta](https://github.com/ices-publications/AcMeta).
-
-:::{important}
-Release v0.6.0 include breaking changes to the structure of the core SONAR-netCDF4 data model, which impacts both content of the `EchoData` object and the converted .nc/.zarr files. These changes were necessary to enhance the compliance of echopype-generated data with SONAR-netCDF4 ver.1. Data converted using echopype v0.5.x continue to be supported beyond v0.6.0 and can be opened via `open_converted` into the new format.
-:::
 
 ### Derived, higher-level products
 
