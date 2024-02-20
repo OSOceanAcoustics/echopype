@@ -26,7 +26,7 @@ As the core data representation stabilizes across [a few echosounder models](htt
 
 In parallel with code development, the Echopype team is also working on defining "data processing levels" for echosounder data (see [Echolevels](https://echolevels.readthedocs.io/en/latest/)). While no community agreement currently exists, these definitions are crucial for broader data usage, as evident in the widespread use of [NASA satellite remote sensing data](https://link.springer.com/referenceworkentry/10.1007/978-0-387-36699-9_36) that are accompanied by a set of robust and well-articulated data processing level definitions.
 
-In Echopype, currently many functions generate prorotype [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing level information as data variables or attributes. Going forward we plan to:
+In Echopype, currently many functions generate prototype [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing level information as data variables or attributes. Going forward we plan to:
 - Collaborate with the echosounder community to further refine the definitions for echosounder data processing levels
 - Improve data provenance preservation along the "chain" of data conversio and processing functions
 
