@@ -49,6 +49,7 @@ Echopype is a package built to enable interoperability and scalability in ocean 
 Watch the [echopype talk](https://www.youtube.com/watch?v=qboH7MyHrpU)
 at SciPy 2019 for background, discussions and a quick demo!
 
+
 ## Documentation
 
 Learn more about echopype in the official documentation at https://echopype.readthedocs.io. Check out executable examples in the companion repository https://github.com/OSOceanAcoustics/echopype-examples.
@@ -66,8 +67,7 @@ Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-pla
 [Pull requests](https://jarednielsen.com/learn-git-fork-pull-request/) are always welcome!
 
 
-Contributors
-------------
+## Contributors
 
 [![Contributors](https://contrib.rocks/image?repo=OSOceanAcoustics/echopype)](https://github.com/OSOceanAcoustics/echopype/graphs/contributors)
 
@@ -92,7 +92,20 @@ of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 
-Echopype has also received software engineering support from
+
+## Acknowledgement
+
+We thank Dave Billenness of ASL Environmental Sciences for
+providing the AZFP Matlab Toolbox as reference for developing
+support for the AZFP echosounder,
+and Rick Towler ([@rhtowler](https://github.com/rhtowler))
+of the NOAA Alaska Fisheries Science Center
+for providing low-level file parsing routines for
+Simrad EK60 and EK80 echosounders.
+
+We also thank funding support from
+the National Science Foundation and the NOAA Ocean Exploration,
+and software engineering support from
 the University of Washington Scientific Software Engineering Center (SSEC),
 as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
 
