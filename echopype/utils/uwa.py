@@ -1,6 +1,7 @@
 """
 Utilities for calculating seawater acoustic properties.
 """
+
 import numpy as np
 
 
@@ -36,12 +37,7 @@ def calc_sound_speed(temperature=27, salinity=35, pressure=10, formula_source="M
     temperature −2 to 30 °C, salinity 30 to 40 ppt, and depth 0 to 8000 m.
     """
     if formula_source == "Mackenzie":
-        ss = (
-            1448.96
-            + 4.591 * temperature
-            - 5.304e-2 * temperature**2
-            + 2.374e-4 * temperature**3
-        )
+        ss = 1448.96 + 4.591 * temperature - 5.304e-2 * temperature**2 + 2.374e-4 * temperature**3
         ss += 1.340 * (salinity - 35) + 1.630e-2 * pressure + 1.675e-7 * pressure**2
         ss += -1.025e-2 * temperature * (salinity - 35) - 7.139e-13 * temperature * pressure**3
     elif formula_source == "AZFP":

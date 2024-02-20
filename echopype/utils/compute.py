@@ -3,6 +3,7 @@
 Module containing various helper functions
 for performing computations within echopype.
 """
+
 from typing import Union
 
 import dask.array
