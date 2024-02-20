@@ -71,23 +71,30 @@ Contributors
 
 [![Contributors](https://contrib.rocks/image?repo=OSOceanAcoustics/echopype)](https://github.com/OSOceanAcoustics/echopype/graphs/contributors)
 
-Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018.
-It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together.
-Previously, Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)),
+Wu-Jung Lee ([@leewujung](https://github.com/leewujung))
+founded the echopype project in 2018 and continue to be the primary contributor
+together with Praneeth Ratna([@praneethratna](https://github.com/praneethratna)).
+Emilio Mayorga ([@emiliom](https://github.com/emiliom)),
+Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)),
 Brandon Reyes ([@b-reyes](https://github.com/b-reyes)),
 Kavin Nguyen ([@ngkavin](https://github.com/ngkavin))
-and Imran Majeed ([@imranmaj](https://github.com/imranmaj)) contributed significantly to the development of echopype.
+and Imran Majeed ([@imranmaj](https://github.com/imranmaj))
+have contributed significantly to the code.
 Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
 
-Other contributors are listed in [echopype documentation](https://echopype.readthedocs.io).
+A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
 
 We thank Dave Billenness of ASL Environmental Sciences for
-providing the AZFP Matlab Toolbox as reference for our
-development of AZFP support in echopype.
+providing the AZFP Matlab Toolbox as reference for developing 
+support for the AZFP echosounder.
 We also thank Rick Towler ([@rhtowler](https://github.com/rhtowler))
 of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
+
+Echopype has also received software engineering support from
+the University of Washington Scientific Software Engineering Center (SSEC),
+as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
 
 
 ## License
