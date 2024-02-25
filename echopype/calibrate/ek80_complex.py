@@ -273,34 +273,27 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         A data array containing pulse compression output.
     """
     pc_all = []
+
     for chan in backscatter["channel"]:
+        # Select channel `chan` and drop the specific beam dimension if all of the values are nan.
         backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
 
         tx = chirp[str(chan.values)]
         replica = np.flipud(np.conj(tx))
+
         pc = xr.apply_ufunc(
-            lambda m: np.apply_along_axis(
-                lambda m: (signal.convolve(m, replica, mode="full")[tx.size - 1 :]),
-                axis=2,
-                arr=m,
-            ),
+            lambda m: (signal.convolve(m, replica, mode="full")[replica.size - 1 :]),
             backscatter_chan,
             input_core_dims=[["range_sample"]],
             output_core_dims=[["range_sample"]],
-            # exclude_dims={"range_sample"},
-        )
+            dask="parallelized",
+            vectorize=True,
+            output_dtypes=[np.complex64],
+        ).compute()
 
         pc_all.append(pc)
 
-    pc_all = xr.DataArray(
-        pc_all,
-        coords={
-            "channel": backscatter["channel"],
-            "ping_time": backscatter["ping_time"],
-            "beam": backscatter["beam"],
-            "range_sample": backscatter["range_sample"],
-        },
-    )
+    pc_all = xr.concat(pc_all, dim="channel")
 
     return pc_all
 
