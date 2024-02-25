@@ -116,4 +116,4 @@ Echopype is licensed under the open source [Apache 2.0 license](https://opensour
 
 ---------------
 
-Copyright (c) 2018-2023, Echopype Developers.
+Copyright (c) 2018-2024, Echopype Developers.
