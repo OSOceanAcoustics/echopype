@@ -104,24 +104,23 @@ for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 
 We also thank funding support from
-the National Science Foundation and the NOAA Ocean Exploration,
+the National Science Foundation and NOAA Ocean Exploration,
 and software engineering support from
 the University of Washington Scientific Software Engineering Center (SSEC),
 as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
 
 <div>
   <a href="https://oceanexplorer.noaa.gov/news/oer-updates/2021/fy21-ffo-schedule.html">
-    <img src="https://oceanexplorer.noaa.gov/welcome.html" alt="NOAA_OER_logo">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/NOAA_logo.svg/936px-NOAA_logo.svg.png" alt="NOAA_logo" width="200">
   </a>
 
   <a href="https://www.nsf.gov/awardsearch/showAward?AWD_ID=1849930&HistoricalAwards=false">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/NSF_logo.png" alt="NSF_logo"> 
+    <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/NSF_logo.png" alt="NSF_logo" width="200">
   </a>
 
   <a href="https://escience.washington.edu/software-engineering/ssec/">
-    <img src="https://avatars.githubusercontent.com/u/122321194?s=200&v=4" alt="SSEC_logo"> 
+    <img src="https://avatars.githubusercontent.com/u/122321194?s=200&v=4" alt="SSEC_logo" width="200">
   </a>
-  
 </div>
 
 
