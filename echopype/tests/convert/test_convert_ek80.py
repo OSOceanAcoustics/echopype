@@ -47,9 +47,9 @@ def check_env_xml(echodata):
         assert env_var in echodata["Environment"]
         assert echodata["Environment"][env_var].dims == ("time1",)
         assert all([env_var_value in expected_env_var_values for env_var_value in echodata["Environment"][env_var]])
-    assert "transducer_sound_speed" in echodata["Environment"]
-    assert echodata["Environment"]["transducer_sound_speed"].dims == ("time1",)
-    assert (1480 <= echodata["Environment"]["transducer_sound_speed"]).all() and (echodata["Environment"]["transducer_sound_speed"] <= 1500).all()
+    assert "sound_speed" in echodata["Environment"]
+    assert echodata["Environment"]["sound_speed"].dims == ("time1",)
+    assert (1480 <= echodata["Environment"]["sound_speed"]).all() and (echodata["Environment"]["sound_speed"] <= 1500).all()
     assert "sound_velocity_profile" in echodata["Environment"]
     assert echodata["Environment"]["sound_velocity_profile"].dims == ("time1", "sound_velocity_profile_depth")
     assert (1470 <= echodata["Environment"]["sound_velocity_profile"]).all() and (echodata["Environment"]["sound_velocity_profile"] <= 1500).all()
