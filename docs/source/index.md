@@ -14,38 +14,53 @@ scientists to make discovery using these new data.
 
 ## Contributors
 
-Wu-Jung Lee ([@leewujung](https://github.com/leewujung)) founded the echopype project in 2018.
-It is currently led by Wu-Jung Lee and Emilio Mayorga ([@emiliom](https://github.com/emiliom)), who are primary developers together.
-Previously, Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)),
+[![Contributors](https://contrib.rocks/image?repo=OSOceanAcoustics/echopype)](https://github.com/OSOceanAcoustics/echopype/graphs/contributors)
+
+Wu-Jung Lee ([@leewujung](https://github.com/leewujung))
+founded the echopype project in 2018 and continue to be the primary contributor
+together with Praneeth Ratna([@praneethratna](https://github.com/praneethratna)).
+Emilio Mayorga ([@emiliom](https://github.com/emiliom)),
+Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)),
 Brandon Reyes ([@b-reyes](https://github.com/b-reyes)),
 Kavin Nguyen ([@ngkavin](https://github.com/ngkavin))
-and Imran Majeed ([@imranmaj](https://github.com/imranmaj)) contributed significantly to the development of echopype.
+and Imran Majeed ([@imranmaj](https://github.com/imranmaj))
+have contributed significantly to the code.
 Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
 
-Other contributors include:
-Frederic Cyr ([@cyrf0006](https://github.com/cyrf0006)),
-Paul Robinson ([@prarobinson](https://github.com/prarobinson)),
-Sven Gastauer ([@SvenGastauer](https://github.com/SvenGastauer)),
-Marian Peña ([@marianpena](https://github.com/marianpena)),
-Mark Langhirt ([@bnwkeys](https://github.com/bnwkeys)),
-Erin LaBrecque ([@erinann](https://github.com/erinann)),
-Emma Ozanich ([@emma-ozanich](https://github.com/emma-ozanich)),
-Aaron Marburg ([@amarburg](https://github.com/amarburg)).
 A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
 
+
+## Acknowledgement
+
 We thank Dave Billenness of ASL Environmental Sciences for
-providing the AZFP Matlab Toolbox as reference for our
-development of AZFP support in echopype.
-We also thank Rick Towler ([@rhtowler](https://github.com/rhtowler))
+providing the AZFP Matlab Toolbox as reference for developing
+support for the AZFP echosounder,
+and Rick Towler ([@rhtowler](https://github.com/rhtowler))
 of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 
-Echopype have also received software engineering support from
-the University of Washington’s Scientific Software Engineering Center (SSEC) supported by Schmidt Futures,
-as part of the Virtual Institute for Scientific Software (VISS) in 2023.
-We would like to acknowledge SSEC's Graduate Research Scholar
-Anant Mittal ([@anantmittal](https://github.com/anantmittal)) for his contributions to the software.
+We also thank funding support from
+the National Science Foundation and NOAA Ocean Exploration,
+and software engineering support from
+the University of Washington Scientific Software Engineering Center (SSEC),
+as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
+
+<div>
+  <a href="https://oceanexplorer.noaa.gov/news/oer-updates/2021/fy21-ffo-schedule.html">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/NOAA_logo.svg/936px-NOAA_logo.svg.png" alt="NOAA_logo" width="120">
+  </a>
+
+  <a href="https://www.nsf.gov/awardsearch/showAward?AWD_ID=1849930&HistoricalAwards=false">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/NSF_logo.png" alt="NSF_logo" width="120">
+  </a>
+
+  <a href="https://escience.washington.edu/software-engineering/ssec/">
+    <img src="https://avatars.githubusercontent.com/u/122321194?s=200&v=4" alt="SSEC_logo" width="120">
+  </a>
+</div>
+
+
 
 ## Citing echopype
 
