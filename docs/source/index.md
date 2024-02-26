@@ -46,6 +46,24 @@ and software engineering support from
 the University of Washington Scientific Software Engineering Center (SSEC),
 as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
 
+<div>
+  <a href="https://oceanexplorer.noaa.gov/news/oer-updates/2021/fy21-ffo-schedule.html">
+    <img src="https://oceanexplorer.noaa.gov/welcome.html" alt="NOAA_OER_logo">
+  </a>
+
+  <a href="https://www.nsf.gov/awardsearch/showAward?AWD_ID=1849930&HistoricalAwards=false">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/NSF_logo.png" alt="NSF_logo"> 
+  </a>
+
+  <a href="https://escience.washington.edu/software-engineering/ssec/">
+    <img src="https://avatars.githubusercontent.com/u/122321194?s=200&v=4" alt="SSEC_logo"> 
+  </a>
+  
+</div>
+
+
+
+
 ## Citing echopype
 
 Please cite echopype as follows:
