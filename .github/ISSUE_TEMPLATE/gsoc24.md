@@ -23,6 +23,6 @@ body:
         Take a look at the current [issues](https://github.com/OSOceanAcoustics/echopype/issues)
         and [PRs](https://github.com/OSOceanAcoustics/echopype/pulls)
         and link anything related here.
-      placeholder: This topic is related to #XXX
+      placeholder: This topic is related to #XXX; or: I have not seen related issues/PRs
     validations:
       required: true

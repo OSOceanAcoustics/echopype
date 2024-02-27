@@ -5,8 +5,7 @@ labels: ["data conversion"]
 body:
   - type: markdown
     attributes:
-      value: |
-        Thanks for taking the time to fill out this report!
+      value: Thanks for taking the time to fill out this report!
   - type: textarea
     attributes:
       label: General description of problem
@@ -66,6 +65,8 @@ body:
       Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
     placeholder: |
       This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION. 
+    validations:
+      required: true
   - type: markdown
     attributes:
       value: "### Troubleshooting"
