@@ -84,14 +84,6 @@ Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part 
 
 A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
 
-We thank Dave Billenness of ASL Environmental Sciences for
-providing the AZFP Matlab Toolbox as reference for developing
-support for the AZFP echosounder.
-We also thank Rick Towler ([@rhtowler](https://github.com/rhtowler))
-of the NOAA Alaska Fisheries Science Center
-for providing low-level file parsing routines for
-Simrad EK60 and EK80 echosounders.
-
 
 ## Acknowledgement
 
