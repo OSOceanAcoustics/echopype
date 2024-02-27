@@ -1,0 +1,28 @@
+name: GSoC 2024 discussion
+about: Use this if you want to discuss anything about GSoC24
+title: "[GSoC24] ..."
+labels: ["GSoC24"]
+body:
+  - type: markdown
+    attributes:
+      value: | 
+        Welcome to GSoC 2024!
+  - type: textarea
+    attributes:
+      label: Discussion topic
+      description: |
+        What question do you have? |
+        What idea do you want to propose? |
+        Please raise only one topic in each issue.
+      placeholder: I am wondering about ...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Related exsiting issues or PRs
+      description: |
+        Take a look at the current [issues](https://github.com/OSOceanAcoustics/echopype/issues) and [PRs](https://github.com/OSOceanAcoustics/echopype/pulls) |
+        and link anything related here.
+      placeholder: This topic is related to #XXX
+    validations:
+      required: true
