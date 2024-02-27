@@ -5,7 +5,7 @@ labels: ["GSoC24"]
 body:
   - type: markdown
     attributes:
-      value: | 
+      value: |
         Welcome to GSoC 2024!
   - type: textarea
     attributes:
@@ -19,7 +19,7 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Related exsiting issues or PRs
+      label: Related existing issues or PRs
       description: |
         Take a look at the current [issues](https://github.com/OSOceanAcoustics/echopype/issues) and [PRs](https://github.com/OSOceanAcoustics/echopype/pulls) |
         and link anything related here.
