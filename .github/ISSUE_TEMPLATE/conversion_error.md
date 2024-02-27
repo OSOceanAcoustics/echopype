@@ -64,7 +64,7 @@ body:
       An example file that allow reproducing the problem.
       Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
     placeholder: |
-      This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION. 
+      This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION.
     validations:
       required: true
   - type: markdown
