@@ -31,7 +31,7 @@ body:
   - type: input
     attributes:
       label: What is your operating system
-      placeholder: 
+      placeholder:
     validations:
       required: true
   - type: markdown
