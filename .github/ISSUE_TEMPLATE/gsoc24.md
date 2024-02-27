@@ -1,5 +1,5 @@
 name: GSoC 2024 discussion
-about: Use this if you want to discuss anything about GSoC24
+description: Use this if you want to discuss anything about GSoC24
 title: "[GSoC24] ..."
 labels: ["GSoC24"]
 body:
