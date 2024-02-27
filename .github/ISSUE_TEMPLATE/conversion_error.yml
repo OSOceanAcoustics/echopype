@@ -15,7 +15,7 @@ body:
       required: true
   - type: markdown
     attributes:
-      value: "### Computing environment"
+      value: "## Computing environment"
   - type: input
     attributes:
       label: Echopype version
@@ -36,7 +36,7 @@ body:
       required: true
   - type: markdown
     attributes:
-      value: "### Minimum example and error messages"
+      value: "## Minimum example and error messages"
   - type: textarea
     attributes:
       label: Minimal code example
@@ -68,7 +68,7 @@ body:
       required: true
   - type: markdown
     attributes:
-      value: "### Troubleshooting"
+      value: "## Troubleshooting"
   - type: textarea
     attributes:
       label: Related existing issues or PRs
