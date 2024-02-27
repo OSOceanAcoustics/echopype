@@ -38,8 +38,8 @@ body:
     attributes:
       value: "### Minimum example and error messages"
   - type: textarea
-    id: logs
     attributes:
+      label: Minimal code example
       description: Provide a minimum code snippet that reproduces your problem
       placeholder: |
         The following code reproduces the errors I encountered:
@@ -49,7 +49,6 @@ body:
     validations:
       required: true
   - type: textarea
-    id: error_msg
     attributes:
       label: Error message printouts
       description: |
@@ -59,12 +58,12 @@ body:
     validations:
       required: true
   - type: textarea
-    id: example_data
-    description: |
-      An example file that allow reproducing the problem.
-      Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
-    placeholder: |
-      This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION.
+    attributes:
+      label: Example data
+      description: |
+        An example file that allow reproducing the problem.
+        Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
+      placeholder: This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION.
     validations:
       required: true
   - type: markdown
@@ -81,6 +80,7 @@ body:
       required: true
   - type: textarea
     attributes:
+      label: Troubleshooting steps
       description: Explain any steps that you have taken to identify the cause of conversion error
     validations:
-      false
+      required: false
