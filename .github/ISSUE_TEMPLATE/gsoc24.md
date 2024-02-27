@@ -5,14 +5,13 @@ labels: ["GSoC24"]
 body:
   - type: markdown
     attributes:
-      value: |
-        Welcome to GSoC 2024!
+      value: Welcome to GSoC 2024!
   - type: textarea
     attributes:
       label: Discussion topic
       description: |
-        What question do you have? |
-        What idea do you want to propose? |
+        What question do you have?
+        What idea do you want to propose?
         Please raise only one topic in each issue.
       placeholder: I am wondering about ...
     validations:
@@ -21,7 +20,8 @@ body:
     attributes:
       label: Related existing issues or PRs
       description: |
-        Take a look at the current [issues](https://github.com/OSOceanAcoustics/echopype/issues) and [PRs](https://github.com/OSOceanAcoustics/echopype/pulls) |
+        Take a look at the current [issues](https://github.com/OSOceanAcoustics/echopype/issues)
+        and [PRs](https://github.com/OSOceanAcoustics/echopype/pulls)
         and link anything related here.
       placeholder: This topic is related to #XXX
     validations:

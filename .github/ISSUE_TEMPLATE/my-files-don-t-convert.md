@@ -1,39 +1,85 @@
----
 name: My files don't convert
-about: Use this when you have problem converting files using echopype
-title: "[File conversion] SUSPECT_CAUSE"
-labels: my_files_don't_convert
-assignees: ''
-
----
-
-### General description of problem
-_Required_
-
-### Computing environment
-_Required_
-- Echopype version:
-- How echopype was installed (e.g., conda or pip):
-- Operating system:
-
-### Minimum example
-_Required: A minimum code snippet that reproduces your problem._
-The following code reproduces the errors I encountered:
-```python
-CODE SNIPPET
-```
-
-### Error message printouts
-_Required: Copy-paste the entire error messages you encounter here._
-Below is the error messages I received when running the above code:
-```python
-ERROR MESSAGES
-```
-
-### Provide an example file
-_Required: An example file that allow reproducing the problem._
-- Link to an example raw file: SOME_ONLINE_LOCATION. Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
-- Raw file sensor model: (FOR EXAMPLE: Simrad EK60)
-
-### Troubleshooting
-_Optional but preferred: Explain any steps that you have taken to identify the cause of conversion error._
+description: Use this when you have problem converting files using echopype
+title: "[Data conversion] ..."
+labels: ["data conversion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this report!
+  - type: textarea
+    attributes:
+      label: General description of problem
+      description: What problem did you encounter when trying to convert data files?
+      placeholder: I tried to do ... but ran into an error ...
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "### Computing environment"
+  - type: input
+    attributes:
+      label: Echopype version
+      placeholder: echopype vX.X.X
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: How did you install Echopype (e.g., conda or pip)
+      placeholder: I installed Echopype by ...
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: What is your operating system
+      placeholder: 
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "### Minimum example and error messages"
+  - type: textarea
+    id: logs
+    attributes:
+      description: Provide a minimum code snippet that reproduces your problem
+      placeholder: |
+        The following code reproduces the errors I encountered:
+        ```python
+        CODE SNIPPET
+        ```
+    validations:
+      required: true
+  - type: textarea
+    id: error_msg
+    attributes:
+      label: Error message printouts
+      description: |
+        Copy-paste the entire error messages you encounter here
+        This will be automatically formatted into code, so no need for backticks.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: example_data
+    description: |
+      An example file that allow reproducing the problem.
+      Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
+    placeholder: |
+      This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION. 
+  - type: markdown
+    attributes:
+      value: "### Troubleshooting"
+  - type: textarea
+    attributes:
+      label: Related existing issues or PRs
+      description: |
+        Take a look at the current [issues](https://github.com/OSOceanAcoustics/echopype/issues) and [PRs](https://github.com/OSOceanAcoustics/echopype/pulls) |
+        and link anything related here.
+      placeholder: This topic is related to #XXX; or: I have not seen related issues/PRs
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      description: Explain any steps that you have taken to identify the cause of conversion error
+    validations:
+      false
