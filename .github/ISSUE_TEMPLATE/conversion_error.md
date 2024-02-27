@@ -32,7 +32,7 @@ body:
   - type: input
     attributes:
       label: What is your operating system
-      placeholder: 
+      placeholder:
     validations:
       required: true
   - type: markdown
@@ -65,7 +65,7 @@ body:
       An example file that allow reproducing the problem.
       Smaller files are strongly preferred (e.g., <25MB for AZFP and EK60, <100MB for EK80).
     placeholder: |
-      This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION. 
+      This is a link to an example raw file from the XXX echosounder: SOME_ONLINE_LOCATION.
   - type: markdown
     attributes:
       value: "### Troubleshooting"
