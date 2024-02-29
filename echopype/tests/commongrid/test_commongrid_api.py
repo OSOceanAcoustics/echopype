@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from flox.xarray import xarray_reduce
+import xarray as xr
 import echopype as ep
 from echopype.consolidate import add_location, add_depth
 from echopype.commongrid.utils import (
@@ -341,14 +342,23 @@ def test_compute_MVBS_range_output(request, er_type):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("er_type"),
+    ("er_type", "func", "add_nan"),
     [
-        ("regular"),
-        ("irregular"),
+        ("regular", "nanmean", "no_add_nan"),
+        ("irregular", "nanmean", "no_add_nan"),
+        ("regular", "mean", "no_add_nan"),
+        ("irregular", "mean", "no_add_nan"),
+        ("regular", "nanmean", "add_nan"),
+        ("regular", "mean", "add_nan"),
+        ("irregular", "nanmean", "add_nan"),
+        ("irregular", "mean", "add_nan"),
     ],
 )
-def test_compute_MVBS_values(request, er_type):
-    """Tests for the values of compute_MVBS on regular and irregular data."""
+def test_compute_MVBS_values(request, er_type, func, add_nan):
+    """
+    Tests for the values of compute_MVBS on regular vsirregular, func as nanmean vs mean,
+    and added NaN vs no added Nan data.
+    """
 
     def _parse_nans(mvbs, ds_Sv) -> np.ndarray:
         """Go through and figure out nan values in result"""
@@ -401,18 +411,47 @@ def test_compute_MVBS_values(request, er_type):
         ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
         expected_mvbs = request.getfixturevalue("mock_mvbs_array_irregular")
 
-    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin=range_bin, ping_time_bin=ping_time_bin)
+    # Check to see if MVBS matches request fixture arrays
+    if add_nan == "no_add_nan":
+        # Compute MVBS
+        ds_MVBS = ep.commongrid.compute_MVBS(
+            ds_Sv,
+            range_bin=range_bin,
+            ping_time_bin=ping_time_bin,
+            func=func,
+            skipna=False
+        )
+        
+        # Compute expected outputs
+        expected_outputs = _parse_nans(ds_MVBS, ds_Sv)
 
-    expected_outputs = _parse_nans(ds_MVBS, ds_Sv)
+        assert ds_MVBS.Sv.shape == expected_mvbs.shape
+        # Floating digits need to check with all close not equal
+        # Compare the values of the MVBS array with the expected values
+        assert np.allclose(ds_MVBS.Sv.values, expected_mvbs, atol=1e-10, rtol=1e-10, equal_nan=True)
 
-    assert ds_MVBS.Sv.shape == expected_mvbs.shape
-    # Floating digits need to check with all close not equal
-    # Compare the values of the MVBS array with the expected values
-    assert np.allclose(ds_MVBS.Sv.values, expected_mvbs, atol=1e-10, rtol=1e-10, equal_nan=True)
+        # Ensures that the computation of MVBS takes doesn't take into account NaN values
+        # that are sporadically placed in the echo_range values
+        assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)
 
-    # Ensures that the computation of MVBS takes doesn't take into account NaN values
-    # that are sporadically placed in the echo_range values
-    assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)
+    # Check appropriate aggregate function behavior when NaNs are added to first channel
+    elif add_nan == "add_nan":
+        # Add 5 NaN values to ds_Sv and compute MVBS
+        ds_Sv["Sv"][0, 0, 0:5] = np.nan
+        ds_MVBS = ep.commongrid.compute_MVBS(
+            ds_Sv,
+            range_bin=range_bin,
+            ping_time_bin=ping_time_bin,
+            func=func,
+            skipna=False
+        )
+        if func == "mean":
+            # Ensure that the 5 NaN Sv values, now projected onto the regridded dataset, turn into 2 NaN values in the case
+            # where func is mean.
+            assert np.array_equal(ds_MVBS["Sv"][0, 0, 0:2].data, np.array([np.nan, np.nan]), equal_nan=True)
+        elif func == "nanmean":
+            # Ensure that all values in regridded are non-NaN when func is nanmean 
+            assert not np.isnan(ds_MVBS["Sv"][0, 0, :].data).any()
 
 
 @pytest.mark.integration
