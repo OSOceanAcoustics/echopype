@@ -559,7 +559,6 @@ def _groupby_x_along_channels(
         ds_Sv["channel"],
         ds_Sv[x_var],
         ds_Sv[range_var],
-        func="nanmean",
         expected_groups=(None, x_interval, range_interval),
         isbin=[False, True, True],
         method=method,
