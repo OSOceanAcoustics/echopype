@@ -20,6 +20,7 @@ def compute_raw_MVBS(
     ping_interval: Union[pd.IntervalIndex, np.ndarray],
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method="map-reduce",
+    func="nanmean",
     **flox_kwargs,
 ):
     """
@@ -45,6 +46,10 @@ def compute_raw_MVBS(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    func: str, default 'nanmean'
+        The flox aggregation function used for reducing the data array.
+        By default, 'nanmean' is used. Other options can be found in the flox `documentation
+        <https://flox.readthedocs.io/en/latest/generated/flox.xarray.xarray_reduce.html>`_.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -65,6 +70,7 @@ def compute_raw_MVBS(
         x_var=x_var,
         range_var=range_var,
         method=method,
+        func=func,
         **flox_kwargs,
     )
 
@@ -480,6 +486,7 @@ def _groupby_x_along_channels(
     x_var: Literal["ping_time", "distance_nmi"] = "ping_time",
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
+    func: str = "nanmean",
     **flox_kwargs,
 ) -> xr.Dataset:
     """
@@ -517,6 +524,10 @@ def _groupby_x_along_channels(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    func: str, default 'nanmean'
+        The aggregation function used for reducing the data array.
+        By default, 'nanmean' is used. Other options can be found in the flox `documentation
+        <https://flox.readthedocs.io/en/latest/generated/flox.xarray.xarray_reduce.html>`_.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -552,6 +563,7 @@ def _groupby_x_along_channels(
         expected_groups=(None, x_interval, range_interval),
         isbin=[False, True, True],
         method=method,
+        func=func,
         **flox_kwargs,
     )
     return sv_mean
