@@ -449,6 +449,7 @@ def test_compute_MVBS_values(request, er_type, func, add_nan):
             # Ensure that the 5 NaN Sv values, now projected onto the regridded dataset, turn into 2 NaN values in the case
             # where func is mean.
             assert np.array_equal(ds_MVBS["Sv"][0, 0, 0:2].data, np.array([np.nan, np.nan]), equal_nan=True)
+            assert np.sum(np.isnan(ds_MVBS["Sv"][0, 0, :].data)) == 2
         elif func == "nanmean":
             # Ensure that all values in regridded are non-NaN when func is nanmean 
             assert not np.isnan(ds_MVBS["Sv"][0, 0, :].data).any()
