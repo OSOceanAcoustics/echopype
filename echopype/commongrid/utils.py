@@ -21,6 +21,7 @@ def compute_raw_MVBS(
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method="map-reduce",
     func="nanmean",
+    skipna=True,
     **flox_kwargs,
 ):
     """
@@ -50,6 +51,11 @@ def compute_raw_MVBS(
         The flox aggregation function used for reducing the data array.
         By default, 'nanmean' is used. Other options can be found in the flox `documentation
         <https://flox.readthedocs.io/en/latest/generated/flox.xarray.xarray_reduce.html>`_.
+    skipna: bool, default True
+        If true, aggregation function skips NaN values.
+        Else, aggregation function includes NaN values.
+        Note that if ``func`` is set to 'mean' and ``skipna`` is set to True, then aggregation
+        will have the same behavior as if func is set to 'nanmean'.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -71,6 +77,7 @@ def compute_raw_MVBS(
         range_var=range_var,
         method=method,
         func=func,
+        skipna=skipna,
         **flox_kwargs,
     )
 
@@ -487,6 +494,7 @@ def _groupby_x_along_channels(
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
     func: str = "nanmean",
+    skipna: bool = True,
     **flox_kwargs,
 ) -> xr.Dataset:
     """
@@ -528,6 +536,11 @@ def _groupby_x_along_channels(
         The aggregation function used for reducing the data array.
         By default, 'nanmean' is used. Other options can be found in the flox `documentation
         <https://flox.readthedocs.io/en/latest/generated/flox.xarray.xarray_reduce.html>`_.
+    skipna: bool, default True
+        If true, aggregation function skips NaN values.
+        Else, aggregation function includes NaN values.
+        Note that if ``func`` is set to 'mean' and ``skipna`` is set to True, then aggregation
+        will have the same behavior as if func is set to 'nanmean'.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -563,6 +576,7 @@ def _groupby_x_along_channels(
         isbin=[False, True, True],
         method=method,
         func=func,
+        skipna=skipna,
         **flox_kwargs,
     )
     return sv_mean
