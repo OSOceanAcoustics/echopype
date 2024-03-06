@@ -41,7 +41,9 @@ for providing low-level file parsing routines for
 Simrad EK60 and EK80 echosounders.
 
 We also thank funding support from
-the National Science Foundation and NOAA Ocean Exploration,
+the National Science Foundation,
+NOAA Ocean Exploration,
+NOAA Fisheries,
 and software engineering support from
 the University of Washington Scientific Software Engineering Center (SSEC),
 as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
