@@ -18,7 +18,7 @@ Echopype addresses these challenges by:
 [netCDF](https://www.unidata.ucar.edu/software/netcdf/) or [Zarr](https://zarr.readthedocs.io/en/stable/) formats
 - provide other downstream functions that calibrate and process these water column sonar datasets
 
-See the [echopype documentation](echopype-why) and our [preprint on arXiv](https://arxiv.org/abs/2111.00187) for more detail.
+See the [echopype documentation](https://echopype.readthedocs.io/en/stable/why.html) and our [preprint on arXiv](https://arxiv.org/abs/2111.00187) for more detail.
 
 
 

@@ -1,4 +1,3 @@
-(echopype-why)=
 Why echopype?
 =============
 
