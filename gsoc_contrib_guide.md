@@ -6,13 +6,13 @@ participants to help us upgrade the robustness and scalability of the Echopype p
 
 ## Background
 
-Echosounders, or high-frequency ocean sonar systems, are [the workhorse to study life in the ocean](https://storymaps.arcgis.com/stories/e245977def474bdba60952f30576908f). They provide continuous observations of fish and zooplankton by transmitting sounds and analyzing the echoes bounced off these animals, just like how medical ultrasound images the interior of the human body. In recent years echosounders are widely deployed on ships, autonomous vehicles, or moorings, bringing in significant volumes of data that allow scientists to study the rapidly changing marine ecosystems. 
+Echosounders, or high-frequency ocean sonar systems, are [the workhorse to study life in the ocean](https://storymaps.arcgis.com/stories/e245977def474bdba60952f30576908f). They provide continuous observations of fish and zooplankton by transmitting sounds and analyzing the echoes bounced off these animals, just like how medical ultrasound images the interior of the human body. In recent years echosounders are widely deployed on ships, autonomous vehicles, or moorings, bringing in significant volumes of data that allow scientists to study the rapidly changing marine ecosystems.
 
-The water column sonar data we work with in Echopype come from different echosounder instruments and are stored in different instrument- or manufacturer-specific binary formats. These binary formats are difficult to work with directly and does not allow for efficient processing, especially when on cloud computing platforms. 
+The water column sonar data we work with in Echopype come from different echosounder instruments and are stored in different instrument- or manufacturer-specific binary formats. These binary formats are difficult to work with directly and does not allow for efficient processing, especially when on cloud computing platforms.
 
 Echopype addresses these challenges by:
 
-- converting the raw data into a standardized struture following an interoperable netCDF data model, which can be serialized into
+- converting the raw data into a standardized structure following an interoperable netCDF data model, which can be serialized into
 [netCDF](https://www.unidata.ucar.edu/software/netcdf/) or [Zarr](https://zarr.readthedocs.io/en/stable/) formats
 - provide other downstream functions that calibrate and process these water column sonar datasets
 
