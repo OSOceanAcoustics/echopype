@@ -59,6 +59,11 @@ Learn more about echopype in the official documentation at https://echopype.read
 
 You can find information about how to contribute to echopype at our [Contributing Page](https://echopype.readthedocs.io/en/latest/contributing.html).
 
+```{attention}
+If you are a potential GSoC24 contributor, please head over to [GSoC contributor's guide](gsoc_contrib_guide.md) to get more information specific to the program.
+```
+
+
 
 ## Echopype doesn't run on your data?
 
