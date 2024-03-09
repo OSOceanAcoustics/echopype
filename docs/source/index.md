@@ -30,6 +30,16 @@ Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part 
 A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
 
 
+```{image} images/GSoC-logo-horizontal.svg
+:alt: Google Summer of Code logo
+:width: 300px
+:align: center
+```
+
+```{attention}
+If you are a GSoC 2024 contributor, please head over to [GSoC contributor's guide](gsoc_contrib_guide.md) to get more information specific to the program.
+```
+
 ## Acknowledgement
 
 We thank Dave Billenness of ASL Environmental Sciences for
