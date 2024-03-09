@@ -1,3 +1,7 @@
+<img src="docs/source/images/GSoC-logo-horizontal.svg" alt="Google Summer of Code logo" width="450" style="padding-right: 50px; vertical-align: middle">
+
+<br>
+
 # GSoC 2024 Contributor's Guide
 
 In collaboration with the [US Integrated Ocean Observing System (IOOS)](https://ioos.noaa.gov/), the Echopype team aims to recruit talented [Google Summer of Code (GSoC)](https://summerofcode.withgoogle.com/)
