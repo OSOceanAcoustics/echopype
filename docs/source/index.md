@@ -30,6 +30,18 @@ Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part 
 A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
 
 
+```{image} images/GSoC-logo-horizontal.svg
+:alt: Google Summer of Code logo
+:width: 300px
+```
+
+```{attention}
+In collaboration with the [Integrated Ocean Observing System (IOOS)](https://ioos.noaa.gov/), the Echopype team aims to recruit talented [Google Summer of Code (GSoC)](https://summerofcode.withgoogle.com/)
+participants to help us upgrade the robustness and scalability of the Echopype package.
+
+If you are a GSoC 2024 contributor, please head over to [GSoC contributor's guide](https://github.com/OSOceanAcoustics/echopype/gsoc_contrib_guide.md) to get more information specific to the program.
+```
+
 ## Acknowledgement
 
 We thank Dave Billenness of ASL Environmental Sciences for
