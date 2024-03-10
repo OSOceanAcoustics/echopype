@@ -64,7 +64,7 @@ jobs:
           curl http://localhost:8080/data/
       - name: Finding changed files
         id: files
-        uses: Ana06/get-changed-files@v2.2.0
+        uses: Ana06/get-changed-files@v2.3.0
         with:
           format: 'csv'
       - name: Print Changed files
