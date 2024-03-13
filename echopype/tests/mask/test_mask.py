@@ -360,7 +360,9 @@ def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
 @pytest.mark.parametrize(
     ("n", "n_chan_freq", "freqABEq", "chanABEq", "mask_truth"),
     [
-        (5, 4, "1.0Hz-2.0Hz== 1.0dB", None, np.identity(5)),
+        (5, 4, "1 Hz- 2 Hz== 1.0dB", None, np.identity(5)),  # mixed integers and floats
+        (5, 4, "1 Hz- 2 Hz== 1dB", None, np.identity(5)),  # all integers
+        (5, 4, "1.0Hz-2.0Hz== 1.0dB", None, np.identity(5)),  # all floats
         (5, 4, None, '"chan1"-"chan3" == 1.0 dB', np.identity(5)),
         (5, 4, "2.0 Hz - 1.0 Hz==1.0 dB", None, np.zeros((5, 5))),
         (5, 4, None, '"chan3" - "chan1"==1.0 dB', np.zeros((5, 5))),
@@ -373,10 +375,22 @@ def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
         (5, 4, "1.0 Hz-2.0Hz<1.0dB", None, np.ones((5, 5)) - np.identity(5)),
         (5, 4, None, '"chan1"-"chan3"< 1.0 dB', np.ones((5, 5)) - np.identity(5))
     ],
-    ids=["freqAB_sel_op_equals", "chanAB_sel_op_equals", "reverse_freqAB_sel_op_equals",
-         "reverse_chanAB_sel_op_equals", "freqAB_sel_op_ge", "chanAB_sel_op_ge",
-         "freqAB_sel_op_greater", "chanAB_sel_op_greater", "freqAB_sel_op_le",
-         "chanAB_sel_op_le", "freqAB_sel_op_less", "chanAB_sel_op_less"]
+    ids=[
+        "freqAB_sel_op_equals_mix_float_int_mix",
+        "freqAB_sel_op_equals_all_int",
+        "freqAB_sel_op_equals_all_float",
+        "chanAB_sel_op_equals",
+        "reverse_freqAB_sel_op_equals",
+        "reverse_chanAB_sel_op_equals",
+        "freqAB_sel_op_ge",
+        "chanAB_sel_op_ge",
+        "freqAB_sel_op_greater",
+        "chanAB_sel_op_greater",
+        "freqAB_sel_op_le",
+        "chanAB_sel_op_le",
+        "freqAB_sel_op_less",
+        "chanAB_sel_op_less",
+    ]
 )
 def test_frequency_differencing(n: int, n_chan_freq: int,
                                 freqABEq: str, chanABEq: str,
