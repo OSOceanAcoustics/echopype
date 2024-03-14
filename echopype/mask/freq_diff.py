@@ -43,8 +43,8 @@ def _parse_freq_diff_eq(
     elif (freqABEq is not None) and (chanABEq is not None):
         raise ValueError("Only one of freqAB or chanAB should be given, but not both!")
     elif freqABEq is not None:
-        freqAPattern = r"(?P<freqA>\d*\.\d+)\s*(?P<unitA>\w?)Hz"
-        freqBPattern = r"(?P<freqB>\d*\.\d+)\s*(?P<unitB>\w?)Hz"
+        freqAPattern = r"(?P<freqA>\d*\.?\d+)\s*(?P<unitA>\w?)Hz"
+        freqBPattern = r"(?P<freqB>\d*\.?\d+)\s*(?P<unitB>\w?)Hz"
         operatorPattern = r"\s*(?P<cmp>\S*?)\s*"
         rhsPattern = r"(?P<db>\d*\.?\d+)\s*dB"
         diffMatcher = re.compile(
