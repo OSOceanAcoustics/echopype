@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument("--deploy", action="store_true", help="Flag to setup docker services")
     parser.add_argument(
         "--http-server",
-        default="docker-httpserver-1",
+        default="docker_httpserver_1",
         help="Flag for specifying docker http server id.",
     )
     parser.add_argument(
