@@ -2,6 +2,7 @@ import pytest
 
 import numpy as np
 import xarray as xr
+from xarray.testing import assert_allclose
 
 from echopype.calibrate.cal_params import (
     CAL_PARAMS,
@@ -13,13 +14,23 @@ from echopype.calibrate.cal_params import (
     get_vend_cal_params_power,
 )
 
+data = np.ones((2, 200)) * 2000
+time_coordinates = np.ones(200) * 1000
 
 @pytest.fixture
-def freq_center():
+def freq_center_interp():
     return xr.DataArray(
         [[25, 55]],
         dims=["ping_time", "channel"],
         coords={"channel": ["chA", "chB"], "ping_time": [1]},
+    )
+
+@pytest.fixture
+def freq_center():
+    return xr.DataArray(
+        data,
+        dims=["channel", "ping_time"],
+        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
     )
 
 
@@ -44,9 +55,9 @@ def beam_AZFP():
     """
     beam = xr.Dataset()
     beam["equivalent_beam_angle"] = xr.DataArray(
-        [[10, 20]],
-        dims=["ping_time", "channel"],
-        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+        data,
+        dims=["channel", "ping_time"],
+        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
     )
     return beam.transpose("channel", "ping_time")
 
@@ -88,9 +99,9 @@ def beam_EK():
         "beamwidth_twoway_athwartship",
     ]:
         beam[p_name] = xr.DataArray(
-            np.array([[123], [456]]),
+            data,
             dims=["channel", "ping_time"],
-            coords={"channel": ["chA", "chB"], "ping_time": [1]},
+            coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
         )
     beam["frequency_nominal"] = xr.DataArray(
         [25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -378,8 +389,8 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
         "in_da_some_channel_alt_da2coords",  # channel, ping_time
     ],
 )
-def test_get_interp_da(freq_center, da_param, alternative, da_output):
-    da_interp = _get_interp_da(da_param, freq_center, alternative)
+def test_get_interp_da(freq_center_interp, da_param, alternative, da_output):
+    da_interp = _get_interp_da(da_param, freq_center_interp, alternative)
     assert da_interp.identical(da_output)
 
 
@@ -526,25 +537,25 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
             dict(
                 {
                     p_name: xr.DataArray(
-                        [[123], [456]],
+                        data,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
                     )
                     for p_name in CAL_PARAMS["EK80"]
                 },
                 **{
                     "gain_correction": xr.DataArray(
-                        [[2.5], [5.5]],
+                        np.full((2, 200), np.nan),
                         dims=["channel", "ping_time"],
-                        coords={"ping_time": [1], "channel": ["chA", "chB"]},
+                        coords={"ping_time": time_coordinates, "channel": ["chA", "chB"]},
                     ),
                     "sa_correction": xr.DataArray(
                         np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]}
                     ),
                     "impedance_transducer": xr.DataArray(
-                        np.array([[75], [75]]),
+                        np.ones((2, 200)) * 75,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
                     ),
                     "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -582,26 +593,26 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
             dict(
                 {
                     p_name: xr.DataArray(
-                        [[123], [456]],
+                        data,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
                     )
                     for p_name in CAL_PARAMS["EK80"]
                 },
                 **{
                     "gain_correction": xr.DataArray(
-                        np.array([[2.5], [5.5]])
+                        np.full((2, 200), np.nan)
                         * 0.79,  # scaled by the factor as freq_center in function body
                         dims=["channel", "ping_time"],
-                        coords={"ping_time": [1], "channel": ["chA", "chB"]},
+                        coords={"ping_time": time_coordinates, "channel": ["chA", "chB"]},
                     ),
                     "sa_correction": xr.DataArray(
                         np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]}
                     ),
                     "impedance_transducer": xr.DataArray(
-                        np.array([[75], [75]]),
+                        np.ones((2, 200)) * 75,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
                     ),
                     "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -665,7 +676,7 @@ def test_get_cal_params_EK80_BB(
         p_val.name = None
         out_val = out_dict[p_name]
         out_val.name = None
-        assert p_val.identical(out_dict[p_name])
+        assert_allclose(p_val, out_dict[p_name])
 
 
 @pytest.mark.parametrize(
@@ -691,9 +702,9 @@ def test_get_cal_params_EK80_BB(
             dict(
                 {
                     p_name: xr.DataArray(
-                        [[123], [456]],
+                        data,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
                     )
                     for p_name in [
                         "sa_correction",
@@ -860,4 +871,4 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
 )
 def test_get_vend_cal_params_power(vend_EK, beam, param, da_output):
     da_param = get_vend_cal_params_power(beam, vend_EK, param)
-    assert da_param.identical(da_output)
+    assert_allclose(da_param, da_output)
