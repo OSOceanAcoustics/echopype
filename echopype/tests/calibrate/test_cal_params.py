@@ -18,14 +18,6 @@ DATA = np.ones((2, 200)) * 2000
 TIME_COORDINATES = np.ones(200) * 1000
 
 @pytest.fixture
-def freq_center_interp():
-    return xr.DataArray(
-        [[25, 55]],
-        dims=["ping_time", "channel"],
-        coords={"channel": ["chA", "chB"], "ping_time": [1]},
-    )
-
-@pytest.fixture
 def freq_center():
     return xr.DataArray(
         DATA,
@@ -298,9 +290,9 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
             None,
             1,
             xr.DataArray(
-                [[1], [1]],
+                np.ones((2, 200)),
                 dims=["channel", "ping_time"],
-                coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
             ),
         ),
         # da_param: alternative is xr.DataArray: output selected with the right channel
@@ -308,9 +300,9 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
             None,
             xr.DataArray([1, 1, 2], dims=["channel"], coords={"channel": ["chA", "chB", "chC"]}),
             xr.DataArray(
-                [[1], [1]],
+                np.ones((2, 200)),
                 dims=["channel", "ping_time"],
-                coords={"channel": ["chA", "chB"], "ping_time": [1]},
+                coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
             ),
         ),
         # da_param: xr.DataArray with freq-dependent values/coordinates
@@ -332,9 +324,9 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
             ),
             None,
             xr.DataArray(
-                [[2.5], [5.5]],
+                np.full((2, 200), np.nan),
                 dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]},
+                coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
             ),
         ),
         # da_param: xr.DataArray with only one channel having freq-dependent values/coordinates
@@ -350,9 +342,9 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
             ),
             75,
             xr.DataArray(
-                [[75], [5.5]],
+                np.vstack([np.full(200, 75), np.full(200, np.nan)]),
                 dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]},
+                coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
             ),
         ),
         #       - xr.DataArray with coordinates channel, ping_time
@@ -363,14 +355,14 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
                 coords={"cal_channel_id": ["chB"], "cal_frequency": [10, 20, 30, 40, 50, 60]},
             ),
             xr.DataArray(
-                np.array([[100], [200]]),
+                DATA,
                 dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]},
+                coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
             ),
             xr.DataArray(
-                [[100], [5.5]],
+                np.vstack([np.full(200, 2000), np.full(200, np.nan)]),
                 dims=["channel", "ping_time"],
-                coords={"ping_time": [1], "channel": ["chA", "chB"]},
+                coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
             ),
             # TODO: cases where freq_center does not have the ping_time dimension
             #       this is the case for CW data since freq_center = beam["frequency_nominal"]
@@ -389,8 +381,8 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
         "in_da_some_channel_alt_da2coords",  # channel, ping_time
     ],
 )
-def test_get_interp_da(freq_center_interp, da_param, alternative, da_output):
-    da_interp = _get_interp_da(da_param, freq_center_interp, alternative)
+def test_get_interp_da(freq_center, da_param, alternative, da_output):
+    da_interp = _get_interp_da(da_param, freq_center, alternative)
     assert da_interp.identical(da_output)
 
 
