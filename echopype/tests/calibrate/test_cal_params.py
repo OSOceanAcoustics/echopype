@@ -14,8 +14,8 @@ from echopype.calibrate.cal_params import (
     get_vend_cal_params_power,
 )
 
-data = np.ones((2, 200)) * 2000
-time_coordinates = np.ones(200) * 1000
+DATA = np.ones((2, 200)) * 2000
+TIME_COORDINATES = np.ones(200) * 1000
 
 @pytest.fixture
 def freq_center_interp():
@@ -28,9 +28,9 @@ def freq_center_interp():
 @pytest.fixture
 def freq_center():
     return xr.DataArray(
-        data,
+        DATA,
         dims=["channel", "ping_time"],
-        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+        coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
     )
 
 
@@ -55,9 +55,9 @@ def beam_AZFP():
     """
     beam = xr.Dataset()
     beam["equivalent_beam_angle"] = xr.DataArray(
-        data,
+        DATA,
         dims=["channel", "ping_time"],
-        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+        coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
     )
     return beam.transpose("channel", "ping_time")
 
@@ -99,9 +99,9 @@ def beam_EK():
         "beamwidth_twoway_athwartship",
     ]:
         beam[p_name] = xr.DataArray(
-            data,
+            DATA,
             dims=["channel", "ping_time"],
-            coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+            coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
         )
     beam["frequency_nominal"] = xr.DataArray(
         [25, 55], dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -537,9 +537,9 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
             dict(
                 {
                     p_name: xr.DataArray(
-                        data,
+                        DATA,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+                        coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
                     )
                     for p_name in CAL_PARAMS["EK80"]
                 },
@@ -547,7 +547,7 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                     "gain_correction": xr.DataArray(
                         np.full((2, 200), np.nan),
                         dims=["channel", "ping_time"],
-                        coords={"ping_time": time_coordinates, "channel": ["chA", "chB"]},
+                        coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
                     ),
                     "sa_correction": xr.DataArray(
                         np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -555,7 +555,7 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                     "impedance_transducer": xr.DataArray(
                         np.ones((2, 200)) * 75,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+                        coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
                     ),
                     "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -593,9 +593,9 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
             dict(
                 {
                     p_name: xr.DataArray(
-                        data,
+                        DATA,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+                        coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
                     )
                     for p_name in CAL_PARAMS["EK80"]
                 },
@@ -604,7 +604,7 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                         np.full((2, 200), np.nan)
                         * 0.79,  # scaled by the factor as freq_center in function body
                         dims=["channel", "ping_time"],
-                        coords={"ping_time": time_coordinates, "channel": ["chA", "chB"]},
+                        coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
                     ),
                     "sa_correction": xr.DataArray(
                         np.array([111, 222]), dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -612,7 +612,7 @@ def test_get_cal_params_AZFP(beam_AZFP, vend_AZFP, user_dict, out_dict):
                     "impedance_transducer": xr.DataArray(
                         np.ones((2, 200)) * 75,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+                        coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
                     ),
                     "impedance_transceiver": xr.DataArray(
                         np.array([1000, 2000]), dims=["channel"], coords={"channel": ["chA", "chB"]}
@@ -702,9 +702,9 @@ def test_get_cal_params_EK80_BB(
             dict(
                 {
                     p_name: xr.DataArray(
-                        data,
+                        DATA,
                         dims=["channel", "ping_time"],
-                        coords={"channel": ["chA", "chB"], "ping_time": time_coordinates},
+                        coords={"channel": ["chA", "chB"], "ping_time": TIME_COORDINATES},
                     )
                     for p_name in [
                         "sa_correction",
