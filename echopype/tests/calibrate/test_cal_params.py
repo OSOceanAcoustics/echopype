@@ -14,7 +14,7 @@ from echopype.calibrate.cal_params import (
     get_vend_cal_params_power,
 )
 
-DATA = np.ones((2, 200)) * 2000
+DATA = np.random.rand(2, 200)
 TIME_COORDINATES = np.ones(200) * 1000
 
 @pytest.fixture
