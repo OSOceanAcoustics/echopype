@@ -360,7 +360,7 @@ def test_sanitize_user_cal_dict(sonar_type, user_dict, channel, out_dict):
                 coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
             ),
             xr.DataArray(
-                np.vstack([np.full(200, 2000), np.full(200, np.nan)]),
+                np.vstack([DATA[0,:], np.full(200, np.nan)]),
                 dims=["channel", "ping_time"],
                 coords={"ping_time": TIME_COORDINATES, "channel": ["chA", "chB"]},
             ),
