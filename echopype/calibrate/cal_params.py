@@ -286,7 +286,7 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
         raise ValueError(f"{param} does not exist in the Vendor_specific group!")
 
     # Find idx to select the corresponding param value
-    # by matching beam["transmit_duration_nominal"] with ds_vend["pulse_length"]
+    # by matching beam["transmit_duration_nominal"] with vend["pulse_length"]
     transmit_isnull = beam["transmit_duration_nominal"].isnull()
     idxmin = np.abs(beam["transmit_duration_nominal"] - vend["pulse_length"]).idxmin(
         dim="pulse_length_bin"
@@ -297,13 +297,13 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
     idxmin = idxmin.where(~transmit_isnull, 0).astype(int)
 
     # Get param dataarray into correct shape
-    da_param = (
-        vend[param]
-        .expand_dims(dim={"ping_time": idxmin["ping_time"]})  # expand dims for direct indexing
-        .sortby(idxmin.channel)  # sortby in case channel sequence differs in vend and beam
-    )
+    da_param = vend[param].transpose("pulse_length_bin", "channel")
 
-    # Select corresponding index and clean up the original nan elements
+    if not np.array_equal(da_param.channel.data, idxmin.channel.data):
+        da_param = da_param.sortby(
+            da_param.channel, ascending=False
+        )  # sortby because channel sequence differs in vend and beam
+
     da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
 
     # Set the nan elements back to nan.
