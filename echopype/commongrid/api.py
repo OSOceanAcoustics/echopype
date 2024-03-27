@@ -33,6 +33,7 @@ def compute_MVBS(
     range_bin: str = "20m",
     ping_time_bin: str = "20S",
     method="map-reduce",
+    skipna=True,
     closed: Literal["left", "right"] = "left",
     **flox_kwargs,
 ):
@@ -62,6 +63,9 @@ def compute_MVBS(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    skipna: bool, default True
+        If true, mean function skips NaN values.
+        Else, mean function includes NaN values.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
     **flox_kwargs
@@ -105,6 +109,7 @@ def compute_MVBS(
         ping_interval,
         range_var=range_var,
         method=method,
+        skipna=skipna,
         **flox_kwargs,
     )
 
