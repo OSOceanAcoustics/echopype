@@ -342,21 +342,21 @@ def test_compute_MVBS_range_output(request, er_type):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("er_type", "func", "add_nan"),
+    ("er_type", "skipna", "add_nan"),
     [
-        ("regular", "nanmean", "no_add_nan"),
-        ("irregular", "nanmean", "no_add_nan"),
-        ("regular", "mean", "no_add_nan"),
-        ("irregular", "mean", "no_add_nan"),
-        ("regular", "nanmean", "add_nan"),
-        ("regular", "mean", "add_nan"),
-        ("irregular", "nanmean", "add_nan"),
-        ("irregular", "mean", "add_nan"),
+        ("regular", True, "no_add_nan"),
+        ("irregular", True, "no_add_nan"),
+        ("regular", False, "no_add_nan"),
+        ("irregular", False, "no_add_nan"),
+        ("regular", True, "add_nan"),
+        ("regular", False, "add_nan"),
+        ("irregular", True, "add_nan"),
+        ("irregular", False, "add_nan"),
     ],
 )
-def test_compute_MVBS_values(request, er_type, func, add_nan):
+def test_compute_MVBS_values(request, er_type, skipna, add_nan):
     """
-    Tests for the values of compute_MVBS on regular vsirregular, func as nanmean vs mean,
+    Tests for the values of compute_MVBS on regular vsirregular, skipna as True vs False,
     and added NaN vs no added Nan data.
     """
 
@@ -418,8 +418,7 @@ def test_compute_MVBS_values(request, er_type, func, add_nan):
             ds_Sv,
             range_bin=range_bin,
             ping_time_bin=ping_time_bin,
-            func=func,
-            skipna=False
+            skipna=skipna
         )
         
         # Compute expected outputs
@@ -434,7 +433,7 @@ def test_compute_MVBS_values(request, er_type, func, add_nan):
         # that are sporadically placed in the echo_range values
         assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)
 
-    # Check appropriate aggregate function behavior when NaNs are added to first channel
+    # Check appropriate output when NaNs are added to first channel
     elif add_nan == "add_nan":
         # Add 5 NaN values to ds_Sv and compute MVBS
         ds_Sv["Sv"][0, 0, 0:5] = np.nan
@@ -442,16 +441,15 @@ def test_compute_MVBS_values(request, er_type, func, add_nan):
             ds_Sv,
             range_bin=range_bin,
             ping_time_bin=ping_time_bin,
-            func=func,
-            skipna=False
+            skipna=skipna
         )
-        if func == "mean":
+        if not skipna:
             # Ensure that the 5 NaN Sv values, now projected onto the regridded dataset, turn into 2 NaN values in the case
-            # where func is mean.
+            # where skipna is False.
             assert np.array_equal(ds_MVBS["Sv"][0, 0, 0:2].data, np.array([np.nan, np.nan]), equal_nan=True)
             assert np.sum(np.isnan(ds_MVBS["Sv"][0, 0, :].data)) == 2
-        elif func == "nanmean":
-            # Ensure that all values in regridded are non-NaN when func is nanmean 
+        else:
+            # Ensure that all values in regridded are non-NaN when skipna is True.
             assert not np.isnan(ds_MVBS["Sv"][0, 0, :].data).any()
 
 

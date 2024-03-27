@@ -33,7 +33,6 @@ def compute_MVBS(
     range_bin: str = "20m",
     ping_time_bin: str = "20S",
     method="map-reduce",
-    func="nanmean",
     skipna=True,
     closed: Literal["left", "right"] = "left",
     **flox_kwargs,
@@ -64,15 +63,9 @@ def compute_MVBS(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
-    func: str, default 'nanmean'
-        The flox aggregation function used for reducing the data array.
-        By default, 'nanmean' is used. Other options can be found in the flox `documentation
-        <https://flox.readthedocs.io/en/latest/generated/flox.xarray.xarray_reduce.html>`_.
     skipna: bool, default True
-        If true, aggregation function skips NaN values.
-        Else, aggregation function includes NaN values.
-        Note that if ``func`` is set to 'mean' and ``skipna`` is set to True, then aggregation
-        will have the same behavior as if func is set to 'nanmean'.
+        If true, mean function skips NaN values.
+        Else, mean function includes NaN values.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
     **flox_kwargs
@@ -116,7 +109,6 @@ def compute_MVBS(
         ping_interval,
         range_var=range_var,
         method=method,
-        func=func,
         skipna=skipna,
         **flox_kwargs,
     )
