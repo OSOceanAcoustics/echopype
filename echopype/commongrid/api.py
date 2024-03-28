@@ -403,7 +403,3 @@ def compute_NASC(
     ds_NASC.attrs["geospatial_lon_max"] = round(float(ds_Sv["longitude"].max().values), 5)
 
     return ds_NASC
-
-
-def regrid():
-    return 1

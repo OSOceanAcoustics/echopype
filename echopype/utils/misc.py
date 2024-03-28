@@ -1,9 +1,14 @@
+import importlib.util
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
 FloatSequence = Union[List[float], Tuple[float], NDArray[float]]
+
+
+def is_package_installed(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
 
 
 def camelcase2snakecase(camel_case_str):
