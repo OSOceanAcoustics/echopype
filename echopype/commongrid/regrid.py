@@ -1,6 +1,7 @@
 from typing import Literal
 
 import iris  # noqa
+import iris.cube  # noqa
 import numpy as np
 import xarray as xr
 from iris.coords import DimCoord  # noqa
