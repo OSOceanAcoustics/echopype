@@ -267,6 +267,17 @@ def apply_mask(
     Applies the provided mask(s) to the Sv variable ``var_name``
     in the provided Dataset ``source_ds``.
 
+    The code allows for these 3 cases of `source_ds` and `mask` dimensions:
+
+    1) No channel in both source ds and mask, but they have matching ping time and depth
+    dimensions.
+    2) Source ds and mask both have matching channel, ping time, and depth dimensions.
+    3) Source ds has channel dimension and mask doesn't, but they have matching ping
+    time and depth dimensions.
+
+    If a user only wants to apply masks to a subset of the channels in source ds,
+    they could put 1s/0s for all data in the channels that are not masked.
+
     Parameters
     ----------
     source_ds: xr.Dataset, str, or pathlib.Path
