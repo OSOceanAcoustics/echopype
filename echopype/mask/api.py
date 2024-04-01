@@ -273,7 +273,7 @@ def apply_mask(
         Points to a Dataset that contains the variable the mask should be applied to
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
         The mask(s) to be applied.
-        Can be a individual input or list that corresponds to a DataArray or a path.
+        Can be a individual input or a list that corresponds to a DataArray or a path.
         Each individual input or entry in the list must contain dimensions
         ``('ping_time', 'range_sample')`` or dimensions ``('ping_time', 'depth')``.
         The mask can also contain the dimension ``channel``.
