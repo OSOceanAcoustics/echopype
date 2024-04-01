@@ -29,23 +29,21 @@ def test_regrid_Sv(test_data_samples):
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
 
     # Setup output grid
-    channel_Sv = Sv.isel(channel=1)
-    depth_data = channel_Sv.echo_range.isel(ping_time=0).data
-    time_data = channel_Sv.ping_time.data.astype("float64")
-    # If there are NaNs in the depth data, remove them
-    if np.isnan(depth_data).any():
-        depth_data = depth_data[~np.isnan(depth_data)]
+    depth_data = Sv.echo_range.isel(ping_time=0)
+    time_data = Sv.ping_time.astype("float64")
 
     # Evenly spaced grid
     target_grid = xr.Dataset(
         {
             "ping_time": (
                 ["ping_time"],
-                np.linspace(np.min(time_data), np.max(time_data), 300).astype("datetime64[ns]"),
+                np.linspace(time_data.min().values, time_data.max().values, 300).astype(
+                    "datetime64[ns]"
+                ),
             ),
             "echo_range": (
                 ["echo_range"],
-                np.linspace(np.min(depth_data), np.max(depth_data), 300),
+                np.linspace(depth_data.min().values, depth_data.max().values, 300),
             ),
         }
     )
