@@ -46,12 +46,12 @@ jobs:
             # Check data endpoint
             curl http://localhost:8080/data/
         - name: Setup Python
-          uses: actions/setup-python@v4.7.1
+          uses: actions/setup-python@v5.0.0
           with:
             python-version: ${{ matrix.python-version }}
             architecture: x64
         - name: Cache conda
-          uses: actions/cache@v3.3.2
+          uses: actions/cache@v4.0.2
           env:
             # Increase this value to reset cache if '.ci_helpers/py{0}.yaml' has not changed
             CACHE_NUMBER: 0
@@ -59,7 +59,7 @@ jobs:
             path: ~/conda_pkgs_dir
             key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles(format('.ci_helpers/py{0}.yaml', matrix.python-version)) }}
         - name: Setup miniconda
-          uses: conda-incubator/setup-miniconda@v2
+          uses: conda-incubator/setup-miniconda@v3
           with:
             activate-environment: ${{ env.CONDA_ENV }}
             environment-file: .ci_helpers/py${{ matrix.python-version }}.yaml

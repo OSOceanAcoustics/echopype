@@ -1,6 +1,7 @@
 """
 Contains functions that are specific to Simrad echo sounders
 """
+
 from typing import Optional, Tuple
 
 import numpy as np

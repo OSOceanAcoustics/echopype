@@ -7,6 +7,7 @@ The current version supports:
 - Simrad EK80 echosounder ``.raw`` data
 - ASL Environmental Sciences AZFP echosounder ``.01A`` data
 """
+
 # flake8: noqa
 from .parse_ad2cp import ParseAd2cp
 from .parse_azfp import ParseAZFP

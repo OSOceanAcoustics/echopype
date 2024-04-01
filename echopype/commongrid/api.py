@@ -1,6 +1,7 @@
 """
 Functions for enhancing the spatial and temporal coherence of data.
 """
+
 import logging
 from typing import Literal
 

@@ -3,6 +3,7 @@
 Script to run tests in Github and locally.
 
 """
+
 import argparse
 import glob
 import os
