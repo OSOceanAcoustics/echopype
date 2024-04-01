@@ -54,6 +54,10 @@ def regrid_Sv(
     ds_list = []
     for chan in input_ds[CHANNEL]:
         channel_Sv = input_ds.sel(channel=chan)
+        # Ensure no nans in range_sample
+        data_range = channel_Sv[range_var].dropna(RANGE_SAMPLE)[RANGE_SAMPLE]
+        channel_Sv = channel_Sv.sel({RANGE_SAMPLE: data_range})
+
         original_dims = _get_iris_dims(channel_Sv, range_var)
         regrid_ds = _regrid_data(channel_Sv[Sv_var].data, original_dims, target_dims)
         ds_list.append(regrid_ds)
