@@ -260,7 +260,6 @@ def apply_mask(
     mask: Union[xr.DataArray, str, pathlib.Path, List[Union[xr.DataArray, str, pathlib.Path]]],
     var_name: str = "Sv",
     fill_value: Union[int, float, xr.DataArray] = np.nan,
-    keep_unmasked_channel: bool = True,
     storage_options_ds: dict = {},
     storage_options_mask: Union[dict, List[dict]] = {},
 ) -> xr.Dataset:
@@ -293,9 +292,6 @@ def apply_mask(
         Value(s) at masked indices.
         If ``fill_value`` is of type ``xr.DataArray`` it must have the same shape as each
         entry of ``mask``.
-    keep_unmasked_channel: bool, default=True
-        When True: Channels that are not in mask will be left as is.
-        When False: Channels that are not in mask will be masked.
     storage_options_ds: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_ds``
@@ -336,7 +332,7 @@ def apply_mask(
     # Operate on the actual data array to be masked
     source_da = source_ds[var_name]
 
-    # Sanity check: final_mask should be of the same shape as source_ds[var_name]
+    # The final_mask should be of the same shape as source_ds[var_name]
     # along the ping_time and range_sample dimensions.
     source_da_chan_shape = (
         source_da.isel(channel=0).shape if "channel" in source_da.dims else source_da.shape
@@ -347,44 +343,25 @@ def apply_mask(
     if final_mask_chan_shape != source_da_chan_shape:
         raise ValueError(
             f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
-            "along the ping_time and range_sample dimensions!"
+            "along the ping_time, and range_sample dimensions!"
         )
+    # If final_mask has dim channel then source_da must have dim channel
+    if "channel" in final_mask.dims and "channel" not in source_da.dims:
+        raise ValueError(
+            "The final constructed mask has dim channel, "
+            f"so source_ds[{var_name}] must have dim channel."
+        )
+    # If final_mask and source_da both have channel dimension, then they must
+    # have the same number of channels.
+    elif "channel" in final_mask.dims and "channel" in source_da.dims:
+        if len(final_mask["channel"]) != len(source_da["channel"]):
+            raise ValueError(
+                f"If both the final constructed mask and source_ds[{var_name}] "
+                "have channel then they must have matching channel dimensions."
+            )
 
     # Apply the mask to var_name
-    if "channel" in final_mask.dims and "channel" in source_da.dims:
-        # Identify common channels
-        common_channels = set(final_mask.coords["channel"].values).intersection(
-            set(source_da.coords["channel"].values)
-        )
-
-        # Convert common channels back to a sorted list to maintain order
-        common_channels = sorted(list(common_channels))
-
-        # Select common channels for operation
-        final_mask_common = final_mask.sel(channel=common_channels)
-        source_da_common = source_da.sel(channel=common_channels)
-
-        # Perform operation on common channels
-        masked_common = xr.where(final_mask_common, x=source_da_common, y=fill_value)
-
-        # Identify remaining channels
-        all_channels = set(source_da.coords["channel"].values)
-        remaining_channels = sorted(list(all_channels - set(common_channels)))
-
-        # Select remaining channels
-        source_da_remaining = source_da.sel(channel=remaining_channels)
-
-        if not keep_unmasked_channel:
-            # Replace unmasked channel values with fill value
-            source_da_remaining = xr.full_like(source_da_remaining, fill_value=fill_value)
-
-        # Combine modified common channels with remaining channels
-        var_name_masked = xr.concat([masked_common, source_da_remaining], dim="channel")
-    else:
-        if "channel" in final_mask.dims and "channel" not in source_da.dims:
-            # Select first channel if final mask has channel dim and source da does not
-            final_mask = final_mask.isel(channel=0)
-        var_name_masked = xr.where(final_mask, x=source_da, y=fill_value)
+    var_name_masked = xr.where(final_mask, x=source_da, y=fill_value)
 
     # Obtain a shallow copy of source_ds
     output_ds = source_ds.copy(deep=False)

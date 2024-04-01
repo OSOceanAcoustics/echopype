@@ -708,11 +708,12 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
         temp_dir.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
-    ("source_has_ch", "keep_unmasked_channel", "mask", "truth_da"),
+    ("source_has_ch", "mask", "truth_da"),
     [   
-        # source_with_ch_mask_list_with_ch_keep_unmasked_channel_true
-        (True, True, [
+        # source_with_ch_mask_list_with_ch
+        (True, [
         xr.DataArray(
             np.array([np.identity(2), np.identity(2)]),
             coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
@@ -732,32 +733,11 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
                     "ping_time": np.arange(2), "depth": np.arange(2)},
         )),
 
-        # source_with_ch_mask_list_with_ch_keep_unmasked_channel_false
-        (True, False, [
+        # source_with_ch_mask_list_with_ch_fail_different_channel_lengths
+        (True, [
         xr.DataArray(
             np.array([np.identity(2)]),
             coords={"channel": ["chan1"], "ping_time": np.arange(2), "depth": np.arange(2)},
-            attrs={"long_name": "mask_with_channel"},
-        ),
-        xr.DataArray(
-            np.array([np.identity(2)]),
-            coords={"channel": ["chan3"], "ping_time": np.arange(2), "depth": np.arange(2)},
-            attrs={"long_name": "mask_with_channel"},
-        ),
-        ],
-        xr.DataArray(
-            np.array([[[1, np.nan], [np.nan, 1]],
-                     [[np.nan, np.nan], [np.nan, np.nan]],
-                        [[1, np.nan], [np.nan, 1]]]),
-            coords={"channel": ["chan1", "chan2", "chan3"],
-                    "ping_time": np.arange(2), "depth": np.arange(2)},
-        )),
-
-        # source_no_ch_mask_list_with_ch_keep_unmasked_channel_true
-        (False, True, [
-        xr.DataArray(
-            np.array([np.identity(2), np.identity(2)]),
-            coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
             attrs={"long_name": "mask_with_channel"},
         ),
         xr.DataArray(
@@ -766,16 +746,13 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
             attrs={"long_name": "mask_with_channel"},
         ),
         ],
-        xr.DataArray(
-            np.array([[1, np.nan], [np.nan, 1]]),
-            coords={"ping_time": np.arange(2), "depth": np.arange(2)},
-        )),
+        None),
 
-        # source_with_ch_mask_with_ch_keep_unmasked_channel_true
-        (True, True,
+        # source_with_ch_mask_with_ch
+        (True,
         xr.DataArray(
-            np.array([np.identity(2), np.identity(2)]),
-            coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            np.array([np.identity(2), np.identity(2), np.ones_like(np.identity(2))]),
+            coords={"channel": ["chan1", "chan2", "chan3"], "ping_time": np.arange(2), "depth": np.arange(2)},
             attrs={"long_name": "mask_with_channel"},
         ),
         xr.DataArray(
@@ -786,34 +763,8 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
                     "ping_time": np.arange(2), "depth": np.arange(2)},
         )),
 
-        # source_with_ch_mask_with_ch_keep_unmasked_channel_false
-        (True, False,
-        xr.DataArray(
-            np.array([np.identity(2), np.identity(2)]),
-            coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
-            attrs={"long_name": "mask_with_channel"},
-        ),
-        xr.DataArray(
-            np.array([[[1, np.nan], [np.nan, 1]],
-                     [[1, np.nan], [np.nan, 1]],
-                     [[np.nan, np.nan], [np.nan, np.nan]]]),
-            coords={"channel": ["chan1", "chan2", "chan3"],
-                    "ping_time": np.arange(2), "depth": np.arange(2)},
-        )),
-
-        # source_no_ch_mask_with_ch_keep_unmasked_channel_true
-        (False, True, xr.DataArray(
-            np.array([np.identity(2), np.identity(2)]),
-            coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
-            attrs={"long_name": "mask_with_channel"},
-        ),
-        xr.DataArray(
-            np.array([[1, np.nan], [np.nan, 1]]),
-            coords={"ping_time": np.arange(2), "depth": np.arange(2)},
-        )),
-
-        # source_with_ch_mask_no_ch_keep_unmasked_channel_true
-        (True, True, xr.DataArray(
+        # source_with_ch_mask_no_ch
+        (True, xr.DataArray(
             np.identity(2),
             coords={"ping_time": np.arange(2), "depth": np.arange(2)},
             attrs={"long_name": "mask_no_channel"},
@@ -825,8 +776,16 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
                     "channel": ["chan1", "chan2", "chan3"]}
         )),
 
-        # source_no_ch_mask_no_ch_keep_unmasked_channel_true
-        (False, True, xr.DataArray(
+        # source_no_ch_mask_with_ch_fail
+        (False, xr.DataArray(
+            np.array([np.identity(2)]),
+            coords={"channel": ["chan1"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        None),
+
+        # source_no_ch_mask_no_ch
+        (False, xr.DataArray(
             np.identity(2),
             coords={"ping_time": np.arange(2), "depth": np.arange(2)},
             attrs={"long_name": "mask_no_channel"},
@@ -835,39 +794,60 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
             np.array([[1, np.nan], [np.nan, 1]]),
             coords={"ping_time": np.arange(2), "depth": np.arange(2)}
         )),
+
+        # source_no_ch_mask_no_ch_fail_different_ping_time_depth_shape
+        (False, xr.DataArray(
+            np.zeros((3, 1)),
+            coords={"ping_time": np.arange(3), "depth": np.arange(1)},
+            attrs={"long_name": "mask_no_channel"},
+        ),
+        None),
     ],
     ids=[
-        "source_with_ch_mask_list_with_ch_keep_unmasked_channel_true",
-        "source_with_ch_mask_list_with_ch_keep_unmasked_channel_false",
-        "source_no_ch_mask_list_with_ch_keep_unmasked_channel_true",
-        "source_with_ch_mask_with_ch_keep_unmasked_channel_true",
-        "source_with_ch_mask_with_ch_keep_unmasked_channel_false",
-        "source_no_ch_mask_with_ch_keep_unmasked_channel_true",
-        "source_with_ch_mask_no_ch_keep_unmasked_channel_true",
-        "source_no_ch_mask_no_ch_keep_unmasked_channel_true",
+        "source_with_ch_mask_list_with_ch",
+        "source_with_ch_mask_list_with_ch_fail_different_channel_lengths",
+        "source_with_ch_mask_with_ch",
+        "source_with_ch_mask_no_ch",
+        "source_no_ch_mask_with_ch_fail",
+        "source_no_ch_mask_no_ch",
+        "source_no_ch_mask_no_ch_fail_different_ping_time_depth_shape",
     ]
 )
-def test_apply_mask_channel_variation(source_has_ch, keep_unmasked_channel, mask, truth_da):
+def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
 
     # Create source dataset
     source_ds = get_mock_source_ds_apply_mask(2, 3, False)
     var_name = "var1"
 
-    # Apply mask
-    if source_has_ch:
-        masked_ds = echopype.mask.apply_mask(source_ds,
-                                             mask,
-                                             var_name,
-                                             keep_unmasked_channel=keep_unmasked_channel
-                                            )
+    if truth_da is None:
+        # Attempt to apply mask w/ 'bad' shapes and check for raised ValueError
+        with pytest.raises(ValueError):
+            if source_has_ch:
+                masked_ds = echopype.mask.apply_mask(source_ds,
+                                                    mask,
+                                                    var_name
+                                                    )
+            else:
+                source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
+                var_name = f"{var_name}_ch0"
+                masked_ds = echopype.mask.apply_mask(source_ds,
+                                                    mask,
+                                                    var_name
+                                                    )
     else:
-        source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
-        var_name = f"{var_name}_ch0"
-        masked_ds = echopype.mask.apply_mask(source_ds,
-                                             mask,
-                                             var_name,
-                                             keep_unmasked_channel=keep_unmasked_channel
-                                            )
-    
-    # Check mask to match truth
-    assert masked_ds[var_name].equals(truth_da)
+        # Apply mask and check matching truth_da
+        if source_has_ch:
+            masked_ds = echopype.mask.apply_mask(source_ds,
+                                                mask,
+                                                var_name
+                                                )
+        else:
+            source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
+            var_name = f"{var_name}_ch0"
+            masked_ds = echopype.mask.apply_mask(source_ds,
+                                                mask,
+                                                var_name
+                                                )
+        
+        # Check mask to match truth
+        assert masked_ds[var_name].equals(truth_da)
