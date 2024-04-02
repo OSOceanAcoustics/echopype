@@ -238,21 +238,28 @@ def get_transmit_signal(
         "transmit_frequency_stop",
     ]
     for ch in beam["channel"].values:
-        tx_params = {}
-        for p in tx_param_names:
-            tx_params[p] = np.unique(beam[p].sel(channel=ch))
-            if tx_params[p].size != 1:
-                raise TypeError("File contains changing %s!" % p)
-        fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
-        tx_params["fs"] = fs_chan
-        y_ch, _ = tapered_chirp(**tx_params)
+        tx_params = {p: beam[p].sel(channel=ch).data for p in tx_param_names}
 
-        # Filter and decimate chirp template
-        y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)
+        # Initialize lists to store results for each ping
+        y_ch_list = []
+        y_time_list = []
+        for i in range(len(beam.ping_time)):
+            current_params = {p: tx_params[p][i] for p in tx_param_names}
+            fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
+            current_params["fs"] = fs_chan
+            # Generate chirp for the current ping
+            y_ch, _ = tapered_chirp(**current_params)
 
-        # Fill into output dict
-        y_all[ch] = y_ch
-        y_time_all[ch] = y_tmp_time
+            # Filter and decimate chirp template for the current ping
+            y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)
+
+            # Store results
+            y_ch_list.append(y_ch)
+            y_time_list.append(y_tmp_time)
+
+        # Combine results for all pings
+        y_all[ch] = np.concatenate(y_ch_list)
+        y_time_all[ch] = np.concatenate(y_time_list)
 
     return y_all, y_time_all
 
