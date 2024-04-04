@@ -9,10 +9,13 @@ from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import validate_source_ds_da
+from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .split_beam_angle import add_angle_to_ds, get_angle_complex_samples, get_angle_power_samples
 
 POSITION_VARIABLES = ["latitude", "longitude"]
+
+logger = _init_logger(__name__)
 
 
 def swap_dims_channel_frequency(ds: xr.Dataset) -> xr.Dataset:
@@ -176,6 +179,21 @@ def add_location(ds: xr.Dataset, echodata: EchoData = None, nmea_sentence: Optio
 
     if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
+
+    # Check if any latitude/longitude value is NaN/0
+    contains_nan_lat = np.isnan(echodata["Platform"]["latitude"].values).any()
+    contains_nan_lon = np.isnan(echodata["Platform"]["longitude"].values).any()
+    contains_zero_lat = (echodata["Platform"]["latitude"].values == 0).any()
+    contains_zero_lon = (echodata["Platform"]["longitude"].values == 0).any()
+    interp_msg = "Interpolation may be negatively impacted, so the user should handle these values."
+    if contains_nan_lat:
+        logger.warning(f'The echodata["Platform"]["latitude"] array contains NaNs. {interp_msg}')
+    if contains_nan_lon:
+        logger.warning(f'The echodata["Platform"]["longitude"] array contains NaNs. {interp_msg}')
+    if contains_zero_lat:
+        logger.warning(f'The echodata["Platform"]["latitude"] array contains zeros. {interp_msg}')
+    if contains_zero_lon:
+        logger.warning(f'The echodata["Platform"]["longitude"] array contains zeros. {interp_msg}')
 
     interp_ds = ds.copy()
     time_dim_name = list(echodata["Platform"]["longitude"].dims)[0]
