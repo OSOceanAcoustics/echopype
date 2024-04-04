@@ -238,28 +238,38 @@ def get_transmit_signal(
         "transmit_frequency_stop",
     ]
     for ch in beam["channel"].values:
-        tx_params = {p: beam[p].sel(channel=ch).data for p in tx_param_names}
+        tx_params = {}
+        varying_params = False
+        for p in tx_param_names:
+            unique_params = np.unique(beam[p].sel(channel=ch))
+            if unique_params.size != 1:
+                varying_params = True
+                tx_params[p] = beam[p].sel(channel=ch).data  # Store the array for varying params
+            else:
+                tx_params[p] = unique_params  # Store the single value for constant params
 
-        # Initialize lists to store results for each ping
-        y_ch_list = []
-        y_time_list = []
-        for i in range(len(beam.ping_time)):
-            current_params = {p: tx_params[p][i] for p in tx_param_names}
-            fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
-            current_params["fs"] = fs_chan
-            # Generate chirp for the current ping
-            y_ch, _ = tapered_chirp(**current_params)
+        fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
+        tx_params["fs"] = fs_chan
 
-            # Filter and decimate chirp template for the current ping
+        if not varying_params:
+            # Parameters are constant, generate transmit signal once
+            y_ch, _ = tapered_chirp(**tx_params)
             y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)
-
-            # Store results
-            y_ch_list.append(y_ch)
-            y_time_list.append(y_tmp_time)
-
-        # Combine results for all pings
-        y_all[ch] = np.concatenate(y_ch_list)
-        y_time_all[ch] = np.concatenate(y_time_list)
+            # Replicate for all pings
+            y_all[ch] = y_ch
+            y_time_all[ch] = y_tmp_time
+        else:
+            # Parameters vary, iterate over each ping
+            y_ch_list = []
+            y_time_list = []
+            for i in range(len(beam.ping_time)):
+                current_params = {p: tx_params[p][i] for p in tx_param_names}
+                y_ch, _ = tapered_chirp(**current_params)
+                y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)
+                y_ch_list.append(y_ch)
+                y_time_list.append(y_tmp_time)
+            y_all[ch] = np.concatenate(y_ch_list)
+            y_time_all[ch] = np.concatenate(y_time_list)
 
     return y_all, y_time_all
 
