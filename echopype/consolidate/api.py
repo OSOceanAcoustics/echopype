@@ -200,19 +200,27 @@ def add_location(
     contains_zero_lat = (echodata["Platform"]["latitude"].values == 0).any()
     contains_zero_lon = (echodata["Platform"]["longitude"].values == 0).any()
     interp_msg = "Interpolation may be negatively impacted, so the user should handle these values."
-    if contains_nan_lat:
-        logger.warning(f'The echodata["Platform"]["latitude"] array contains NaNs. {interp_msg}')
-    if contains_nan_lon:
-        logger.warning(f'The echodata["Platform"]["longitude"] array contains NaNs. {interp_msg}')
-    if contains_zero_lat:
-        logger.warning(f'The echodata["Platform"]["latitude"] array contains zeros. {interp_msg}')
-    if contains_zero_lon:
-        logger.warning(f'The echodata["Platform"]["longitude"] array contains zeros. {interp_msg}')
+    interp_msg = "Interpolation may be negatively impacted, so the user should handle these values."
+    if contains_nan_lat or contains_nan_lon:
+        logger.warning(f"Latitude or longitude arrays contain NaNs. {interp_msg}")
+    if contains_zero_lat or contains_zero_lon:
+        logger.warning(f"Latitude or longitude arrays contain zeros. {interp_msg}")
 
     interp_ds = ds.copy()
     time_dim_name = list(echodata["Platform"]["longitude"].dims)[0]
+
+    # Check if there are duplicates in time_dim_name
+    if len(np.unique(echodata["Platform"][time_dim_name].data)) != len(
+        echodata["Platform"]["time1"].data
+    ):
+        logger.warning(
+            f'The echodata["Platform"]["{time_dim_name}"] array contains duplicate values. '
+            "Interpolation expects unique time values."
+        )
+
     interp_ds["latitude"] = sel_interp("latitude", time_dim_name)
     interp_ds["longitude"] = sel_interp("longitude", time_dim_name)
+
     # Most attributes are attached automatically via interpolation
     # here we add the history
     history_attr = (
