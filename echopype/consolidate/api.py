@@ -211,7 +211,7 @@ def add_location(
 
     # Check if there are duplicates in time_dim_name
     if len(np.unique(echodata["Platform"][time_dim_name].data)) != len(
-        echodata["Platform"]["time1"].data
+        echodata["Platform"][time_dim_name].data
     ):
         logger.warning(
             f'The echodata["Platform"]["{time_dim_name}"] array contains duplicate values. '
