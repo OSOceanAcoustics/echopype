@@ -195,16 +195,18 @@ def add_location(
         raise ValueError("Coordinate variables not present or all nan")
 
     # Check if any latitude/longitude value is NaN/0
-    contains_nan_lat = np.isnan(echodata["Platform"]["latitude"].values).any()
-    contains_nan_lon = np.isnan(echodata["Platform"]["longitude"].values).any()
-    contains_zero_lat = (echodata["Platform"]["latitude"].values == 0).any()
-    contains_zero_lon = (echodata["Platform"]["longitude"].values == 0).any()
+    contains_nan_lat_lon = (
+        np.isnan(echodata["Platform"]["latitude"].values).any()
+        or np.isnan(echodata["Platform"]["longitude"].values).any()
+    )
+    contains_zero_lat_lon = (echodata["Platform"]["latitude"].values == 0).any() or (
+        echodata["Platform"]["longitude"].values == 0
+    ).any()
     interp_msg = "Interpolation may be negatively impacted, so the user should handle these values."
-    interp_msg = "Interpolation may be negatively impacted, so the user should handle these values."
-    if contains_nan_lat or contains_nan_lon:
-        logger.warning(f"Latitude or longitude arrays contain NaNs. {interp_msg}")
-    if contains_zero_lat or contains_zero_lon:
-        logger.warning(f"Latitude or longitude arrays contain zeros. {interp_msg}")
+    if contains_nan_lat_lon:
+        logger.warning(f"Latitude and/or longitude arrays contain NaNs. {interp_msg}")
+    if contains_zero_lat_lon:
+        logger.warning(f"Latitude and/or longitude arrays contain zeros. {interp_msg}")
 
     interp_ds = ds.copy()
     time_dim_name = list(echodata["Platform"]["longitude"].dims)[0]

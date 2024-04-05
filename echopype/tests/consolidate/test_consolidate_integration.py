@@ -8,6 +8,7 @@ import pytest
 
 import numpy as np
 import pandas as pd
+from pandas.errors import InvalidIndexError
 import xarray as xr
 import scipy.io as io
 import echopype as ep
@@ -313,6 +314,65 @@ def test_add_location(
         if location_type == "with-track-location":
             ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
             _tests(ds_sel, location_type, nmea_sentence="GGA")
+
+
+@pytest.mark.integration
+def test_add_location_time_duplicates_warning(test_path, caplog):   
+    """Tests for duplicate time value warning in add_location.""" 
+    # Open raw and compute the Sv dataset
+    raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
+    ed = ep.open_raw(raw_path, sonar_model="EK60")
+    ds = ep.calibrate.compute_Sv(echodata=ed)
+    
+    # Add duplicates to time1
+    ed["Platform"]["time1"].data[0] = ed["Platform"]["time1"].data[1]
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    with pytest.raises(InvalidIndexError):
+        # Run add location with duplicated time
+        ep.consolidate.add_location(ds=ds, echodata=ed)
+    
+    # Check if the expected warning is logged
+    expected_warning = f'The echodata["Platform"]["time1"] array contains duplicate values. ' \
+        "Interpolation expects unique time values."
+    assert any(expected_warning in record.message for record in caplog.records)
+    
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
+
+
+@pytest.mark.integration
+def test_add_location_lat_lon_0_NaN_warnings(test_path, caplog):
+    """Tests for lat lon 0 and NaN value warnings in add_warning."""
+    # Open raw and compute the Sv dataset
+    raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
+    ed = ep.open_raw(raw_path, sonar_model="EK60")
+    ds = ep.calibrate.compute_Sv(echodata=ed)
+    
+    # Add NaN to latitude and 0 to longitude
+    ed["Platform"]["latitude"][0] = np.nan
+    ed["Platform"]["longitude"][0] = 0
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Run add location with 0 and NaN lat/lon values
+    ep.consolidate.add_location(ds=ds, echodata=ed)
+    
+    # Check if the expected warnings are logged
+    expected_warnings = [
+        "Latitude and/or longitude arrays contain NaNs. " \
+        "Interpolation may be negatively impacted, so the user should handle these values.",
+        "Latitude and/or longitude arrays contain zeros. " \
+        "Interpolation may be negatively impacted, so the user should handle these values."
+    ]
+    for warning in expected_warnings:
+        assert any(warning in record.message for record in caplog.records)
+    
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
 
 
 @pytest.mark.parametrize(
