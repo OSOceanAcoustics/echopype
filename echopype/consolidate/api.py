@@ -218,7 +218,7 @@ def add_location(
     if len(np.unique(echodata["Platform"][time_dim_name].data)) != len(
         echodata["Platform"][time_dim_name].data
     ):
-        logger.warning(
+        raise ValueError(
             f'The echodata["Platform"]["{time_dim_name}"] array contains duplicate values. '
             "Interpolation expects unique time values."
         )

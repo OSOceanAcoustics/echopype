@@ -317,8 +317,9 @@ def test_add_location(
 
 
 @pytest.mark.integration
+@pytest.mark.test
 def test_add_location_time_duplicates_warning(test_path, caplog):   
-    """Tests for duplicate time value warning in add_location.""" 
+    """Tests for duplicate time value error in add_location.""" 
     # Open raw and compute the Sv dataset
     raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
     ed = ep.open_raw(raw_path, sonar_model="EK60")
@@ -326,21 +327,14 @@ def test_add_location_time_duplicates_warning(test_path, caplog):
     
     # Add duplicates to time1
     ed["Platform"]["time1"].data[0] = ed["Platform"]["time1"].data[1]
-
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=False)
-
-    with pytest.raises(InvalidIndexError):
+    
+    # Check if the expected error is logged
+    with pytest.raises(ValueError) as exc_info:
         # Run add location with duplicated time
         ep.consolidate.add_location(ds=ds, echodata=ed)
-    
-    # Check if the expected warning is logged
-    expected_warning = f'The echodata["Platform"]["time1"] array contains duplicate values. ' \
-        "Interpolation expects unique time values."
-    assert any(expected_warning in record.message for record in caplog.records)
-    
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=True)
+    print(exc_info.value)
+    # Check if the specific error message is in the logs
+    assert 'The echodata["Platform"]["time1"] array contains duplicate values. Interpolation expects unique time values.' == str(exc_info.value)
 
 
 @pytest.mark.integration
