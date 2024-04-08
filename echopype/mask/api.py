@@ -371,7 +371,7 @@ def apply_mask(
         if len(final_mask["channel"]) != len(source_da["channel"]):
             raise ValueError(
                 f"If both the final constructed mask and source_ds[{var_name}] "
-                "have channel then they must have matching channel dimensions."
+                "have the channel dimension, that dimension should match between the two."
             )
 
     # Apply the mask to var_name
