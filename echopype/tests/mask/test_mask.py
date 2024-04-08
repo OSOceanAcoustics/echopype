@@ -134,6 +134,7 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     -------
     xr.Dataset
         A Dataset containing data variables ``var1, var2`` with coordinates
+        ``('channel', 'ping_time', 'depth')`` and
         ``('channel', 'ping_time', 'range_sample')``.
         The variables are square matrices of ones for each ``channel``.
     """
@@ -148,24 +149,15 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
         mock_var_data = [np.ones((n, n)) for i in range(n_chan)]
 
     # create mock var1 and var2 DataArrays
-    mock_var1_da = xr.DataArray(
-        data=np.stack(mock_var_data),
-        coords={
-            "channel": ("channel", chan_vals, {"long_name": "channel name"}),
-            "ping_time": np.arange(n),
-            "range_sample": np.arange(n),
-        },
-        attrs={"long_name": "variable 1"},
-    )
-    mock_var2_da = xr.DataArray(
-        data=np.stack(mock_var_data),
-        coords={
-            "channel": ("channel", chan_vals, {"long_name": "channel name"}),
-            "ping_time": np.arange(n),
-            "range_sample": np.arange(n),
-        },
-        attrs={"long_name": "variable 2"},
-    )
+    mock_var1_da = xr.DataArray(data=np.stack(mock_var_data),
+                                coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
+                                        "ping_time": np.arange(n), "depth": np.arange(n)},
+                                attrs={"long_name": "variable 1"})
+    mock_var2_da = xr.DataArray(data=np.stack(mock_var_data),
+                                coords={"channel": ("channel", chan_vals, {"long_name": "channel name"}),
+                                        "ping_time": np.arange(n),
+                                        "range_sample": np.arange(n)},
+                                attrs={"long_name": "variable 2"})
 
     # create mock Dataset
     mock_ds = xr.Dataset(data_vars={"var1": mock_var1_da, "var2": mock_var2_da})
@@ -806,81 +798,78 @@ def test_validate_and_collect_mask_input(
 
 
 @pytest.mark.parametrize(
+    ("mask_list"),
+    [
+    pytest.param(
+        [xr.DataArray([np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0']})]
+    ),
+    pytest.param(
+        [xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']})]
+    ),
+    pytest.param(
+        [xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']}),
+        xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']})]
+    ),
+    pytest.param(
+        [xr.DataArray([np.identity(3), np.identity(3)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']}),
+        xr.DataArray([np.identity(4), np.identity(4)], dims=['channel', 'ping_time', 'depth'],
+                       coords={'channel': ['channel_0', 'channel_1']})],
+        marks=pytest.mark.xfail(
+            strict=True,
+            reason="This should fail because the channel dims are not uniform."
+        ))
+    ],
+    ids=["single_channel_mask", "double_channel", "double_channel_double_masks",
+         "inconsistent_channels_across_two_masks"]
+)
+def test_multi_mask_validate_and_collect_mask(mask_list: List[xr.DataArray]):
+    """
+    Tests the allowable types and dimensions for multimask input.
+
+    Parameters
+    ----------
+    mask_list: List[xr.DataArray]
+        Multimask input to be tested in validate and collect mask input.
+    """
+
+    _validate_and_collect_mask_input(mask=mask_list, storage_options_mask={})
+
+
+@pytest.mark.parametrize(
     ("n", "n_chan", "var_name", "fill_value"),
     [
-        pytest.param(
-            4,
-            2,
-            2.0,
-            np.nan,
-            marks=pytest.mark.xfail(
-                strict=True, reason="This should fail because the var_name is not a string."
-            ),
-        ),
-        pytest.param(
-            4,
-            2,
-            "var3",
-            np.nan,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="This should fail because mock_ds will " "not have var_name=var3 in it.",
-            ),
-        ),
-        pytest.param(
-            4,
-            2,
-            "var1",
-            "1.0",
-            marks=pytest.mark.xfail(
-                strict=True, reason="This should fail because fill_value is an incorrect type."
-            ),
-        ),
+        pytest.param(4, 2, 2.0, np.nan,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because the var_name is not a string.")),
+        pytest.param(4, 2, "var3", np.nan,
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because mock_ds will "
+                                                    "not have var_name=var3 in it.")),
+        pytest.param(4, 2, "var2", "1.0",
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because fill_value is an incorrect type.")),
         (4, 2, "var1", 1),
         (4, 2, "var1", 1.0),
-        (2, 1, "var1", np.identity(2)[None, :]),
-        (
-            2,
-            1,
-            "var1",
-            xr.DataArray(
-                data=np.array([[[1.0, 0], [0, 1]]]),
-                coords={"channel": ["chan1"], "ping_time": [0, 1], "range_sample": [0, 1]},
-            ),
-        ),
-        pytest.param(
-            4,
-            2,
-            "var1",
-            np.identity(2),
-            marks=pytest.mark.xfail(
-                strict=True, reason="This should fail because fill_value is not the right shape."
-            ),
-        ),
-        pytest.param(
-            4,
-            2,
-            "var1",
-            xr.DataArray(
-                data=np.array([[1.0, 0], [0, 1]]),
-                coords={"ping_time": [0, 1], "range_sample": [0, 1]},
-            ),
-            marks=pytest.mark.xfail(
-                strict=True, reason="This should fail because fill_value is not the right shape."
-            ),
-        ),
+        pytest.param(2, 1, "var1", np.identity(2)[None, :],
+                     marks=pytest.mark.xfail(strict=True,
+                     reason="This should fail because fill_value is an incorrect type.")),
+        (2, 1, "var1", xr.DataArray(data=np.array([[[1.0, 0], [0, 1]]]),
+                                    coords={"channel": ["chan1"], "ping_time": [0, 1], "depth": [0, 1]})
+         ),          
+        pytest.param(4, 2, "var2",
+                     xr.DataArray(data=np.array([[1.0, 0], [0, 1]]),
+                                  coords={"ping_time": [0, 1], "range_sample": [0, 1]}),
+                     marks=pytest.mark.xfail(strict=True,
+                                             reason="This should fail because fill_value is not the right shape.")),
     ],
-    ids=[
-        "wrong_var_name_type",
-        "no_var_name_ds",
-        "wrong_fill_value_type",
-        "fill_value_int",
-        "fill_value_float",
-        "fill_value_np_array",
-        "fill_value_DataArray",
-        "fill_value_np_array_wrong_shape",
-        "fill_value_DataArray_wrong_shape",
-    ],
+    ids=["wrong_var_name_type", "no_var_name_ds", "wrong_fill_value_type", "fill_value_int",
+         "fill_value_float", "fill_value_np_array", "fill_value_DataArray",
+         "fill_value_DataArray_wrong_shape"]
 )
 def test_check_var_name_fill_value(
     n: int, n_chan: int, var_name: str, fill_value: Union[int, float, np.ndarray, xr.DataArray]
@@ -947,17 +936,11 @@ def test_check_var_name_fill_value(
         # single_mask_float_fill
         (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]]), False),
         # single_mask_np_array_fill
-        (
-            2,
-            1,
-            "var1",
-            np.identity(2),
-            None,
-            np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
-            False,
-            np.array([[1, np.nan], [np.nan, 1]]),
-            False,
-        ),
+        pytest.param(
+            2, 1, "var1", np.identity(2), None, np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
+            False, np.array([[1, np.nan], [np.nan, 1]]), False,
+            marks=pytest.mark.xfail(strict=True,
+            reason="This should fail because fill_value is an incorrect type.")),
         # single_mask_DataArray_fill
         (
             2,
@@ -1078,7 +1061,7 @@ def test_apply_mask(
     mock_ds = get_mock_source_ds_apply_mask(n, n_chan, is_delayed)
 
     # create input mask and obtain temporary directory, if it was created
-    mask, temp_dir = create_input_mask(mask, mask_file, mock_ds.coords)
+    mask, temp_dir = create_input_mask(mask, mask_file, mock_ds[var_name].coords)
 
     # create DataArray form of the known truth value
     var_masked_truth = xr.DataArray(
@@ -1115,61 +1098,146 @@ def test_apply_mask(
         temp_dir.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
-    ("source_has_ch", "mask_has_ch"),
-    [
-        (True, True),
-        (False, True),
-        (True, False),
-        (False, False),
+    ("source_has_ch", "mask", "truth_da"),
+    [   
+        # source_with_ch_mask_list_with_ch
+        (True, [
+        xr.DataArray(
+            np.array([np.identity(2), np.identity(2)]),
+            coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        xr.DataArray(
+            np.array([np.zeros_like(np.identity(2))]),
+            coords={"channel": ["chan3"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        ],
+        xr.DataArray(
+            np.array([[[1, np.nan], [np.nan, 1]],
+                     [[1, np.nan], [np.nan, 1]],
+                     [[np.nan, np.nan], [np.nan, np.nan]]]),
+            coords={"channel": ["chan1", "chan2", "chan3"],
+                    "ping_time": np.arange(2), "depth": np.arange(2)},
+        )),
+
+        # source_with_ch_mask_list_with_ch_fail_different_channel_lengths
+        (True, [
+        xr.DataArray(
+            np.array([np.identity(2)]),
+            coords={"channel": ["chan1"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        xr.DataArray(
+            np.array([np.zeros_like(np.identity(2))]),
+            coords={"channel": ["chan3"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        ],
+        None),
+
+        # source_with_ch_mask_with_ch
+        (True,
+        xr.DataArray(
+            np.array([np.identity(2), np.identity(2), np.ones_like(np.identity(2))]),
+            coords={"channel": ["chan1", "chan2", "chan3"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        xr.DataArray(
+            np.array([[[1, np.nan], [np.nan, 1]],
+                     [[1, np.nan], [np.nan, 1]],
+                     [[1, 1], [1, 1]]]),
+            coords={"channel": ["chan1", "chan2", "chan3"],
+                    "ping_time": np.arange(2), "depth": np.arange(2)},
+        )),
+
+        # source_with_ch_mask_no_ch
+        (True, xr.DataArray(
+            np.identity(2),
+            coords={"ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_no_channel"},
+        ),
+        xr.DataArray(
+            np.array([[[1, 1, 1], [np.nan, np.nan, np.nan]],
+                      [[np.nan, np.nan, np.nan], [1, 1, 1]]]),
+            coords={"ping_time": np.arange(2), "depth": np.arange(2),
+                    "channel": ["chan1", "chan2", "chan3"]}
+        )),
+
+        # source_no_ch_mask_with_ch_fail
+        (False, xr.DataArray(
+            np.array([np.identity(2)]),
+            coords={"channel": ["chan1"], "ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_with_channel"},
+        ),
+        None),
+
+        # source_no_ch_mask_no_ch
+        (False, xr.DataArray(
+            np.identity(2),
+            coords={"ping_time": np.arange(2), "depth": np.arange(2)},
+            attrs={"long_name": "mask_no_channel"},
+        ),
+        xr.DataArray(
+            np.array([[1, np.nan], [np.nan, 1]]),
+            coords={"ping_time": np.arange(2), "depth": np.arange(2)}
+        )),
+
+        # source_no_ch_mask_no_ch_fail_different_ping_time_depth_shape
+        (False, xr.DataArray(
+            np.zeros((3, 1)),
+            coords={"ping_time": np.arange(3), "depth": np.arange(1)},
+            attrs={"long_name": "mask_no_channel"},
+        ),
+        None),
     ],
     ids=[
+        "source_with_ch_mask_list_with_ch",
+        "source_with_ch_mask_list_with_ch_fail_different_channel_lengths",
         "source_with_ch_mask_with_ch",
-        "source_no_ch_mask_with_ch",
         "source_with_ch_mask_no_ch",
+        "source_no_ch_mask_with_ch_fail",
         "source_no_ch_mask_no_ch",
-    ],
+        "source_no_ch_mask_no_ch_fail_different_ping_time_depth_shape",
+    ]
 )
-def test_apply_mask_channel_variation(source_has_ch, mask_has_ch):
+def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
+
+    # Create source dataset
     source_ds = get_mock_source_ds_apply_mask(2, 3, False)
     var_name = "var1"
 
-    if mask_has_ch:
-        mask = xr.DataArray(
-            np.array([np.identity(2)]),
-            coords={"channel": ["chA"], "ping_time": np.arange(2), "range_sample": np.arange(2)},
-            attrs={"long_name": "mask_with_channel"},
-        )
+    if truth_da is None:
+        # Attempt to apply mask w/ 'bad' shapes and check for raised ValueError
+        with pytest.raises(ValueError):
+            if source_has_ch:
+                masked_ds = echopype.mask.apply_mask(source_ds,
+                                                    mask,
+                                                    var_name
+                                                    )
+            else:
+                source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
+                var_name = f"{var_name}_ch0"
+                masked_ds = echopype.mask.apply_mask(source_ds,
+                                                    mask,
+                                                    var_name
+                                                    )
     else:
-        mask = xr.DataArray(
-            np.identity(2),
-            coords={"ping_time": np.arange(2), "range_sample": np.arange(2)},
-            attrs={"long_name": "mask_no_channel"},
-        )
-
-    if source_has_ch:
-        masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
-    else:
-        source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
-        var_name = f"{var_name}_ch0"
-        masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
-
-    # Output dimension will be the same as source
-    if source_has_ch:
-        truth_da = xr.DataArray(
-            np.array([[[1, np.nan], [np.nan, 1]]] * 3),
-            coords={
-                "channel": ["chan1", "chan2", "chan3"],
-                "ping_time": np.arange(2),
-                "range_sample": np.arange(2),
-            },
-            attrs=source_ds[var_name].attrs,
-        )
-    else:
-        truth_da = xr.DataArray(
-            [[1, np.nan], [np.nan, 1]],
-            coords={"ping_time": np.arange(2), "range_sample": np.arange(2)},
-            attrs=source_ds[var_name].attrs,
-        )
-
-    assert masked_ds[var_name].equals(truth_da)
+        # Apply mask and check matching truth_da
+        if source_has_ch:
+            masked_ds = echopype.mask.apply_mask(source_ds,
+                                                mask,
+                                                var_name
+                                                )
+        else:
+            source_ds[f"{var_name}_ch0"] = source_ds[var_name].isel(channel=0).squeeze()
+            var_name = f"{var_name}_ch0"
+            masked_ds = echopype.mask.apply_mask(source_ds,
+                                                mask,
+                                                var_name
+                                                )
+        
+        # Check mask to match truth
+        assert masked_ds[var_name].equals(truth_da)
