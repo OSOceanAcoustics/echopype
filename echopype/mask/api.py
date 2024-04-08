@@ -269,14 +269,17 @@ def apply_mask(
 
     The code allows for these 3 cases of `source_ds` and `mask` dimensions:
 
-    1) No channel in both source ds and mask, but they have matching ping time and depth
-    dimensions.
-    2) Source ds and mask both have matching channel, ping time, and depth dimensions.
-    3) Source ds has channel dimension and mask doesn't, but they have matching ping
-    time and depth dimensions.
+    1) No channel in both `source_ds` and `mask`,
+    but they have matching `ping_time` and
+    `depth` (or `range_sample`) dimensions.
+    2) `source_ds` and `mask` both have matching `channel`,
+    `ping_time`, and `depth` (or `range_sample`) dimensions.
+    3) `source_ds` has the channel dimension and `mask` doesn't,
+    but they have matching
+    `ping_time` and `depth` (or `range_sample`) dimensions.
 
-    If a user only wants to apply masks to a subset of the channels in source ds,
-    they could put 1s/0s for all data in the channels that are not masked.
+    If a user only wants to apply masks to a subset of the channels in `source_ds`,
+    they could put 1s to allow all data entries in the other channels.
 
     Parameters
     ----------
