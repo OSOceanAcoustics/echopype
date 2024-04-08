@@ -220,7 +220,7 @@ def add_location(
     ):
         raise ValueError(
             f'The echodata["Platform"]["{time_dim_name}"] array contains duplicate values. '
-            "Interpolation expects unique time values."
+            "Downstream interpolation on the position variables requires unique time values."
         )
 
     interp_ds["latitude"] = sel_interp("latitude", time_dim_name)

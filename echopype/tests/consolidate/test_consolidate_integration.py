@@ -334,7 +334,7 @@ def test_add_location_time_duplicates_warning(test_path, caplog):
         ep.consolidate.add_location(ds=ds, echodata=ed)
     print(exc_info.value)
     # Check if the specific error message is in the logs
-    assert 'The echodata["Platform"]["time1"] array contains duplicate values. Interpolation expects unique time values.' == str(exc_info.value)
+    assert 'The echodata["Platform"]["time1"] array contains duplicate values. Downstream interpolation on the position variables requires unique time values.' == str(exc_info.value)
 
 
 @pytest.mark.integration
