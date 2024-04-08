@@ -362,11 +362,13 @@ def test_add_location_lat_lon_0_NaN_warnings(test_path, caplog):
     ep.consolidate.add_location(ds=ds, echodata=ed)
     
     # Check if the expected warnings are logged
+    interp_msg = (
+        "Interpolation may be negatively impacted, "
+        "consider handling these values before calling add_location."
+    )
     expected_warnings = [
-        "Latitude and/or longitude arrays contain NaNs. " \
-        "Interpolation may be negatively impacted, so the user should handle these values.",
-        "Latitude and/or longitude arrays contain zeros. " \
-        "Interpolation may be negatively impacted, so the user should handle these values."
+        f"Latitude and/or longitude arrays contain NaNs. {interp_msg}",
+        f"Latitude and/or longitude arrays contain zeros. {interp_msg}"
     ]
     for warning in expected_warnings:
         assert any(warning in record.message for record in caplog.records)
