@@ -202,7 +202,7 @@ def add_location(
     contains_zero_lat_lon = (echodata["Platform"]["latitude"].values == 0).any() or (
         echodata["Platform"]["longitude"].values == 0
     ).any()
-    interp_msg = "Interpolation may be negatively impacted, so the user should handle these values."
+    interp_msg = "Interpolation may be negatively impacted, consider handling these values before calling add_location."
     if contains_nan_lat_lon:
         logger.warning(f"Latitude and/or longitude arrays contain NaNs. {interp_msg}")
     if contains_zero_lat_lon:
