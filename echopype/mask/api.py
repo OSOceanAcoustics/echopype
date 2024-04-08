@@ -3,6 +3,8 @@ import operator as op
 import pathlib
 from typing import List, Optional, Union
 
+import dask
+import dask.array
 import numpy as np
 import xarray as xr
 
@@ -481,8 +483,8 @@ def frequency_differencing(
     >>> Sv_ds = xr.Dataset(data_vars={"Sv": Sv_da, "frequency_nominal": freq_nom})
     ...
     >>> # compute frequency-differencing mask using channel names
-    >>> echopype.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={},
-    ...                                      freqABEq=None, chanABEq = '"chan1" - "chan2">=10.0')
+    >>> echopype.mask.frequency_differencing(source_Sv=Sv_ds, storage_options={},
+    ...                                      freqABEq=None, chanABEq = '"chan1" - "chan2">=10.0dB')
     <xarray.DataArray 'mask' (ping_time: 5, range_sample: 5)>
     array([[False, False, False, False, False],
            [False, False, False, False, False],
@@ -523,23 +525,80 @@ def frequency_differencing(
         chanA = chanAB[0]
         chanB = chanAB[1]
 
-    # get the left-hand side of condition
-    lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
+    def _get_lhs(
+        Sv_block: np.ndarray, chanA_idx: int, chanB_idx: int, chan_dim_idx: int = 0
+    ) -> np.ndarray:
+        """Get left-hand side of condition"""
 
-    # create mask using operator lookup table
-    da = xr.where(str2ops[operator](lhs, diff), True, False)
+        def _sel_channel(chan_idx):
+            return tuple(
+                [chan_idx if i == chan_dim_idx else slice(None) for i in range(Sv_block.ndim)]
+            )
+
+        # get the left-hand side of condition (lhs)
+        return Sv_block[_sel_channel(chanA_idx)] - Sv_block[_sel_channel(chanB_idx)]
+
+    def _create_mask(lhs: np.ndarray, diff: float) -> np.ndarray:
+        """Create mask using operator lookup table"""
+        return xr.where(str2ops[operator](lhs, diff), True, False)
+
+    # Get the Sv data array
+    Sv_data_array = source_Sv["Sv"]
+
+    # Determine channel index based on names
+    channels = list(source_Sv["channel"].to_numpy())
+    chanA_idx = channels.index(chanA)
+    chanB_idx = channels.index(chanB)
+    # Get the channel dimension index for filtering
+    chan_dim_idx = Sv_data_array.dims.index("channel")
+
+    # If Sv data is not dask array
+    if not isinstance(Sv_data_array.variable._data, dask.array.Array):
+        # get the left-hand side of condition
+        lhs = _get_lhs(Sv_data_array, chanA_idx, chanB_idx, chan_dim_idx=chan_dim_idx)
+
+        # create mask using operator lookup table
+        da = _create_mask(lhs, diff)
+    # If Sv data is dask array
+    else:
+        # Get the final data array template
+        template = Sv_data_array.isel(channel=0).drop_vars("channel")
+
+        dask_array_data = Sv_data_array.data
+        # Perform block wise computation
+        dask_array_result = (
+            dask_array_data
+            # Compute the left-hand side of condition
+            # drop the first axis (channel) as it is dropped in the result
+            .map_blocks(
+                _get_lhs,
+                chanA_idx,
+                chanB_idx,
+                chan_dim_idx=chan_dim_idx,
+                dtype=dask_array_data.dtype,
+                drop_axis=0,
+            )
+            # create mask using operator lookup table
+            .map_blocks(_create_mask, diff)
+        )
+
+        # Create DataArray of the result
+        da = xr.DataArray(
+            data=dask_array_result,
+            coords=template.coords,
+        )
+
+    xr_dataarray_attrs = {
+        "mask_type": "frequency differencing",
+        "history": f"{datetime.datetime.utcnow()} +00:00. "
+        "Mask created by mask.frequency_differencing. "
+        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
+    }
 
     # assign a name to DataArray
     da.name = "mask"
 
     # assign provenance attributes
-    mask_attrs = {"mask_type": "frequency differencing"}
-    history_attr = (
-        f"{datetime.datetime.utcnow()} +00:00. "
-        "Mask created by mask.frequency_differencing. "
-        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}"
-    )
-
-    da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
+    da = da.assign_attrs(xr_dataarray_attrs)
 
     return da

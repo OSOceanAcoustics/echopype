@@ -10,10 +10,7 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import (
-    _validate_and_collect_mask_input,
-    _check_var_name_fill_value
-)
+from echopype.mask.api import _validate_and_collect_mask_input, _check_var_name_fill_value
 from echopype.mask.freq_diff import (
     _parse_freq_diff_eq,
     _check_freq_diff_source_Sv,
@@ -22,8 +19,14 @@ from echopype.mask.freq_diff import (
 from typing import List, Union, Optional
 
 
-def get_mock_freq_diff_data(n: int, n_chan_freq: int, add_chan: bool,
-                            add_freq_nom: bool) -> xr.Dataset:
+def get_mock_freq_diff_data(
+    n: int,
+    n_chan_freq: int,
+    add_chan: bool,
+    add_freq_nom: bool,
+    dask_array: bool = False,
+    chunks: dict = None,
+) -> xr.Dataset:
     """
     Creates an in-memory mock Sv Dataset.
 
@@ -59,14 +62,18 @@ def get_mock_freq_diff_data(n: int, n_chan_freq: int, add_chan: bool,
     if n_chan_freq < 3:
         raise RuntimeError("The input n_chan_freq must be greater than or equal to 3!")
 
+    if dask_array:
+        if chunks is None:
+            raise RuntimeError("The input chunks must be provided if dask_array is True.")
+
     # matrix representing freqB
-    mat_B = np.arange(n ** 2).reshape(n, n) - np.identity(n)
+    mat_B = np.arange(n**2).reshape(n, n) - np.identity(n)
 
     # matrix representing freqA
-    mat_A = np.arange(n ** 2).reshape(n, n)
+    mat_A = np.arange(n**2).reshape(n, n)
 
     # construct channel values
-    chan_vals = ['chan' + str(i) for i in range(1, n_chan_freq + 1)]
+    chan_vals = ["chan" + str(i) for i in range(1, n_chan_freq + 1)]
 
     # construct mock Sv data
     mock_Sv_data = [mat_A, np.identity(n), mat_B] + [np.identity(n) for i in range(3, n_chan_freq)]
@@ -78,12 +85,20 @@ def get_mock_freq_diff_data(n: int, n_chan_freq: int, add_chan: bool,
         channel_coord_name = "channel"
 
     # create mock Sv DataArray
-    mock_Sv_da = xr.DataArray(data=np.stack(mock_Sv_data),
-                              coords={channel_coord_name: chan_vals, "ping_time": np.arange(n),
-                                      "range_sample": np.arange(n)})
+    mock_Sv_da = xr.DataArray(
+        data=np.stack(mock_Sv_data),
+        coords={
+            channel_coord_name: chan_vals,
+            "ping_time": np.arange(n),
+            "range_sample": np.arange(n),
+        },
+    )
 
     # create data variables for the Dataset
-    data_vars = {"Sv": mock_Sv_da}
+    if dask_array:
+        data_vars = {"Sv": mock_Sv_da.chunk(chunks=chunks)}
+    else:
+        data_vars = {"Sv": mock_Sv_da}
 
     if add_freq_nom:
         # construct frequency_values
@@ -125,7 +140,7 @@ def get_mock_source_ds_apply_mask(n: int, n_chan: int, is_delayed: bool) -> xr.D
     """
 
     # construct channel values
-    chan_vals = ['chan' + str(i) for i in range(1, n_chan + 1)]
+    chan_vals = ["chan" + str(i) for i in range(1, n_chan + 1)]
 
     # construct mock variable data for each channel
     if is_delayed:
@@ -175,7 +190,6 @@ def create_input_mask(
 
     # make input numpy array masks into DataArrays
     if isinstance(mask, list):
-
         # initialize final mask
         mask_out = []
 
@@ -185,16 +199,15 @@ def create_input_mask(
             temp_dir = tempfile.TemporaryDirectory()
 
         for mask_ind in range(len(mask)):
-
             # form DataArray from given mask data
-            mask_da = xr.DataArray(data=[mask[mask_ind]], coords=mask_coords, name='mask_' + str(mask_ind))
+            mask_da = xr.DataArray(
+                data=[mask[mask_ind]], coords=mask_coords, name="mask_" + str(mask_ind)
+            )
 
             if mask_file[mask_ind] is None:
-
                 # set mask value to the DataArray given
                 mask_out.append(mask_da)
             else:
-
                 # write DataArray to temporary directory
                 zarr_path = os.path.join(temp_dir.name, mask_file[mask_ind])
                 mask_da.to_dataset().to_zarr(zarr_path)
@@ -207,16 +220,13 @@ def create_input_mask(
                 mask_out.append(zarr_path)
 
     elif isinstance(mask, np.ndarray):
-
         # form DataArray from given mask data
-        mask_da = xr.DataArray(data=[mask], coords=mask_coords, name='mask_0')
+        mask_da = xr.DataArray(data=[mask], coords=mask_coords, name="mask_0")
 
         if mask_file is None:
-
             # set mask to the DataArray formed
             mask_out = mask_da
         else:
-
             # create temporary directory for mask_file
             temp_dir = tempfile.TemporaryDirectory()
 
@@ -238,31 +248,77 @@ def create_input_mask(
     ("n", "n_chan_freq", "add_chan", "add_freq_nom", "freqAB", "chanAB"),
     [
         (5, 4, True, True, [1000.0, 2.0], None),
-        (5, 4, True, True, None, ['chan1', 'chan3']),
-        pytest.param(5, 4, False, True, [1.0, 2000000.0], None,
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because the Dataset "
-                                                    "will not have the channel coordinate.")),
-        pytest.param(5, 4, True, False, [1.0, 2.0], None,
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because the Dataset "
-                                                    "will not have the frequency_nominal variable.")),
-        pytest.param(5, 4, True, True, [1.0, 4.0], None,
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because not all selected frequencies"
-                                                    "are in the frequency_nominal variable.")),
-        pytest.param(5, 4, True, True, None, ['chan1', 'chan9'],
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because not all selected channels"
-                                                    "are in the channel coordinate."))
+        (5, 4, True, True, None, ["chan1", "chan3"]),
+        pytest.param(
+            5,
+            4,
+            False,
+            True,
+            [1.0, 2000000.0],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="This should fail because the Dataset "
+                "will not have the channel coordinate.",
+            ),
+        ),
+        pytest.param(
+            5,
+            4,
+            True,
+            False,
+            [1.0, 2.0],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="This should fail because the Dataset "
+                "will not have the frequency_nominal variable.",
+            ),
+        ),
+        pytest.param(
+            5,
+            4,
+            True,
+            True,
+            [1.0, 4.0],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="This should fail because not all selected frequencies"
+                "are in the frequency_nominal variable.",
+            ),
+        ),
+        pytest.param(
+            5,
+            4,
+            True,
+            True,
+            None,
+            ["chan1", "chan9"],
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="This should fail because not all selected channels"
+                "are in the channel coordinate.",
+            ),
+        ),
     ],
-    ids=["dataset_input_freqAB_provided", "dataset_input_chanAB_provided", "dataset_no_channel",
-         "dataset_no_frequency_nominal", "dataset_missing_freqAB_in_freq_nom",
-         "dataset_missing_chanAB_in_channel"]
+    ids=[
+        "dataset_input_freqAB_provided",
+        "dataset_input_chanAB_provided",
+        "dataset_no_channel",
+        "dataset_no_frequency_nominal",
+        "dataset_missing_freqAB_in_freq_nom",
+        "dataset_missing_chanAB_in_channel",
+    ],
 )
-def test_check_freq_diff_source_Sv(n: int, n_chan_freq: int, add_chan: bool, add_freq_nom: bool,
-                                   freqAB: List[float],
-                                   chanAB: List[str]):
+def test_check_freq_diff_source_Sv(
+    n: int,
+    n_chan_freq: int,
+    add_chan: bool,
+    add_freq_nom: bool,
+    freqAB: List[float],
+    chanAB: List[str],
+):
     """
     Test the inputs ``source_Sv, freqAB, chanAB`` for ``_check_freq_diff_source_Sv``.
 
@@ -302,35 +358,62 @@ def test_check_freq_diff_source_Sv(n: int, n_chan_freq: int, add_chan: bool, add
         (None, '"chan1"-"chan3"==1.0dB'),
         ("1.0 kHz - 2.0 MHz>=1.0 dB", None),
         (None, '"chan2-12 89" - "chan4 89-12" >= 1.0 dB'),
-        pytest.param("1.0kHz-2.0 kHz===1.0dB", None,
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because "
-                                                    "the operator is incorrect.")),
-        pytest.param(None, '"chan1"-"chan3"===1.0 dB',
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because "
-                                                    "the operator is incorrect.")),
-        pytest.param("1.0 MHz-1.0MHz==1.0dB", None,
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because the "
-                                                    "frequencies are the same.")),
-        pytest.param(None, '"chan1"-"chan1"==1.0 dB',
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because the "
-                                                    "channels are the same.")),
-        pytest.param("1.0 Hz-2.0==1.0dB", None,
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because unit of one of "
-                                                    "the frequency is missing.")),
-        pytest.param(None, '"chan1"-"chan3"==1.0',
-                     marks=pytest.mark.xfail(strict=True,
-                                             reason="This should fail because unit of the "
-                                                    "difference is missing.")),
+        pytest.param(
+            "1.0kHz-2.0 kHz===1.0dB",
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="This should fail because " "the operator is incorrect."
+            ),
+        ),
+        pytest.param(
+            None,
+            '"chan1"-"chan3"===1.0 dB',
+            marks=pytest.mark.xfail(
+                strict=True, reason="This should fail because " "the operator is incorrect."
+            ),
+        ),
+        pytest.param(
+            "1.0 MHz-1.0MHz==1.0dB",
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="This should fail because the " "frequencies are the same."
+            ),
+        ),
+        pytest.param(
+            None,
+            '"chan1"-"chan1"==1.0 dB',
+            marks=pytest.mark.xfail(
+                strict=True, reason="This should fail because the " "channels are the same."
+            ),
+        ),
+        pytest.param(
+            "1.0 Hz-2.0==1.0dB",
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="This should fail because unit of one of " "the frequency is missing.",
+            ),
+        ),
+        pytest.param(
+            None,
+            '"chan1"-"chan3"==1.0',
+            marks=pytest.mark.xfail(
+                strict=True, reason="This should fail because unit of the " "difference is missing."
+            ),
+        ),
     ],
-    ids=["input_freqABEq_provided", "input_chanABEq_provided", "input_freqABEq_different_units",
-         "input_chanABEq_provided", "input_freqABEq_wrong_operator", "input_chanABEq_wrong_operator",
-         "input_freqABEq_duplicate_frequencies", "input_chanABEq_duplicate_channels",
-         "input_freqABEq_missing_unit", "input_chanABEq_missing_unit"]
+    ids=[
+        "input_freqABEq_provided",
+        "input_chanABEq_provided",
+        "input_freqABEq_different_units",
+        "input_chanABEq_provided",
+        "input_freqABEq_wrong_operator",
+        "input_chanABEq_wrong_operator",
+        "input_freqABEq_duplicate_frequencies",
+        "input_chanABEq_duplicate_channels",
+        "input_freqABEq_missing_unit",
+        "input_chanABEq_missing_unit",
+    ],
 )
 def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
     """
@@ -345,7 +428,7 @@ def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
         in the criteria are enclosed in double quotes.
     """
     freq_vals = [1.0, 2.0, 1e3, 2e3, 1e6, 2e6]
-    chan_vals = ['chan1', 'chan3', "chan2-12 89", "chan4 89-12"]
+    chan_vals = ["chan1", "chan3", "chan2-12 89", "chan4 89-12"]
     operator_vals = [">=", "=="]
     diff_val = 1.0
     freqAB, chanAB, operator, diff = _parse_freq_diff_eq(freqABEq=freqABEq, chanABEq=chanABEq)
@@ -358,28 +441,178 @@ def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
     assert operator in operator_vals
     assert diff == diff_val
 
+
 @pytest.mark.parametrize(
-    ("n", "n_chan_freq", "freqABEq", "chanABEq", "mask_truth"),
+    (
+        "n",
+        "n_chan_freq",
+        "freqABEq",
+        "chanABEq",
+        "mask_truth",
+        "dask_array",
+        "chunks",
+    ),
     [
-        (5, 4, "1 Hz- 2 Hz== 1.0dB", None, np.identity(5)),  # mixed integers and floats
-        (5, 4, "1 Hz- 2 Hz== 1dB", None, np.identity(5)),  # all integers
-        (5, 4, "1.0Hz-2.0Hz== 1.0dB", None, np.identity(5)),  # all floats
-        (5, 4, None, '"chan1"-"chan3" == 1.0 dB', np.identity(5)),
-        (5, 4, "2.0 Hz - 1.0 Hz==1.0 dB", None, np.zeros((5, 5))),
-        (5, 4, None, '"chan3" - "chan1"==1.0 dB', np.zeros((5, 5))),
-        (5, 4, "1.0 Hz-2.0Hz>=1.0dB", None, np.identity(5)),
-        (5, 4, None, '"chan1" - "chan3" >= 1.0 dB', np.identity(5)),
-        (5, 4, "1.0 kHz - 2.0 kHz > 1.0dB", None, np.zeros((5, 5))),
-        (5, 4, None, '"chan1"-"chan3">1.0 dB', np.zeros((5, 5))),
-        (5, 4, "1.0kHz-2.0 kHz<=1.0dB", None, np.ones((5, 5))),
-        (5, 4, None, '"chan1" - "chan3" <= 1.0 dB', np.ones((5, 5))),
-        (5, 4, "1.0 Hz-2.0Hz<1.0dB", None, np.ones((5, 5)) - np.identity(5)),
-        (5, 4, None, '"chan1"-"chan3"< 1.0 dB', np.ones((5, 5)) - np.identity(5))
+        (5, 4, "1.0Hz-2.0Hz== 1.0dB", None, np.identity(5), None, None),
+        (5, 4, None, '"chan1"-"chan3" == 1.0 dB', np.identity(5), None, None),
+        (5, 4, "2.0 Hz - 1.0 Hz==1.0 dB", None, np.zeros((5, 5)), None, None),
+        (5, 4, None, '"chan3" - "chan1"==1.0 dB', np.zeros((5, 5)), None, None),
+        (5, 4, "1.0 Hz-2.0Hz>=1.0dB", None, np.identity(5), None, None),
+        (5, 4, None, '"chan1" - "chan3" >= 1.0 dB', np.identity(5), None, None),
+        (5, 4, "1.0 kHz - 2.0 kHz > 1.0dB", None, np.zeros((5, 5)), None, None),
+        (5, 4, None, '"chan1"-"chan3">1.0 dB', np.zeros((5, 5)), None, None),
+        (5, 4, "1.0kHz-2.0 kHz<=1.0dB", None, np.ones((5, 5)), None, None),
+        (5, 4, None, '"chan1" - "chan3" <= 1.0 dB', np.ones((5, 5)), None, None),
+        (5, 4, "1.0 Hz-2.0Hz<1.0dB", None, np.ones((5, 5)) - np.identity(5), None, None),
+        (5, 4, None, '"chan1"-"chan3"< 1.0 dB', np.ones((5, 5)) - np.identity(5), None, None),
+        # Dask Arrays
+        (
+            500,
+            4,
+            "1.0Hz-2.0Hz== 1.0dB",
+            None,
+            np.identity(500),
+            True,
+            {
+                "ping_time": 10,
+                "range_sample": 10,
+            },
+        ),
+        (
+            500,
+            4,
+            None,
+            '"chan1"-"chan3" == 1.0 dB',
+            np.identity(500),
+            True,
+            {
+                "ping_time": 25,
+                "range_sample": 25,
+            },
+        ),
+        (
+            1000,
+            4,
+            "2.0 Hz - 1.0 Hz==1.0 dB",
+            None,
+            np.zeros((1000, 1000)),
+            True,
+            {
+                "ping_time": 200,
+                "range_sample": 200,
+            },
+        ),
+        (
+            750,
+            4,
+            None,
+            '"chan3" - "chan1"==1.0 dB',
+            np.zeros((750, 750)),
+            True,
+            {
+                "ping_time": 60,
+                "range_sample": 40,
+            },
+        ),
+        (
+            5,
+            4,
+            "1.0 Hz-2.0Hz>=1.0dB",
+            None,
+            np.identity(5),
+            True,
+            {
+                "ping_time": -1,
+                "range_sample": -1,
+            },
+        ),
+        (
+            600,
+            4,
+            None,
+            '"chan1" - "chan3" >= 1.0 dB',
+            np.identity(600),
+            True,
+            {
+                "ping_time": 120,
+                "range_sample": 60,
+            },
+        ),
+        (
+            700,
+            4,
+            "1.0 kHz - 2.0 kHz > 1.0dB",
+            None,
+            np.zeros((700, 700)),
+            True,
+            {
+                "ping_time": 100,
+                "range_sample": 100,
+            },
+        ),
+        (
+            800,
+            4,
+            None,
+            '"chan1"-"chan3">1.0 dB',
+            np.zeros((800, 800)),
+            True,
+            {
+                "ping_time": 120,
+                "range_sample": 150,
+            },
+        ),
+        (
+            5,
+            4,
+            "1.0kHz-2.0 kHz<=1.0dB",
+            None,
+            np.ones((5, 5)),
+            True,
+            {
+                "ping_time": -1,
+                "range_sample": -1,
+            },
+        ),
+        (
+            500,
+            4,
+            None,
+            '"chan1" - "chan3" <= 1.0 dB',
+            np.ones((500, 500)),
+            True,
+            {
+                "ping_time": 50,
+                "range_sample": 50,
+            },
+        ),
+        (
+            500,
+            4,
+            "1.0 Hz-2.0Hz<1.0dB",
+            None,
+            np.ones((500, 500)) - np.identity(500),
+            True,
+            {
+                "ping_time": 100,
+                "range_sample": 100,
+            },
+        ),
+        (
+            10000,
+            4,
+            None,
+            '"chan1"-"chan3"< 1.0 dB',
+            np.ones((10000, 10000)) - np.identity(10000),
+            True,
+            {
+                "ping_time": 1000,
+                "range_sample": 1000,
+            },
+        ),
     ],
     ids=[
-        "freqAB_sel_op_equals_mix_float_int_mix",
-        "freqAB_sel_op_equals_all_int",
-        "freqAB_sel_op_equals_all_float",
+        "freqAB_sel_op_equals",
         "chanAB_sel_op_equals",
         "reverse_freqAB_sel_op_equals",
         "reverse_chanAB_sel_op_equals",
@@ -391,11 +624,30 @@ def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
         "chanAB_sel_op_le",
         "freqAB_sel_op_less",
         "chanAB_sel_op_less",
-    ]
+        # Dask Arrays
+        "freqAB_sel_op_equals_dask",
+        "chanAB_sel_op_equals_dask",
+        "reverse_freqAB_sel_op_equals_dask",
+        "reverse_chanAB_sel_op_equals_dask",
+        "freqAB_sel_op_ge_dask",
+        "chanAB_sel_op_ge_dask",
+        "freqAB_sel_op_greater_dask",
+        "chanAB_sel_op_greater_dask",
+        "freqAB_sel_op_le_dask",
+        "chanAB_sel_op_le_dask",
+        "freqAB_sel_op_less_dask",
+        "chanAB_sel_op_less_dask",
+    ],
 )
-def test_frequency_differencing(n: int, n_chan_freq: int,
-                                freqABEq: str, chanABEq: str,
-                                mask_truth: np.ndarray):
+def test_frequency_differencing(
+    n: int,
+    n_chan_freq: int,
+    freqABEq: str,
+    chanABEq: str,
+    mask_truth: np.ndarray,
+    dask_array: bool,
+    chunks: dict,
+):
     """
     Tests that the output values of ``frequency_differencing`` are what we
     expect, the output is a DataArray, and that the name of the DataArray is correct.
@@ -416,17 +668,36 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
         in the criteria are enclosed in double quotes.
     mask_truth: np.ndarray
         The truth value for the output mask, provided the given inputs
+    dask_array: bool
+        The boolean value to decide if the mock Sv Dataset is dask or not
+    chunks: dict
+        The chunk sizes along ping_time and range_sample dimension
     """
 
     # obtain mock Sv Dataset
-    mock_Sv_ds = get_mock_freq_diff_data(n, n_chan_freq, add_chan=True, add_freq_nom=True)
+    mock_Sv_ds = get_mock_freq_diff_data(
+        n,
+        n_chan_freq,
+        add_chan=True,
+        add_freq_nom=True,
+        dask_array=dask_array,
+        chunks=chunks,
+    )
+
+    if dask_array:
+        assert mock_Sv_ds["Sv"].chunks != None
 
     # obtain the frequency-difference mask for mock_Sv_ds
-    out = ep.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={}, freqABEq=freqABEq,
-                                         chanABEq=chanABEq)
+    out = ep.mask.frequency_differencing(
+        source_Sv=mock_Sv_ds, storage_options={}, freqABEq=freqABEq, chanABEq=chanABEq
+    )
 
-    # ensure that the output values are correct
-    assert np.all(out == mask_truth)
+    if dask_array:
+        # ensure that the output values are correct
+        assert np.all(out.data.compute() == mask_truth)
+    else:
+        # ensure that the output values are correct
+        assert np.all(out == mask_truth)
 
     # ensure that the output is a DataArray
     assert isinstance(out, xr.DataArray)
@@ -444,18 +715,31 @@ def test_frequency_differencing(n: int, n_chan_freq: int,
         (5, 1, np.identity(5), "path/to/mask.zarr", {}),
         (5, 1, [np.identity(5), np.identity(5)], ["path/to/mask0.zarr", "path/to/mask1.zarr"], {}),
         (5, 1, np.identity(5), pathlib.Path("path/to/mask.zarr"), {}),
-        (5, 1, [np.identity(5), np.identity(5), np.identity(5)],
-         [None, "path/to/mask0.zarr", pathlib.Path("path/to/mask1.zarr")], {})
+        (
+            5,
+            1,
+            [np.identity(5), np.identity(5), np.identity(5)],
+            [None, "path/to/mask0.zarr", pathlib.Path("path/to/mask1.zarr")],
+            {},
+        ),
     ],
-    ids=["mask_da", "mask_list_da_single_storage", "mask_list_da_list_storage", "mask_str_path",
-         "mask_list_str_path", "mask_pathlib", "mask_mixed_da_str_pathlib"]
+    ids=[
+        "mask_da",
+        "mask_list_da_single_storage",
+        "mask_list_da_list_storage",
+        "mask_str_path",
+        "mask_list_str_path",
+        "mask_pathlib",
+        "mask_mixed_da_str_pathlib",
+    ],
 )
 def test_validate_and_collect_mask_input(
-        n: int,
-        n_chan: int,
-        mask_np: Union[np.ndarray, List[np.ndarray]],
-        mask_file: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]],
-        storage_options_mask: Union[dict, List[dict]]):
+    n: int,
+    n_chan: int,
+    mask_np: Union[np.ndarray, List[np.ndarray]],
+    mask_file: Optional[Union[str, pathlib.Path, List[Union[str, pathlib.Path]]]],
+    storage_options_mask: Union[dict, List[dict]],
+):
     """
     Tests the allowable types for the mask input and corresponding storage options.
 
@@ -483,30 +767,33 @@ def test_validate_and_collect_mask_input(
     """
 
     # construct channel values
-    chan_vals = ['chan' + str(i) for i in range(1, n_chan + 1)]
+    chan_vals = ["chan" + str(i) for i in range(1, n_chan + 1)]
 
     # create coordinates that will be used by all DataArrays created
-    coords = {"channel": ("channel", chan_vals, {"long_name": "channel name"}),
-              "ping_time": np.arange(n), "range_sample": np.arange(n)}
+    coords = {
+        "channel": ("channel", chan_vals, {"long_name": "channel name"}),
+        "ping_time": np.arange(n),
+        "range_sample": np.arange(n),
+    }
 
     # create input mask and obtain temporary directory, if it was created
     mask, _ = create_input_mask(mask_np, mask_file, coords)
 
-    mask_out = _validate_and_collect_mask_input(mask=mask, storage_options_mask=storage_options_mask)
+    mask_out = _validate_and_collect_mask_input(
+        mask=mask, storage_options_mask=storage_options_mask
+    )
 
     if isinstance(mask_out, list):
         for ind, da in enumerate(mask_out):
-
             # create known solution for mask
-            mask_da = xr.DataArray(data=[mask_np[ind] for i in range(n_chan)],
-                                   coords=coords, name='mask_' + str(ind))
+            mask_da = xr.DataArray(
+                data=[mask_np[ind] for i in range(n_chan)], coords=coords, name="mask_" + str(ind)
+            )
 
             assert da.identical(mask_da)
     else:
-
         # create known solution for mask
-        mask_da = xr.DataArray(data=[mask_np for i in range(n_chan)],
-                               coords=coords, name='mask_0')
+        mask_da = xr.DataArray(data=[mask_np for i in range(n_chan)], coords=coords, name="mask_0")
         assert mask_out.identical(mask_da)
 
 
@@ -584,8 +871,9 @@ def test_multi_mask_validate_and_collect_mask(mask_list: List[xr.DataArray]):
          "fill_value_float", "fill_value_np_array", "fill_value_DataArray",
          "fill_value_DataArray_wrong_shape"]
 )
-def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
-                                   fill_value: Union[int, float, np.ndarray, xr.DataArray]):
+def test_check_var_name_fill_value(
+    n: int, n_chan: int, var_name: str, fill_value: Union[int, float, np.ndarray, xr.DataArray]
+):
     """
     Ensures that the function ``_check_var_name_fill_value`` is behaving as expected.
 
@@ -609,12 +897,42 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
 
 
 @pytest.mark.parametrize(
-    ("n", "n_chan", "var_name", "mask", "mask_file", "fill_value", "is_delayed", "var_masked_truth", "no_channel"),
+    (
+        "n",
+        "n_chan",
+        "var_name",
+        "mask",
+        "mask_file",
+        "fill_value",
+        "is_delayed",
+        "var_masked_truth",
+        "no_channel",
+    ),
     [
         # single_mask_default_fill
-        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]]), False),
+        (
+            2,
+            1,
+            "var1",
+            np.identity(2),
+            None,
+            np.nan,
+            False,
+            np.array([[1, np.nan], [np.nan, 1]]),
+            False,
+        ),
         # single_mask_default_fill_no_channel
-        (2, 1, "var1", np.identity(2), None, np.nan, False, np.array([[1, np.nan], [np.nan, 1]]), True),
+        (
+            2,
+            1,
+            "var1",
+            np.identity(2),
+            None,
+            np.nan,
+            False,
+            np.array([[1, np.nan], [np.nan, 1]]),
+            True,
+        ),
         # single_mask_float_fill
         (2, 1, "var1", np.identity(2), None, 2.0, False, np.array([[1, 2.0], [2.0, 1]]), False),
         # single_mask_np_array_fill
@@ -624,24 +942,70 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
             marks=pytest.mark.xfail(strict=True,
             reason="This should fail because fill_value is an incorrect type.")),
         # single_mask_DataArray_fill
-        (2, 1, "var1", np.identity(2), None, xr.DataArray(data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
-                                                          coords={"channel": ["chan1"],
-                                                                  "ping_time": [0, 1],
-                                                                  "range_sample": [0, 1]}),
-         False, np.array([[1, np.nan], [np.nan, 1]]), False),
+        (
+            2,
+            1,
+            "var1",
+            np.identity(2),
+            None,
+            xr.DataArray(
+                data=np.array([[[np.nan, np.nan], [np.nan, np.nan]]]),
+                coords={"channel": ["chan1"], "ping_time": [0, 1], "range_sample": [0, 1]},
+            ),
+            False,
+            np.array([[1, np.nan], [np.nan, 1]]),
+            False,
+        ),
         # list_mask_all_np
-        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], [None, None], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
+        (
+            2,
+            1,
+            "var1",
+            [np.identity(2), np.array([[0, 1], [0, 1]])],
+            [None, None],
+            2.0,
+            False,
+            np.array([[2.0, 2.0], [2.0, 1]]),
+            False,
+        ),
         # single_mask_ds_delayed
         (2, 1, "var1", np.identity(2), None, 2.0, True, np.array([[1, 2.0], [2.0, 1]]), False),
         # single_mask_as_path
-        (2, 1, "var1", np.identity(2), "test.zarr", 2.0, True, np.array([[1, 2.0], [2.0, 1]]), False),
+        (
+            2,
+            1,
+            "var1",
+            np.identity(2),
+            "test.zarr",
+            2.0,
+            True,
+            np.array([[1, 2.0], [2.0, 1]]),
+            False,
+        ),
         # list_mask_all_path
-        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", "test1.zarr"], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
+        (
+            2,
+            1,
+            "var1",
+            [np.identity(2), np.array([[0, 1], [0, 1]])],
+            ["test0.zarr", "test1.zarr"],
+            2.0,
+            False,
+            np.array([[2.0, 2.0], [2.0, 1]]),
+            False,
+        ),
         # list_mask_some_path
-        (2, 1, "var1", [np.identity(2), np.array([[0, 1], [0, 1]])], ["test0.zarr", None], 2.0,
-         False, np.array([[2.0, 2.0], [2.0, 1]]), False),
+        (
+            2,
+            1,
+            "var1",
+            [np.identity(2), np.array([[0, 1], [0, 1]])],
+            ["test0.zarr", None],
+            2.0,
+            False,
+            np.array([[2.0, 2.0], [2.0, 1]]),
+            False,
+        ),
     ],
     ids=[
         "single_mask_default_fill",
@@ -653,16 +1017,20 @@ def test_check_var_name_fill_value(n: int, n_chan: int, var_name: str,
         "single_mask_ds_delayed",
         "single_mask_as_path",
         "list_mask_all_path",
-        "list_mask_some_path"
-    ]
+        "list_mask_some_path",
+    ],
 )
-def test_apply_mask(n: int, n_chan: int, var_name: str,
-                    mask: Union[np.ndarray, List[np.ndarray]],
-                    mask_file: Optional[Union[str, List[str]]],
-                    fill_value: Union[int, float, np.ndarray, xr.DataArray],
-                    is_delayed: bool,
-                    var_masked_truth: np.ndarray,
-                    no_channel: bool):
+def test_apply_mask(
+    n: int,
+    n_chan: int,
+    var_name: str,
+    mask: Union[np.ndarray, List[np.ndarray]],
+    mask_file: Optional[Union[str, List[str]]],
+    fill_value: Union[int, float, np.ndarray, xr.DataArray],
+    is_delayed: bool,
+    var_masked_truth: np.ndarray,
+    no_channel: bool,
+):
     """
     Ensures that ``apply_mask`` functions correctly.
 
@@ -696,8 +1064,11 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
     mask, temp_dir = create_input_mask(mask, mask_file, mock_ds[var_name].coords)
 
     # create DataArray form of the known truth value
-    var_masked_truth = xr.DataArray(data=np.stack([var_masked_truth for i in range(n_chan)]),
-                                    coords=mock_ds[var_name].coords, attrs=mock_ds[var_name].attrs)
+    var_masked_truth = xr.DataArray(
+        data=np.stack([var_masked_truth for i in range(n_chan)]),
+        coords=mock_ds[var_name].coords,
+        attrs=mock_ds[var_name].attrs,
+    )
     var_masked_truth.name = mock_ds[var_name].name
 
     if no_channel:
@@ -706,9 +1077,14 @@ def test_apply_mask(n: int, n_chan: int, var_name: str,
         var_masked_truth = var_masked_truth.isel(channel=0)
 
     # apply the mask to var_name
-    masked_ds = echopype.mask.apply_mask(source_ds=mock_ds, var_name=var_name, mask=mask,
-                                         fill_value=fill_value, storage_options_ds={},
-                                         storage_options_mask={})
+    masked_ds = echopype.mask.apply_mask(
+        source_ds=mock_ds,
+        var_name=var_name,
+        mask=mask,
+        fill_value=fill_value,
+        storage_options_ds={},
+        storage_options_mask={},
+    )
 
     # check that masked_ds[var_name] == var_masked_truth
     assert masked_ds[var_name].equals(var_masked_truth)
