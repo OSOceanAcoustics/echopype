@@ -317,7 +317,6 @@ def test_add_location(
 
 
 @pytest.mark.integration
-@pytest.mark.test
 def test_add_location_time_duplicates_warning(test_path, caplog):   
     """Tests for duplicate time value error in add_location.""" 
     # Open raw and compute the Sv dataset
@@ -332,7 +331,7 @@ def test_add_location_time_duplicates_warning(test_path, caplog):
     with pytest.raises(ValueError) as exc_info:
         # Run add location with duplicated time
         ep.consolidate.add_location(ds=ds, echodata=ed)
-    print(exc_info.value)
+
     # Check if the specific error message is in the logs
     assert 'The echodata["Platform"]["time1"] array contains duplicate values. Downstream interpolation on the position variables requires unique time values.' == str(exc_info.value)
 
