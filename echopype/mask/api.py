@@ -362,8 +362,8 @@ def apply_mask(
     # If final_mask has dim channel then source_da must have dim channel
     if "channel" in final_mask.dims and "channel" not in source_da.dims:
         raise ValueError(
-            "The final constructed mask has dim channel, "
-            f"so source_ds[{var_name}] must have dim channel."
+            "The final constructed mask has the channel dimension, "
+            f"so source_ds[{var_name}] must also have the channel dimension."
         )
     # If final_mask and source_da both have channel dimension, then they must
     # have the same number of channels.
