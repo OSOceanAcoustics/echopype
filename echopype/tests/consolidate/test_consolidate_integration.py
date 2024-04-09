@@ -316,7 +316,7 @@ def test_add_location(
 
 
 @pytest.mark.integration
-def test_add_location_time_duplicates_warning(test_path, caplog):   
+def test_add_location_time_duplicates_value_error(test_path):   
     """Tests for duplicate time value error in add_location.""" 
     # Open raw and compute the Sv dataset
     raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
@@ -332,7 +332,7 @@ def test_add_location_time_duplicates_warning(test_path, caplog):
         ep.consolidate.add_location(ds=ds, echodata=ed)
 
     # Check if the specific error message is in the logs
-    assert 'The echodata["Platform"]["time1"] array contains duplicate values. Downstream interpolation on the position variables requires unique time values.' == str(exc_info.value)
+    assert 'The `echodata["Platform"]["time1"]` array contains duplicate values. Downstream interpolation on the position variables requires unique time values.' == str(exc_info.value)
 
 
 @pytest.mark.integration
@@ -356,7 +356,7 @@ def test_add_location_lat_lon_0_NaN_warnings(test_path, caplog):
     # Check if the expected warnings are logged
     interp_msg = (
         "Interpolation may be negatively impacted, "
-        "consider handling these values before calling add_location."
+        "consider handling these values before calling `add_location`."
     )
     expected_warnings = [
         f"Latitude and/or longitude arrays contain NaNs. {interp_msg}",

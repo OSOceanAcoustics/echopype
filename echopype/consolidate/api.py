@@ -204,7 +204,7 @@ def add_location(
     ).any()
     interp_msg = (
         "Interpolation may be negatively impacted, "
-        "consider handling these values before calling add_location."
+        "consider handling these values before calling `add_location`."
     )
     if contains_nan_lat_lon:
         logger.warning(f"Latitude and/or longitude arrays contain NaNs. {interp_msg}")
@@ -219,7 +219,7 @@ def add_location(
         echodata["Platform"][time_dim_name].data
     ):
         raise ValueError(
-            f'The echodata["Platform"]["{time_dim_name}"] array contains duplicate values. '
+            f'The `echodata["Platform"]["{time_dim_name}"]` array contains duplicate values. '
             "Downstream interpolation on the position variables requires unique time values."
         )
 
