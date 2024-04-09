@@ -8,7 +8,6 @@ import pytest
 
 import numpy as np
 import pandas as pd
-from pandas.errors import InvalidIndexError
 import xarray as xr
 import scipy.io as io
 import echopype as ep
