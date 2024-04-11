@@ -3,8 +3,9 @@ import numpy as np
 import xarray as xr
 import math
 import dask
+import warnings
 
-from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings
+from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings, _encode_dataarray
 
 @pytest.mark.parametrize(
     "chunk",
@@ -69,3 +70,35 @@ def test_set_netcdf_encodings():
     assert encoding["var2"]["zlib"] is True
     assert encoding["var2"]["complevel"] == 5
     assert encoding["var3"]["zlib"] is False
+
+@pytest.mark.unit
+def test_encode_dataarray_on_nanosecond_resolution_encoding():
+    """Test to ensure that the expected warning / lack of warnings comes up."""
+    # Create an array with a multiple datetime64 elements
+    datetime_array = np.array(
+        [
+            '2023-11-22T16:22:41.088137000', 
+            '2023-11-22T16:22:46.150034000',
+            '2023-11-22T16:22:51.140442000', 
+            '2023-11-22T16:22:56.143124000'
+        ],
+        dtype='datetime64[ns]'
+    )
+
+    # Target encode dtype being None should raise user warning
+    with pytest.warns(UserWarning, match=r"Times can't be serialized faithfully.*"):
+        _encode_dataarray(
+            datetime_array,
+            da_dtype=datetime_array.dtype,
+            target_encode_dtype=None
+        )
+
+    # This should pass without error since no warning is called when target encode dtype
+    # float64 is used.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _encode_dataarray(
+            datetime_array,
+            da_dtype=datetime_array.dtype,
+            target_encode_dtype=np.dtype("float64")
+        )

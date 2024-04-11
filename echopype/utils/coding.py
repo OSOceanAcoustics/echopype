@@ -71,21 +71,17 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def _encode_dataarray(da, dtype):
+def _encode_dataarray(da, da_dtype, target_encode_dtype=np.dtype("float64")):
     """Encodes and decode datetime64 array similar to writing to file"""
     if da.size == 0:
         return da
-    read_encoding = {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-    }
-
-    if dtype in [np.float64, np.int64]:
+    read_encoding = {"units": "seconds since 1900-01-01T00:00:00+00:00", "calendar": "gregorian"}
+    if da_dtype in [np.float64, np.int64]:
         encoded_data = da
     else:
         # fmt: off
         encoded_data, _, _ = coding.times.encode_cf_datetime(
-            da, **read_encoding
+            da, dtype=target_encode_dtype, **read_encoding
         )
         # fmt: on
     return coding.times.decode_cf_datetime(encoded_data, **read_encoding)
@@ -130,7 +126,7 @@ def set_time_encodings(ds: xr.Dataset) -> xr.Dataset:
                     _encode_dataarray,
                     da,
                     keep_attrs=True,
-                    kwargs={"dtype": da.dtype},
+                    kwargs={"da_dtype": da.dtype},
                 )
 
             new_ds[var].encoding = encoding
