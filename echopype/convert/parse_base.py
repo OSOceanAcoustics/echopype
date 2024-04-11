@@ -441,7 +441,7 @@ class ParseEK(ParseBase):
               'water_level_draft': 0.0,
               'water_level_draft_is_manual': 0,
               'transducer_name': 'Unknown',
-              'transducer_sound_speed': 1490.0},
+              'sound_speed': 1490.0},
              'xml': '<?xml version="1.0" encoding="utf-8"?>\r\n<Environment Depth="240" ... />\r\n</Environment>'}
         """  # noqa
         num_datagrams_parsed = 0
