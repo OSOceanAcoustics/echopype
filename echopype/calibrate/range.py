@@ -191,7 +191,7 @@ def compute_range_EK(
 
     # remove time1 if exists as a coordinate
     if "time1" in range_meter.coords:
-        range_meter = range_meter.drop_vars("time1")
+        range_meter = range_meter.drop("time1")
 
     # add name to facilitate xr.merge
     range_meter.name = "echo_range"
