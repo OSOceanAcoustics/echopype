@@ -277,18 +277,13 @@ def _nan_check_convolve(m, replica):
 
     Notes
     -----
-    If all elements in `m` are NaN, the function returns `m`.
-    If any element in `m` is NaN, direct convolution is performed.
-    Otherwise, FFT convolution is used.
-
-    Direct convolution is slower than FFT but works when NaN values are present.
+    If all elements in ``m`` are NaN, the function returns ``m``.
+    Otherwise, we allow ``convolve`` to choose whether FFT or discrete convolution is used.
     """
     if np.all(np.isnan(m)):
         return m
-    elif np.any(np.isnan(m)):
-        return signal.convolve(m, replica, mode="full", method="direct")[replica.size - 1 :]
     else:
-        return signal.convolve(m, replica, mode="full", method="fft")[replica.size - 1 :]
+        return signal.convolve(m, replica, mode="full")[replica.size - 1 :]
 
 
 def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:

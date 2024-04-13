@@ -315,7 +315,7 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
     # if exists
     plb_var = "pulse_length_bin"
     if plb_var in da_param.coords:
-        da_param = da_param.drop(plb_var)
+        da_param = da_param.drop_vars(plb_var)
 
     return da_param
 

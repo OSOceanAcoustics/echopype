@@ -184,14 +184,14 @@ def compute_range_EK(
     # set entries with NaN backscatter data to NaN
     if "beam" in beam["backscatter_r"].dims:
         # Drop beam because echo_range should not have a beam dimension
-        valid_idx = ~beam["backscatter_r"].isel(beam=0).drop("beam").isnull()
+        valid_idx = ~beam["backscatter_r"].isel(beam=0).drop_vars("beam").isnull()
     else:
         valid_idx = ~beam["backscatter_r"].isnull()
     range_meter = range_meter.where(valid_idx)
 
     # remove time1 if exists as a coordinate
     if "time1" in range_meter.coords:
-        range_meter = range_meter.drop("time1")
+        range_meter = range_meter.drop_vars("time1")
 
     # add name to facilitate xr.merge
     range_meter.name = "echo_range"

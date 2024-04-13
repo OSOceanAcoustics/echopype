@@ -251,6 +251,8 @@ def test_ek80_BB_power_from_complex(
     idx_to_cmp = ~(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
+    print(pyel_vals[idx_to_cmp][0])
+    print(ep_vals[idx_to_cmp][0])
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
 
 
