@@ -392,3 +392,51 @@ def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     # receiver_sampling_frequency substituted with default value in compute_Sv
     assert ds_Sv["receiver_sampling_frequency"] is not None
     assert np.allclose(ds_Sv["receiver_sampling_frequency"].data, 1500000)
+
+@pytest.mark.integration
+def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs():
+    # Extract bb complex multiplex EK80 data
+    ed = ep.open_raw("echopype/test_data/ek80_bb_complex_multiplex/NYOS2105-D20210525-T213648.raw", sonar_model="EK80")
+    
+    # These beam group data variables were NaN along the 4th channel resulting in
+    # completely NaN 4th channel calibrated Sv, so we replace them with example floats
+    ed["Sonar/Beam_group1"]["angle_sensitivity_alongship"][3] = 20.5
+    ed["Sonar/Beam_group1"]["angle_sensitivity_athwartship"][3] = 22.5
+    ed["Sonar/Beam_group1"]["angle_offset_alongship"][3] = 0.0
+    ed["Sonar/Beam_group1"]["angle_offset_athwartship"][3] = 0.0
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed,waveform_mode='BB',encode_mode='complex')
+    
+    # Extract mask for both real backscatter and calibrated Sv:
+    
+    # EchoData Real (component) Backscatter mask should be 1 if all values along 
+    # a specific range sample and beam dimension are non-NaN; else NaN.
+    ed_backscatter_r_mask = xr.where(
+        ~np.isnan(ed["Sonar/Beam_group1"]["backscatter_r"]
+    ).all(dim=['range_sample', "beam"]), 1, np.nan)
+    # Calibrated Sv mask should be 1 if all values along 
+    # a specific range sample are non-NaN; else NaN.
+    calibrated_Sv_mask = xr.where(
+        ~np.isnan(ds_Sv["Sv"]
+    ).all(dim=['range_sample']), 1, np.nan)
+
+    # Check that they are equal
+    assert np.array_equal(
+        ed_backscatter_r_mask.data,
+        calibrated_Sv_mask.data,
+        equal_nan=True
+    )
+
+    # Check that a slice of calibrated Sv mask is equal to the following array
+    # with the following channel ping pattern:
+    # (3,4), 2, 1, (3,4), 2, 1, etc...
+    target_array = np.array([[np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan],
+                            [np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan],
+                            [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.],
+                            [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.]])
+    assert np.array_equal(
+        calibrated_Sv_mask.isel(ping_time=slice(0,10)).data,
+        target_array,
+        equal_nan=True
+    )

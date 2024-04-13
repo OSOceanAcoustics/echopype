@@ -54,7 +54,7 @@ def harmonize_env_param_time(
         if p["time1"].size == 1:
             return p.squeeze(dim="time1").drop_vars("time1")
 
-        # If after dropping NaN there's only 1 time1 value:
+        # If after dropping NaN along time1 dimension there's only 1 time1 value:
         if p.dropna(dim="time1").size == 1:
             return p.dropna(dim="time1").squeeze(dim="time1").drop_vars("time1")
 
