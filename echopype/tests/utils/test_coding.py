@@ -72,6 +72,7 @@ def test_set_netcdf_encodings():
     assert encoding["var3"]["zlib"] is False
 
 @pytest.mark.unit
+@pytest.mark.test
 def test_encode_dataarray_on_nanosecond_resolution_encoding():
     """Test to ensure that the expected warning / lack of warnings comes up."""
     # Create an array with a multiple datetime64 elements
@@ -85,20 +86,13 @@ def test_encode_dataarray_on_nanosecond_resolution_encoding():
         dtype='datetime64[ns]'
     )
 
-    # Target encode dtype being None should raise user warning
-    with pytest.warns(UserWarning, match=r"Times can't be serialized faithfully.*"):
-        _encode_dataarray(
-            datetime_array,
-            da_dtype=datetime_array.dtype,
-            target_encode_dtype=None
-        )
-
-    # This should pass without error since no warning is called when target encode dtype
-    # float64 is used.
+    # This should pass without error since int64 should be sufficient to encompass nanosecond scale granularity
+    # between time differences in 2023 and 1970
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        _encode_dataarray(
+        decoded_datetime_array = _encode_dataarray(
             datetime_array,
-            da_dtype=datetime_array.dtype,
-            target_encode_dtype=np.dtype("float64")
         )
+
+    # Check if datetime_array and decoded_datetime_array are equal
+    assert np.array_equal(datetime_array, decoded_datetime_array), "Arrays are not equal"
