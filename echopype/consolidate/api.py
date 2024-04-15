@@ -10,8 +10,11 @@ from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import get_file_format, open_source
+from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
+
+logger = _init_logger(__name__)
 
 POSITION_VARIABLES = ["latitude", "longitude"]
 
@@ -191,10 +194,38 @@ def add_location(
     if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
         raise ValueError("Coordinate variables not present or all nan")
 
+    # Check if any latitude/longitude value is NaN/0
+    contains_nan_lat_lon = (
+        np.isnan(echodata["Platform"]["latitude"].values).any()
+        or np.isnan(echodata["Platform"]["longitude"].values).any()
+    )
+    contains_zero_lat_lon = (echodata["Platform"]["latitude"].values == 0).any() or (
+        echodata["Platform"]["longitude"].values == 0
+    ).any()
+    interp_msg = (
+        "Interpolation may be negatively impacted, "
+        "consider handling these values before calling ``add_location``."
+    )
+    if contains_nan_lat_lon:
+        logger.warning(f"Latitude and/or longitude arrays contain NaNs. {interp_msg}")
+    if contains_zero_lat_lon:
+        logger.warning(f"Latitude and/or longitude arrays contain zeros. {interp_msg}")
+
     interp_ds = ds.copy()
     time_dim_name = list(echodata["Platform"]["longitude"].dims)[0]
+
+    # Check if there are duplicates in time_dim_name
+    if len(np.unique(echodata["Platform"][time_dim_name].data)) != len(
+        echodata["Platform"][time_dim_name].data
+    ):
+        raise ValueError(
+            f'The ``echodata["Platform"]["{time_dim_name}"]`` array contains duplicate values. '
+            "Downstream interpolation on the position variables requires unique time values."
+        )
+
     interp_ds["latitude"] = sel_interp("latitude", time_dim_name)
     interp_ds["longitude"] = sel_interp("longitude", time_dim_name)
+
     # Most attributes are attached automatically via interpolation
     # here we add the history
     history_attr = (
