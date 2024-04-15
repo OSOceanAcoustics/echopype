@@ -8,7 +8,6 @@ import echopype as ep
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="Test data not available on windows tests")
 
-
 @pytest.mark.parametrize(
     ["sonar_model", "path_model", "raw_and_xml_paths", "extras"],
     [

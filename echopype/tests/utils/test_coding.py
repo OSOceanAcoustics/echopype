@@ -72,7 +72,6 @@ def test_set_netcdf_encodings():
     assert encoding["var3"]["zlib"] is False
 
 @pytest.mark.unit
-@pytest.mark.test
 def test_encode_dataarray_on_nanosecond_resolution_encoding():
     """Test to ensure that the expected warning / lack of warnings comes up."""
     # Create an array with a multiple datetime64 elements
