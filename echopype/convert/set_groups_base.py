@@ -65,7 +65,7 @@ class SetGroupsBase(abc.ABC):
             "sonar_convention_version": "1.0",
             "summary": "",
             "title": "",
-            "date_created": np.datetime_as_string(date_created, "s") + "Z",
+            "date_created": np.datetime_as_string(date_created, "ns") + "Z",
         }
         # Save
         ds = xr.Dataset()
@@ -131,8 +131,8 @@ class SetGroupsBase(abc.ABC):
             # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
             time = (
-                self.parser_obj.nmea["timestamp"] - np.datetime64("1900-01-01T00:00:00")
-            ) / np.timedelta64(1, "s")
+                self.parser_obj.nmea["timestamp"] - np.datetime64("1970-01-01T00:00:00")
+            ) / np.timedelta64(1, "ns")
             raw_nmea = self.parser_obj.nmea["nmea_string"]
         else:
             time = [np.nan]
