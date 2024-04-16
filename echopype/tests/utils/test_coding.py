@@ -5,7 +5,7 @@ import math
 import dask
 import warnings
 
-from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings, _encode_dataarray
+from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings, _encode_dataarray, DEFAULT_TIME_ENCODING
 
 @pytest.mark.parametrize(
     "chunk",
@@ -95,3 +95,39 @@ def test_encode_dataarray_on_nanosecond_resolution_encoding():
 
     # Check if datetime_array and decoded_datetime_array are equal
     assert np.array_equal(datetime_array, decoded_datetime_array), "Arrays are not equal"
+
+@pytest.mark.unit
+def test_encode_dataarray_on_encoded_time_data():
+    """Test to ensure that the array equality and expected error hold."""
+    # Create an array with a multiple datetime64 elements
+    datetime_array = np.array(
+        [
+            '2023-11-22T16:22:41.088137000', 
+            '2023-11-22T16:22:46.150034000',
+            '2023-11-22T16:22:51.140442000', 
+            '2023-11-22T16:22:56.143124000'
+        ],
+        dtype='datetime64[ns]'
+    )
+    
+    # Encode datetime
+    encoded_datetime_array, _, _ = xr.coding.times.encode_cf_datetime(
+            datetime_array, **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            }
+        )
+
+    # Check that no warning is raised
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        decoded_datetime_array = _encode_dataarray(
+            encoded_datetime_array
+        )
+
+    # Check if datetime_array and decoded_datetime_array are equal
+    assert np.array_equal(datetime_array, decoded_datetime_array), "Arrays are not equal"
+    
+    # Check to see if value error is raised when we pass in an encoded float datetime array
+    with pytest.raises(ValueError, match="Encoded time data array must be of type ```np.int64```."):
+        _encode_dataarray(encoded_datetime_array.astype(np.float64))

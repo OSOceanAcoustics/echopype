@@ -74,8 +74,10 @@ def _encode_dataarray(da):
     """Encodes and decode datetime64 array similar to writing to file"""
     if da.size == 0:
         return da
-    if da.dtype in [np.float64, np.int64]:
+    if da.dtype == np.int64:
         encoded_data = da
+    elif da.dtype == np.float64:
+        raise ValueError("Encoded time data array must be of type ```np.int64```.")
     else:
         # fmt: off
         encoded_data, _, _ = coding.times.encode_cf_datetime(
