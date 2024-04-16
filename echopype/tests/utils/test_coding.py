@@ -127,6 +127,9 @@ def test_encode_dataarray_on_encoded_time_data():
 
     # Check if datetime_array and decoded_datetime_array are equal
     assert np.array_equal(datetime_array, decoded_datetime_array), "Arrays are not equal"
+
+    # Check to see if returns empty array
+    assert np.array_equal(np.empty(0), _encode_dataarray(np.empty(0)))
     
     # Check to see if value error is raised when we pass in an encoded float datetime array
     with pytest.raises(ValueError, match="Encoded time data array must be of type ```np.int64```."):
