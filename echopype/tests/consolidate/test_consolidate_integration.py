@@ -315,6 +315,60 @@ def test_add_location(
             _tests(ds_sel, location_type, nmea_sentence="GGA")
 
 
+@pytest.mark.integration
+def test_add_location_time_duplicates_value_error(test_path):   
+    """Tests for duplicate time value error in ``add_location``.""" 
+    # Open raw and compute the Sv dataset
+    raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
+    ed = ep.open_raw(raw_path, sonar_model="EK60")
+    ds = ep.calibrate.compute_Sv(echodata=ed)
+    
+    # Add duplicates to time1
+    ed["Platform"]["time1"].data[0] = ed["Platform"]["time1"].data[1]
+    
+    # Check if the expected error is logged
+    with pytest.raises(ValueError) as exc_info:
+        # Run add location with duplicated time
+        ep.consolidate.add_location(ds=ds, echodata=ed)
+
+    # Check if the specific error message is in the logs
+    assert 'The ``echodata["Platform"]["time1"]`` array contains duplicate values. Downstream interpolation on the position variables requires unique time values.' == str(exc_info.value)
+
+
+@pytest.mark.integration
+def test_add_location_lat_lon_0_NaN_warnings(test_path, caplog):
+    """Tests for lat lon 0 and NaN value warnings in ``add_warning``."""
+    # Open raw and compute the Sv dataset
+    raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
+    ed = ep.open_raw(raw_path, sonar_model="EK60")
+    ds = ep.calibrate.compute_Sv(echodata=ed)
+    
+    # Add NaN to latitude and 0 to longitude
+    ed["Platform"]["latitude"][0] = np.nan
+    ed["Platform"]["longitude"][0] = 0
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Run add location with 0 and NaN lat/lon values
+    ep.consolidate.add_location(ds=ds, echodata=ed)
+    
+    # Check if the expected warnings are logged
+    interp_msg = (
+        "Interpolation may be negatively impacted, "
+        "consider handling these values before calling ``add_location``."
+    )
+    expected_warnings = [
+        f"Latitude and/or longitude arrays contain NaNs. {interp_msg}",
+        f"Latitude and/or longitude arrays contain zeros. {interp_msg}"
+    ]
+    for warning in expected_warnings:
+        assert any(warning in record.message for record in caplog.records)
+    
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
+
+
 @pytest.mark.parametrize(
     ("sonar_model", "test_path_key", "raw_file_name", "paths_to_echoview_mat",
      "waveform_mode", "encode_mode", "pulse_compression", "to_disk"),
