@@ -9,10 +9,9 @@ from dask.utils import parse_bytes
 from xarray import coding
 
 DEFAULT_TIME_ENCODING = {
-    "units": "seconds since 1900-01-01T00:00:00+00:00",
+    "units": "nanoseconds since 1970-01-01T00:00:00Z",
     "calendar": "gregorian",
-    "_FillValue": np.nan,
-    "dtype": np.dtype("float64"),
+    "dtype": np.dtype("int64"),
 }
 
 COMPRESSION_SETTINGS = {
@@ -71,24 +70,30 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def _encode_dataarray(da, dtype):
+def _encode_time_dataarray(da):
     """Encodes and decode datetime64 array similar to writing to file"""
     if da.size == 0:
         return da
-    read_encoding = {
-        "units": "seconds since 1900-01-01T00:00:00+00:00",
-        "calendar": "gregorian",
-    }
-
-    if dtype in [np.float64, np.int64]:
+    if da.dtype == np.int64:
         encoded_data = da
+    elif da.dtype == np.float64:
+        raise ValueError("Encoded time data array must be of type ```np.int64```.")
     else:
         # fmt: off
         encoded_data, _, _ = coding.times.encode_cf_datetime(
-            da, **read_encoding
+            da, **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            }
         )
         # fmt: on
-    return coding.times.decode_cf_datetime(encoded_data, **read_encoding)
+    return coding.times.decode_cf_datetime(
+        encoded_data,
+        **{
+            "units": DEFAULT_TIME_ENCODING["units"],
+            "calendar": DEFAULT_TIME_ENCODING["calendar"],
+        },
+    )
 
 
 def _get_auto_chunk(
@@ -127,10 +132,9 @@ def set_time_encodings(ds: xr.Dataset) -> xr.Dataset:
             # Examples: ping_time, ping_time_2, time1, time2
             if bool(search(r"_time|^time[\d]+$", var)):
                 new_ds[var] = xr.apply_ufunc(
-                    _encode_dataarray,
+                    _encode_time_dataarray,
                     da,
                     keep_attrs=True,
-                    kwargs={"dtype": da.dtype},
                 )
 
             new_ds[var].encoding = encoding

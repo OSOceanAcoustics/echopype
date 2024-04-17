@@ -7,7 +7,7 @@ import pynmea2
 import xarray as xr
 
 from ..echodata.convention import sonarnetcdf_1
-from ..utils.coding import COMPRESSION_SETTINGS, set_time_encodings
+from ..utils.coding import COMPRESSION_SETTINGS, DEFAULT_TIME_ENCODING, set_time_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
@@ -128,11 +128,16 @@ class SetGroupsBase(abc.ABC):
         """Set the Platform/NMEA group."""
         # Save nan if nmea data is not encoded in the raw file
         if len(self.parser_obj.nmea["nmea_string"]) != 0:
-            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
+            # Convert np.datetime64 numbers to nanoseconds since 1970-01-01 00:00:00Z
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            time = (
-                self.parser_obj.nmea["timestamp"] - np.datetime64("1900-01-01T00:00:00")
-            ) / np.timedelta64(1, "s")
+            # print(np.array(self.parser_obj.nmea["timestamp"])[idx_loc].shape)
+            time, _, _ = xr.coding.times.encode_cf_datetime(
+                self.parser_obj.nmea["timestamp"],
+                **{
+                    "units": DEFAULT_TIME_ENCODING["units"],
+                    "calendar": DEFAULT_TIME_ENCODING["calendar"],
+                },
+            )
             raw_nmea = self.parser_obj.nmea["nmea_string"]
         else:
             time = [np.nan]
@@ -215,15 +220,16 @@ class SetGroupsBase(abc.ABC):
             if nmea_msg
             else [np.nan]
         )
-        time1 = (
-            (
-                np.array(self.parser_obj.nmea["timestamp"])[idx_loc]
-                - np.datetime64("1900-01-01T00:00:00")
+        if nmea_msg:
+            time1, _, _ = xr.coding.times.encode_cf_datetime(
+                np.array(self.parser_obj.nmea["timestamp"])[idx_loc],
+                **{
+                    "units": DEFAULT_TIME_ENCODING["units"],
+                    "calendar": DEFAULT_TIME_ENCODING["calendar"],
+                },
             )
-            / np.timedelta64(1, "s")
-            if nmea_msg
-            else [np.nan]
-        )
+        else:
+            time1 = [np.nan]
 
         return time1, msg_type, lat, lon
 
