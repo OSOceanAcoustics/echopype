@@ -5,7 +5,7 @@ import math
 import dask
 import warnings
 
-from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings, _encode_dataarray, DEFAULT_TIME_ENCODING
+from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings, _encode_time_dataarray, DEFAULT_TIME_ENCODING
 
 @pytest.mark.parametrize(
     "chunk",
@@ -72,7 +72,7 @@ def test_set_netcdf_encodings():
     assert encoding["var3"]["zlib"] is False
 
 @pytest.mark.unit
-def test_encode_dataarray_on_nanosecond_resolution_encoding():
+def test_encode_time_dataarray_on_nanosecond_resolution_encoding():
     """Test to ensure that the expected warning / lack of warnings comes up."""
     # Create an array with a multiple datetime64 elements
     datetime_array = np.array(
@@ -89,7 +89,7 @@ def test_encode_dataarray_on_nanosecond_resolution_encoding():
     # between time differences in 2023 and 1970
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        decoded_datetime_array = _encode_dataarray(
+        decoded_datetime_array = _encode_time_dataarray(
             datetime_array,
         )
 
@@ -97,7 +97,7 @@ def test_encode_dataarray_on_nanosecond_resolution_encoding():
     assert np.array_equal(datetime_array, decoded_datetime_array), "Arrays are not equal"
 
 @pytest.mark.unit
-def test_encode_dataarray_on_encoded_time_data():
+def test_encode_time_dataarray_on_encoded_time_data():
     """Test to ensure that the array equality and expected error hold."""
     # Create an array with a multiple datetime64 elements
     datetime_array = np.array(
@@ -121,7 +121,7 @@ def test_encode_dataarray_on_encoded_time_data():
     # Check that no warning is raised
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        decoded_datetime_array = _encode_dataarray(
+        decoded_datetime_array = _encode_time_dataarray(
             encoded_datetime_array
         )
 
@@ -129,8 +129,8 @@ def test_encode_dataarray_on_encoded_time_data():
     assert np.array_equal(datetime_array, decoded_datetime_array), "Arrays are not equal"
 
     # Check to see if returns empty array
-    assert np.array_equal(np.empty(0), _encode_dataarray(np.empty(0)))
+    assert np.array_equal(np.empty(0), _encode_time_dataarray(np.empty(0)))
     
     # Check to see if value error is raised when we pass in an encoded float datetime array
     with pytest.raises(ValueError, match="Encoded time data array must be of type ```np.int64```."):
-        _encode_dataarray(encoded_datetime_array.astype(np.float64))
+        _encode_time_dataarray(encoded_datetime_array.astype(np.float64))
