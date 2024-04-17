@@ -42,10 +42,12 @@ SV_OFFSET = {
         **SV_OFFSET_HF,
     },
     455000.0: {
-        250: 1.3, **SV_OFFSET_HF,
+        250: 1.3,
+        **SV_OFFSET_HF,
     },
     769000.0: {
-        150: 1.4, **SV_OFFSET_HF,
+        150: 1.4,
+        **SV_OFFSET_HF,
     },
 }
 
@@ -534,7 +536,7 @@ class ParseAZFP(ParseBase):
                 "Please contact AZFP Environmental Sciences "
                 "and raise an issue in the echopype repository."
             )
-        
+
         # Check if the specified freq-pulse length combination is in the allowable Sv_offset dict
         if pulse_len not in SV_OFFSET[freq]:
             raise ValueError(
