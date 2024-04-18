@@ -5,7 +5,6 @@ import pickle
 import xarray as xr
 
 import echopype as ep
-from echopype.calibrate.ek80_complex import _convolve_nans_efficiently
 
 
 @pytest.fixture
@@ -373,7 +372,6 @@ def test_ek80_BB_power_echoview(ek80_path):
     ep_vals = pc_mean.values.real[:, :]
     assert np.allclose(ev_vals[:, 69:], ep_vals[:, 69:], atol=1e-4)
 
-    
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
@@ -389,37 +387,6 @@ def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     # receiver_sampling_frequency substituted with default value in compute_Sv
     assert ds_Sv["receiver_sampling_frequency"] is not None
     assert np.allclose(ds_Sv["receiver_sampling_frequency"].data, 1500000)
-
-
-@pytest.mark.unit
-def test_convolve_nans_efficiently():
-    """Test to ensure correct outputs of _convolve_nans_efficiently"""
-    # All NaN
-    m = np.array([np.nan, np.nan, np.nan, np.nan, np.nan])
-    replica = np.array([1, 2, 3, 4, 5])
-    assert np.array_equal(
-        m,
-        _convolve_nans_efficiently(m, replica),
-        equal_nan=True
-    )
-
-    # Single NaN exists
-    m = np.array([0,-2, -5, -9, np.nan])
-    replica = np.array([1, 2, 3, 4, 5])
-    assert np.allclose(
-        np.array([-41, -57, -61, -45, np.nan]),
-        _convolve_nans_efficiently(m, replica),
-        equal_nan=True
-    )
-
-    # No NaN
-    m = np.array([0, -2, -5, -9, -14])
-    replica = np.array([1, 2, 3, 4, 5])
-    assert np.allclose(
-        np.array([-55,  -85, -103, -101,  -70]),
-        _convolve_nans_efficiently(m, replica),
-        equal_nan=True
-    )
 
 
 @pytest.mark.parametrize(

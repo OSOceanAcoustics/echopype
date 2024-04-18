@@ -289,8 +289,8 @@ def _convolve_nans_efficiently(m, replica):
     # Create a copy of m to modify
     m_copy = m.copy()
 
-    # Replace NaNs with 0s
-    m_copy[nan_mask] = 0
+    # Replace NaNs with 0.0s
+    m_copy[nan_mask] = 0.0
 
     # Perform convolution
     # Scipy chooses whether FFT or discrete convolution is fastest and uses faster method

@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import xarray as xr
 
-from echopype.calibrate.ek80_complex import get_vend_filter_EK80
+from echopype.calibrate.ek80_complex import get_vend_filter_EK80, _convolve_nans_efficiently
 
 
 @pytest.fixture
@@ -71,3 +71,35 @@ def test_get_vend_filter_EK80(ch_num, filter_len, has_nan):
             assert sel_vend[var_df].values == get_vend_filter_EK80(
                 vend, channel_id=ch, filter_name=filter_name, param_type="decimation"
             )
+
+
+@pytest.mark.test
+@pytest.mark.unit
+def test_convolve_nans_efficiently():
+    """Test to ensure correct outputs of _convolve_nans_efficiently"""
+    # All NaN
+    m = np.array([np.nan, np.nan, np.nan, np.nan, np.nan])
+    replica = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    assert np.array_equal(
+        m,
+        _convolve_nans_efficiently(m, replica),
+        equal_nan=True
+    )
+
+    # Single NaN exists
+    m = np.array([0.0, -2.0, -5.0, -9.0, np.nan])
+    replica = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    assert np.allclose(
+        np.array([-41.0, -57.0, -61.0, -45.0, np.nan]),
+        _convolve_nans_efficiently(m, replica),
+        equal_nan=True
+    )
+
+    # No NaN
+    m = np.array([0.0, -2.0, -5.0, -9.0, -14.0])
+    replica = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    assert np.allclose(
+        np.array([-55.0,  -85.0, -103.0, -101.0,  -70.0]),
+        _convolve_nans_efficiently(m, replica),
+        equal_nan=True
+    )
