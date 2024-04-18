@@ -73,7 +73,6 @@ def test_get_vend_filter_EK80(ch_num, filter_len, has_nan):
             )
 
 
-@pytest.mark.test
 @pytest.mark.unit
 def test_convolve_nans_efficiently():
     """Test to ensure correct outputs of _convolve_nans_efficiently"""
