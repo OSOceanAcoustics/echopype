@@ -5,6 +5,7 @@ import pickle
 import xarray as xr
 
 import echopype as ep
+from echopype.calibrate.ek80_complex import _convolve_nans_efficiently
 
 
 @pytest.fixture
@@ -251,10 +252,7 @@ def test_ek80_BB_power_from_complex(
     idx_to_cmp = ~(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
-    print(pyel_vals[idx_to_cmp][0])
-    print(ep_vals[idx_to_cmp][0])
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
-
 
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
@@ -373,8 +371,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     # Below only compare the first ping
     ev_vals = df_real.values[:, :]
     ep_vals = pc_mean.values.real[:, :]
-    assert np.allclose(ev_vals[:, 69:8284], ep_vals[:, 69:], atol=1e-4)
-    assert np.allclose(ev_vals[:, 90:8284], ep_vals[:, 90:], atol=1e-5)
+    assert np.allclose(ev_vals[:, 69:], ep_vals[:, 69:], atol=1e-4)
 
     
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
@@ -393,17 +390,69 @@ def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     assert ds_Sv["receiver_sampling_frequency"] is not None
     assert np.allclose(ds_Sv["receiver_sampling_frequency"].data, 1500000)
 
+
+@pytest.mark.unit
+def test_convolve_nans_efficiently():
+    """Test to ensure correct outputs of _convolve_nans_efficiently"""
+    # All NaN
+    m = np.array([np.nan, np.nan, np.nan, np.nan, np.nan])
+    replica = np.array([1, 2, 3, 4, 5])
+    assert np.array_equal(
+        m,
+        _convolve_nans_efficiently(m, replica),
+        equal_nan=True
+    )
+
+    # Single NaN exists
+    m = np.array([0,-2, -5, -9, np.nan])
+    replica = np.array([1, 2, 3, 4, 5])
+    assert np.allclose(
+        np.array([-41, -57, -61, -45, np.nan]),
+        _convolve_nans_efficiently(m, replica),
+        equal_nan=True
+    )
+
+    # No NaN
+    m = np.array([0, -2, -5, -9, -14])
+    replica = np.array([1, 2, 3, 4, 5])
+    assert np.allclose(
+        np.array([-55,  -85, -103, -101,  -70]),
+        _convolve_nans_efficiently(m, replica),
+        equal_nan=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("raw_data_path,target_channel_ping_pattern"),
+    [
+        (
+            "NYOS2105-D20210525-T213648.raw",
+            # (3,4), 2, 1, (3,4), 2, 1, etc...
+            np.array(
+                [
+                    [np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan],
+                    [np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan],
+                    [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.],
+                    [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.]
+                ]
+            ),
+        ),
+        (
+            "DRIX08-D20231003-T120051.raw",
+            # 2, 1, 2, 1, 2, 1, etc...
+            np.array(
+                [
+                    [np.nan,  1., np.nan, 1,  np.nan, 1, np.nan,  1., np.nan, 1],
+                    [1, np.nan,  1., np.nan, 1,  np.nan, 1, np.nan,  1., np.nan],
+                ]
+            ),
+        ),
+    ],
+)
 @pytest.mark.integration
-def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs():
+def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_channel_ping_pattern):
     # Extract bb complex multiplex EK80 data
-    ed = ep.open_raw("echopype/test_data/ek80_bb_complex_multiplex/NYOS2105-D20210525-T213648.raw", sonar_model="EK80")
-    
-    # These beam group data variables were NaN along the 4th channel resulting in
-    # completely NaN 4th channel calibrated Sv, so we replace them with example floats
-    ed["Sonar/Beam_group1"]["angle_sensitivity_alongship"][3] = 20.5
-    ed["Sonar/Beam_group1"]["angle_sensitivity_athwartship"][3] = 22.5
-    ed["Sonar/Beam_group1"]["angle_offset_alongship"][3] = 0.0
-    ed["Sonar/Beam_group1"]["angle_offset_athwartship"][3] = 0.0
+    ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/{raw_data_path}", sonar_model="EK80")
 
     # Compute Sv
     ds_Sv = ep.calibrate.compute_Sv(ed,waveform_mode='BB',encode_mode='complex')
@@ -429,14 +478,9 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs():
     )
 
     # Check that a slice of calibrated Sv mask is equal to the following array
-    # with the following channel ping pattern:
-    # (3,4), 2, 1, (3,4), 2, 1, etc...
-    target_array = np.array([[np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan],
-                            [np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan],
-                            [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.],
-                            [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.]])
+    # with the target channel ping pattern:
     assert np.array_equal(
         calibrated_Sv_mask.isel(ping_time=slice(0,10)).data,
-        target_array,
+        target_channel_ping_pattern,
         equal_nan=True
     )

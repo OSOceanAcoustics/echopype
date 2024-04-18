@@ -259,9 +259,13 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
-def _nan_check_convolve(m, replica):
+def _convolve_nans_efficiently(m, replica):
     """
-    Convolve two arrays while handling NaN values efficiently.
+    Convolve two arrays while handling NaN values efficiently:
+
+    If all elements in ``m`` are NaN, the function returns ``m`` unchanged.
+    If there are NaN values in ``m``, they are temporarily set to 0 before convolution
+    and restored back to NaN in the resulting array after convolution.
 
     Parameters
     ----------
@@ -272,18 +276,30 @@ def _nan_check_convolve(m, replica):
 
     Returns
     -------
-    array-like
+    conv_result : array-like
         Convolved array.
-
-    Notes
-    -----
-    If all elements in ``m`` are NaN, the function returns ``m``.
-    Otherwise, we allow ``convolve`` to choose whether FFT or discrete convolution is used.
     """
-    if np.all(np.isnan(m)):
+    # Create a mask for NaN values
+    nan_mask = np.isnan(m)
+
+    # Check if all elements in m are NaN
+    if np.all(nan_mask):
         return m
-    else:
-        return signal.convolve(m, replica, mode="full")[replica.size - 1 :]
+
+    # Create a copy of m to modify
+    m_copy = m.copy()
+
+    # Replace NaNs with 0s
+    m_copy[nan_mask] = 0
+
+    # Perform convolution
+    # Scipy chooses whether FFT or discrete convolution is fastest and uses faster method
+    conv_result = signal.convolve(m_copy, replica, mode="full")[replica.size - 1 :]
+
+    # Restore NaN values in the resulting array
+    conv_result[nan_mask] = np.nan
+
+    return conv_result
 
 
 def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
@@ -313,12 +329,12 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         # Compute complex conjugate of transmit values and reverse order of elements
         replica = np.flipud(np.conj(tx))
 
-        # Create partial of nan_check_convolve with passed in replica
-        _nan_check_convolve_partial = partial(_nan_check_convolve, replica=replica)
+        # Create partial of _convolve_nans_efficiently with passed in replica
+        _convolve_nans_efficiently_partial = partial(_convolve_nans_efficiently, replica=replica)
 
         # Apply convolve on backscatter (along range sample dimension) and replica
         pc = xr.apply_ufunc(
-            _nan_check_convolve_partial,
+            _convolve_nans_efficiently_partial,
             backscatter_chan,
             input_core_dims=[["range_sample"]],
             output_core_dims=[["range_sample"]],
