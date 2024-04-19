@@ -560,7 +560,8 @@ class ParseAZFP(ParseBase):
         # Check if the specified freq-pulse length combination is in the allowable Sv_offset dict
         if pulse_len not in SV_OFFSET[freq]:
             raise ValueError(
-                f"Pulse length {pulse_len} us is not in the Sv offset dictionary! "
+                f"Pulse length {pulse_len} us is not in the Sv offset dictionary "
+                f"for the {freq} Hz channel! "  # add freq info
                 "Please contact AZFP Environmental Sciences "
                 "and raise an issue in the echopype repository."
             )
