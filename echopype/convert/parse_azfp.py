@@ -349,6 +349,26 @@ class ParseAZFP(ParseBase):
             if isinstance(val, list):
                 self.parameters[key] = np.asarray(val)
 
+        # Get frequency values
+        freq_old = list(self.unpacked_data["frequency"])
+
+        # Sort the frequencies in ascending order
+        freq_new = freq_old[:]
+        freq_new.sort(reverse=False)
+
+        # Obtain sorted frequency indices
+        self.freq_ind_sorted = [freq_new.index(ch) for ch in freq_old]
+
+        # Obtain sorted frequencies
+        self.freq_sorted = self.unpacked_data["frequency"][self.freq_ind_sorted] * 1000.0
+
+        # Build Sv offset
+        self.Sv_offset = np.zeros_like(self.freq_sorted)
+        for ind, ich in enumerate(self.freq_ind_sorted):
+            self.Sv_offset[ind] = self._calc_Sv_offset(
+                self.freq_sorted[ind], self.unpacked_data["pulse_len"][ich]
+            )
+
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
         filename = os.path.basename(self.source_file)
@@ -540,7 +560,8 @@ class ParseAZFP(ParseBase):
         # Check if the specified freq-pulse length combination is in the allowable Sv_offset dict
         if pulse_len not in SV_OFFSET[freq]:
             raise ValueError(
-                f"Pulse length {pulse_len} us is not in the Sv offset dictionary! "
+                f"Pulse length {pulse_len} us is not in the Sv offset dictionary "
+                f"for the {freq} Hz channel! "  # add freq info
                 "Please contact AZFP Environmental Sciences "
                 "and raise an issue in the echopype repository."
             )

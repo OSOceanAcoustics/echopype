@@ -55,24 +55,8 @@ class SetGroupsAZFP(SetGroupsBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # get frequency values
-        freq_old = list(self.parser_obj.unpacked_data["frequency"])
-
-        # sort the frequencies in ascending order
-        freq_new = freq_old[:]
-        freq_new.sort(reverse=False)
-
-        # obtain sorted frequency indices
-        self.freq_ind_sorted = [freq_new.index(ch) for ch in freq_old]
-
-        # obtain sorted frequencies
-        self.freq_sorted = self.parser_obj.unpacked_data["frequency"][self.freq_ind_sorted]
-
         # obtain channel_ids
         self.channel_ids_sorted = self._create_unique_channel_name()
-
-        # Put Frequency in Hz (this should be done after create_unique_channel_name)
-        self.freq_sorted = self.freq_sorted * 1000  # Frequency in Hz
 
     def _create_unique_channel_name(self):
         """
@@ -85,12 +69,13 @@ class SetGroupsAZFP(SetGroupsBase):
         frequency_number = self.parser_obj.parameters["frequency_number_phase1"]
 
         if serial_number.size == 1:
-            freq_as_str = self.freq_sorted.astype(int).astype(str)
+            freq_sorted_in_kHz = self.parser_obj.freq_sorted / 1000.0
+            freq_in_kHz_as_str = freq_sorted_in_kHz.astype(int).astype(str)
 
             # TODO: replace str(i+1) with Frequency Number from XML
             channel_id = [
                 str(serial_number) + "-" + freq + "-" + frequency_number[i]
-                for i, freq in enumerate(freq_as_str)
+                for i, freq in enumerate(freq_in_kHz_as_str)
             ]
 
             return channel_id
@@ -127,7 +112,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "frequency_nominal": (
                     ["channel"],
-                    self.freq_sorted,
+                    self.parser_obj.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -307,7 +292,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 },
                 "frequency_nominal": (
                     ["channel"],
-                    self.freq_sorted,
+                    self.parser_obj.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -351,12 +336,12 @@ class SetGroupsAZFP(SetGroupsBase):
         """Set the Beam group."""
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
-        dig_rate = unpacked_data["dig_rate"][self.freq_ind_sorted]  # dim: freq
+        dig_rate = unpacked_data["dig_rate"][self.parser_obj.freq_ind_sorted]  # dim: freq
         ping_time = self.parser_obj.ping_time
 
         # Build variables in the output xarray Dataset
         N = []  # for storing backscatter_r values for each frequency
-        for ich in self.freq_ind_sorted:
+        for ich in self.parser_obj.freq_ind_sorted:
             N.append(
                 np.array(
                     [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["year"]))]
@@ -376,10 +361,10 @@ class SetGroupsAZFP(SetGroupsBase):
             del N_tmp
 
         tdn = (
-            unpacked_data["pulse_len"][self.freq_ind_sorted] / 1e6
+            unpacked_data["pulse_len"][self.parser_obj.freq_ind_sorted] / 1e6
         )  # Convert microseconds to seconds
         range_samples_per_bin = unpacked_data["range_samples_per_bin"][
-            self.freq_ind_sorted
+            self.parser_obj.freq_ind_sorted
         ]  # from data header
 
         # Calculate sample interval in seconds
@@ -395,7 +380,7 @@ class SetGroupsAZFP(SetGroupsBase):
             {
                 "frequency_nominal": (
                     ["channel"],
-                    self.freq_sorted,
+                    self.parser_obj.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -441,7 +426,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "equivalent_beam_angle": (
                     ["channel"],
-                    parameters["BP"][self.freq_ind_sorted],
+                    parameters["BP"][self.parser_obj.freq_ind_sorted],
                     {
                         "long_name": "Equivalent beam angle",
                         "units": "sr",
@@ -450,7 +435,9 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "gain_correction": (
                     ["channel"],
-                    np.array(unpacked_data["gain"][self.freq_ind_sorted], dtype=np.float64),
+                    np.array(
+                        unpacked_data["gain"][self.parser_obj.freq_ind_sorted], dtype=np.float64
+                    ),
                     {"long_name": "Gain correction", "units": "dB"},
                 ),
                 "sample_interval": (
@@ -473,12 +460,12 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "transmit_frequency_start": (
                     ["channel"],
-                    self.freq_sorted,
+                    self.parser_obj.freq_sorted,
                     self._varattrs["beam_var_default"]["transmit_frequency_start"],
                 ),
                 "transmit_frequency_stop": (
                     ["channel"],
-                    self.freq_sorted,
+                    self.parser_obj.freq_sorted,
                     self._varattrs["beam_var_default"]["transmit_frequency_stop"],
                 ),
                 "transmit_type": (
@@ -556,6 +543,7 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
+        Sv_offset = self.parser_obj.Sv_offset
         phase_params = ["burst_interval", "pings_per_burst", "average_burst_pings"]
         phase_freq_params = [
             "dig_rate",
@@ -567,29 +555,23 @@ class SetGroupsAZFP(SetGroupsBase):
         ]
         tdn = []
         for num in parameters["phase_number"]:
-            tdn.append(parameters[f"pulse_len_phase{num}"][self.freq_ind_sorted] / 1e6)
+            tdn.append(parameters[f"pulse_len_phase{num}"][self.parser_obj.freq_ind_sorted] / 1e6)
         tdn = np.array(tdn)
         for param in phase_freq_params:
             for num in parameters["phase_number"]:
-                parameters[param].append(parameters[f"{param}_phase{num}"][self.freq_ind_sorted])
+                parameters[param].append(
+                    parameters[f"{param}_phase{num}"][self.parser_obj.freq_ind_sorted]
+                )
         for param in phase_params:
             for num in parameters["phase_number"]:
                 parameters[param].append(parameters[f"{param}_phase{num}"])
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
-        # Build variables in the output xarray Dataset
-        Sv_offset = np.zeros_like(self.freq_sorted)
-        for ind, ich in enumerate(self.freq_ind_sorted):
-            # TODO: should not access the private function, better to compute Sv_offset in parser
-            Sv_offset[ind] = self.parser_obj._calc_Sv_offset(
-                self.freq_sorted[ind], unpacked_data["pulse_len"][ich]
-            )
-
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
                     ["channel"],
-                    self.freq_sorted,
+                    self.parser_obj.freq_sorted,
                     {
                         "units": "Hz",
                         "long_name": "Transducer frequency",
@@ -600,7 +582,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 # unpacked ping by ping data from 01A file
                 "digitization_rate": (
                     ["channel"],
-                    unpacked_data["dig_rate"][self.freq_ind_sorted],
+                    unpacked_data["dig_rate"][self.parser_obj.freq_ind_sorted],
                     {
                         "long_name": "Number of samples per second in kHz that is processed by the "
                         "A/D converter when digitizing the returned acoustic signal"
@@ -608,7 +590,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "lock_out_index": (
                     ["channel"],
-                    unpacked_data["lock_out_index"][self.freq_ind_sorted],
+                    unpacked_data["lock_out_index"][self.parser_obj.freq_ind_sorted],
                     {
                         "long_name": "The distance, rounded to the nearest Bin Size after the "
                         "pulse is transmitted that over which AZFP will ignore echoes"
@@ -616,22 +598,22 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "number_of_bins_per_channel": (
                     ["channel"],
-                    unpacked_data["num_bins"][self.freq_ind_sorted],
+                    unpacked_data["num_bins"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Number of bins per channel"},
                 ),
                 "number_of_samples_per_average_bin": (
                     ["channel"],
-                    unpacked_data["range_samples_per_bin"][self.freq_ind_sorted],
+                    unpacked_data["range_samples_per_bin"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Range samples per bin for each channel"},
                 ),
                 "board_number": (
                     ["channel"],
-                    unpacked_data["board_num"][self.freq_ind_sorted],
+                    unpacked_data["board_num"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "The board the data came from channel 1-4"},
                 ),
                 "data_type": (
                     ["channel"],
-                    unpacked_data["data_type"][self.freq_ind_sorted],
+                    unpacked_data["data_type"][self.parser_obj.freq_ind_sorted],
                     {
                         "long_name": "Datatype for each channel 1=Avg unpacked_data (5bytes), "
                         "0=raw (2bytes)"
@@ -751,15 +733,15 @@ class SetGroupsAZFP(SetGroupsBase):
                         "ignore echoes"
                     },
                 ),
-                "DS": (["channel"], parameters["DS"][self.freq_ind_sorted]),
+                "DS": (["channel"], parameters["DS"][self.parser_obj.freq_ind_sorted]),
                 "EL": (
                     ["channel"],
-                    parameters["EL"][self.freq_ind_sorted],
+                    parameters["EL"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Sound pressure at the transducer", "units": "dB"},
                 ),
                 "TVR": (
                     ["channel"],
-                    parameters["TVR"][self.freq_ind_sorted],
+                    parameters["TVR"][self.parser_obj.freq_ind_sorted],
                     {
                         "long_name": "Transmit voltage response of the transducer",
                         "units": "dB re 1uPa/V at 1m",
@@ -767,22 +749,22 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "VTX0": (
                     ["channel"],
-                    parameters["VTX0"][self.freq_ind_sorted],
+                    parameters["VTX0"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Amplified voltage 0 sent to the transducer"},
                 ),
                 "VTX1": (
                     ["channel"],
-                    parameters["VTX1"][self.freq_ind_sorted],
+                    parameters["VTX1"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Amplified voltage 1 sent to the transducer"},
                 ),
                 "VTX2": (
                     ["channel"],
-                    parameters["VTX2"][self.freq_ind_sorted],
+                    parameters["VTX2"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Amplified voltage 2 sent to the transducer"},
                 ),
                 "VTX3": (
                     ["channel"],
-                    parameters["VTX3"][self.freq_ind_sorted],
+                    parameters["VTX3"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Amplified voltage 3 sent to the transducer"},
                 ),
                 "Sv_offset": (["channel"], Sv_offset),
