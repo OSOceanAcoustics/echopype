@@ -350,17 +350,13 @@ class ParseAZFP(ParseBase):
                 self.parameters[key] = np.asarray(val)
 
         # Get frequency values
-        freq_old = list(self.unpacked_data["frequency"])
-
-        # Sort the frequencies in ascending order
-        freq_new = freq_old[:]
-        freq_new.sort(reverse=False)
+        freq_old = self.unpacked_data["frequency"]
 
         # Obtain sorted frequency indices
-        self.freq_ind_sorted = [freq_new.index(ch) for ch in freq_old]
+        self.freq_ind_sorted = freq_old.argsort()
 
         # Obtain sorted frequencies
-        self.freq_sorted = self.unpacked_data["frequency"][self.freq_ind_sorted] * 1000.0
+        self.freq_sorted = freq_old[self.freq_ind_sorted] * 1000.0
 
         # Build Sv offset
         self.Sv_offset = np.zeros_like(self.freq_sorted)
