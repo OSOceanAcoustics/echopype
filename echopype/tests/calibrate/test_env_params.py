@@ -143,7 +143,7 @@ def test_harmonize_env_param_time_only_one_non_NaN_along_time1():
     # Check that output da has only 1 value and no dimension
     output_da = harmonize_env_param_time(da, None)
     assert output_da == 1, "Output data array should just be 1"
-    assert 'time1' not in output_da.dims, "harmonzie_env_param_time should not have dropped 'time1' dimension"
+    assert 'time1' not in output_da.dims, "```harmonize_env_param_time``` should have dropped 'time1' dimension"
 
 @pytest.mark.parametrize(
     ("user_dict", "channel", "out_dict"),
