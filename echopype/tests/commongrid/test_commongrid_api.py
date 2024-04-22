@@ -3,7 +3,6 @@ import pytest
 import numpy as np
 import pandas as pd
 from flox.xarray import xarray_reduce
-import xarray as xr
 import echopype as ep
 from echopype.consolidate import add_location, add_depth
 from echopype.commongrid.utils import (
@@ -342,23 +341,14 @@ def test_compute_MVBS_range_output(request, er_type):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("er_type", "skipna", "add_nan"),
+    ("er_type"),
     [
-        ("regular", True, "no_add_nan"),
-        ("irregular", True, "no_add_nan"),
-        ("regular", False, "no_add_nan"),
-        ("irregular", False, "no_add_nan"),
-        ("regular", True, "add_nan"),
-        ("regular", False, "add_nan"),
-        ("irregular", True, "add_nan"),
-        ("irregular", False, "add_nan"),
+        ("regular"),
+        ("irregular"),
     ],
 )
-def test_compute_MVBS_values(request, er_type, skipna, add_nan):
-    """
-    Tests for the values of compute_MVBS on regular vsirregular, skipna as True vs False,
-    and added NaN vs no added Nan data.
-    """
+def test_compute_MVBS_values(request, er_type):
+    """Tests for the values of compute_MVBS on regular and irregular data."""
 
     def _parse_nans(mvbs, ds_Sv) -> np.ndarray:
         """Go through and figure out nan values in result"""
@@ -411,46 +401,18 @@ def test_compute_MVBS_values(request, er_type, skipna, add_nan):
         ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
         expected_mvbs = request.getfixturevalue("mock_mvbs_array_irregular")
 
-    # Check to see if MVBS matches request fixture arrays
-    if add_nan == "no_add_nan":
-        # Compute MVBS
-        ds_MVBS = ep.commongrid.compute_MVBS(
-            ds_Sv,
-            range_bin=range_bin,
-            ping_time_bin=ping_time_bin,
-            skipna=skipna
-        )
-        
-        # Compute expected outputs
-        expected_outputs = _parse_nans(ds_MVBS, ds_Sv)
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin=range_bin, ping_time_bin=ping_time_bin)
 
-        assert ds_MVBS.Sv.shape == expected_mvbs.shape
-        # Floating digits need to check with all close not equal
-        # Compare the values of the MVBS array with the expected values
-        assert np.allclose(ds_MVBS.Sv.values, expected_mvbs, atol=1e-10, rtol=1e-10, equal_nan=True)
+    expected_outputs = _parse_nans(ds_MVBS, ds_Sv)
 
-        # Ensures that the computation of MVBS takes doesn't take into account NaN values
-        # that are sporadically placed in the echo_range values
-        assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)
+    assert ds_MVBS.Sv.shape == expected_mvbs.shape
+    # Floating digits need to check with all close not equal
+    # Compare the values of the MVBS array with the expected values
+    assert np.allclose(ds_MVBS.Sv.values, expected_mvbs, atol=1e-10, rtol=1e-10, equal_nan=True)
 
-    # Check appropriate output when NaNs are added to first channel
-    elif add_nan == "add_nan":
-        # Add 5 NaN values to ds_Sv and compute MVBS
-        ds_Sv["Sv"][0, 0, 0:5] = np.nan
-        ds_MVBS = ep.commongrid.compute_MVBS(
-            ds_Sv,
-            range_bin=range_bin,
-            ping_time_bin=ping_time_bin,
-            skipna=skipna
-        )
-        if not skipna:
-            # Ensure that the 5 NaN Sv values, now projected onto the regridded dataset, turn into 2 NaN values in the case
-            # where skipna is False.
-            assert np.array_equal(ds_MVBS["Sv"][0, 0, 0:2].data, np.array([np.nan, np.nan]), equal_nan=True)
-            assert np.sum(np.isnan(ds_MVBS["Sv"][0, 0, :].data)) == 2
-        else:
-            # Ensure that all values in regridded are non-NaN when skipna is True.
-            assert not np.isnan(ds_MVBS["Sv"][0, 0, :].data).any()
+    # Ensures that the computation of MVBS takes doesn't take into account NaN values
+    # that are sporadically placed in the echo_range values
+    assert np.array_equal(np.isnan(ds_MVBS.Sv.values), expected_outputs)
 
 
 @pytest.mark.integration
@@ -484,3 +446,41 @@ def test_compute_NASC_values(request, er_type):
     assert np.allclose(
         ds_NASC.NASC.values, expected_nasc.values, atol=1e-10, rtol=1e-10, equal_nan=True
     )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("operation","skipna"),
+    [
+        ("MVBS", True),
+        ("NASC", False),
+    ],
+)
+def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(request, operation, skipna):
+    # Create subset dataset with 2 channels, 2 ping times, 2 depth values:
+
+    # Get fixture for irregular Sv
+    ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
+    # Already has 2 channels, so subset for only ping time and range sample
+    subset_ds_Sv = ds_Sv.isel(ping_time=slice(0,2), range_sample=slice(0,2))
+    # Set the 1 NaN echo range value to non-NaN value
+    subset_ds_Sv["echo_range"][0, 1, 1] = subset_ds_Sv["echo_range"][0, 0, 1].data
+    # Set one of the first channel values to NaN
+    subset_ds_Sv["Sv"][0, 1, 1] = np.nan
+
+    # Compute MVBS / Compute NASC
+    if operation == "MVBS":
+        da = ep.commongrid.compute_MVBS(subset_ds_Sv, skipna=skipna)["Sv"]
+    else:
+        da = ep.commongrid.compute_NASC(subset_ds_Sv, skipna=skipna)["NASC"]
+
+    # Check that da is 2 values: 1 value for each channel
+    assert da.shape == (2, 1, 1)
+
+    # Check for appropriate NaN/non-NaN values
+    if skipna:
+        assert not np.isnan(da.isel(channel=0).squeeze().data)
+        assert not np.isnan(da.isel(channel=1).squeeze().data)
+    else:
+        assert np.isnan(da.isel(channel=0).squeeze().data)
+        assert not np.isnan(da.isel(channel=1).squeeze().data)
