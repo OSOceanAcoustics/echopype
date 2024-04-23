@@ -31,8 +31,9 @@ def compute_MVBS(
     ds_Sv: xr.Dataset,
     range_var: Literal["echo_range", "depth"] = "echo_range",
     range_bin: str = "20m",
-    ping_time_bin: str = "20S",
+    ping_time_bin: str = "20s",
     method="map-reduce",
+    skipna=True,
     closed: Literal["left", "right"] = "left",
     **flox_kwargs,
 ):
@@ -56,12 +57,15 @@ def compute_MVBS(
         ``depth`` as a data variable.
     range_bin : str, default '20m'
         bin size along ``echo_range`` or ``depth`` in meters.
-    ping_time_bin : str, default '20S'
+    ping_time_bin : str, default '20s'
         bin size along ``ping_time``
     method: str, default 'map-reduce'
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    skipna: bool, default True
+        If true, the mean operation skips NaN values.
+        Else, the mean operation includes NaN values.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
     **flox_kwargs
@@ -105,6 +109,7 @@ def compute_MVBS(
         ping_interval,
         range_var=range_var,
         method=method,
+        skipna=skipna,
         **flox_kwargs,
     )
 
@@ -268,6 +273,7 @@ def compute_NASC(
     range_bin: str = "10m",
     dist_bin: str = "0.5nmi",
     method: str = "map-reduce",
+    skipna=True,
     closed: Literal["left", "right"] = "left",
     **flox_kwargs,
 ) -> xr.Dataset:
@@ -287,6 +293,9 @@ def compute_NASC(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    skipna: bool, default True
+        If true, the mean operation skips NaN values.
+        Else, the mean operation includes NaN values.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
     **flox_kwargs
@@ -357,6 +366,7 @@ def compute_NASC(
         range_interval,
         dist_interval,
         method=method,
+        skipna=skipna,
         **flox_kwargs,
     )
 
