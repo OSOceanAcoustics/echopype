@@ -61,7 +61,6 @@ def compute_raw_MVBS(
     # Set initial variables
     ds = xr.Dataset()
     x_var = "ping_time"
-
     sv_mean = _groupby_x_along_channels(
         ds_Sv,
         range_interval,
@@ -565,6 +564,22 @@ def _groupby_x_along_channels(
 
     # average should be done in linear domain
     sv = ds_Sv["Sv"].pipe(_log2lin)
+
+    # Check for any NaNs in the coordinate arrays:
+    named_arrays = {
+        x_var: ds_Sv[x_var].data,
+        range_var: ds_Sv[range_var].data,
+    }
+    aggregation_msg = (
+        "Aggregation may be negatively impacted since Flox will not aggregate any "
+        "```Sv``` values that have corresponding NaN coordinate values. Consider handling "
+        "these values before calling your intended commongrid function."
+    )
+    for array_name, array in named_arrays.items():
+        if np.isnan(array).any():
+            logging.warning(
+                f"The ```{array_name}``` coordinate array contain NaNs. {aggregation_msg}"
+            )
 
     # reduce along ping_time or distance_nmi
     # and echo_range or depth
