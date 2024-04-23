@@ -1,5 +1,4 @@
 from collections import defaultdict
-from functools import partial
 from typing import Dict, Literal, Optional, Union
 
 import numpy as np
@@ -259,49 +258,6 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
-def _convolve_nans_efficiently(m, replica):
-    """
-    Convolve two arrays while handling NaN values efficiently:
-
-    If all elements in ``m`` are NaN, the function returns ``m`` unchanged.
-    If there are NaN values in ``m``, they are temporarily set to 0 before convolution
-    and restored back to NaN in the resulting array after convolution.
-
-    Parameters
-    ----------
-    m : array-like
-        Input array.
-    replica : array-like
-        Array for convolution.
-
-    Returns
-    -------
-    conv_result : array-like
-        Convolved array.
-    """
-    # Create a mask for NaN values
-    nan_mask = np.isnan(m)
-
-    # Check if all elements in m are NaN
-    if np.all(nan_mask):
-        return m
-
-    # Create a copy of m to modify
-    m_copy = m.copy()
-
-    # Replace NaNs with 0.0s
-    m_copy[nan_mask] = 0.0
-
-    # Perform convolution
-    # Scipy chooses whether FFT or discrete convolution is fastest and uses faster method
-    conv_result = signal.convolve(m_copy, replica, mode="full")[replica.size - 1 :]
-
-    # Restore NaN values in the resulting array
-    conv_result[nan_mask] = np.nan
-
-    return conv_result
-
-
 def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     """Perform pulse compression on the backscatter data.
 
@@ -323,18 +279,21 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         # Select channel `chan` and drop the specific beam dimension if all of the values are nan.
         backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
 
+        # Create NaN mask
+        nan_mask = np.isnan(backscatter_chan.compute())
+
+        # Zero out backscatter NaN values
+        backscatter_chan = xr.where(nan_mask, 0.0 + 0j, backscatter_chan)
+
         # Extract transmit values
         tx = chirp[str(chan.values)]
 
         # Compute complex conjugate of transmit values and reverse order of elements
         replica = np.flipud(np.conj(tx))
 
-        # Create partial of _convolve_nans_efficiently with passed in replica
-        _convolve_nans_efficiently_partial = partial(_convolve_nans_efficiently, replica=replica)
-
         # Apply convolve on backscatter (along range sample dimension) and replica
         pc = xr.apply_ufunc(
-            _convolve_nans_efficiently_partial,
+            lambda m: (signal.convolve(m, replica, mode="full")[replica.size - 1 :]),
             backscatter_chan,
             input_core_dims=[["range_sample"]],
             output_core_dims=[["range_sample"]],
@@ -342,6 +301,9 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
             vectorize=True,
             output_dtypes=[np.complex64],
         ).compute()
+
+        # Restore NaN values in the resulting array
+        pc = xr.where(nan_mask, np.nan, pc)
 
         pc_all.append(pc)
 
