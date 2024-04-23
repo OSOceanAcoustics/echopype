@@ -47,8 +47,8 @@ def compute_raw_MVBS(
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
     skipna: bool, default True
-        If true, mean function skips NaN values.
-        Else, mean function includes NaN values.
+        If true, the mean operation skips NaN values.
+        Else, the mean operation includes NaN values.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
