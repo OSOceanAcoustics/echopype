@@ -438,7 +438,7 @@ def test_compute_NASC_values(request, er_type):
         ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
         expected_nasc = request.getfixturevalue("mock_nasc_array_irregular")
 
-    ds_NASC = ep.commongrid.compute_NASC(ds_Sv, range_bin=range_bin, dist_bin=dist_bin)
+    ds_NASC = ep.commongrid.compute_NASC(ds_Sv, range_bin=range_bin, dist_bin=dist_bin, skipna=True)
 
     assert ds_NASC.NASC.shape == expected_nasc.shape
     # Floating digits need to check with all close not equal
@@ -463,10 +463,6 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(request, operation, ski
     ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
     # Already has 2 channels, so subset for only ping time and range sample
     subset_ds_Sv = ds_Sv.isel(ping_time=slice(0,2), range_sample=slice(0,2))
-    # Set the 1 NaN echo range value to non-NaN value
-    subset_ds_Sv["echo_range"][0, 1, 1] = subset_ds_Sv["echo_range"][0, 0, 1].data
-    # Set one of the first channel values to NaN
-    subset_ds_Sv["Sv"][0, 1, 1] = np.nan
 
     # Compute MVBS / Compute NASC
     if operation == "MVBS":
