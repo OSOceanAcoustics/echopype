@@ -64,8 +64,8 @@ def compute_MVBS(
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
     skipna: bool, default True
-        If true, mean function skips NaN values.
-        Else, mean function includes NaN values.
+        If true, the mean operation skips NaN values.
+        Else, the mean operation includes NaN values.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
     **flox_kwargs
