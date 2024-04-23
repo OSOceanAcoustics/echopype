@@ -61,6 +61,7 @@ def compute_raw_MVBS(
     # Set initial variables
     ds = xr.Dataset()
     x_var = "ping_time"
+
     sv_mean = _groupby_x_along_channels(
         ds_Sv,
         range_interval,
