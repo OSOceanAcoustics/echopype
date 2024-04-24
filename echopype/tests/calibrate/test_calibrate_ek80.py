@@ -419,7 +419,8 @@ def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
 @pytest.mark.integration
 def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_channel_ping_pattern):
     # Extract bb complex multiplex EK80 data
-    ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/{raw_data_path}", sonar_model="EK80")
+    # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/{raw_data_path}", sonar_model="EK80")
+    ed = ep.open_converted(f"echopype/test_data/ek80_bb_complex_multiplex/NYOS2105-D20210525-T213648.zarr", chunks={})
 
     # Compute Sv
     ds_Sv = ep.calibrate.compute_Sv(ed,waveform_mode='BB',encode_mode='complex')

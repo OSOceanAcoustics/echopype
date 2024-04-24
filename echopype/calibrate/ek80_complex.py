@@ -294,20 +294,27 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         replica = np.flipud(np.conj(tx))
 
         # Apply convolve on backscatter (along range sample dimension) and replica
+        # Rechunking backscatter_chan is needed to avoid the following ValueError:
+        #    ValueError: dimension range_sample on 0th function argument to apply_ufunc 
+        #    with dask='parallelized' consists of multiple chunks, but is also a core dimension.
+        #    To fix, either rechunk into a single array chunk along this dimension,
+        #    i.e., ``.chunk(dict(range_sample=-1))``,
+        #    or pass ``allow_rechunk=True`` in ``dask_gufunc_kwargs`` 
+        #    but beware that this may significantly increase memory usage.
         pc = xr.apply_ufunc(
             lambda m: (signal.convolve(m, replica, mode="full")[replica.size - 1 :]),
-            backscatter_chan,
+            backscatter_chan.chunk({"range_sample": -1}),
             input_core_dims=[["range_sample"]],
             output_core_dims=[["range_sample"]],
             dask="parallelized",
             vectorize=True,
             output_dtypes=[np.complex64],
-        ).compute()
+        )#.compute()
 
         # Restore NaN values in the resulting array.
         # Computing of `nan_mask` here is necessary in the case when `nan_mask` is lazy loaded
         # or else the resulting `pc` will also be lazy loaded.
-        pc = xr.where(nan_mask.compute(), np.nan, pc)
+        pc = xr.where(nan_mask, np.nan, pc)
 
         pc_all.append(pc)
 
