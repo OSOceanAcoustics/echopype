@@ -280,9 +280,11 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
 
         # Create NaN mask
-        nan_mask = np.isnan(backscatter_chan.compute())
+        # If `backscatter_chan` is lazy loaded, then `nan_mask` too will be lazy loaded.
+        nan_mask = np.isnan(backscatter_chan)
 
         # Zero out backscatter NaN values
+        # If `nan_mask` is lazy loaded, then resulting `backscatter_chan` will be lazy loaded.
         backscatter_chan = xr.where(nan_mask, 0.0 + 0j, backscatter_chan)
 
         # Extract transmit values
@@ -302,8 +304,10 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
             output_dtypes=[np.complex64],
         ).compute()
 
-        # Restore NaN values in the resulting array
-        pc = xr.where(nan_mask, np.nan, pc)
+        # Restore NaN values in the resulting array.
+        # Computing of `nan_mask` here is necessary in the case when `nan_mask` is lazy loaded
+        # or else the resulting `pc` will also be lazy loaded.
+        pc = xr.where(nan_mask.compute(), np.nan, pc)
 
         pc_all.append(pc)
 
