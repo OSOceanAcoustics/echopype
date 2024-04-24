@@ -3,6 +3,7 @@ import pytest
 import dask.array
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 import echopype as ep
 from echopype.calibrate.env_params import (
@@ -132,6 +133,17 @@ def test_harmonize_env_param_time():
     # .all computes dask array under the hood
     assert (p_new.data == [0.5, 2880.5]).all()
 
+@pytest.mark.unit
+def test_harmonize_env_param_time_only_one_non_NaN_along_time1():
+    # Create data array with time1 dimension with only 1 non-NaN value
+    data = np.array([1, np.nan, np.nan])
+    time = pd.date_range(start='2024-01-01', periods=3, freq='D')
+    da = xr.DataArray(data, dims='time1', coords={'time1': time})
+
+    # Check that output da has only 1 value and no dimension
+    output_da = harmonize_env_param_time(da, None)
+    assert output_da == 1, "Output data array should just be 1"
+    assert 'time1' not in output_da.dims, "```harmonize_env_param_time``` should have dropped 'time1' dimension"
 
 @pytest.mark.parametrize(
     ("user_dict", "channel", "out_dict"),

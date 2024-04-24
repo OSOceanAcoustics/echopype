@@ -226,11 +226,10 @@ def get_transmit_signal(
     # but keeping this here for use as standalone function
     if waveform_mode == "BB" and np.all(beam["transmit_type"] == "CW"):
         raise TypeError("File does not contain BB mode complex samples!")
-
     # Generate all transmit replica
     y_all = {}
     y_time_all = {}
-    # TODO: expand to deal with the case with varying tx param across ping_time
+    # TODO: expand to deal with the case with varying non-NaN tx param across ping_time
     tx_param_names = [
         "transmit_duration_nominal",
         "slope",
@@ -240,16 +239,18 @@ def get_transmit_signal(
     for ch in beam["channel"].values:
         tx_params = {}
         for p in tx_param_names:
-            tx_params[p] = np.unique(beam[p].sel(channel=ch))
+            # Extract beam values and filter out NaNs
+            beam_values = np.unique(beam[p].sel(channel=ch))
+            # Filter out NaN values
+            beam_values_without_nan = beam_values[~np.isnan(beam_values)]
+            tx_params[p] = beam_values_without_nan
             if tx_params[p].size != 1:
                 raise TypeError("File contains changing %s!" % p)
         fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
         tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
-
         # Filter and decimate chirp template
         y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)
-
         # Fill into output dict
         y_all[ch] = y_ch
         y_time_all[ch] = y_tmp_time
@@ -278,9 +279,21 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         # Select channel `chan` and drop the specific beam dimension if all of the values are nan.
         backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
 
+        # Create NaN mask
+        # If `backscatter_chan` is lazy loaded, then `nan_mask` too will be lazy loaded.
+        nan_mask = np.isnan(backscatter_chan)
+
+        # Zero out backscatter NaN values
+        # If `nan_mask` is lazy loaded, then resulting `backscatter_chan` will be lazy loaded.
+        backscatter_chan = xr.where(nan_mask, 0.0 + 0j, backscatter_chan)
+
+        # Extract transmit values
         tx = chirp[str(chan.values)]
+
+        # Compute complex conjugate of transmit values and reverse order of elements
         replica = np.flipud(np.conj(tx))
 
+        # Apply convolve on backscatter (along range sample dimension) and replica
         pc = xr.apply_ufunc(
             lambda m: (signal.convolve(m, replica, mode="full")[replica.size - 1 :]),
             backscatter_chan,
@@ -290,6 +303,11 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
             vectorize=True,
             output_dtypes=[np.complex64],
         ).compute()
+
+        # Restore NaN values in the resulting array.
+        # Computing of `nan_mask` here is necessary in the case when `nan_mask` is lazy loaded
+        # or else the resulting `pc` will also be lazy loaded.
+        pc = xr.where(nan_mask.compute(), np.nan, pc)
 
         pc_all.append(pc)
 

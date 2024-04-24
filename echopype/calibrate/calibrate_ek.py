@@ -473,6 +473,10 @@ class CalibrateEK80(CalibrateEK):
         ) ** 2
         B_theta_phi_m = 0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart)
 
+        # Zero out NaNs that appear due to 1) multiplex ping patterns and 2) single beam transducer
+        # systems that don't contain angle offset information.
+        B_theta_phi_m = B_theta_phi_m.fillna(0)
+
         return B_theta_phi_m
 
     def _cal_complex_samples(self, cal_type: str) -> xr.Dataset:

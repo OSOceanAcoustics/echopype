@@ -177,7 +177,6 @@ def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     pyel_vals = pyel_BB_p_data["range"]
     assert np.allclose(pyel_vals, ep_vals)
 
-
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
     [
@@ -252,7 +251,6 @@ def test_ek80_BB_power_from_complex(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
-
 
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
@@ -371,10 +369,9 @@ def test_ek80_BB_power_echoview(ek80_path):
     # Below only compare the first ping
     ev_vals = df_real.values[:, :]
     ep_vals = pc_mean.values.real[:, :]
-    assert np.allclose(ev_vals[:, 69:8284], ep_vals[:, 69:], atol=1e-4)
-    assert np.allclose(ev_vals[:, 90:8284], ep_vals[:, 90:], atol=1e-5)
+    assert np.allclose(ev_vals[:, 69:], ep_vals[:, 69:], atol=1e-4)
+    assert np.allclose(ev_vals[:, 90:], ep_vals[:, 90:], atol=1e-5)
 
-    
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
@@ -390,3 +387,67 @@ def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     # receiver_sampling_frequency substituted with default value in compute_Sv
     assert ds_Sv["receiver_sampling_frequency"] is not None
     assert np.allclose(ds_Sv["receiver_sampling_frequency"].data, 1500000)
+
+
+@pytest.mark.parametrize(
+    ("raw_data_path,target_channel_ping_pattern"),
+    [
+        (
+            "NYOS2105-D20210525-T213648.raw",
+            # (3,4), 2, 1, (3,4), 2, 1, etc...
+            np.array(
+                [
+                    [np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan],
+                    [np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan],
+                    [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.],
+                    [ 1., np.nan, np.nan,  1., np.nan, np.nan,  1., np.nan, np.nan,  1.]
+                ]
+            ),
+        ),
+        (
+            "DRIX08-D20231003-T120051.raw",
+            # 2, 1, 2, 1, 2, 1, etc...
+            np.array(
+                [
+                    [np.nan,  1., np.nan, 1,  np.nan, 1, np.nan,  1., np.nan, 1],
+                    [1, np.nan,  1., np.nan, 1,  np.nan, 1, np.nan,  1., np.nan],
+                ]
+            ),
+        ),
+    ],
+)
+@pytest.mark.integration
+def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_channel_ping_pattern):
+    # Extract bb complex multiplex EK80 data
+    ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/{raw_data_path}", sonar_model="EK80")
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed,waveform_mode='BB',encode_mode='complex')
+    
+    # Extract mask for both real backscatter and calibrated Sv:
+    
+    # EchoData Real (component) Backscatter mask should be 1 if all values along 
+    # a specific range sample and beam dimension are non-NaN; else NaN.
+    ed_backscatter_r_mask = xr.where(
+        ~np.isnan(ed["Sonar/Beam_group1"]["backscatter_r"]
+    ).all(dim=['range_sample', "beam"]), 1, np.nan)
+    # Calibrated Sv mask should be 1 if all values along 
+    # a specific range sample are non-NaN; else NaN.
+    calibrated_Sv_mask = xr.where(
+        ~np.isnan(ds_Sv["Sv"]
+    ).all(dim=['range_sample']), 1, np.nan)
+
+    # Check that they are equal
+    assert np.array_equal(
+        ed_backscatter_r_mask.data,
+        calibrated_Sv_mask.data,
+        equal_nan=True
+    )
+
+    # Check that a slice of calibrated Sv mask is equal to the following array
+    # with the target channel ping pattern:
+    assert np.array_equal(
+        calibrated_Sv_mask.isel(ping_time=slice(0,10)).data,
+        target_channel_ping_pattern,
+        equal_nan=True
+    )
