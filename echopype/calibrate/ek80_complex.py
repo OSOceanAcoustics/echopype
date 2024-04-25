@@ -315,7 +315,9 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         channels=backscatter_NaN_beam_drop_all["channel"],
     )
 
-    # Apply convolve on backscatter and replica (along range sample and channel dimension)
+    # Apply convolve on backscatter and replica (along range sample and channel dimension):
+    # To enable parallelized computation with `dask='parallelized'`, we rechunk to ensure that
+    #  the data is chunked with only one chunk along the core dimensions.
     pc = xr.apply_ufunc(
         _convolve_per_channel_partial,
         backscatter_NaN_beam_drop_all.chunk({"range_sample": -1, "channel": -1}),
