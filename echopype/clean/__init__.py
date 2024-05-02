@@ -1,6 +1,7 @@
-from .api import estimate_noise, remove_noise
+from .api import attenuated_noise, estimate_noise, remove_noise
 
 __all__ = [
+    "attenuated_noise",
     "estimate_noise",
     "remove_noise",
 ]

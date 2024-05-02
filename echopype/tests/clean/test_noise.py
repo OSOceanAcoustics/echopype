@@ -5,6 +5,38 @@ import pytest
 from numpy.random import default_rng
 
 
+@pytest.mark.unit
+def test_attenuated_noise_against_echopy():
+    """Test `attenuated_noise` to see if Echopype output matches echopy output masks."""
+    # Parse, calibrate, and add depth
+    ed = ep.open_raw(
+        "/home/exouser/echopype/echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Created masks
+    r0, r1, n, threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
+    attenuated_mask, unfeasible_mask = ep.clean.attenuated_noise(
+        ds_Sv.isel(channel=0),
+        r0,
+        r1,
+        n,
+        threshold
+    )
+
+    # Grab echopy attenuated masks
+    echopy_attenuated_masks = xr.open_dataset(
+        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645_echopy_attenuated_masks.zarr",
+        engine="zarr"
+    )
+
+    # Check that Echopype masks match echopy masks
+    assert np.allclose(echopy_attenuated_masks["attenuated_mask"].T, attenuated_mask)
+    assert np.allclose(echopy_attenuated_masks["unfeasible_mask"].T, unfeasible_mask)
+
+
 def test_remove_noise():
     """Test remove_noise on toy data"""
 

@@ -2,8 +2,92 @@
 Functions for reducing variabilities in backscatter data.
 """
 
+import numpy as np
+import xarray as xr
+
+from ..utils.compute import _lin2log, _log2lin
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .noise_est import NoiseEst
+
+
+def attenuated_noise(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, thr: float):
+    """
+    Locate attenuated signals and create an attenuated mask and a mask where attenuation
+    masking was unfeasible.
+
+    Parameters
+    ----------
+    ds_Sv : xarray.Dataset
+        Calibrated Sv data with depth data variable.
+    r0 : float
+        Upper limit of SL (m).
+    r1 : float
+        Lower limit of SL (m).
+    n : int
+        Number of preceding & subsequent pings defining the block.
+    thr : float
+        User-defined threshold value (dB).
+
+    Returns
+    -------
+    tuple
+        2D boolean array with attenuated mask.
+        2D boolean array with mask indicating where AS detection was unfeasible.
+
+    References
+    ----------
+    Ryan et al. (2015) Reducing bias due to noise and attenuation in
+    open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+
+    Code was derived from echopy's numpy implementation and translated into an xarray
+    implementation:
+    https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_attenuated.py # noqa
+    """
+    # TODO: Check for depth, allow multiple channels (possibly parallelize this)
+
+    # Check range values
+    if r0 > r1:
+        raise Exception("Minimum range has to be shorter than maximum range")
+
+    # Copy `ds_Sv`
+    ds_Sv_copy = ds_Sv.copy()
+
+    # Initialize masks
+    attenuated_mask = xr.zeros_like(ds_Sv_copy["Sv"], dtype=bool)
+    unfeasible_mask = xr.zeros_like(ds_Sv_copy["Sv"], dtype=bool)
+
+    # Return empty masks if searching range is outside the echosounder range
+    if (r0 > ds_Sv_copy["depth"].max()) or (r1 < ds_Sv_copy["depth"].min()):
+        return attenuated_mask, unfeasible_mask
+
+    # TODO: Any way to make this cleaner?
+    for ping_time_idx in range(len(ds_Sv["ping_time"])):
+        # find indexes for upper and lower SL limits
+        up = np.argmin(np.abs(ds_Sv_copy.isel(ping_time=ping_time_idx)["depth"] - r0).values)
+        lw = np.argmin(np.abs(ds_Sv_copy.isel(ping_time=ping_time_idx)["depth"] - r1).values)
+
+        # Compute ping median and block median Sv
+        ping_median_Sv = ds_Sv_copy["Sv"].isel(range_sample=slice(up, lw), ping_time=ping_time_idx)
+        block_median_Sv = ds_Sv_copy["Sv"].isel(
+            range_sample=slice(up, lw), ping_time=slice(ping_time_idx - n, ping_time_idx + n)
+        )
+
+        # Mask where attenuation masking is unfeasible (e.g. edge issues, all-NANs)
+        if (
+            (ping_time_idx - n < 0)
+            | (ping_time_idx + n > len(ds_Sv_copy["ping_time"]) - 1)
+            | np.all(np.isnan(ping_median_Sv))
+        ):
+            unfeasible_mask[{"ping_time": ping_time_idx}] = True
+
+        # Compare ping and block medians otherwise & mask ping if too different
+        else:
+            pingmedian = _lin2log(np.nanmedian(ping_median_Sv.pipe(_log2lin)))
+            blockmedian = _lin2log(np.nanmedian(block_median_Sv.pipe(_log2lin)))
+            if (pingmedian - blockmedian) < thr:
+                attenuated_mask[{"ping_time": ping_time_idx}] = True
+
+    return [attenuated_mask, unfeasible_mask]
 
 
 def estimate_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
