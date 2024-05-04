@@ -4,13 +4,13 @@ import echopype as ep
 import pytest
 from numpy.random import default_rng
 
-@pytest.mark.test
+
 @pytest.mark.integration
 def test_mask_attenuated_noise_value_errors():
     """Test `mask_attenuated_noise` values errors."""
     # Parse and calibrate
     ed = ep.open_raw(
-        "/home/exouser/echopype/echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
+        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -40,13 +40,12 @@ def test_mask_attenuated_noise_value_errors():
         )
 
 
-@pytest.mark.test
 @pytest.mark.integration
 def test_mask_attenuated_noise_outside_searching_range():
     """Test `mask_attenuated_noise` values errors."""
     # Parse, calibrate, and add_depth
     ed = ep.open_raw(
-        "/home/exouser/echopype/echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
+        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -68,7 +67,6 @@ def test_mask_attenuated_noise_outside_searching_range():
     assert np.allclose(unfeasible_mask, xr.full_like(ds_Sv["Sv"], True, dtype=bool))
 
 
-@pytest.mark.test
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("chunk"),
@@ -81,7 +79,7 @@ def test_mask_attenuated_noise_against_echopy(chunk):
     """Test `attenuated_noise` to see if Echopype output matches echopy output masks."""
     # Parse, calibrate, and add depth
     ed = ep.open_raw(
-        "/home/exouser/echopype/echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
+        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
