@@ -6,8 +6,8 @@ from numpy.random import default_rng
 
 
 @pytest.mark.integration
-def test_mask_attenuated_noise_value_errors():
-    """Test `mask_attenuated_noise` values errors."""
+def test_mask_attenuated_signal_value_errors():
+    """Test `mask_attenuated_signal` values errors."""
     # Parse and calibrate
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
@@ -18,7 +18,7 @@ def test_mask_attenuated_noise_value_errors():
     # Attempt to create masks without depth
     r0, r1, n, threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
     with pytest.raises(ValueError):
-        ep.clean.mask_attenuated_noise(
+        ep.clean.mask_attenuated_signal(
             ds_Sv,
             r0,
             r1,
@@ -31,7 +31,7 @@ def test_mask_attenuated_noise_value_errors():
 
     # Attempt to create mask with `r0 > r1`
     with pytest.raises(ValueError):
-        ep.clean.mask_attenuated_noise(
+        ep.clean.mask_attenuated_signal(
             ds_Sv,
             r0=180,
             r1=170,
@@ -41,8 +41,8 @@ def test_mask_attenuated_noise_value_errors():
 
 
 @pytest.mark.integration
-def test_mask_attenuated_noise_outside_searching_range():
-    """Test `mask_attenuated_noise` values errors."""
+def test_mask_attenuated_signal_outside_searching_range():
+    """Test `mask_attenuated_signal` values errors."""
     # Parse, calibrate, and add_depth
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
@@ -53,7 +53,7 @@ def test_mask_attenuated_noise_outside_searching_range():
 
     # Create masks with out of bounds r0 and r1 values
     r0, r1, n, threshold = 1800, 2800, 30, -6 # units: (m, m, pings, dB)
-    attenuated_mask, unfeasible_mask = ep.clean.mask_attenuated_noise(
+    attenuated_mask, unfeasible_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         r0,
         r1,
@@ -75,8 +75,8 @@ def test_mask_attenuated_noise_outside_searching_range():
         (True),
     ],
 )
-def test_mask_attenuated_noise_against_echopy(chunk):
-    """Test `attenuated_noise` to see if Echopype output matches echopy output masks."""
+def test_mask_attenuated_signal_against_echopy(chunk):
+    """Test `attenuated_signal` to see if Echopype output matches echopy output masks."""
     # Parse, calibrate, and add depth
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
@@ -91,7 +91,7 @@ def test_mask_attenuated_noise_against_echopy(chunk):
 
     # Create masks
     r0, r1, n, threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
-    attenuated_mask, unfeasible_mask = ep.clean.mask_attenuated_noise(
+    attenuated_mask, unfeasible_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         r0,
         r1,

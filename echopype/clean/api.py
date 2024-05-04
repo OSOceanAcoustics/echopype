@@ -12,8 +12,8 @@ from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input
 from .noise_est import NoiseEst
 
 
-def _echopy_attenuation_mask(Sv, depth, r0, r1, n, threshold):
-    """Single-channel attenuation mask computation from echopy."""
+def _echopy_attenuated_signal_mask(Sv, depth, r0, r1, n, threshold):
+    """Single-channel attenuated signal mask computation from echopy."""
     # Initialize masks
     attenuated_mask = np.zeros(Sv.shape, dtype=bool)
     unfeasible_mask = np.zeros(Sv.shape, dtype=bool)
@@ -32,7 +32,8 @@ def _echopy_attenuation_mask(Sv, depth, r0, r1, n, threshold):
         ):
             unfeasible_mask[ping_time_idx, :] = True
 
-        # Compare ping and block medians otherwise & mask ping if too different
+        # Compare ping and block medians, and mask ping if too difference greater than
+        # threshold.
         else:
             pingmedian = _lin2log(np.nanmedian(_log2lin(Sv[ping_time_idx, up:lw])))
             blockmedian = _lin2log(
@@ -44,7 +45,7 @@ def _echopy_attenuation_mask(Sv, depth, r0, r1, n, threshold):
     return attenuated_mask, unfeasible_mask
 
 
-def mask_attenuated_noise(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, threshold: float):
+def mask_attenuated_signal(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, threshold: float):
     """
     Locate attenuated signals and create an attenuated mask and a mask where attenuation
     masking was unfeasible.
@@ -65,8 +66,8 @@ def mask_attenuated_noise(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, thres
     Returns
     -------
     tuple
-        2D boolean array with attenuated mask.
-        2D boolean array with mask indicating where AS detection was unfeasible.
+        2D boolean array with attenuated signal mask.
+        2D boolean array with mask indicating where attenuated signal detection was unfeasible.
 
     References
     ----------
@@ -98,10 +99,10 @@ def mask_attenuated_noise(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, thres
 
     # Create partial of echopy attenuation mask computation
     _partial_echopy_attenuation_mask = partial(
-        _echopy_attenuation_mask, r0=r0, r1=r1, n=n, threshold=threshold
+        _echopy_attenuated_signal_mask, r0=r0, r1=r1, n=n, threshold=threshold
     )
 
-    # Compute attenuated and unfeasible (incapable of attenuation) masks
+    # Compute attenuated signal and unfeasible (incapable of attenuation) masks
     attenuated_mask, unfeasible_mask = xr.apply_ufunc(
         _partial_echopy_attenuation_mask,
         ds_Sv_copy["Sv"],
