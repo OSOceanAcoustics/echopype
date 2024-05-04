@@ -5,7 +5,7 @@ import pytest
 from numpy.random import default_rng
 
 @pytest.mark.test
-@pytest.mark.unit
+@pytest.mark.integration
 def test_mask_attenuated_noise_value_errors():
     """Test `mask_attenuated_noise` values errors."""
     # Parse and calibrate
@@ -41,7 +41,7 @@ def test_mask_attenuated_noise_value_errors():
 
 
 @pytest.mark.test
-@pytest.mark.unit
+@pytest.mark.integration
 def test_mask_attenuated_noise_outside_searching_range():
     """Test `mask_attenuated_noise` values errors."""
     # Parse, calibrate, and add_depth
@@ -69,8 +69,15 @@ def test_mask_attenuated_noise_outside_searching_range():
 
 
 @pytest.mark.test
-@pytest.mark.unit
-def test_mask_attenuated_noise_against_echopy():
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk"),
+    [
+        (False),
+        (True),
+    ],
+)
+def test_mask_attenuated_noise_against_echopy(chunk):
     """Test `attenuated_noise` to see if Echopype output matches echopy output masks."""
     # Parse, calibrate, and add depth
     ed = ep.open_raw(
@@ -79,6 +86,10 @@ def test_mask_attenuated_noise_against_echopy():
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    if chunk:
+        # Chunk dataset
+        ds_Sv = ds_Sv.chunk("auto")
 
     # Create masks
     r0, r1, n, threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
@@ -99,11 +110,11 @@ def test_mask_attenuated_noise_against_echopy():
     # Check that Echopype masks match echopy masks
     assert np.allclose(
         echopy_attenuated_masks["attenuated_mask"],
-        attenuated_mask.isel(channel=0)
+        attenuated_mask.isel(channel=0).transpose("range_sample", "ping_time")
     )
     assert np.allclose(
         echopy_attenuated_masks["unfeasible_mask"],
-        unfeasible_mask.isel(channel=0)
+        unfeasible_mask.isel(channel=0).transpose("range_sample", "ping_time")
     )
 
 
