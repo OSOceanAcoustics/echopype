@@ -102,7 +102,7 @@ def mask_attenuated_signal(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, thre
         _echopy_attenuated_signal_mask, r0=r0, r1=r1, n=n, threshold=threshold
     )
 
-    # Compute attenuated signal and unfeasible (incapable of attenuation) masks
+    # Compute attenuated signal and unfeasible (incapable of computing attenuated signal) masks
     attenuated_mask, unfeasible_mask = xr.apply_ufunc(
         _partial_echopy_attenuation_mask,
         ds_Sv_copy["Sv"],
