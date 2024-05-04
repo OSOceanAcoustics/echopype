@@ -80,7 +80,7 @@ def mask_attenuated_signal(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, thre
     """
     if "depth" not in ds_Sv.data_vars:
         raise ValueError(
-            "Masking attenuated noise requires depth in. "
+            "Masking attenuated signal requires depth data variable in `ds_Sv`. "
             "Consider adding depth with `ds_Sv = ep.consolidate.add_depth(ds_Sv)`."
         )
 
