@@ -71,6 +71,35 @@ def test_downsample_upsample_along_depth(chunk):
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk"),
+    [
+        (False),
+        (True),
+    ],
+)
+def test_impulse_noise_mask_dimensions(chunk):
+    """Test impulse noise mask dimensions"""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Check that dimensions match between impulse noise mask and `ds_Sv["Sv"]`
+    impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv)
+    assert ds_Sv["channel"].equals(impulse_noise_mask["channel"])
+    assert np.allclose(ds_Sv["range_sample"].data, impulse_noise_mask["range_sample"].data)
+    assert ds_Sv["ping_time"].equals(impulse_noise_mask["ping_time"])
+
+
+@pytest.mark.integration
 def test_mask_attenuated_signal_value_errors():
     """Test `mask_attenuated_signal` values errors."""
     # Parse and calibrate
