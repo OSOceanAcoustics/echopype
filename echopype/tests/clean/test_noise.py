@@ -2,7 +2,6 @@ import numpy as np
 import xarray as xr
 import echopype as ep
 import pytest
-from numpy.random import default_rng
 
 
 @pytest.mark.integration
@@ -116,8 +115,8 @@ def test_mask_attenuated_signal_against_echopy(chunk):
     )
 
 
-def test_remove_noise():
-    """Test remove_noise on toy data"""
+def test_remove_background_noise():
+    """Test remove_background_noise on toy data"""
 
     # Parameters for fake data
     nchan, npings, nrange_samples = 1, 10, 100
@@ -151,7 +150,7 @@ def test_remove_noise():
     )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.clean.remove_noise(
+    ds_Sv = ep.clean.remove_background_noise(
         ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
     )
 
@@ -168,7 +167,7 @@ def test_remove_noise():
     data = np.random.normal(
         loc=-100, scale=2, size=(nchan, npings, nrange_samples)
     )
-    # Make Dataset to pass into remove_noise
+    # Make Dataset to pass into remove_background_noise
     Sv = xr.DataArray(
         data,
         coords=[
@@ -188,7 +187,7 @@ def test_remove_noise():
     )
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
-    ds_Sv = ep.clean.remove_noise(
+    ds_Sv = ep.clean.remove_background_noise(
         ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
     )
     null = ds_Sv.Sv_corrected.isnull()
@@ -198,12 +197,11 @@ def test_remove_noise():
         == 6
     )
 
-
-def test_remove_noise_no_sound_absorption():
+def test_remove_background_noise_no_sound_absorption():
     """
-    Tests remove_noise on toy data that does
+    Tests remove_background_noise on toy data that does
     not have sound absorption as a variable.
     """
 
-    pytest.xfail(f"Tests for remove_noise have not been implemented" +
+    pytest.xfail(f"Tests for remove_background_noise have not been implemented" +
                  " when no sound absorption is provided!")

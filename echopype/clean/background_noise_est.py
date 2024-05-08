@@ -3,7 +3,7 @@ import numpy as np
 from ..utils import uwa
 
 
-class NoiseEst:
+class BackgroundNoiseEst:
     """
     Attributes
     ----------
