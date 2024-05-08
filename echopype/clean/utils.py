@@ -78,11 +78,11 @@ def echopy_impulse_noise_mask(Sv, num_side_pings, impulse_threshold):
     dummy = np.zeros((Sv.shape[0], num_side_pings)) * np.nan
     comparison_forward = Sv - np.c_[Sv[:, num_side_pings:], dummy]
     comparison_backward = Sv - np.c_[dummy, Sv[:, 0:-num_side_pings]]
+    comparison_forward[np.isnan(comparison_forward)] = np.inf
+    comparison_backward[np.isnan(comparison_backward)] = np.inf
 
     # Create mask by checking if comparison arrays are above `impulse_threshold`
-    comparison_forward[np.isnan(comparison_forward)] = np.inf
     maskf = comparison_forward > impulse_threshold
-    comparison_backward[np.isnan(comparison_backward)] = np.inf
     maskb = comparison_backward > impulse_threshold
     mask = maskf & maskb
 

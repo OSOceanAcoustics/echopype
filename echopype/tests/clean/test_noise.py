@@ -3,6 +3,72 @@ import xarray as xr
 import echopype as ep
 import pytest
 
+from echopype.clean.utils import downsample_upsample_along_depth
+from echopype.utils.compute import _lin2log, _log2lin
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk"),
+    [
+        (False),
+        (True),
+    ],
+)
+def test_downsample_upsample_along_depth(chunk):
+    """Test downsample bins and upsample repeating values"""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Run downsampling and upsampling
+    downsampled_Sv, upsampled_Sv = downsample_upsample_along_depth(ds_Sv)
+
+    # Compute DataArrays
+    downsampled_Sv = downsampled_Sv.compute()
+    upsampled_Sv = upsampled_Sv.compute()
+    original_resolution_depth = ds_Sv["depth"].compute()
+
+    # Check for appropriate binning behavior
+    # Test every depth bin
+    for depth_bin_index in range(len(downsampled_Sv["depth_bins"])):
+        # Test every channel
+        for channel_index in range(len(downsampled_Sv["channel"])):
+            # Test every 50 ping times
+            for ping_time_index in range(0, len(downsampled_Sv["depth_bins"]), 50):
+                # Check that manual and flox downsampled bin Sv are equal
+                flox_downsampled_bin_Sv = downsampled_Sv.isel(
+                    channel=channel_index, ping_time=ping_time_index, depth_bins=depth_bin_index
+                ).data
+                flox_downsampled_bin_Sv_indices = np.where(
+                    upsampled_Sv.isel(channel=channel_index, ping_time=ping_time_index).data == flox_downsampled_bin_Sv
+                )[0]
+                manual_downsampled_bin_Sv = _lin2log(
+                    np.nanmean(
+                        ds_Sv["Sv"].compute().isel(
+                        channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices
+                        ).pipe(_log2lin)
+                    )
+                ).data
+                assert np.isclose(manual_downsampled_bin_Sv, flox_downsampled_bin_Sv)
+
+                # Check that depth bins encapsulated the correct original resolution depth values
+                manual_depth_array = original_resolution_depth.isel(
+                    channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices
+                ).data
+                flox_depth_bin = downsampled_Sv["depth_bins"].data[depth_bin_index]
+                for manual_depth in manual_depth_array:
+                    if not np.isnan(manual_depth):
+                        assert flox_depth_bin.left <= manual_depth < flox_depth_bin.right
+
 
 @pytest.mark.integration
 def test_mask_attenuated_signal_value_errors():
