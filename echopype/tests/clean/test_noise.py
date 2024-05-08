@@ -71,6 +71,22 @@ def test_downsample_upsample_along_depth(chunk):
 
 
 @pytest.mark.integration
+def test_impulse_noise_mask_with_no_depth():
+    """Test impulse noise mask with no depth variable passed in with `ds_Sv`"""
+    # Open raw and calibrate
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # `depth` is not contained in `ds_Sv`. Ensure that `ValueError` is raised
+    # for impulse noise masking.
+    with pytest.raises(ValueError):
+        ep.clean.mask_impulse_noise(ds_Sv)
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("chunk"),
     [
