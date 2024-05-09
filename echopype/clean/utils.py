@@ -89,34 +89,34 @@ def echopy_impulse_noise_mask(Sv, num_side_pings, impulse_threshold):
     return mask
 
 
-def echopy_attenuated_signal_mask(Sv, depth, r0, r1, n, threshold):
+def echopy_attenuated_signal_mask(
+    Sv, depth, upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold
+):
     """Single-channel attenuated signal mask computation from echopy."""
-    # Initialize masks
+    # Initialize mask
     attenuated_mask = np.zeros(Sv.shape, dtype=bool)
-    unfeasible_mask = np.zeros(Sv.shape, dtype=bool)
 
     for ping_time_idx in range(Sv.shape[0]):
 
         # Find indices for upper and lower SL limits
-        up = np.argmin(abs(depth[ping_time_idx, :] - r0))
-        lw = np.argmin(abs(depth[ping_time_idx, :] - r1))
+        up = np.argmin(abs(depth[ping_time_idx, :] - upper_limit_sl))
+        lw = np.argmin(abs(depth[ping_time_idx, :] - lower_limit_sl))
 
-        # Mask where attenuation masking is unfeasible (e.g. edge issues, all-NANs)
-        if (
-            (ping_time_idx - n < 0)
-            | (ping_time_idx + n > Sv.shape[0] - 1)
+        # Mask when attenuation masking is feasible
+        if not (
+            (ping_time_idx - num_pings < 0)
+            | (ping_time_idx + num_pings > Sv.shape[0] - 1)
             | np.all(np.isnan(Sv[ping_time_idx, up:lw]))
         ):
-            unfeasible_mask[ping_time_idx, :] = True
-
-        # Compare ping and block medians, and mask ping if too difference greater than
-        # threshold.
-        else:
+            # Compare ping and block medians, and mask ping if too difference greater than
+            # threshold.
             pingmedian = _lin2log(np.nanmedian(_log2lin(Sv[ping_time_idx, up:lw])))
             blockmedian = _lin2log(
-                np.nanmedian(_log2lin(Sv[(ping_time_idx - n) : (ping_time_idx + n), up:lw]))
+                np.nanmedian(
+                    _log2lin(Sv[(ping_time_idx - num_pings) : (ping_time_idx + num_pings), up:lw])
+                )
             )
-            if (pingmedian - blockmedian) < threshold:
+            if (pingmedian - blockmedian) < attenuation_threshold:
                 attenuated_mask[ping_time_idx, :] = True
 
-    return attenuated_mask, unfeasible_mask
+    return attenuated_mask

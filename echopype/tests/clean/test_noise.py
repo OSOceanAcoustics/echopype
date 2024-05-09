@@ -183,28 +183,28 @@ def test_mask_attenuated_signal_value_errors():
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
 
-    # Attempt to create masks without depth
-    r0, r1, n, threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
+    # Attempt to create mask without depth
+    upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
     with pytest.raises(ValueError):
         ep.clean.mask_attenuated_signal(
             ds_Sv,
-            r0,
-            r1,
-            n,
-            threshold
+            upper_limit_sl,
+            lower_limit_sl,
+            num_pings,
+            attenuation_threshold
         )
     
     # Add depth
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
-    # Attempt to create mask with `r0 > r1`
+    # Attempt to create mask with `upper_limit_sl > lower_limit_sl`
     with pytest.raises(ValueError):
         ep.clean.mask_attenuated_signal(
             ds_Sv,
-            r0=180,
-            r1=170,
-            n=n,
-            threshold=threshold
+            upper_limit_sl=180,
+            lower_limit_sl=170,
+            num_pings=num_pings,
+            attenuation_threshold=attenuation_threshold
         )
 
 
@@ -219,20 +219,18 @@ def test_mask_attenuated_signal_outside_searching_range():
     ds_Sv = ep.calibrate.compute_Sv(ed)
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
-    # Create masks with out of bounds r0 and r1 values
-    r0, r1, n, threshold = 1800, 2800, 30, -6 # units: (m, m, pings, dB)
-    attenuated_mask, unfeasible_mask = ep.clean.mask_attenuated_signal(
+    # Create mask
+    upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold = 1800, 2800, 30, -6 # units: (m, m, pings, dB)
+    attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
-        r0,
-        r1,
-        n,
-        threshold
+        upper_limit_sl,
+        lower_limit_sl,
+        num_pings,
+        attenuation_threshold
     )
     
     # Check outputs
-    assert attenuated_mask.dims == unfeasible_mask.dims == ds_Sv["Sv"].dims
     assert np.allclose(attenuated_mask, xr.zeros_like(ds_Sv["Sv"], dtype=bool))
-    assert np.allclose(unfeasible_mask, xr.full_like(ds_Sv["Sv"], True, dtype=bool))
 
 
 @pytest.mark.integration
@@ -244,7 +242,7 @@ def test_mask_attenuated_signal_outside_searching_range():
     ],
 )
 def test_mask_attenuated_signal_against_echopy(chunk):
-    """Test `attenuated_signal` to see if Echopype output matches echopy output masks."""
+    """Test `attenuated_signal` to see if Echopype output matches echopy output mask."""
     # Parse, calibrate, and add depth
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
@@ -257,30 +255,26 @@ def test_mask_attenuated_signal_against_echopy(chunk):
         # Chunk dataset
         ds_Sv = ds_Sv.chunk("auto")
 
-    # Create masks
-    r0, r1, n, threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
-    attenuated_mask, unfeasible_mask = ep.clean.mask_attenuated_signal(
+    # Create mask
+    upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
+    attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
-        r0,
-        r1,
-        n,
-        threshold
+        upper_limit_sl,
+        lower_limit_sl,
+        num_pings,
+        attenuation_threshold
     )
 
-    # Grab echopy attenuated masks
-    echopy_attenuated_masks = xr.open_dataset(
-        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645_echopy_attenuated_masks.zarr",
+    # Grab echopy attenuated signal mask
+    echopy_attenuated_mask = xr.open_dataset(
+        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645_echopy_attenuated_mask.zarr",
         engine="zarr"
     )
 
-    # Check that Echopype masks match echopy masks
+    # Check that Echopype 38kHz mask matches echopy mask
     assert np.allclose(
-        echopy_attenuated_masks["attenuated_mask"],
+        echopy_attenuated_mask["attenuated_mask"],
         attenuated_mask.isel(channel=0).transpose("range_sample", "ping_time")
-    )
-    assert np.allclose(
-        echopy_attenuated_masks["unfeasible_mask"],
-        unfeasible_mask.isel(channel=0).transpose("range_sample", "ping_time")
     )
 
 

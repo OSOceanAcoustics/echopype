@@ -30,17 +30,17 @@ def mask_impulse_noise(
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    depth_bin : str, default '5m'
+    depth_bin : str, default `5`m
         Donwsampling bin size along ``depth`` in meters.
     num_side_pings : int, default `1`
         Number of side pings to look at for the two-side comparison.
-    impulse_threshold : Union[int, float], default `10.0`
-        User-defined impulse threshold value in dB for the two-side comparison.
+    impulse_threshold : Union[int, float], default `10.0`dB
+        Impulse threshold value (dB) for the two-side comparison.
 
     Returns
     -------
     xr.Dataset
-        Xarray boolean array with impulse noise mask.
+        Xarray boolean array impulse noise mask.
 
     References
     ----------
@@ -84,29 +84,33 @@ def mask_impulse_noise(
     return impulse_noise_mask
 
 
-def mask_attenuated_signal(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, threshold: float):
+def mask_attenuated_signal(
+    ds_Sv: xr.Dataset,
+    upper_limit_sl: Union[int, float] = 400.0,
+    lower_limit_sl: Union[int, float] = 500.0,
+    num_pings: int = 30,
+    attenuation_threshold: Union[int, float] = 8.0,
+):
     """
-    Locate attenuated signals and create an attenuated mask and a mask where attenuation
-    masking was unfeasible.
+    Locate attenuated signals and create an attenuated signal mask.
 
     Parameters
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    r0 : float
-        Upper limit of SL (m).
-    r1 : float
-        Lower limit of SL (m).
-    n : int
+    upper_limit_sl : Union[int, float], default `400`m
+        Upper limit of deep scattering layer line (m).
+    lower_limit_sl : Union[int, float], default `500`m
+        Lower limit of deep scattering layer line (m).
+    num_pings : int, default `30`
         Number of preceding & subsequent pings defining the block.
-    threshold : float
-        User-defined threshold value (dB).
+    attenuation_threshold : Union[int, float], default `8.0`dB
+        Attenuation threshold value (dB) for the ping-block comparison.
 
     Returns
     -------
-    tuple
-        Xarray boolean array with attenuated signal mask.
-        Xarray boolean array with mask indicating where attenuated signal detection was unfeasible.
+    xr.Dataset
+        Xarray boolean array attenuated signal mask.
 
     References
     ----------
@@ -124,36 +128,39 @@ def mask_attenuated_signal(ds_Sv: xr.Dataset, r0: float, r1: float, n: int, thre
         )
 
     # Check range values
-    if r0 > r1:
+    if upper_limit_sl > lower_limit_sl:
         raise ValueError("Minimum range has to be shorter than maximum range")
 
     # Copy `ds_Sv`
     ds_Sv_copy = ds_Sv.copy()
 
     # Return empty masks if searching range is outside the echosounder range
-    if (r0 > ds_Sv_copy["depth"].max()) or (r1 < ds_Sv_copy["depth"].min()):
+    if (upper_limit_sl > ds_Sv_copy["depth"].max()) or (lower_limit_sl < ds_Sv_copy["depth"].min()):
         attenuated_mask = xr.zeros_like(ds_Sv_copy["Sv"], dtype=bool)
-        unfeasible_mask = xr.full_like(ds_Sv_copy["Sv"], True, dtype=bool)
-        return attenuated_mask, unfeasible_mask
+        return attenuated_mask
 
     # Create partial of echopy attenuation mask computation
     partial_echopy_attenuation_mask = partial(
-        echopy_attenuated_signal_mask, r0=r0, r1=r1, n=n, threshold=threshold
+        echopy_attenuated_signal_mask,
+        upper_limit_sl=upper_limit_sl,
+        lower_limit_sl=lower_limit_sl,
+        num_pings=num_pings,
+        attenuation_threshold=attenuation_threshold,
     )
 
-    # Compute attenuated signal and unfeasible (incapable of computing attenuated signal) masks
-    attenuated_mask, unfeasible_mask = xr.apply_ufunc(
+    # Compute attenuated signal mask
+    attenuated_mask = xr.apply_ufunc(
         partial_echopy_attenuation_mask,
         ds_Sv_copy["Sv"],
         ds_Sv_copy["depth"],
         input_core_dims=[["ping_time", "range_sample"], ["ping_time", "range_sample"]],
-        output_core_dims=[["ping_time", "range_sample"], ["ping_time", "range_sample"]],
+        output_core_dims=[["ping_time", "range_sample"]],
         dask="parallelized",
         vectorize=True,
-        output_dtypes=[bool, bool],
+        output_dtypes=[bool],
     )
 
-    return attenuated_mask, unfeasible_mask
+    return attenuated_mask
 
 
 def estimate_background_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
