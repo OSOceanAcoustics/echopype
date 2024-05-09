@@ -47,6 +47,7 @@ def downsample_upsample_along_depth(ds_Sv, depth_bin: str = "5min"):
     # Create mapping from original depth/Sv variable to binned depth and
     # upsample. This upsampling operation assumes that depth values are
     # uniform across channel and ping time.
+    # TODO: Find a better way to do this? Perhaps something vectorized.
     raw_resolution_Sv_index_to_bin_index = {}
     for depth_index, depth in enumerate(ds_Sv["depth"].isel(channel=0, ping_time=0).values):
         for bin_index, bin in enumerate(downsampled_Sv["depth_bins"].values):
