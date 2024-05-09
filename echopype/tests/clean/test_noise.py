@@ -116,6 +116,64 @@ def test_impulse_noise_mask_dimensions(chunk):
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk"),
+    [
+        (False),
+        (True),
+    ],
+)
+def test_impulse_noise_mask_values(chunk):
+    """Manually check if impulse noise mask removes impulse noise values."""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Create impulse noise mask
+    impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv)
+
+    # Compute upsampled data
+    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv)
+    upsampled_Sv = upsampled_Sv.compute()
+
+    # Remove impulse noise from Sv
+    ds_Sv["upsampled_Sv_cleaned_of_impulse_noise"] = xr.where(
+        impulse_noise_mask,
+        np.nan,
+        upsampled_Sv
+    ).compute()
+
+    # Iterate through all channels
+    for channel_index in range(len(ds_Sv["channel"])):
+        # Iterate through every 50th range sample
+        for range_sample_index in range(0, len(ds_Sv["range_sample"]), 50):
+            # Iterate through every third ping time
+            for ping_time_index in range(1, len(ds_Sv["ping_time"]) - 1, 3):
+                # Grab range sample row array
+                row_array = ds_Sv["upsampled_Sv_cleaned_of_impulse_noise"].isel(
+                    channel=channel_index,
+                    ping_time=slice(ping_time_index - 1, ping_time_index + 2),
+                    range_sample=range_sample_index
+                ).data
+                # Compute left and right subtraction values
+                left_subtracted_value = row_array[1] - row_array[0]
+                right_subtracted_value = row_array[1] - row_array[2]
+                # Check negation of impulse condition if middle array and subtraction values are not NaN
+                if not (
+                    np.isnan(row_array[1]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)
+                ):
+                    assert (row_array[1] - row_array[0] <= 10.0 or row_array[1] - row_array[2] <= 10.0)
+
+
+@pytest.mark.integration
 def test_mask_attenuated_signal_value_errors():
     """Test `mask_attenuated_signal` values errors."""
     # Parse and calibrate
