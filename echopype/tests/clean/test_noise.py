@@ -267,7 +267,7 @@ def test_mask_attenuated_signal_against_echopy(chunk):
 
     # Grab echopy attenuated signal mask
     echopy_attenuated_mask = xr.open_dataset(
-        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645_echopy_attenuated_mask.zarr",
+        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645_echopy_attenuated_masks.zarr",
         engine="zarr"
     )
 
