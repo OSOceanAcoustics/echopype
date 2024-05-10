@@ -5,16 +5,110 @@ Functions for reducing variabilities in backscatter data.
 from functools import partial
 from typing import Union
 
+import flox.xarray
 import numpy as np
 import xarray as xr
 
+from ..utils.compute import _lin2log, _log2lin
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .background_noise_est import BackgroundNoiseEst
 from .utils import (
     downsample_upsample_along_depth,
     echopy_attenuated_signal_mask,
     echopy_impulse_noise_mask,
+    setup_transient_noise_bins,
 )
+
+
+def mask_transient_noise(
+    ds_Sv: xr.Dataset,
+    func: str = "nanmean",
+    depth_bin: str = "20m",
+    num_side_pings: int = 50,
+    exclude_above: Union[int, float] = 250.0,
+    transient_noise_threshold: Union[int, float] = 12.0,
+):
+    """
+    Locate and create a mask for transient noise using a pooling comparison.
+
+    Parameters
+    ----------
+    ds_Sv : xarray.Dataset
+        Calibrated Sv data with depth data variable.
+    func: str, default `nanmean`
+        Pooling function used in flox reduction.
+        `nanmedian` can also be used, but then the masking operation cannot be Dask delayed.
+    depth_bin : str, default `20`m
+        Pooling radius along ``depth`` in meters.
+    num_side_pings : int, default `50`
+        Number of side pings to look at for the pooling.
+    exclude_above : Union[int, float], default `250`m
+        Exclude all depth above (closer to the surface than) this value.
+    transient_noise_threshold : Union[int, float], default `10.0`dB
+        Transient threshold value (dB) for the pooling comparison.
+
+    Returns
+    -------
+    xr.Dataset
+        Xarray boolean array impulse noise mask.
+
+    References
+    ----------
+    Ryan et al. (2015) Reducing bias due to noise and attenuation in
+    open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+    """
+    if "depth" not in ds_Sv.data_vars:
+        raise ValueError(
+            "Masking attenuated signal requires depth data variable in `ds_Sv`. "
+            "Consider adding depth with `ds_Sv = ep.consolidate.add_depth(ds_Sv)`."
+        )
+
+    # Copy `ds_Sv`
+    ds_Sv_copy = ds_Sv.copy()
+
+    # Setup binning variables
+    (
+        ds_Sv_copy,
+        range_sample_values_kept,
+        depth_intervals,
+        ping_time_indices,
+        ping_values_kept,
+        ping_intervals,
+    ) = setup_transient_noise_bins(ds_Sv_copy, depth_bin, num_side_pings, exclude_above)
+
+    # The `nanmedian` aggregation function is only implemented with `blockwise` reduction for dask
+    # arrays; however, `blockwise` cannot be used since we have blocks that exist in separate chunks
+    # due to the overlapping ping and depth intervals. For now, we will always compute Sv arrays
+    # that are chunked and when `func==median`.
+    # TODO: Allow for Dask Delay when `func==nanmedian` is implemented for flox `map-reduce`.
+    if func == "nanmedian" and ds_Sv.chunks != {}:
+        ds_Sv_copy = ds_Sv_copy.compute()
+
+    # Pool Sv based on defined ping and depth intervals
+    pooled_Sv = flox.xarray.xarray_reduce(
+        ds_Sv_copy["Sv"].pipe(_log2lin),
+        ds_Sv_copy["channel"],
+        ping_time_indices,
+        ds_Sv_copy["depth"],
+        expected_groups=(None, ping_intervals, depth_intervals),
+        isbin=(False, True, True),
+        method="map-reduce",
+        func=func,
+        engine="numpy",  # numpy is currently faster than the flox internal implementations
+        skipna=True,
+    ).pipe(_lin2log)
+
+    # Rename dimensions, assign coords, and broadcast to original Sv dimensions
+    pooled_Sv = (
+        pooled_Sv.rename({"ping_time_indices_bins": "ping_time", "depth_bins": "range_sample"})
+        .assign_coords(ping_time=ping_values_kept, range_sample=range_sample_values_kept)
+        .broadcast_like(ds_Sv_copy["Sv"])
+    )
+
+    # Compute transient noise mask
+    transient_noise_mask = ds_Sv_copy["Sv"] - pooled_Sv > transient_noise_threshold
+
+    return transient_noise_mask
 
 
 def mask_impulse_noise(
