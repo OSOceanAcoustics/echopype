@@ -115,7 +115,7 @@ def mask_impulse_noise(
     ds_Sv: xr.Dataset,
     depth_bin: str = "5m",
     num_side_pings: int = 1,
-    impulse_threshold: Union[int, float] = 10.0,
+    impulse_noise_threshold: Union[int, float] = 10.0,
 ):
     """
     Locate and create a mask for impulse noise using a ping-wise two-sided comparison.
@@ -128,8 +128,8 @@ def mask_impulse_noise(
         Donwsampling bin size along ``depth`` in meters.
     num_side_pings : int, default `1`
         Number of side pings to look at for the two-side comparison.
-    impulse_threshold : Union[int, float], default `10.0`dB
-        Impulse threshold value (dB) for the two-side comparison.
+    impulse_noise_threshold : Union[int, float], default `10.0`dB
+        Impulse noise threshold value (dB) for the two-side comparison.
 
     Returns
     -------
@@ -161,7 +161,7 @@ def mask_impulse_noise(
     partial_echopy_impulse_noise_mask = partial(
         echopy_impulse_noise_mask,
         num_side_pings=num_side_pings,
-        impulse_threshold=impulse_threshold,
+        impulse_noise_threshold=impulse_noise_threshold,
     )
 
     # Create noise mask
@@ -183,7 +183,7 @@ def mask_attenuated_signal(
     upper_limit_sl: Union[int, float] = 400.0,
     lower_limit_sl: Union[int, float] = 500.0,
     num_pings: int = 30,
-    attenuation_threshold: Union[int, float] = 8.0,
+    attenuation_signal_threshold: Union[int, float] = 8.0,
 ):
     """
     Locate attenuated signals and create an attenuated signal mask.
@@ -198,8 +198,8 @@ def mask_attenuated_signal(
         Lower limit of deep scattering layer line (m).
     num_pings : int, default `30`
         Number of preceding & subsequent pings defining the block.
-    attenuation_threshold : Union[int, float], default `8.0`dB
-        Attenuation threshold value (dB) for the ping-block comparison.
+    attenuation_signal_threshold : Union[int, float], default `8.0`dB
+        Attenuation signal threshold value (dB) for the ping-block comparison.
 
     Returns
     -------
@@ -239,7 +239,7 @@ def mask_attenuated_signal(
         upper_limit_sl=upper_limit_sl,
         lower_limit_sl=lower_limit_sl,
         num_pings=num_pings,
-        attenuation_threshold=attenuation_threshold,
+        attenuation_signal_threshold=attenuation_signal_threshold,
     )
 
     # Compute attenuated signal mask

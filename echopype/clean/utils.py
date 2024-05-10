@@ -127,7 +127,7 @@ def downsample_upsample_along_depth(ds_Sv, depth_bin: str = "5min"):
     return downsampled_Sv, upsampled_Sv
 
 
-def echopy_impulse_noise_mask(Sv, num_side_pings, impulse_threshold):
+def echopy_impulse_noise_mask(Sv, num_side_pings, impulse_noise_threshold):
     """Single-channel impulse noise mask computation from echopy."""
     # Construct the two ping side-by-side comparison arrays
     dummy = np.zeros((Sv.shape[0], num_side_pings)) * np.nan
@@ -136,16 +136,16 @@ def echopy_impulse_noise_mask(Sv, num_side_pings, impulse_threshold):
     comparison_forward[np.isnan(comparison_forward)] = np.inf
     comparison_backward[np.isnan(comparison_backward)] = np.inf
 
-    # Create mask by checking if comparison arrays are above `impulse_threshold`
-    maskf = comparison_forward > impulse_threshold
-    maskb = comparison_backward > impulse_threshold
+    # Create mask by checking if comparison arrays are above `impulse_noise_threshold`
+    maskf = comparison_forward > impulse_noise_threshold
+    maskb = comparison_backward > impulse_noise_threshold
     mask = maskf & maskb
 
     return mask
 
 
 def echopy_attenuated_signal_mask(
-    Sv, depth, upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold
+    Sv, depth, upper_limit_sl, lower_limit_sl, num_pings, attenuation_signal_threshold
 ):
     """Single-channel attenuated signal mask computation from echopy."""
     # Initialize mask
@@ -171,7 +171,7 @@ def echopy_attenuated_signal_mask(
                     _log2lin(Sv[(ping_time_idx - num_pings) : (ping_time_idx + num_pings), up:lw])
                 )
             )
-            if (pingmedian - blockmedian) < attenuation_threshold:
+            if (pingmedian - blockmedian) < attenuation_signal_threshold:
                 attenuated_mask[ping_time_idx, :] = True
 
     return attenuated_mask

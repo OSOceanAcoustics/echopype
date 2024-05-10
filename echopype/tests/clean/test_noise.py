@@ -184,14 +184,14 @@ def test_mask_attenuated_signal_value_errors():
     ds_Sv = ep.calibrate.compute_Sv(ed)
 
     # Attempt to create mask without depth
-    upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
+    upper_limit_sl, lower_limit_sl, num_pings, attenuation_signal_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
     with pytest.raises(ValueError):
         ep.clean.mask_attenuated_signal(
             ds_Sv,
             upper_limit_sl,
             lower_limit_sl,
             num_pings,
-            attenuation_threshold
+            attenuation_signal_threshold
         )
     
     # Add depth
@@ -204,7 +204,7 @@ def test_mask_attenuated_signal_value_errors():
             upper_limit_sl=180,
             lower_limit_sl=170,
             num_pings=num_pings,
-            attenuation_threshold=attenuation_threshold
+            attenuation_signal_threshold=attenuation_signal_threshold
         )
 
 
@@ -220,13 +220,13 @@ def test_mask_attenuated_signal_outside_searching_range():
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
     # Create mask
-    upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold = 1800, 2800, 30, -6 # units: (m, m, pings, dB)
+    upper_limit_sl, lower_limit_sl, num_pings, attenuation_signal_threshold = 1800, 2800, 30, -6 # units: (m, m, pings, dB)
     attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         upper_limit_sl,
         lower_limit_sl,
         num_pings,
-        attenuation_threshold
+        attenuation_signal_threshold
     )
     
     # Check outputs
@@ -256,13 +256,13 @@ def test_mask_attenuated_signal_against_echopy(chunk):
         ds_Sv = ds_Sv.chunk("auto")
 
     # Create mask
-    upper_limit_sl, lower_limit_sl, num_pings, attenuation_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
+    upper_limit_sl, lower_limit_sl, num_pings, attenuation_signal_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
     attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         upper_limit_sl,
         lower_limit_sl,
         num_pings,
-        attenuation_threshold
+        attenuation_signal_threshold
     )
 
     # Grab echopy attenuated signal mask
