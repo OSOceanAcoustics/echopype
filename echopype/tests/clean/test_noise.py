@@ -9,7 +9,7 @@ from echopype.utils.compute import _lin2log, _log2lin
 
 @pytest.mark.integration
 def test_mask_functions_with_no_depth():
-    """Test mask functions with no depth variable passed in with `ds_Sv`"""
+    """Test mask functions when the depth variable is not within `ds_Sv`."""
     # Open raw and calibrate
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
@@ -25,6 +25,27 @@ def test_mask_functions_with_no_depth():
         ep.clean.mask_impulse_noise(ds_Sv)
     with pytest.raises(ValueError):
         ep.clean.mask_transient_noise(ds_Sv)
+
+
+@pytest.mark.integration
+def test_mask_functions_dimensions():
+    """Test mask functions' output dimensions."""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Compute masks and check that dimensions match `ds_Sv`
+    attenuated_signal_mask = ep.clean.mask_attenuated_signal(ds_Sv)
+    impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv)
+    transient_noise_mask = ep.clean.mask_transient_noise(ds_Sv)
+    for mask in [attenuated_signal_mask, impulse_noise_mask, transient_noise_mask]:
+        assert ds_Sv["channel"].equals(mask["channel"])
+        assert np.allclose(ds_Sv["range_sample"].data, mask["range_sample"].data)
+        assert ds_Sv["ping_time"].equals(mask["ping_time"])
 
 
 @pytest.mark.integration
@@ -88,35 +109,6 @@ def test_downsample_upsample_along_depth(chunk):
                 for manual_depth in manual_depth_array:
                     if not np.isnan(manual_depth):
                         assert flox_depth_bin.left <= manual_depth < flox_depth_bin.right
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize(
-    ("chunk"),
-    [
-        (False),
-        (True),
-    ],
-)
-def test_impulse_noise_mask_dimensions(chunk):
-    """Test impulse noise mask dimensions"""
-    # Open raw, calibrate, and add depth
-    ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
-        sonar_model="EK60"
-    )
-    ds_Sv = ep.calibrate.compute_Sv(ed)
-    ds_Sv = ep.consolidate.add_depth(ds_Sv)
-
-    if chunk:
-        # Chunk calibrated Sv
-        ds_Sv = ds_Sv.chunk("auto")
-
-    # Check that dimensions match between impulse noise mask and `ds_Sv["Sv"]`
-    impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv)
-    assert ds_Sv["channel"].equals(impulse_noise_mask["channel"])
-    assert np.allclose(ds_Sv["range_sample"].data, impulse_noise_mask["range_sample"].data)
-    assert ds_Sv["ping_time"].equals(impulse_noise_mask["ping_time"])
 
 
 @pytest.mark.integration
