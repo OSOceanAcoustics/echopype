@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ..commongrid.utils import _convert_bins_to_interval_index, _setup_and_validate
+from ..commongrid.utils import _convert_bins_to_interval_index
 from ..utils.compute import _lin2log, _log2lin
 
 
@@ -15,7 +15,6 @@ def setup_transient_noise_bins(ds_Sv, depth_bin, num_side_pings, exclude_above):
     and range sample values that are used.
     """
     # Create depth bin intervals
-    ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", depth_bin)
     depth_values_min = ds_Sv["depth"].min()
     depth_values_max = ds_Sv["depth"].max()
     depth_subset = ds_Sv["depth"].isel(channel=0, ping_time=0)
@@ -74,13 +73,12 @@ def _upsample_using_mapping(downsampled_Sv, original_Sv, raw_resolution_Sv_index
     return upsampled_Sv
 
 
-def downsample_upsample_along_depth(ds_Sv, depth_bin: str = "5min"):
+def downsample_upsample_along_depth(ds_Sv, depth_bin):
     """
     Downsample and upsample Sv to mimic what was done in echopy impulse
     noise masking.
     """
-    # Validate Sv and compute range interval
-    ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", "5min")
+    # Validate and compute range interval
     echo_range_max = ds_Sv["depth"].max()
     range_interval = np.arange(0, echo_range_max + depth_bin, depth_bin)
     range_interval = _convert_bins_to_interval_index(range_interval)

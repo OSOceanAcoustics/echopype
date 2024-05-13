@@ -9,6 +9,7 @@ import flox.xarray
 import numpy as np
 import xarray as xr
 
+from ..commongrid.utils import _setup_and_validate
 from ..utils.compute import _lin2log, _log2lin
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .background_noise_est import BackgroundNoiseEst
@@ -45,7 +46,7 @@ def mask_transient_noise(
     exclude_above : Union[int, float], default `250`m
         Exclude all depth above (closer to the surface than) this value.
     transient_noise_threshold : Union[int, float], default `10.0`dB
-        Transient threshold value (dB) for the pooling comparison.
+        Transient noise threshold value (dB) for the pooling comparison.
 
     Returns
     -------
@@ -65,6 +66,9 @@ def mask_transient_noise(
 
     # Copy `ds_Sv`
     ds_Sv_copy = ds_Sv.copy()
+
+    # Setup and validate Sv and depth bin
+    ds_Sv_copy, depth_bin = _setup_and_validate(ds_Sv_copy, "depth", depth_bin)
 
     # Setup binning variables
     (
@@ -153,6 +157,9 @@ def mask_impulse_noise(
 
     # Copy `ds_Sv`
     ds_Sv_copy = ds_Sv.copy()
+
+    # Setup and validate Sv and depth bin
+    ds_Sv_copy, depth_bin = _setup_and_validate(ds_Sv_copy, "depth", depth_bin)
 
     # Downsample and Upsample Sv along depth
     _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv_copy, depth_bin)
@@ -321,7 +328,7 @@ def remove_background_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, S
     ds_Sv = noise_obj.ds_Sv
 
     prov_dict = echopype_prov_attrs(process_type="processing")
-    prov_dict["processing_function"] = "clean.remove_noise"
+    prov_dict["processing_function"] = "clean.remove_background_noise"
     ds_Sv = ds_Sv.assign_attrs(prov_dict)
 
     # The output ds_Sv is built as a copy of the input ds_Sv, so the step below is

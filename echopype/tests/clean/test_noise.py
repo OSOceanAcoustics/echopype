@@ -71,7 +71,7 @@ def test_downsample_upsample_along_depth(chunk):
         ds_Sv = ds_Sv.chunk("auto")
 
     # Run downsampling and upsampling
-    downsampled_Sv, upsampled_Sv = downsample_upsample_along_depth(ds_Sv)
+    downsampled_Sv, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 5)
 
     # Compute DataArrays
     downsampled_Sv = downsampled_Sv.compute()
