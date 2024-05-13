@@ -137,7 +137,7 @@ def test_impulse_noise_mask_values(chunk):
     impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv)
 
     # Compute upsampled data
-    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv)
+    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 5)
     upsampled_Sv = upsampled_Sv.compute()
 
     # Remove impulse noise from Sv
