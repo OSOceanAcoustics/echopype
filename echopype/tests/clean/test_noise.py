@@ -47,7 +47,7 @@ def test_mask_functions_dimensions():
         assert np.allclose(ds_Sv["range_sample"].data, mask["range_sample"].data)
         assert ds_Sv["ping_time"].equals(mask["ping_time"])
 
-@pytest.mark.test
+
 @pytest.mark.integration
 def test_transient_mask_noise_func_error_and_warnings(caplog):
     """Check if appropriate warnings and errors are raised for transient noise mask func input."""
@@ -101,7 +101,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog):
             func="nanmode",
         )
 
-@pytest.mark.test
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("chunk", "func"),
