@@ -5,20 +5,21 @@ Functions for reducing variabilities in backscatter data.
 from functools import partial
 from typing import Union
 
-import flox.xarray
 import numpy as np
 import xarray as xr
 
 from ..commongrid.utils import _setup_and_validate
-from ..utils.compute import _lin2log, _log2lin
+from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .background_noise_est import BackgroundNoiseEst
 from .utils import (
+    calc_transient_noise_pooled_Sv,
     downsample_upsample_along_depth,
     echopy_attenuated_signal_mask,
     echopy_impulse_noise_mask,
-    setup_transient_noise_bins,
 )
+
+logger = _init_logger(__name__)
 
 
 def mask_transient_noise(
@@ -37,8 +38,7 @@ def mask_transient_noise(
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
     func: str, default `nanmean`
-        Pooling function used in flox reduction.
-        `nanmedian` can also be used, but then the masking operation cannot be Dask delayed.
+        Pooling function used in the pooled Sv aggregation.
     depth_bin : str, default `20`m
         Pooling radius along ``depth`` in meters.
     num_side_pings : int, default `50`
@@ -57,6 +57,10 @@ def mask_transient_noise(
     ----------
     Ryan et al. (2015) Reducing bias due to noise and attenuation in
     open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+
+    Code was derived from echopy's numpy single-channel implementation of transient noise masking
+    and translated into xarray code:
+    https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_transient.py # noqa
     """
     if "depth" not in ds_Sv.data_vars:
         raise ValueError(
@@ -65,52 +69,29 @@ def mask_transient_noise(
         )
 
     # Copy `ds_Sv`
-    ds_Sv_copy = ds_Sv.copy()
+    ds_Sv = ds_Sv.copy()
 
-    # Setup and validate Sv and depth bin
-    ds_Sv_copy, depth_bin = _setup_and_validate(ds_Sv_copy, "depth", depth_bin)
+    # Check for appropriate function passed in
+    if func != "nanmean" and func != "nanmedian":
+        raise ValueError("Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`.")
 
-    # Setup binning variables
-    (
-        ds_Sv_copy,
-        range_sample_values_kept,
-        depth_intervals,
-        ping_time_indices,
-        ping_values_kept,
-        ping_intervals,
-    ) = setup_transient_noise_bins(ds_Sv_copy, depth_bin, num_side_pings, exclude_above)
+    # Warn when `func=nanmedian` since the sorting overhead makes it incredibly slow compared to
+    # `nanmean`.
+    logger.warning(
+        "Consider using `func=nanmean`. `func=nanmedian` is an incredibly slow operation due to "
+        "the overhead sorting."
+    )
 
-    # The `nanmedian` aggregation function is only implemented with `blockwise` reduction for dask
-    # arrays; however, `blockwise` cannot be used since we have blocks that exist in separate chunks
-    # due to the overlapping ping and depth intervals. For now, we will always compute Sv arrays
-    # that are chunked and when `func==median`.
-    # TODO: Allow for Dask Delay when `func==nanmedian` is implemented for flox `map-reduce`.
-    if func == "nanmedian" and ds_Sv.chunks != {}:
-        ds_Sv_copy = ds_Sv_copy.compute()
+    # Setup depth bin
+    ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", depth_bin)
 
-    # Pool Sv based on defined ping and depth intervals
-    pooled_Sv = flox.xarray.xarray_reduce(
-        ds_Sv_copy["Sv"].pipe(_log2lin),
-        ds_Sv_copy["channel"],
-        ping_time_indices,
-        ds_Sv_copy["depth"],
-        expected_groups=(None, ping_intervals, depth_intervals),
-        isbin=(False, True, True),
-        method="map-reduce",
-        func=func,
-        engine="numpy",  # numpy is currently faster than the flox internal implementations
-        skipna=True,
-    ).pipe(_lin2log)
-
-    # Rename dimensions, assign coords, and broadcast to original Sv dimensions
-    pooled_Sv = (
-        pooled_Sv.rename({"ping_time_indices_bins": "ping_time", "depth_bins": "range_sample"})
-        .assign_coords(ping_time=ping_values_kept, range_sample=range_sample_values_kept)
-        .broadcast_like(ds_Sv_copy["Sv"])
+    # Compute pooled Sv
+    pooled_Sv = calc_transient_noise_pooled_Sv(
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above
     )
 
     # Compute transient noise mask
-    transient_noise_mask = ds_Sv_copy["Sv"] - pooled_Sv > transient_noise_threshold
+    transient_noise_mask = ds_Sv["Sv"] - pooled_Sv > transient_noise_threshold
 
     return transient_noise_mask
 
@@ -156,13 +137,13 @@ def mask_impulse_noise(
         )
 
     # Copy `ds_Sv`
-    ds_Sv_copy = ds_Sv.copy()
+    ds_Sv = ds_Sv.copy()
 
     # Setup and validate Sv and depth bin
-    ds_Sv_copy, depth_bin = _setup_and_validate(ds_Sv_copy, "depth", depth_bin)
+    ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", depth_bin)
 
     # Downsample and Upsample Sv along depth
-    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv_copy, depth_bin)
+    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin)
 
     # Create partial of `echopy_impulse_noise_mask`
     partial_echopy_impulse_noise_mask = partial(
@@ -233,11 +214,11 @@ def mask_attenuated_signal(
         raise ValueError("Minimum range has to be shorter than maximum range")
 
     # Copy `ds_Sv`
-    ds_Sv_copy = ds_Sv.copy()
+    ds_Sv = ds_Sv.copy()
 
     # Return empty masks if searching range is outside the echosounder range
-    if (upper_limit_sl > ds_Sv_copy["depth"].max()) or (lower_limit_sl < ds_Sv_copy["depth"].min()):
-        attenuated_mask = xr.zeros_like(ds_Sv_copy["Sv"], dtype=bool)
+    if (upper_limit_sl > ds_Sv["depth"].max()) or (lower_limit_sl < ds_Sv["depth"].min()):
+        attenuated_mask = xr.zeros_like(ds_Sv["Sv"], dtype=bool)
         return attenuated_mask
 
     # Create partial of echopy attenuation mask computation
@@ -252,8 +233,8 @@ def mask_attenuated_signal(
     # Compute attenuated signal mask
     attenuated_mask = xr.apply_ufunc(
         partial_echopy_attenuation_mask,
-        ds_Sv_copy["Sv"],
-        ds_Sv_copy["depth"],
+        ds_Sv["Sv"],
+        ds_Sv["depth"],
         input_core_dims=[["ping_time", "range_sample"], ["ping_time", "range_sample"]],
         output_core_dims=[["ping_time", "range_sample"]],
         dask="parallelized",

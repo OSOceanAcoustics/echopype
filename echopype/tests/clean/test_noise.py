@@ -3,7 +3,7 @@ import xarray as xr
 import echopype as ep
 import pytest
 
-from echopype.clean.utils import downsample_upsample_along_depth
+from echopype.clean.utils import calc_transient_noise_pooled_Sv, downsample_upsample_along_depth
 from echopype.utils.compute import _lin2log, _log2lin
 
 
@@ -47,6 +47,124 @@ def test_mask_functions_dimensions():
         assert np.allclose(ds_Sv["range_sample"].data, mask["range_sample"].data)
         assert ds_Sv["ping_time"].equals(mask["ping_time"])
 
+@pytest.mark.test
+@pytest.mark.integration
+def test_transient_mask_noise_func_error_and_warnings(caplog):
+    """Check if appropriate warnings and errors are raised for transient noise mask func input."""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Select Sv subset
+    ds_Sv = ds_Sv.isel(ping_time=slice(294, 300), range_sample=slice(1770,1800))
+
+    # Set window args
+    depth_bin="2m"
+    num_side_pings=2
+    exclude_above = 250
+
+    ### Check for `nanmedian` warning:
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Compute transient noise mask
+    ep.clean.mask_transient_noise(
+        ds_Sv,
+        depth_bin=depth_bin,
+        num_side_pings=num_side_pings,
+        exclude_above=exclude_above,
+        func="nanmedian",
+    )
+
+    # Check for expected warning
+    expected_warning = (
+        "Consider using `func=nanmean`. `func=nanmedian` is an incredibly slow operation due to "
+        "the overhead sorting."
+    )
+    assert any(expected_warning in record.message for record in caplog.records)
+
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
+
+    # Check for func value error:
+    with pytest.raises(ValueError, match="Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`."):
+        ep.clean.mask_transient_noise(
+            ds_Sv,
+            depth_bin=depth_bin,
+            num_side_pings=num_side_pings,
+            exclude_above=exclude_above,
+            func="nanmode",
+        )
+
+@pytest.mark.test
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk", "func"),
+    [
+        (False, "nanmean"),
+        (True, "nanmean"),
+        (False, "nanmedian"),
+        (True, "nanmedian"),
+    ],
+)
+def test_calc_transient_noise_pooled_Sv_values(chunk, func):
+    """Manually check if pooled Sv for transient noise masking contains correct values."""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Select Sv subset
+    ds_Sv = ds_Sv.isel(ping_time=slice(294, 300), range_sample=slice(1770,1800))
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Set window args
+    depth_bin=2.0
+    num_side_pings=2
+    exclude_above = 250
+
+    # Compute pooled Sv
+    pooled_array = calc_transient_noise_pooled_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above).compute()
+
+    # Compute min and max values
+    depth_values_min = ds_Sv["depth"].min()
+    depth_values_max = ds_Sv["depth"].max()
+    ping_time_index_min = 0
+    ping_time_index_max = len(ds_Sv["ping_time"])
+
+    # Create ping time indices array
+    ping_time_indices = xr.DataArray(
+        np.arange(len(ds_Sv["ping_time"]), dtype=int),
+        dims=["ping_time"],
+        coords=[ds_Sv["ping_time"]],
+        name="ping_time_indices",
+    )
+
+    # Check appropriate NaN boundaries
+    within_mask = (
+        (ds_Sv["depth"] - depth_bin >= depth_values_min) &
+        (ds_Sv["depth"] + depth_bin <= depth_values_max) &
+        (ds_Sv["depth"] - depth_bin >= exclude_above) &
+        (ping_time_indices - num_side_pings >= ping_time_index_min) &
+        (ping_time_indices + num_side_pings <= ping_time_index_max)
+    )
+    unique_pool_boundary_values = np.unique(
+        pooled_array.where(~within_mask)
+    )
+
+    # Check that NaN is the only pool boundary unique value
+    assert np.isclose(unique_pool_boundary_values, np.array([np.nan]), equal_nan=True)
 
 @pytest.mark.integration
 @pytest.mark.parametrize(

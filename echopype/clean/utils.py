@@ -2,33 +2,16 @@ from functools import partial
 
 import flox.xarray
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 from ..commongrid.utils import _convert_bins_to_interval_index
 from ..utils.compute import _lin2log, _log2lin
 
 
-def setup_transient_noise_bins(ds_Sv, depth_bin, num_side_pings, exclude_above):
+def calc_transient_noise_pooled_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above):
     """
-    Setup range bin intervals and ping time bin intervals, and also return ping time
-    and range sample values that are used.
+    Compute pooled Sv array for transient noise masking.
     """
-    # Create depth bin intervals
-    depth_values_min = ds_Sv["depth"].min()
-    depth_values_max = ds_Sv["depth"].max()
-    depth_subset = ds_Sv["depth"].isel(channel=0, ping_time=0)
-    valid_depth_mask = (
-        (depth_subset - depth_bin >= depth_values_min)
-        & (depth_subset + depth_bin <= depth_values_max)
-        & (depth_subset - depth_bin >= exclude_above)
-    )
-    valid_depth_subset = depth_subset.where(valid_depth_mask).dropna(dim="range_sample").compute()
-    depth_intervals = pd.IntervalIndex.from_tuples(
-        tuple(zip((valid_depth_subset.data - depth_bin), (valid_depth_subset.data + depth_bin)))
-    )
-    range_sample_values_kept = valid_depth_subset.indexes["range_sample"].to_numpy()
-
     # Create ping time indices array
     ping_time_indices = xr.DataArray(
         np.arange(len(ds_Sv["ping_time"]), dtype=int),
@@ -37,28 +20,67 @@ def setup_transient_noise_bins(ds_Sv, depth_bin, num_side_pings, exclude_above):
         name="ping_time_indices",
     )
 
-    # Create ping bin intervals
-    ping_indices_min = 0
-    ping_indices_max = len(ping_time_indices)
-    valid_ping_time_mask = (ping_time_indices - num_side_pings >= ping_indices_min) & (
-        ping_time_indices + num_side_pings <= ping_indices_max
-    )
-    ping_indices_kept = (
-        ping_time_indices.where(valid_ping_time_mask).dropna(dim="ping_time").compute().to_numpy()
-    )
-    ping_intervals = pd.IntervalIndex.from_tuples(
-        tuple(zip((ping_indices_kept - num_side_pings), (ping_indices_kept + num_side_pings)))
-    )
-    ping_values_kept = ds_Sv["ping_time"].isel(ping_time=ping_indices_kept.astype(int))
+    # Create NaN pooled Sv array
+    pooled_Sv = xr.full_like(ds_Sv["Sv"], np.nan)
 
-    return (
-        ds_Sv,
-        range_sample_values_kept,
-        depth_intervals,
-        ping_time_indices,
-        ping_values_kept,
-        ping_intervals,
-    )
+    # Set min max values
+    depth_values_min = ds_Sv["depth"].min()
+    depth_values_max = ds_Sv["depth"].max()
+    ping_time_index_min = 0
+    ping_time_index_max = len(ds_Sv["ping_time"])
+
+    # Iterate through the channel dimension
+    for channel_index in range(len(ds_Sv["channel"])):
+
+        # Set channel arrays
+        chan_Sv = ds_Sv["Sv"].isel(channel=channel_index)
+        chan_depth = ds_Sv["depth"].isel(channel=channel_index)
+
+        # Iterate through the range sample dimension
+        for range_sample_index in range(len(ds_Sv["range_sample"])):
+
+            # Iterate through the ping time dimension
+            for ping_time_index in range(len(ds_Sv["ping_time"])):
+
+                # Grab current depth
+                current_depth = ds_Sv["depth"].isel(
+                    channel=channel_index,
+                    range_sample=range_sample_index,
+                    ping_time=ping_time_index,
+                )
+
+                # Check if current value is within a valid window
+                if (
+                    (current_depth - depth_bin >= depth_values_min)
+                    & (current_depth + depth_bin <= depth_values_max)
+                    & (current_depth - depth_bin >= exclude_above)
+                    & (ping_time_index - num_side_pings >= ping_time_index_min)
+                    & (ping_time_index + num_side_pings <= ping_time_index_max)
+                ):
+
+                    # Compute aggregate window Sv value
+                    window_mask = (
+                        (current_depth - depth_bin <= chan_depth)
+                        & (chan_depth <= current_depth + depth_bin)
+                        & (ping_time_index - num_side_pings <= ping_time_indices)
+                        & (ping_time_indices <= ping_time_index + num_side_pings)
+                    )
+                    window_Sv = chan_Sv.where(window_mask, other=np.nan).pipe(_log2lin)
+                    aggregate_window_Sv_value = window_Sv.pipe(
+                        np.nanmean if func == "nanmean" else np.nanmedian
+                    )
+                    aggregate_window_Sv_value = _lin2log(aggregate_window_Sv_value)
+
+                    # Put aggregate value in pooled Sv array
+                    pooled_Sv[
+                        dict(
+                            channel=channel_index,
+                            range_sample=range_sample_index,
+                            ping_time=ping_time_index,
+                        )
+                    ] = aggregate_window_Sv_value
+
+    return pooled_Sv
 
 
 def _upsample_using_mapping(downsampled_Sv, original_Sv, raw_resolution_Sv_index_to_bin_index):
