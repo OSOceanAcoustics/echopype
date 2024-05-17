@@ -501,12 +501,13 @@ def test_remove_background_noise():
     )
 
 
-@pytest.mark.skip(
-    reason=f"Tests for remove_background_noise have not been implemented " +
-            "when no sound absorption is provided!"
-)
-def test_remove_background_noise_no_sound_absorption():
-    """
-    Tests remove_background_noise on toy data that does
-    not have sound absorption as a variable.
-    """
+# TODO: Figure out why this can't finish running on pytest github actions
+#@pytest.mark.skip(
+#    reason=f"Tests for remove_background_noise have not been implemented " +
+#            "when no sound absorption is provided!"
+#)
+#def test_remove_background_noise_no_sound_absorption():
+#    """
+#    Tests remove_background_noise on toy data that does
+#    not have sound absorption as a variable.
+#    """
