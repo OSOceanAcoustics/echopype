@@ -501,13 +501,11 @@ def test_remove_background_noise():
     )
 
 
-@pytest.mark.xfail(
-    reason=f"Tests for remove_background_noise have not been implemented " +
-            "when no sound absorption is provided!"
-)
-def test_remove_background_noise_no_sound_absorption():
+def test_remove_noise_no_sound_absorption():
     """
-    Tests remove_background_noise on toy data that does
+    Tests remove_noise on toy data that does
     not have sound absorption as a variable.
     """
-    assert False
+
+    pytest.xfail(f"Tests for remove_noise have not been implemented" +
+                 " when no sound absorption is provided!")
