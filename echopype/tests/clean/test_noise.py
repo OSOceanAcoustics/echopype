@@ -60,10 +60,10 @@ def test_transient_mask_noise_func_error_and_warnings(caplog):
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
     # Select Sv subset
-    ds_Sv = ds_Sv.isel(ping_time=slice(294, 300), range_sample=slice(1770,1800))
+    ds_Sv = ds_Sv.isel(ping_time=slice(290, 300), range_sample=slice(1794,1800))
 
     # Set window args
-    depth_bin="2m"
+    depth_bin="0.2m"
     num_side_pings=2
     exclude_above = 250
 
@@ -113,7 +113,10 @@ def test_transient_mask_noise_func_error_and_warnings(caplog):
     ],
 )
 def test_calc_transient_noise_pooled_Sv_values(chunk, func):
-    """Manually check if pooled Sv for transient noise masking contains correct values."""
+    """
+    Manually check if the pooled Sv for transient noise masking contains 
+    the correct nan boundary and the correct bin aggregate values.
+    """
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
@@ -123,19 +126,21 @@ def test_calc_transient_noise_pooled_Sv_values(chunk, func):
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
     # Select Sv subset
-    ds_Sv = ds_Sv.isel(ping_time=slice(294, 300), range_sample=slice(1770,1800))
+    ds_Sv = ds_Sv.isel(ping_time=slice(294, 300), range_sample=slice(1794,1800))
 
     if chunk:
         # Chunk calibrated Sv
         ds_Sv = ds_Sv.chunk("auto")
 
     # Set window args
-    depth_bin=2.0
+    depth_bin = 0.2 # depth values ~0.2m apart per range sample
     num_side_pings=2
     exclude_above = 250
 
     # Compute pooled Sv
-    pooled_array = calc_transient_noise_pooled_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above).compute()
+    pooled_Sv = calc_transient_noise_pooled_Sv(
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above
+    ).compute()
 
     # Compute min and max values
     depth_values_min = ds_Sv["depth"].min()
@@ -160,11 +165,47 @@ def test_calc_transient_noise_pooled_Sv_values(chunk, func):
         (ping_time_indices + num_side_pings <= ping_time_index_max)
     )
     unique_pool_boundary_values = np.unique(
-        pooled_array.where(~within_mask)
+        pooled_Sv.where(~within_mask)
     )
 
     # Check that NaN is the only pool boundary unique value
     assert np.isclose(unique_pool_boundary_values, np.array([np.nan]), equal_nan=True)
+
+    # Compute Sv
+    ds_Sv["Sv"] = ds_Sv["Sv"].compute()
+
+    # Manually check correct binning and aggregation values
+    assert np.isclose(
+        pooled_Sv.isel(channel=0, ping_time=2, range_sample=2).data,
+        _lin2log(
+            _log2lin(ds_Sv["Sv"].isel(channel=0, ping_time=slice(0, 5), range_sample=slice(1, 4))).pipe(
+                np.nanmean if func == "nanmean" else np.nanmedian
+            )
+        ),
+        rtol=1e-10,
+        atol=1e-10,
+    )
+    assert np.isclose(
+        pooled_Sv.isel(channel=1, ping_time=3, range_sample=3).data,
+        _lin2log(
+            _log2lin(ds_Sv["Sv"].isel(channel=1, ping_time=slice(1, 6), range_sample=slice(2, 5))).pipe(
+                np.nanmean if func == "nanmean" else np.nanmedian
+            )
+        ),
+        rtol=1e-10,
+        atol=1e-10,
+    )
+    assert np.isclose(
+        pooled_Sv.isel(channel=2, ping_time=4, range_sample=3).data,
+        _lin2log(
+            _log2lin(ds_Sv["Sv"].isel(channel=2, ping_time=slice(2, 7), range_sample=slice(2, 5))).pipe(
+                np.nanmean if func == "nanmean" else np.nanmedian
+            )
+        ),
+        rtol=1e-10,
+        atol=1e-10,
+    )
+
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
