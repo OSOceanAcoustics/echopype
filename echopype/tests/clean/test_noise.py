@@ -501,11 +501,11 @@ def test_remove_background_noise():
     )
 
 
-def test_remove_noise_no_sound_absorption():
+def test_remove_background_noise_no_sound_absorption():
     """
-    Tests remove_noise on toy data that does
+    Tests remove_background_noise on toy data that does
     not have sound absorption as a variable.
     """
 
-    pytest.xfail(f"Tests for remove_noise have not been implemented" +
+    pytest.xfail(f"Tests for remove_background_noise have not been implemented" +
                  " when no sound absorption is provided!")
