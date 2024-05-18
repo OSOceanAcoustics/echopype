@@ -223,6 +223,8 @@ class ParseAd2cp(ParseBase):
         self,
         file,
         file_meta,
+        bot_file,
+        idx_file,
         storage_options={},
         dgram_zarr_vars={},
         sonar_model="AD2CP",
