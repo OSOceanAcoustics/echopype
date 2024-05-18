@@ -66,6 +66,7 @@ class ParseEK(ParseBase):
         self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
         self.bot = defaultdict(list)  # Dictionary to store bottom depth values
+        self.idx = defaultdict(list)  # Dictionary to store index file values
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
@@ -376,6 +377,12 @@ class ParseEK(ParseBase):
             bot_datagrams.read(1)  # Read everything after the bot config
             self._read_datagrams(bot_datagrams)
 
+        # Read index datagrams if `self.idx_file`` is not empty
+        if self.bot_file != "":
+            idx_datagrams = RawSimradFile(self.idx_file, "r", storage_options=self.storage_options)
+            idx_datagrams.read(1)  # Read everything after the bot config
+            self._read_datagrams(idx_datagrams)
+
         # Convert ping time to 1D numpy array, stored in dict indexed by channel,
         #  this will help merge data from all channels into a cube
         for ch, val in self.ping_time.items():
@@ -553,6 +560,13 @@ class ParseEK(ParseBase):
             elif new_datagram["type"].startswith("BOT"):
                 self.bot["depth"].append(new_datagram["depth"])
                 self.bot["timestamp"].append(new_datagram["timestamp"])
+
+            # IDX datagrams contain lat/lon and vessel distance from .idx files
+            elif new_datagram["type"].startswith("IDX"):
+                self.idx["distance"].append(new_datagram["distance"])
+                self.idx["latitude_idx"].append(new_datagram["latitude"])
+                self.idx["longitude_idx"].append(new_datagram["longitude"])
+                self.idx["timestamp"].append(new_datagram["timestamp"])
 
             # DEP datagrams contain sounder detected bottom depths from .out files
             # as well as reflectivity data
