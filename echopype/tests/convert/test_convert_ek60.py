@@ -208,3 +208,48 @@ def test_convert_es60_no_unicode_error(es60_path):
         open_raw(raw_path, sonar_model='EK60')
     except UnicodeDecodeError:
         pytest.fail("UnicodeDecodeError raised")
+
+
+@pytest.mark.integration
+def test_convert_ek60_with_missing_bot_file():
+    """Check appropriate error when attempting to parse `.BOT` file that does not exist."""
+    with pytest.raises(FileNotFoundError):
+        open_raw(
+            "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
+            sonar_model="EK60",
+            include_bot=True,
+        )
+
+
+@pytest.mark.integration
+def test_convert_ek60_with_bot_file():
+    """Check variable dimensions, time encodings, and attributes when `.BOT` file is parsed."""
+    # Open Raw and Parse `.BOT`
+    ed = open_raw(
+        "echopype/test_data/ek60/idx_bot/Summer2017-D20170620-T011027.raw",
+        sonar_model="EK60",
+        include_bot=True,
+    )
+
+    # Check data variable shape
+    assert ed["Vendor_specific"]["detected_seafloor_depth"].shape == (3, 1932)
+
+    # Check time encodings
+    time_encoding = ed["Vendor_specific"]["ping_time"].encoding
+    assert time_encoding["units"] == "nanoseconds since 1970-01-01T00:00:00Z"
+    assert time_encoding["calendar"] == "gregorian"
+    assert time_encoding["dtype"] == "int64"
+
+    # Check `detected_seafloor_depth` attribute
+    assert (
+        ed["Vendor_specific"]["detected_seafloor_depth"].attrs[
+            "long_name"
+        ] == "Echosounder detected seafloor depth from `.BOT` datagrams."
+    )
+
+    # Check time attributes
+    time_attrs = ed["Vendor_specific"]["ping_time"].attrs
+    assert time_attrs["long_name"] == "Timestamps from `.BOT` datagrams"
+    assert time_attrs["standard_name"] == "time"
+    assert time_attrs["axis"] == "T"
+    assert time_attrs["comment"] == "Time coordinate corresponding to seafloor detection data."

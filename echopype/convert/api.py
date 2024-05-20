@@ -455,7 +455,7 @@ def open_raw(
         file_chk,
         # Currently used only for AZFP XML File
         file_meta=xml_chk,
-        # Currently used only for EK60/EK80 File
+        # `bot_file` and `idx_file` used only for EK60/EK80 parsing
         bot_file=bot_chk,
         idx_file=idx_chk,
         storage_options=storage_options,

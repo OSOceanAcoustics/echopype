@@ -378,7 +378,7 @@ class ParseEK(ParseBase):
             self._read_datagrams(bot_datagrams)
 
         # Read index datagrams if `self.idx_file`` is not empty
-        if self.bot_file != "":
+        if self.idx_file != "":
             idx_datagrams = RawSimradFile(self.idx_file, "r", storage_options=self.storage_options)
             idx_datagrams.read(1)  # Read everything after the bot config
             self._read_datagrams(idx_datagrams)
