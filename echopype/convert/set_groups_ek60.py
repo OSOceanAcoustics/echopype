@@ -765,8 +765,8 @@ class SetGroupsEK60(SetGroupsBase):
             ds = ds.assign(
                 {
                     "detected_seafloor_depth": xr.DataArray(
-                        np.array(self.parser_obj.bot["depth"]),
-                        dims=("ping_time", "channel"),
+                        np.array(self.parser_obj.bot["depth"]).T,
+                        dims=("channel", "ping_time"),
                         coords={"ping_time": timestamp_array},
                     )
                 }
