@@ -227,18 +227,25 @@ def test_convert_ek60_with_missing_bot_idx_file():
         )
 
 
+@pytest.mark.parametrize(
+    "file, time_length",
+    [
+        ("Summer2017-D20170620-T011027.raw", 1932),
+        ("Summer2017-D20170707-T150923.raw", 529),
+    ]
+)
 @pytest.mark.integration
-def test_convert_ek60_with_bot_file():
+def test_convert_ek60_with_bot_file(file, time_length):
     """Check variable dimensions, time encodings, and attributes when `.BOT` file is parsed."""
     # Open Raw and Parse `.BOT`
     ed = open_raw(
-        "echopype/test_data/ek60/idx_bot/Summer2017-D20170620-T011027.raw",
+        f"echopype/test_data/ek60/idx_bot/{file}",
         sonar_model="EK60",
         include_bot=True,
     )
 
     # Check data variable shape
-    assert ed["Vendor_specific"]["detected_seafloor_depth"].shape == (3, 1932)
+    assert ed["Vendor_specific"]["detected_seafloor_depth"].shape == (3, time_length)
 
     # Check time encodings
     time_encoding = ed["Vendor_specific"]["ping_time"].encoding
@@ -261,12 +268,19 @@ def test_convert_ek60_with_bot_file():
     assert time_attrs["comment"] == "Time coordinate corresponding to seafloor detection data."
 
 
+@pytest.mark.parametrize(
+    "file, time_length",
+    [
+        ("Summer2017-D20170620-T011027.raw", 1932),
+        ("Summer2017-D20170707-T150923.raw", 529),
+    ]
+)
 @pytest.mark.integration
-def test_convert_ek60_with_idx_file():
+def test_convert_ek60_with_idx_file(file, time_length):
     """Check variable dimensions and attributes when `.IDX` file is parsed."""
     # Open Raw and Parse `.IDX`
     ed = open_raw(
-        "echopype/test_data/ek60/idx_bot/Summer2017-D20170620-T011027.raw",
+        f"echopype/test_data/ek60/idx_bot/{file}",
         sonar_model="EK60",
         include_idx=True,
     )
@@ -277,7 +291,7 @@ def test_convert_ek60_with_idx_file():
         len(platform["vessel_distance"]) == \
         len(platform["latitude_idx"]) == \
         len(platform["longitude_idx"]) == \
-        1932
+        time_length
     )
 
     # Check attributes (sanity check)
