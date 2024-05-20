@@ -143,6 +143,7 @@ def downsample_upsample_along_depth(ds_Sv, depth_bin):
         vectorize=True,
         output_dtypes=[np.float64],
     )
+    upsampled_Sv["range_sample"] = ds_Sv["range_sample"]
 
     return downsampled_Sv, upsampled_Sv
 

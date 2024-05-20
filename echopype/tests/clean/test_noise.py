@@ -8,6 +8,26 @@ from echopype.utils.compute import _lin2log, _log2lin
 
 
 @pytest.mark.integration
+def test_mask_functions_with_no_depth():
+    """Test mask functions when the depth variable is not within `ds_Sv`."""
+    # Open raw and calibrate
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # `depth` is not contained in `ds_Sv`. Ensure that `ValueError` is raised
+    # for all masking functions.
+    with pytest.raises(ValueError):
+        ep.clean.mask_attenuated_signal(ds_Sv)
+    with pytest.raises(ValueError):
+        ep.clean.mask_impulse_noise(ds_Sv)
+    with pytest.raises(ValueError):
+        ep.clean.mask_transient_noise(ds_Sv)
+
+
+@pytest.mark.integration
 def test_mask_functions_dimensions():
     """Test mask functions' output dimensions."""
     # Open raw, calibrate, and add depth
@@ -17,6 +37,9 @@ def test_mask_functions_dimensions():
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Select Sv subset
+    ds_Sv = ds_Sv.isel(ping_time=slice(294, 300), range_sample=slice(1794,1800))
 
     # Compute masks and check that dimensions match `ds_Sv`
     attenuated_signal_mask = ep.clean.mask_attenuated_signal(ds_Sv)
@@ -489,23 +512,3 @@ def test_remove_background_noise_no_sound_absorption():
 
     pytest.xfail(f"Tests for remove_background_noise have not been implemented" +
                  " when no sound absorption is provided!")
-
-
-@pytest.mark.integration
-def test_mask_functions_with_no_depth():
-    """Test mask functions when the depth variable is not within `ds_Sv`."""
-    # Open raw and calibrate
-    ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
-        sonar_model="EK60"
-    )
-    ds_Sv = ep.calibrate.compute_Sv(ed)
-
-    # `depth` is not contained in `ds_Sv`. Ensure that `ValueError` is raised
-    # for all masking functions.
-    with pytest.raises(ValueError):
-        ep.clean.mask_attenuated_signal(ds_Sv)
-    with pytest.raises(ValueError):
-        ep.clean.mask_impulse_noise(ds_Sv)
-    with pytest.raises(ValueError):
-        ep.clean.mask_transient_noise(ds_Sv)
