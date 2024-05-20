@@ -310,6 +310,16 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.merge([ds, ds_plat], combine_attrs="override")
         ds = ds.assign_attrs(platform_dict)
 
+        # If `.IDX` file exists and `.IDX` data is parsed
+        if (
+            (self.parser_obj.idx_file != "")
+            and self.parser_obj.idx["vessel_distance"]
+            and self.parser_obj.idx["latitude_idx"]
+            and self.parser_obj.idx["longitude_idx"]
+            and self.parser_obj.idx["timestamp"]
+        ):
+            ds = self._add_index_data_to_platform_ds(ds)
+
         return set_time_encodings(ds)
 
     def set_beam(self) -> List[xr.Dataset]:

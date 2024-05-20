@@ -563,7 +563,7 @@ class ParseEK(ParseBase):
 
             # IDX datagrams contain lat/lon and vessel distance from .idx files
             elif new_datagram["type"].startswith("IDX"):
-                self.idx["distance"].append(new_datagram["distance"])
+                self.idx["vessel_distance"].append(new_datagram["distance"])
                 self.idx["latitude_idx"].append(new_datagram["latitude"])
                 self.idx["longitude_idx"].append(new_datagram["longitude"])
                 self.idx["timestamp"].append(new_datagram["timestamp"])

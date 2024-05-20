@@ -363,6 +363,66 @@ class SetGroupsBase(abc.ABC):
         self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
         self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)
 
+    def _add_index_data_to_platform_ds(
+        self,
+        platform_ds: xr.Dataset,
+    ) -> xr.Dataset:
+        """
+        Append index data from `.IDX` file to the `Platform` dataset.
+        Index data contains latitude, longitude, and vessel distance traveled and aligns with
+        the `time2` dimension of the `Platform` dataset.
+
+        Parameters
+        ----------
+        platform_ds : xr.Dataset
+            `Platform` dataset without `.IDX` data.
+
+        Returns
+        -------
+        platform_ds : xr.Dataset
+            `Platform` dataset with `.IDX` data.
+
+        Notes
+        -----
+        This function is only called for EK60/EK80 conversion.
+        """
+        platform_ds = platform_ds.assign(
+            {
+                "vessel_distance": xr.DataArray(
+                    np.array(self.parser_obj.idx["vessel_distance"]), dims=("time2")
+                ),
+                "latitude_idx": xr.DataArray(
+                    np.array(self.parser_obj.idx["latitude_idx"]), dims=("time2")
+                ),
+                "longitude_idx": xr.DataArray(
+                    np.array(self.parser_obj.idx["longitude_idx"]), dims=("time2")
+                ),
+            }
+        )
+        platform_ds["vessel_distance"] = platform_ds["vessel_distance"].assign_attrs(
+            {
+                "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
+                "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+                + "dataset's `time2` dimension.",
+            }
+        )
+        platform_ds["latitude_idx"] = platform_ds["latitude_idx"].assign_attrs(
+            {
+                "long_name": "Index File Derived Platform Latitude",
+                "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+                + "dataset's `time2` dimension. This is different from `NMEA` latitude.",
+            }
+        )
+        platform_ds["longitude_idx"] = platform_ds["longitude_idx"].assign_attrs(
+            {
+                "long_name": "Index File Derived Platform Longitude",
+                "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+                + "dataset's `time2` dimension. This is different from `NMEA`longitude.",
+            }
+        )
+
+        return platform_ds
+
     def _add_seafloor_detection_data_to_vendor_ds(
         self,
         vendor_ds: xr.Dataset,
@@ -382,6 +442,10 @@ class SetGroupsBase(abc.ABC):
             Contains new `ping_time` dimension to correspond with `detected_seafloor_depth`.
             Note that `detected_seafloor_depth` values corresponding to the same `ping_time`
             may have differing values along `channel`.
+
+        Notes
+        -----
+        This function is only called for EK60/EK80 conversion.
         """
         timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
             np.array(self.parser_obj.bot["timestamp"]),

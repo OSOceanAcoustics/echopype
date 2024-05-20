@@ -259,3 +259,46 @@ def test_convert_ek60_with_bot_file():
     assert time_attrs["standard_name"] == "time"
     assert time_attrs["axis"] == "T"
     assert time_attrs["comment"] == "Time coordinate corresponding to seafloor detection data."
+
+
+@pytest.mark.integration
+def test_convert_ek60_with_idx_file():
+    """Check variable dimensions and attributes when `.IDX` file is parsed."""
+    # Open Raw and Parse `.IDX`
+    ed = open_raw(
+        "echopype/test_data/ek60/idx_bot/Summer2017-D20170620-T011027.raw",
+        sonar_model="EK60",
+        include_idx=True,
+    )
+    platform = ed["Platform"]
+
+    # Check data variable lengths
+    assert (
+        len(platform["vessel_distance"]) == \
+        len(platform["latitude_idx"]) == \
+        len(platform["longitude_idx"]) == \
+        1932
+    )
+
+    # Check attributes (sanity check)
+    assert platform["vessel_distance"].attrs == (
+        {
+            "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
+            "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+            + "dataset's `time2` dimension.",
+        }
+    )
+    assert platform["latitude_idx"].attrs == (
+        {
+            "long_name": "Index File Derived Platform Latitude",
+            "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+            + "dataset's `time2` dimension. This is different from `NMEA` latitude.",
+        }
+    )
+    assert platform["longitude_idx"].attrs == (
+        {
+            "long_name": "Index File Derived Platform Longitude",
+            "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+            + "dataset's `time2` dimension. This is different from `NMEA`longitude.",
+        }
+    )

@@ -448,6 +448,17 @@ class SetGroupsEK80(SetGroupsBase):
             },
         )
         ds = ds.assign_attrs(platform_dict)
+
+        # If `.IDX` file exists and `.IDX` data is parsed
+        if (
+            (self.parser_obj.idx_file != "")
+            and self.parser_obj.idx["vessel_distance"]
+            and self.parser_obj.idx["latitude_idx"]
+            and self.parser_obj.idx["longitude_idx"]
+            and self.parser_obj.idx["timestamp"]
+        ):
+            ds = self._add_index_data_to_platform_ds(ds)
+
         return set_time_encodings(ds)
 
     def _assemble_ds_ping_invariant(self, params, data_type):
