@@ -211,13 +211,19 @@ def test_convert_es60_no_unicode_error(es60_path):
 
 
 @pytest.mark.integration
-def test_convert_ek60_with_missing_bot_file():
-    """Check appropriate error when attempting to parse `.BOT` file that does not exist."""
+def test_convert_ek60_with_missing_bot_idx_file():
+    """Check appropriate error when attempting to parse `.BOT` and `.IDX` file that does not exist."""
     with pytest.raises(FileNotFoundError):
         open_raw(
             "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
             sonar_model="EK60",
             include_bot=True,
+        )
+    with pytest.raises(FileNotFoundError):
+        open_raw(
+            "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
+            sonar_model="EK60",
+            include_idx=True,
         )
 
 
