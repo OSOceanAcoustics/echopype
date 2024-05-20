@@ -362,3 +362,54 @@ class SetGroupsBase(abc.ABC):
 
         self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
         self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)
+
+    def _add_seafloor_detection_data_to_vendor_ds(
+        self,
+        vendor_ds: xr.Dataset,
+    ) -> xr.Dataset:
+        """
+        Append seafloor detection data from `.BOT` file to the `Vendor_specific` dataset.
+
+        Parameters
+        ----------
+        vendor_ds : xr.Dataset
+            `Vendor_specific` dataset without `.BOT` data.
+
+        Returns
+        -------
+        vendor_ds : xr.Dataset
+            `Vendor_specific` dataset with `.BOT` data.
+            Contains new `ping_time` dimension to correspond with `detected_seafloor_depth`.
+            Note that `detected_seafloor_depth` values corresponding to the same `ping_time`
+            may have differing values along `channel`.
+        """
+        timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
+            np.array(self.parser_obj.bot["timestamp"]),
+            **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            },
+        )
+        vendor_ds = vendor_ds.assign(
+            {
+                "detected_seafloor_depth": xr.DataArray(
+                    np.array(self.parser_obj.bot["depth"]).T,
+                    dims=("channel", "ping_time"),
+                    coords={"ping_time": timestamp_array},
+                )
+            }
+        )
+        vendor_ds["ping_time"] = vendor_ds["ping_time"].assign_attrs(
+            {
+                "long_name": "Timestamps from `.BOT` datagrams",
+                "standard_name": "time",
+                "axis": "T",
+                "comment": "Time coordinate corresponding to seafloor detection data.",
+            }
+        )
+        vendor_ds["detected_seafloor_depth"] = vendor_ds["detected_seafloor_depth"].assign_attrs(
+            {"long_name": "Echosounder detected seafloor depth from `.BOT` datagrams."}
+        )
+        vendor_ds = set_time_encodings(vendor_ds)
+
+        return vendor_ds

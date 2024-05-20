@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import xarray as xr
 
-from ..utils.coding import DEFAULT_TIME_ENCODING, set_time_encodings
+from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 
 # fmt: off
@@ -755,33 +755,6 @@ class SetGroupsEK60(SetGroupsBase):
             and self.parser_obj.bot["depth"]
             and self.parser_obj.bot["timestamp"]
         ):
-            timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
-                np.array(self.parser_obj.bot["timestamp"]),
-                **{
-                    "units": DEFAULT_TIME_ENCODING["units"],
-                    "calendar": DEFAULT_TIME_ENCODING["calendar"],
-                },
-            )
-            ds = ds.assign(
-                {
-                    "detected_seafloor_depth": xr.DataArray(
-                        np.array(self.parser_obj.bot["depth"]).T,
-                        dims=("channel", "ping_time"),
-                        coords={"ping_time": timestamp_array},
-                    )
-                }
-            )
-            ds["ping_time"] = ds["ping_time"].assign_attrs(
-                {
-                    "long_name": "Timestamps from `.BOT` datagrams",
-                    "standard_name": "time",
-                    "axis": "T",
-                    "comment": "Time coordinate corresponding to seafloor detection data.",
-                }
-            )
-            ds["detected_seafloor_depth"] = ds["detected_seafloor_depth"].assign_attrs(
-                {"long_name": "Echosounder detected seafloor depth from `.BOT` datagrams."}
-            )
-            ds = set_time_encodings(ds)
+            ds = self._add_seafloor_detection_data_to_vendor_ds(ds)
 
         return ds

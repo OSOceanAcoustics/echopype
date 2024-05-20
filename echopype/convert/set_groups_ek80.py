@@ -1307,6 +1307,14 @@ class SetGroupsEK80(SetGroupsBase):
         # Save the entire config XML in vendor group in case of info loss
         ds["config_xml"] = self.parser_obj.config_datagram["xml"]
 
+        # If `.BOT` file exists and `.BOT` data is parsed
+        if (
+            (self.parser_obj.bot_file != "")
+            and self.parser_obj.bot["depth"]
+            and self.parser_obj.bot["timestamp"]
+        ):
+            ds = self._add_seafloor_detection_data_to_vendor_ds(ds)
+
         return ds
 
     @staticmethod
