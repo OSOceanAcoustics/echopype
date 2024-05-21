@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 
 from echopype import open_raw
-from echopype.convert.utils.ek_raw_io import RawSimradFile
+from echopype.convert.utils.ek_raw_io import RawSimradFile, SimradEOF
 
 
 def expected_array_shape(file, datagram_type, datagram_item):
@@ -14,7 +14,7 @@ def expected_array_shape(file, datagram_type, datagram_item):
     while True:
         try:
             datagram_item_list.append(fid.read(1)[datagram_item])
-        except:
+        except SimradEOF:
             break
     return np.array(datagram_item_list).shape
 
