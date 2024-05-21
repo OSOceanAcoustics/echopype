@@ -51,7 +51,7 @@ def mask_transient_noise(
     Returns
     -------
     xr.Dataset
-        Xarray boolean array impulse noise mask.
+        Xarray boolean array transient noise mask.
 
     References
     ----------
