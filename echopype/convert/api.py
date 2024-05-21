@@ -313,7 +313,10 @@ def _check_file(
         bot_file = str(Path(raw_file).with_suffix(".bot"))
         bot_fsmap = fsspec.get_mapper(bot_file, **storage_options)
         if not bot_fsmap.fs.exists(bot_fsmap.root):
-            raise FileNotFoundError(f"There is no file named {bot_file}.")
+            raise FileNotFoundError(
+                f"There is no file named {bot_file}. The `.BOT` file must be contained in "
+                + " the same directory as that of the input 'raw' file."
+            )
     else:
         bot_file = ""
 
@@ -322,7 +325,10 @@ def _check_file(
         idx_file = str(Path(raw_file).with_suffix(".idx"))
         idx_fsmap = fsspec.get_mapper(idx_file, **storage_options)
         if not idx_fsmap.fs.exists(idx_fsmap.root):
-            raise FileNotFoundError(f"There is no file named {idx_file}.")
+            raise FileNotFoundError(
+                f"There is no file named {idx_file}. The `.IDX` file must be contained in "
+                + " the same directory as that of the input 'raw' file."
+            )
     else:
         idx_file = ""
 

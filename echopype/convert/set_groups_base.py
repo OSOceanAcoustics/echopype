@@ -369,8 +369,7 @@ class SetGroupsBase(abc.ABC):
     ) -> xr.Dataset:
         """
         Append index data from `.IDX` file to the `Platform` dataset.
-        Index data contains latitude, longitude, and vessel distance traveled and aligns with
-        the `time2` dimension of the `Platform` dataset.
+        Index file data contains latitude, longitude, and vessel distance traveled.
 
         Parameters
         ----------
@@ -381,47 +380,71 @@ class SetGroupsBase(abc.ABC):
         -------
         platform_ds : xr.Dataset
             `Platform` dataset with `.IDX` data.
+            Contains new `time3` dimension to correspond with `.IDX` timestamps that
+            align with `vessel_distance`, `latitude_idx`, and `longitude_idx`.
 
         Notes
         -----
         This function is only called for EK60/EK80 conversion.
         """
+        timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
+            np.array(self.parser_obj.idx["timestamp"]),
+            **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            },
+        )
         platform_ds = platform_ds.assign(
             {
                 "vessel_distance": xr.DataArray(
-                    np.array(self.parser_obj.idx["vessel_distance"]), dims=("time2")
+                    np.array(self.parser_obj.idx["vessel_distance"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
                 ),
                 "latitude_idx": xr.DataArray(
-                    np.array(self.parser_obj.idx["latitude_idx"]), dims=("time2")
+                    np.array(self.parser_obj.idx["latitude_idx"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
                 ),
                 "longitude_idx": xr.DataArray(
-                    np.array(self.parser_obj.idx["longitude_idx"]), dims=("time2")
+                    np.array(self.parser_obj.idx["longitude_idx"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
                 ),
+            }
+        )
+        platform_ds["time3"] = platform_ds["time3"].assign_attrs(
+            {
+                "axis": "T",
+                "long_name": "Timestamps from `.IDX` datagrams",
+                "standard_name": "time",
+                "comment": "Time coordinate corresponding to index file vessel "
+                + "distance and latitude/longitude data.",
             }
         )
         platform_ds["vessel_distance"] = platform_ds["vessel_distance"].assign_attrs(
             {
                 "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
                 "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
-                + "dataset's `time2` dimension.",
+                + "dataset's `time3` dimension.",
             }
         )
         platform_ds["latitude_idx"] = platform_ds["latitude_idx"].assign_attrs(
             {
                 "long_name": "Index File Derived Platform Latitude",
                 "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
-                + "dataset's `time2` dimension. This is different from `NMEA` latitude.",
+                + "dataset's `time3` dimension. This is different from `NMEA` latitude.",
             }
         )
         platform_ds["longitude_idx"] = platform_ds["longitude_idx"].assign_attrs(
             {
                 "long_name": "Index File Derived Platform Longitude",
                 "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
-                + "dataset's `time2` dimension. This is different from `NMEA`longitude.",
+                + "dataset's `time3` dimension. This is different from `NMEA`longitude.",
             }
         )
 
-        return platform_ds
+        return platform_ds.transpose("channel", "time1", "time2", "time3")
 
     def _add_seafloor_detection_data_to_vendor_ds(
         self,
