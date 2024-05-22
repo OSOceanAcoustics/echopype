@@ -374,13 +374,13 @@ class ParseEK(ParseBase):
         # Read bottom datagrams if `self.bot_file`` is not empty
         if self.bot_file != "":
             bot_datagrams = RawSimradFile(self.bot_file, "r", storage_options=self.storage_options)
-            bot_datagrams.read(1)  # Read everything after the bot config
+            bot_datagrams.read(1)  # Read everything after the `.CON` config datagram
             self._read_datagrams(bot_datagrams)
 
         # Read index datagrams if `self.idx_file`` is not empty
         if self.idx_file != "":
             idx_datagrams = RawSimradFile(self.idx_file, "r", storage_options=self.storage_options)
-            idx_datagrams.read(1)  # Read everything after the bot config
+            idx_datagrams.read(1)  # Read everything after the `.CON` config datagram
             self._read_datagrams(idx_datagrams)
 
         # Convert ping time to 1D numpy array, stored in dict indexed by channel,
