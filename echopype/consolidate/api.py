@@ -12,6 +12,11 @@ from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.io import get_file_format, open_source
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
+from .ek_depth_utils import (
+    ek_use_beam_angles,
+    ek_use_platform_angles,
+    ek_use_platform_vertical_offsets,
+)
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
 logger = _init_logger(__name__)
@@ -56,87 +61,105 @@ def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.
 
 
 def add_depth(
-    ds: Union[xr.Dataset, str, pathlib.Path],
-    depth_offset: float = 0,
-    tilt: float = 0,
+    ds_Sv: xr.Dataset,
+    echodata: Optional[EchoData] = None,
+    depth_offset: float = 0.0,
+    tilt: float = 0.0,
     downward: bool = True,
+    use_platform_vertical_offsets: bool = False,
+    use_platform_angles: bool = False,
+    use_beam_angles: bool = False,
 ) -> xr.Dataset:
     """
-    Create a depth data variable based on data in Sv dataset.
+    Create a depth data variable based on data in Sv dataset, Echodata object, and/or
+    user input depth offset and tilt data.
 
-    The depth is generated based on whether the transducers are mounted vertically
-    or with a polar angle to vertical, and whether the transducers were pointed
-    up or down.
+    TODO Add description
 
     Parameters
     ----------
-    ds : xr.Dataset or str or pathlib.Path
-        Source Sv dataset or path to a file containing the Source Sv dataset
-        to which a depth variable will be added.
-        Must contain `echo_range`.
-    depth_offset : float
+    ds : xr.Dataset
+        Source Sv dataset to which a depth variable will be added.
+    echodata : EchoData, optional
+        ``EchoData`` object from which the ``Sv` dataset originated.
+    depth_offset : float, default=0
         Offset along the vertical (depth) dimension to account for actual transducer
         position in water, since `echo_range` is counted from transducer surface.
-        Default is 0.
-    tilt : float
-        Transducer tilt angle [degree].
-        Default is 0 (transducer mounted vertically).
-    downward : bool
-        Whether or not the transducers point downward.
-        Default to True.
+    tilt : float, default=0
+        Transducer tilt angle [degree]. 0 corresponds to a transducer pointing vertically.
+    downward : bool, default=True
+        The transducers point downward.
+
+    TODO: Add `use_platform/beam_...` args
 
     Returns
     -------
-    The input dataset with a `depth` variable (in meters) added
-
-    Notes
-    -----
-    Currently this function only scalar inputs of depth_offset and tilt angle.
-    In future expansion we plan to add the following options:
-
-    * Allow inputs as xr.DataArray for time-varying variations of these variables
-    * Use data stored in the EchoData object or raw-converted file from which the Sv is derived,
-      specifically `water_level`, `vertical_offtset` and `tilt` in the `Platform` group.
+    The input dataset with a `depth` variable (in meters) added.
     """
-    # TODO: add options to use water_depth, vertical_offset, tilt stored in EchoData
-    # # Water level has to come from somewhere
-    # if depth_offset is None:
-    #     if "water_level" in ds:
-    #         depth_offset = ds["water_level"]
-    #     else:
-    #         raise ValueError(
-    #             "water_level not found in dataset and needs to be supplied by the user"
-    #         )
+    # Raise `ValueError` if `echodata` is needed but not passed in
+    if (not echodata) and (use_platform_vertical_offsets or use_platform_angles or use_beam_angles):
+        raise ValueError(
+            "If any of `use_platform_vertical_offsets` or `use_platform_angles` is `True` "
+            + "then `echodata` cannot be `None`."
+        )
 
-    # # If not vertical needs to have tilt
-    # if not vertical:
-    #     if tilt is None:
-    #         if "tilt" in ds:
-    #             tilt = ds["tilt"]
-    #         else:
-    #             raise ValueError(
-    #                 "tilt not found in dataset and needs to be supplied by the user. "
-    #                 "Required when vertical=False"
-    #             )
-    # else:
-    #     tilt = 0
+    # Raise `NotImplementedError` if `use_platform_angles` and `use_beam_angles` are
+    # both true.
+    if use_platform_angles and use_beam_angles:
+        raise NotImplementedError(
+            "Computing depth with both platform and beam angles is not implemented yet."
+        )
 
-    ds = open_source(ds, "dataset", {})
-    # Multiplication factor depending on if transducers are pointing downward
-    mult = 1 if downward else -1
+    # Grab sonar model
+    sonar_model = echodata["Sonar"].attrs["sonar_model"]
 
-    # Compute depth
-    ds["depth"] = mult * ds["echo_range"] * np.cos(tilt / 180 * np.pi) + depth_offset
-    ds["depth"].attrs = {"long_name": "Depth", "standard_name": "depth", "units": "m"}
+    # Raise value error if sonar model is supported for `use_platform/beam_...` arguments
+    if sonar_model not in ["EK60", "EK80"] and (
+        use_platform_vertical_offsets or use_platform_angles or use_beam_angles
+    ):
+        raise NotImplementedError(f"`use_platform/beam_...` not implemented yet for {sonar_model}.")
+
+    # Compute transducer depth:
+    if use_platform_vertical_offsets and sonar_model in ["EK60", "EK80"]:
+        # Compute transducer depth in EK systems using platform vertical offset data
+        transducer_depth = ek_use_platform_vertical_offsets(
+            ds_Sv["ping_time"], echodata["Platform"]
+        )
+    else:
+        # Compute transducer depth from user input depth offset
+        transducer_depth = depth_offset
+
+    # Compute echo range z scaling:
+    if use_platform_angles and sonar_model in ["EK60", "EK80"]:
+        # Compute echo range z scaling in EK systems using platform angle data
+        echo_range_z_scaling = ek_use_platform_angles(ds_Sv["ping_time"], echodata["Platform"])
+    elif use_beam_angles and sonar_model in ["EK60", "EK80"]:
+        # Compute echo range z scaling in EK systems using beam angle data
+        echo_range_z_scaling = ek_use_beam_angles(ds_Sv["channel"], echodata["Sonar/Beam_group1"])
+    else:
+        # Compute echo range z scaling from user input tilt
+        echo_range_z_scaling = np.cos(np.deg2rad(tilt))
+
+    # Set orientation multiplier. 1 if facing downwards, -1 if facing upwards
+    orientation_mult = orientation_mult = 1 if downward else -1
+
+    # Compute `depth`
+    ds_Sv["depth"] = transducer_depth + (
+        orientation_mult * ds_Sv["echo_range"] * echo_range_z_scaling
+    )
 
     # Add history attribute
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. "
-        "Added based on echo_range or other data in Sv dataset."  # noqa
+        "`depth` calculated using: "
+        f"Sv `echo_range`"
+        f"{', Echodata Platform Vertical Offset Data' if use_platform_vertical_offsets else ''}"
+        f"{', Echodata Platform Angle Data' if use_platform_angles else ''}"
+        f"{', Echodata Beam Angle Data' if use_beam_angles else ''}"
     )
-    ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})
+    ds_Sv["depth"] = ds_Sv["depth"].assign_attrs({"history": history_attr})
 
-    return ds
+    return ds_Sv
 
 
 @add_processing_level("L2A")
