@@ -82,7 +82,10 @@ def calc_transient_noise_pooled_Sv(ds_Sv, func, depth_bin, num_side_pings, exclu
 
 
 def _upsample_using_depth(downsampled_Sv, depth_bins, original_Sv, original_depth_array):
-    """Use original depth array to upsample Sv."""
+    """
+    Upsample the downsampled array via using depth bins and the original Sv depth array to assign
+    downsampled values to the an array of the same shape as the original Sv array.
+    """
     # Initialize upsampled Sv
     upsampled_Sv = np.zeros_like(original_Sv)
 
@@ -119,7 +122,7 @@ def downsample_upsample_along_depth(ds_Sv, depth_bin):
         skipna=True,
     ).pipe(_lin2log)
 
-    # Upsample the downsampled Sv using depth bins to assign
+    # Upsample the downsampled Sv
     upsampled_Sv = xr.apply_ufunc(
         _upsample_using_depth,
         downsampled_Sv.compute(),
