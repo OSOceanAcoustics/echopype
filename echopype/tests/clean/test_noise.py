@@ -244,10 +244,10 @@ def test_downsample_upsample_along_depth(chunk):
     original_resolution_depth = ds_Sv["depth"].compute()
 
     # Check for appropriate binning behavior
-    # Test every depth bin
-    for depth_bin_index in range(len(downsampled_Sv["depth_bins"])):
-        # Test every channel
-        for channel_index in range(len(downsampled_Sv["channel"])):
+    # Test every channel
+    for channel_index in range(len(downsampled_Sv["channel"])):
+        # Test every depth bin
+        for depth_bin_index in range(len(downsampled_Sv["depth_bins"])):
             # Test every ping time
             for ping_time_index in range(len(downsampled_Sv["ping_time"])):
                 # Check that manual and flox downsampled bin Sv are equal
@@ -315,12 +315,12 @@ def test_impulse_noise_mask_values(chunk):
         upsampled_Sv
     ).compute()
 
-    # Iterate through all channels
+    # Iterate through every channel
     for channel_index in range(len(ds_Sv["channel"])):
-        # Iterate through every 50th range sample
-        for range_sample_index in range(0, len(ds_Sv["range_sample"]), 50):
-            # Iterate through every third ping time
-            for ping_time_index in range(1, len(ds_Sv["ping_time"]) - 1, 3):
+        # Iterate through every range sample
+        for range_sample_index in range(len(ds_Sv["range_sample"])):
+            # Iterate through every valid ping time
+            for ping_time_index in range(1, len(ds_Sv["ping_time"]) - 1):
                 # Grab range sample row array
                 row_array = ds_Sv["upsampled_Sv_cleaned_of_impulse_noise"].isel(
                     channel=channel_index,
