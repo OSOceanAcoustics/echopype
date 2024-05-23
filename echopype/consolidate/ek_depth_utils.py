@@ -2,15 +2,43 @@ import numpy as np
 import xarray as xr
 from scipy.spatial.transform import Rotation as R
 
+from ..utils.log import _init_logger
+
+logger = _init_logger(__name__)
+
+
+def _check_and_log_nans(
+    echodata_group: xr.Dataset, group_name: str, variable_names: list[str]
+) -> None:
+    """
+    Checks for NaNs in Echodata group variables and raises logger warning.
+    """
+    # Iterate through group variable names
+    for variable_name in variable_names:
+        # Extract group and check if it contains any NaNs
+        group_var = echodata_group[variable_name]
+        # Log warning if the group variable contains any NaNs
+        if np.any(np.isnan(group_var.values)):
+            logger.warning(
+                f"The `{group_name}` group `{variable_name}` variable array contains NaNs. "
+                "This will result in NaNs in the final `depth` array. Consider filling the NaNs "
+                "and calling `.add_depth(...)` again."
+            )
+
 
 def ek_use_platform_vertical_offsets(
     platform_ds: xr.Dataset,
     ping_time_da: xr.DataArray,
-):
+) -> xr.DataArray:
     """
     Use `water_level`, `vertical_offset` and `transducer_offset_z` from the EK Platform group
     to compute transducer depth.
     """
+    # Check and log NaNs if they exist in the Platform group variables
+    _check_and_log_nans(
+        platform_ds, "Platform", ["water_level", "vertical_offset", "transducer_offset_z"]
+    )
+
     # Grab vertical offset platform variables
     water_level = platform_ds["water_level"]
     vertical_offset = platform_ds["vertical_offset"]
@@ -30,10 +58,13 @@ def ek_use_platform_vertical_offsets(
 def ek_use_platform_angles(
     platform_ds: xr.Dataset,
     ping_time_da: xr.DataArray,
-):
+) -> xr.DataArray:
     """
     Use `pitch` and `roll` from the EK Platform group to compute echo range rotational values.
     """
+    # Check and log NaNs if they exist in the Platform group variables
+    _check_and_log_nans(platform_ds, "Platform", ["pitch", "roll"])
+
     # Grab pitch and roll from platform group
     pitch = platform_ds["pitch"]
     roll = platform_ds["roll"]
@@ -53,11 +84,16 @@ def ek_use_platform_angles(
 def ek_use_beam_angles(
     beam_ds: xr.Dataset,
     channel_da: xr.DataArray,
-):
+) -> xr.DataArray:
     """
     Use `beam_direction_x`, `beam_direction_y`, and `beam_direction_z` from the EK Beam group to
     compute echo range rotational values.
     """
+    # Check and log NaNs if they exist in the Beam group variables
+    _check_and_log_nans(
+        beam_ds, "Sonar/Beam_group1", ["beam_direction_x", "beam_direction_y", "beam_direction_z"]
+    )
+
     # Grab beam angles from beam group
     beam_direction_x = beam_ds["beam_direction_x"]
     beam_direction_y = beam_ds["beam_direction_y"]

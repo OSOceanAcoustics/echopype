@@ -151,7 +151,7 @@ def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     )
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
     (
         "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
@@ -206,6 +206,63 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
     )
     assert beam_echo_range_scaling.dims == ('channel',)
     assert beam_echo_range_scaling["channel"].equals(ds_Sv["channel"])
+
+
+@pytest.mark.integration
+def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
+    """
+    Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
+    `ek_use_beam_angles` for correct logger warnings when NaNs exist in group
+    variables.
+    """
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(
+        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        sonar_model="EK80"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
+
+    # Set first index of group variables to NaN
+    ed["Platform"]["water_level"] = np.nan # Is a scalar
+    ed["Platform"]["vertical_offset"].values[0] = np.nan
+    ed["Platform"]["transducer_offset_z"].values[0] = np.nan
+    ed["Platform"]["pitch"].values[0] = np.nan
+    ed["Platform"]["roll"].values[0] = np.nan
+    ed["Sonar/Beam_group1"]["beam_direction_x"].values[0] = np.nan
+    ed["Sonar/Beam_group1"]["beam_direction_y"].values[0] = np.nan
+    ed["Sonar/Beam_group1"]["beam_direction_z"].values[0] = np.nan
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Run EK depth util functions:
+    ek_use_platform_vertical_offsets(platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"])
+    ek_use_platform_angles(platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"])
+    ek_use_beam_angles(beam_ds=ed["Sonar/Beam_group1"], channel_da=ds_Sv["channel"])
+
+    # Set (group, variable) name pairs
+    group_variable_name_pairs = [
+        ["Platform", "water_level"],
+        ["Platform", "vertical_offset"],
+        ["Platform", "transducer_offset_z"],
+        ["Platform", "pitch"],
+        ["Platform", "roll"],
+        ["Sonar/Beam_group1", "beam_direction_x"],
+        ["Sonar/Beam_group1", "beam_direction_y"],
+        ["Sonar/Beam_group1", "beam_direction_z"],
+    ]
+
+    # Check if the expected warnings are logged
+    for group_name, variable_name in group_variable_name_pairs:
+        expected_warning = (
+            f"The `{group_name}` group `{variable_name}` variable array contains NaNs. "
+            "This will result in NaNs in the final `depth` array. Consider filling the NaNs "
+            "and calling `.add_depth(...)` again."
+        )
+        assert any(expected_warning in record.message for record in caplog.records)
+
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
 
 
 @pytest.mark.integration
