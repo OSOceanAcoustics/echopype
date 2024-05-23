@@ -179,7 +179,7 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
     `ek_use_beam_angles` for correct dimensions.
     """
-    # Open EK80 Raw file and Compute Sv
+    # Open EK Raw file and Compute Sv
     ed = ep.open_raw(file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
 
@@ -265,6 +265,79 @@ def test_add_depth_errors():
     )):
         ed["Sonar"].attrs["sonar_model"] = "AZFP"
         ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
+    (
+        "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
+        "EK60",
+        {}
+    ),
+    (
+        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170620-T021537.raw",
+        "EK60",
+        {}
+    ),
+    (
+        "echopype/test_data/ek80/ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
+        "EK80",
+        {"waveform_mode":"BB", "encode_mode":"complex"}
+    ),
+    (
+        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        "EK80",
+        {"waveform_mode":"CW", "encode_mode":"power"}
+    )
+])
+def test_add_depth_with_platform_vertical_offsets(file, sonar_model, compute_Sv_kwaargs):
+    """Test `depth` values when using platform vertical offset values to compute it."""
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(file, sonar_model=sonar_model)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+
+    # Replace any Platform Vertical Offset NaN values with 0
+    ed["Platform"]["water_level"] = ed["Platform"]["water_level"].fillna(0)
+    ed["Platform"]["vertical_offset"] = ed["Platform"]["vertical_offset"].fillna(0)
+    ed["Platform"]["transducer_offset_z"] = ed["Platform"]["transducer_offset_z"].fillna(0)
+
+    # Compute `depth` using platform vertical offset values
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_platform_vertical_offsets=True)
+
+    # Compute transducer depth
+    transducer_depth = ek_use_platform_vertical_offsets(ed["Platform"], ds_Sv["ping_time"])
+    
+    # Iterate through every channel
+    for channel_index in range(len(ds_Sv["channel"])):
+        # Iterate through every ping time
+        for ping_time_index in range(len(ds_Sv["ping_time"])):
+            # Iterate through first 5 range sample indices
+            for range_sample_index in range(0, 5):
+                # Extract relevant values
+                depth_value = ds_Sv["depth"].isel(
+                    channel=channel_index, ping_time=ping_time_index, range_sample=range_sample_index
+                ).data
+                transducer_depth_value = transducer_depth.isel(
+                    channel=channel_index, ping_time=ping_time_index
+                ).data
+                # Check if first range sample and transducer depth at specific channel and ping time are
+                # equal.
+                if range_sample_index == 0:
+                    assert np.isclose(
+                        depth_value,
+                        transducer_depth_value,
+                        rtol=1e-10,
+                        atol=1e-10
+                    )
+                else:
+                    assert np.isclose(
+                        depth_value,
+                        ds_Sv["echo_range"].isel(
+                            channel=channel_index, ping_time=ping_time_index, range_sample=range_sample_index
+                        ).data + transducer_depth_value,
+                        rtol=1e-10,
+                        atol=1e-10
+                    )
 
 
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
