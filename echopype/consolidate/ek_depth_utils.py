@@ -7,7 +7,10 @@ def ek_use_platform_vertical_offsets(
     ping_time_da: xr.DataArray,
     platform_ds: xr.Dataset,
 ):
-    """TODO: Add description"""
+    """
+    Use `water_level`, `vertical_offset` and `transducer_offset_z` from the EK Platform group
+    to compute transducer depth.
+    """
     # Grab vertical offset platform variables
     water_level = platform_ds["water_level"]
     vertical_offset = platform_ds["vertical_offset"]
@@ -28,7 +31,9 @@ def ek_use_platform_angles(
     ping_time_da: xr.DataArray,
     platform_ds: xr.Dataset,
 ):
-    """TODO: Add description"""
+    """
+    Use `pitch` and `roll` from the EK Platform group to compute echo range rotational values.
+    """
     # Grab pitch and roll from platform group
     pitch = platform_ds["pitch"]
     roll = platform_ds["roll"]
@@ -49,7 +54,10 @@ def ek_use_beam_angles(
     channel_da: xr.DataArray,
     beam_ds: xr.Dataset,
 ):
-    """TODO: Add description"""
+    """
+    Use `beam_direction_x`, `beam_direction_y`, and `beam_direction_z` from the EK Beam group to
+    compute echo range rotational values.
+    """
     # Grab beam angles from beam group
     beam_direction_x = beam_ds["beam_direction_x"]
     beam_direction_y = beam_ds["beam_direction_y"]
