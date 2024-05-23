@@ -228,12 +228,15 @@ def test_downsample_upsample_along_depth(chunk):
     ds_Sv = ep.calibrate.compute_Sv(ed)
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
+    # Subset `ds_Sv`
+    ds_Sv = ds_Sv.isel(ping_time=slice(100, 120), range_sample=slice(0, 100))
+
     if chunk:
         # Chunk calibrated Sv
         ds_Sv = ds_Sv.chunk("auto")
 
     # Run downsampling and upsampling
-    downsampled_Sv, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 5)
+    downsampled_Sv, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 2)
 
     # Compute DataArrays
     downsampled_Sv = downsampled_Sv.compute()
@@ -245,8 +248,8 @@ def test_downsample_upsample_along_depth(chunk):
     for depth_bin_index in range(len(downsampled_Sv["depth_bins"])):
         # Test every channel
         for channel_index in range(len(downsampled_Sv["channel"])):
-            # Test every 50 ping times
-            for ping_time_index in range(0, len(downsampled_Sv["depth_bins"]), 50):
+            # Test every ping time
+            for ping_time_index in range(len(downsampled_Sv["ping_time"])):
                 # Check that manual and flox downsampled bin Sv are equal
                 flox_downsampled_bin_Sv = downsampled_Sv.isel(
                     channel=channel_index, ping_time=ping_time_index, depth_bins=depth_bin_index
@@ -295,11 +298,14 @@ def test_impulse_noise_mask_values(chunk):
         # Chunk calibrated Sv
         ds_Sv = ds_Sv.chunk("auto")
 
+    # Subset `ds_Sv`
+    ds_Sv = ds_Sv.isel(ping_time=slice(100, 120), range_sample=slice(0, 100))
+
     # Create impulse noise mask
-    impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv)
+    impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv, "2m")
 
     # Compute upsampled data
-    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 5)
+    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 2)
     upsampled_Sv = upsampled_Sv.compute()
 
     # Remove impulse noise from Sv

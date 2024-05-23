@@ -1,5 +1,3 @@
-from functools import partial
-
 import flox.xarray
 import numpy as np
 import xarray as xr
@@ -83,14 +81,17 @@ def calc_transient_noise_pooled_Sv(ds_Sv, func, depth_bin, num_side_pings, exclu
     return pooled_Sv
 
 
-def _upsample_using_mapping(downsampled_Sv, original_Sv, raw_resolution_Sv_index_to_bin_index):
-    """Use Sv index to bin index mapping to upsample Sv."""
+def _upsample_using_depth(downsampled_Sv, depth_bins, original_Sv, original_depth_array):
+    """Use original depth array to upsample Sv."""
     # Initialize upsampled Sv
     upsampled_Sv = np.zeros_like(original_Sv)
 
-    # Iterate through index mapping dictionary
-    for depth_index, bin_index in raw_resolution_Sv_index_to_bin_index.items():
-        upsampled_Sv[depth_index] = downsampled_Sv[bin_index]
+    # Iterate through depth array
+    for depth_index, depth in enumerate(original_depth_array):
+        for bin_index, bin in enumerate(depth_bins):
+            if bin.left <= depth < bin.right:
+                upsampled_Sv[depth_index] = downsampled_Sv[bin_index]
+                break
 
     return upsampled_Sv
 
@@ -118,25 +119,14 @@ def downsample_upsample_along_depth(ds_Sv, depth_bin):
         skipna=True,
     ).pipe(_lin2log)
 
-    # Create mapping from original depth/Sv variable to binned depth and
-    # upsample. This upsampling operation assumes that depth values are
-    # uniform across channel and ping time.
-    # TODO: Find a better way to do this? Perhaps something vectorized.
-    raw_resolution_Sv_index_to_bin_index = {}
-    for depth_index, depth in enumerate(ds_Sv["depth"].isel(channel=0, ping_time=0).values):
-        for bin_index, bin in enumerate(downsampled_Sv["depth_bins"].values):
-            if bin.left <= depth < bin.right:
-                raw_resolution_Sv_index_to_bin_index[depth_index] = bin_index
-                break
-    _upsample_using_mapping_partial = partial(
-        _upsample_using_mapping,
-        raw_resolution_Sv_index_to_bin_index=raw_resolution_Sv_index_to_bin_index,
-    )
+    # Upsample the downsampled Sv using depth bins to assign
     upsampled_Sv = xr.apply_ufunc(
-        _upsample_using_mapping_partial,
+        _upsample_using_depth,
         downsampled_Sv.compute(),
+        downsampled_Sv["depth_bins"].compute(),
         ds_Sv["Sv"].compute(),
-        input_core_dims=[["depth_bins"], ["range_sample"]],
+        ds_Sv["depth"].compute(),
+        input_core_dims=[["depth_bins"], ["depth_bins"], ["range_sample"], ["range_sample"]],
         output_core_dims=[["range_sample"]],
         exclude_dims=set(["depth_bins", "range_sample"]),
         dask="parallelized",
