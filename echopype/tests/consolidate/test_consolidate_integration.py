@@ -290,8 +290,8 @@ def test_add_depth_errors():
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_add_depth_with_platform_vertical_offsets(file, sonar_model, compute_Sv_kwaargs):
-    """Test `depth` values when using platform vertical offset values to compute it."""
+def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_Sv_kwaargs):
+    """Test `depth` values when using EK Platform vertical offset values to compute it."""
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
@@ -329,6 +329,131 @@ def test_add_depth_with_platform_vertical_offsets(file, sonar_model, compute_Sv_
                     rtol=1e-10,
                     atol=1e-10
                 )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
+    (
+        "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
+        "EK60",
+        {}
+    ),
+    (
+        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170620-T021537.raw",
+        "EK60",
+        {}
+    ),
+    (
+        "echopype/test_data/ek80/ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
+        "EK80",
+        {"waveform_mode":"BB", "encode_mode":"complex"}
+    ),
+    (
+        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        "EK80",
+        {"waveform_mode":"CW", "encode_mode":"power"}
+    )
+])
+def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwaargs):
+    """Test `depth` values when using EK Platform angles to compute it."""
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(file, sonar_model=sonar_model)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+
+    # Replace any Beam Angle NaN values with 0
+    ed["Platform"]["pitch"] = ed["Platform"]["pitch"].fillna(0)
+    ed["Platform"]["roll"] = ed["Platform"]["roll"].fillna(0)
+
+    # Compute `depth` using platform angle values
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
+
+    # Compute transducer depth
+    echo_range_scaling = ek_use_platform_angles(ed["Platform"], ds_Sv["ping_time"])
+
+    # Iterate through every ping time
+    for ping_time_index in range(len(ds_Sv["ping_time"])):
+        # Grab echo range scaling value
+        echo_range_scaling_value = echo_range_scaling.isel(ping_time=ping_time_index)
+        # Iterate through every channel
+        for channel_index in range(len(ds_Sv["channel"])):
+            # Grab vectors
+            depth_vector = ds_Sv["depth"].isel(
+                channel=channel_index, ping_time=ping_time_index
+            )
+            echo_range_vector = ds_Sv["echo_range"].isel(
+                channel=channel_index, ping_time=ping_time_index
+            )
+            # Check if depth vector is equal to echo range scaling value * echo range
+            assert np.all(
+                np.isclose(
+                    (depth_vector).data,
+                    (echo_range_scaling_value * echo_range_vector).data, 
+                    equal_nan=True
+                )
+            )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
+    (
+        "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
+        "EK60",
+        {}
+    ),
+    (
+        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170620-T021537.raw",
+        "EK60",
+        {}
+    ),
+    (
+        "echopype/test_data/ek80/ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
+        "EK80",
+        {"waveform_mode":"BB", "encode_mode":"complex"}
+    ),
+    (
+        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        "EK80",
+        {"waveform_mode":"CW", "encode_mode":"power"}
+    )
+])
+def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
+    """Test `depth` values when using EK Beam angles to compute it."""
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(file, sonar_model=sonar_model)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+
+    # Replace any Beam Angle NaN values with 0
+    ed["Sonar/Beam_group1"]["beam_direction_x"] = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0)
+    ed["Sonar/Beam_group1"]["beam_direction_y"] = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna(0)
+    ed["Sonar/Beam_group1"]["beam_direction_z"] = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(0)
+
+    # Compute `depth` using beam angle values
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+
+    # Compute echo range scaling values
+    echo_range_scaling = ek_use_beam_angles(ed["Sonar/Beam_group1"], ds_Sv["channel"])
+
+    # Iterate through every channel
+    for channel_index in range(len(ds_Sv["channel"])):
+        # Grab echo range scaling value
+        echo_range_scaling_value = echo_range_scaling.isel(channel=channel_index)
+        # Iterate through every ping time
+        for ping_time_index in range(len(ds_Sv["ping_time"])):
+            # Grab vectors
+            depth_vector = ds_Sv["depth"].isel(
+                channel=channel_index, ping_time=ping_time_index
+            )
+            echo_range_vector = ds_Sv["echo_range"].isel(
+                channel=channel_index, ping_time=ping_time_index
+            )
+            # Check if depth vector is equal to echo range scaling value * echo range
+            assert np.all(
+                np.isclose(
+                    (depth_vector).data,
+                    (echo_range_scaling_value * echo_range_vector).data, 
+                    equal_nan=True
+                )
+            )
 
 
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
