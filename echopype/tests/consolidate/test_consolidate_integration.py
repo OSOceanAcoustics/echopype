@@ -150,7 +150,7 @@ def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
         },
     )
 
-@pytest.mark.test
+
 @pytest.mark.integration
 def test_add_depth_without_echodata():
     """
@@ -182,7 +182,7 @@ def test_add_depth_without_echodata():
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == ". depth` calculated using: Sv `echo_range`"
 
-@pytest.mark.test
+
 @pytest.mark.unit
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
     (
