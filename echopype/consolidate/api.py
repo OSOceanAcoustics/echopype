@@ -141,7 +141,7 @@ def add_depth(
     # Compute transducer depth:
     if use_platform_vertical_offsets and sonar_model in ["EK60", "EK80"]:
         # Compute transducer depth in EK systems using platform vertical offset data
-        transducer_depth = ek_use_platform_vertical_offsets(ds["ping_time"], echodata["Platform"])
+        transducer_depth = ek_use_platform_vertical_offsets(echodata["Platform"], ds["ping_time"])
     else:
         # Compute transducer depth from user input depth offset
         transducer_depth = depth_offset
@@ -149,10 +149,10 @@ def add_depth(
     # Compute echo range z scaling:
     if use_platform_angles and sonar_model in ["EK60", "EK80"]:
         # Compute echo range z scaling in EK systems using platform angle data
-        echo_range_z_scaling = ek_use_platform_angles(ds["ping_time"], echodata["Platform"])
+        echo_range_z_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
     elif use_beam_angles and sonar_model in ["EK60", "EK80"]:
         # Compute echo range z scaling in EK systems using beam angle data
-        echo_range_z_scaling = ek_use_beam_angles(ds["channel"], echodata["Sonar/Beam_group1"])
+        echo_range_z_scaling = ek_use_beam_angles(echodata["Sonar/Beam_group1"], ds["channel"])
     else:
         # Compute echo range z scaling from user input tilt
         echo_range_z_scaling = np.cos(np.deg2rad(tilt))

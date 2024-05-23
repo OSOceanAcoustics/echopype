@@ -150,7 +150,7 @@ def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
         },
     )
 
-
+@pytest.mark.test
 @pytest.mark.integration
 def test_add_depth_without_echodata():
     """
@@ -182,7 +182,7 @@ def test_add_depth_without_echodata():
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == ". depth` calculated using: Sv `echo_range`"
 
-
+@pytest.mark.test
 @pytest.mark.unit
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
     (
@@ -218,7 +218,7 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
     # Check dimensions for using EK platform vertical offsets to compute
     # `transducer_depth`.
     transducer_depth = ek_use_platform_vertical_offsets(
-        ping_time_da=ds_Sv["ping_time"], platform_ds=ed["Platform"]
+        platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"]
     )
     assert transducer_depth.dims == ('channel', 'ping_time')
     assert transducer_depth["channel"].equals(ds_Sv["channel"])
@@ -227,14 +227,14 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
     # Check dimensions for using EK platform angles to compute
     # `platform_echo_range_z_scaling`.
     platform_echo_range_z_scaling = ek_use_platform_angles(
-        ping_time_da=ds_Sv["ping_time"], platform_ds=ed["Platform"]
+        platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"]
     )
     assert platform_echo_range_z_scaling.dims == ('ping_time',)
     assert platform_echo_range_z_scaling["ping_time"].equals(ds_Sv["ping_time"])
 
     # Check dimensions for using EK beam angles to compute `beam_echo_range_z_scaling`.
     beam_echo_range_z_scaling = ek_use_beam_angles(
-        channel_da=ds_Sv["channel"], beam_ds=ed["Sonar/Beam_group1"]
+        beam_ds=ed["Sonar/Beam_group1"], channel_da=ds_Sv["channel"]
     )
     assert beam_echo_range_z_scaling.dims == ('channel',)
     assert beam_echo_range_z_scaling["channel"].equals(ds_Sv["channel"])

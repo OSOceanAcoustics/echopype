@@ -4,8 +4,8 @@ from scipy.spatial.transform import Rotation as R
 
 
 def ek_use_platform_vertical_offsets(
-    ping_time_da: xr.DataArray,
     platform_ds: xr.Dataset,
+    ping_time_da: xr.DataArray,
 ):
     """
     Use `water_level`, `vertical_offset` and `transducer_offset_z` from the EK Platform group
@@ -28,8 +28,8 @@ def ek_use_platform_vertical_offsets(
 
 
 def ek_use_platform_angles(
-    ping_time_da: xr.DataArray,
     platform_ds: xr.Dataset,
+    ping_time_da: xr.DataArray,
 ):
     """
     Use `pitch` and `roll` from the EK Platform group to compute echo range rotational values.
@@ -51,8 +51,8 @@ def ek_use_platform_angles(
 
 
 def ek_use_beam_angles(
-    channel_da: xr.DataArray,
     beam_ds: xr.Dataset,
+    channel_da: xr.DataArray,
 ):
     """
     Use `beam_direction_x`, `beam_direction_y`, and `beam_direction_z` from the EK Beam group to
