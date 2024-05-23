@@ -135,7 +135,7 @@ def add_depth(
             use_platform_vertical_offsets or use_platform_angles or use_beam_angles
         ):
             raise NotImplementedError(
-                f"`use_platform/beam_...` not implemented yet for {sonar_model}."
+                f"`use_platform/beam_...` not implemented yet for `{sonar_model}`."
             )
 
     # Compute transducer depth:

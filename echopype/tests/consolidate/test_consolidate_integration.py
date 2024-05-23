@@ -151,38 +151,6 @@ def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     )
 
 
-@pytest.mark.integration
-def test_add_depth_without_echodata():
-    """
-    Test `add_depth` without using Echodata Platform or Beam groups.
-    """
-    # Build test Sv dataset
-    channel = ["channel_0", "channel_1", "channel_2"]
-    range_sample = np.arange(100)
-    ping_time = pd.date_range(start="2022-08-10T10:00:00", end="2022-08-10T12:00:00", periods=121)
-    sample_interval = 0.01
-    ds_Sv = _build_ds_Sv(channel, range_sample, ping_time, sample_interval)
-
-    # User input `depth_offset`
-    water_level = 10
-    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level)
-    assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] + water_level)
-
-    # User input `depth_offset` and `tilt`
-    tilt = 15
-    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level, tilt=tilt)
-    assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)
-
-    # Inverted echosounder with `depth_offset` and `tilt`
-    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level, tilt=tilt, downward=False)
-    assert ds_Sv_depth["depth"].equals(-1 * ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)
-
-    # Check history attribute
-    history_attribute = ds_Sv_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[33:]
-    assert history_attribute_without_time == ". depth` calculated using: Sv `echo_range`"
-
-
 @pytest.mark.unit
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
     (
@@ -238,6 +206,65 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
     )
     assert beam_echo_range_z_scaling.dims == ('channel',)
     assert beam_echo_range_z_scaling["channel"].equals(ds_Sv["channel"])
+
+
+@pytest.mark.integration
+def test_add_depth_without_echodata():
+    """
+    Test `add_depth` without using Echodata Platform or Beam groups.
+    """
+    # Build test Sv dataset
+    channel = ["channel_0", "channel_1", "channel_2"]
+    range_sample = np.arange(100)
+    ping_time = pd.date_range(start="2022-08-10T10:00:00", end="2022-08-10T12:00:00", periods=121)
+    sample_interval = 0.01
+    ds_Sv = _build_ds_Sv(channel, range_sample, ping_time, sample_interval)
+
+    # User input `depth_offset`
+    water_level = 10
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level)
+    assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] + water_level)
+
+    # User input `depth_offset` and `tilt`
+    tilt = 15
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level, tilt=tilt)
+    assert ds_Sv_depth["depth"].equals(ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)
+
+    # Inverted echosounder with `depth_offset` and `tilt`
+    ds_Sv_depth = ep.consolidate.add_depth(ds_Sv, depth_offset=water_level, tilt=tilt, downward=False)
+    assert ds_Sv_depth["depth"].equals(-1 * ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)
+
+    # Check history attribute
+    history_attribute = ds_Sv_depth["depth"].attrs["history"]
+    history_attribute_without_time = history_attribute[33:]
+    assert history_attribute_without_time == ". depth` calculated using: Sv `echo_range`"
+
+
+@pytest.mark.integration
+def test_add_depth_errors():
+    """Check if all `add_depth` errors are raised appropriately."""
+    # Open EK80 Raw file and Compute Sv
+    ed = ep.open_raw(
+        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        sonar_model="EK80"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
+
+    # Test that all three errors are called:
+    with pytest.raises(ValueError, match=(
+        "If any of `use_platform_vertical_offsets` or `use_platform_angles` is `True` "
+        + "then `echodata` cannot be `None`."
+    )):
+        ep.consolidate.add_depth(ds_Sv, None, use_platform_angles=True)
+    with pytest.raises(NotImplementedError, match=(
+        "Computing depth with both platform and beam angles is not implemented yet."
+    )):
+        ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True, use_beam_angles=True)
+    with pytest.raises(NotImplementedError, match=(
+        "`use_platform/beam_...` not implemented yet for `AZFP`."
+    )):
+        ed["Sonar"].attrs["sonar_model"] = "AZFP"
+        ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
 
 
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
