@@ -237,7 +237,7 @@ def test_add_depth_without_echodata():
     # Check history attribute
     history_attribute = ds_Sv_depth["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
-    assert history_attribute_without_time == ". depth` calculated using: Sv `echo_range`"
+    assert history_attribute_without_time == ". depth` calculated using: Sv `echo_range`."
 
 
 @pytest.mark.integration
@@ -304,6 +304,13 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     # Compute `depth` using platform vertical offset values
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_platform_vertical_offsets=True)
 
+    # Check history attribute
+    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute_without_time = history_attribute[33:]
+    assert history_attribute_without_time == (
+        ". depth` calculated using: Sv `echo_range`, Echodata Platform Vertical Offset Data."
+    )
+
     # Compute transducer depth
     transducer_depth = ek_use_platform_vertical_offsets(ed["Platform"], ds_Sv["ping_time"])
     
@@ -367,6 +374,13 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwaargs
     # Compute `depth` using platform angle values
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
 
+    # Check history attribute
+    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute_without_time = history_attribute[33:]
+    assert history_attribute_without_time == (
+        ". depth` calculated using: Sv `echo_range`, Echodata Platform Angle Data."
+    )
+
     # Compute transducer depth
     echo_range_scaling = ek_use_platform_angles(ed["Platform"], ds_Sv["ping_time"])
 
@@ -429,6 +443,13 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
 
     # Compute `depth` using beam angle values
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+
+    # Check history attribute
+    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute_without_time = history_attribute[33:]
+    assert history_attribute_without_time == (
+        ". depth` calculated using: Sv `echo_range`, Echodata Beam Angle Data."
+    )
 
     # Compute echo range scaling values
     echo_range_scaling = ek_use_beam_angles(ed["Sonar/Beam_group1"], ds_Sv["channel"])

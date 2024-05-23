@@ -170,6 +170,7 @@ def add_depth(
         f"{', Echodata Platform Vertical Offset Data' if use_platform_vertical_offsets else ''}"
         f"{', Echodata Platform Angle Data' if use_platform_angles else ''}"
         f"{', Echodata Beam Angle Data' if use_beam_angles else ''}"
+        "."
     )
     ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})
 
