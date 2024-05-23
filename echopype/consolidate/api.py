@@ -110,14 +110,17 @@ def add_depth(
             "Computing depth with both platform and beam angles is not implemented yet."
         )
 
-    # Grab sonar model
-    sonar_model = echodata["Sonar"].attrs["sonar_model"]
+    if echodata:
+        # Grab sonar model
+        sonar_model = echodata["Sonar"].attrs["sonar_model"]
 
-    # Raise value error if sonar model is supported for `use_platform/beam_...` arguments
-    if sonar_model not in ["EK60", "EK80"] and (
-        use_platform_vertical_offsets or use_platform_angles or use_beam_angles
-    ):
-        raise NotImplementedError(f"`use_platform/beam_...` not implemented yet for {sonar_model}.")
+        # Raise value error if sonar model is supported for `use_platform/beam_...` arguments
+        if sonar_model not in ["EK60", "EK80"] and (
+            use_platform_vertical_offsets or use_platform_angles or use_beam_angles
+        ):
+            raise NotImplementedError(
+                f"`use_platform/beam_...` not implemented yet for {sonar_model}."
+            )
 
     # Compute transducer depth:
     if use_platform_vertical_offsets and sonar_model in ["EK60", "EK80"]:
@@ -150,9 +153,8 @@ def add_depth(
 
     # Add history attribute
     history_attr = (
-        f"{datetime.datetime.utcnow()} +00:00. "
-        "`depth` calculated using: "
-        f"Sv `echo_range`"
+        f"{datetime.datetime.utcnow()} +00:00. depth` calculated using:"
+        f" Sv `echo_range`"
         f"{', Echodata Platform Vertical Offset Data' if use_platform_vertical_offsets else ''}"
         f"{', Echodata Platform Angle Data' if use_platform_angles else ''}"
         f"{', Echodata Beam Angle Data' if use_beam_angles else ''}"
