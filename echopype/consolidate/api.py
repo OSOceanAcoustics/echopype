@@ -158,7 +158,7 @@ def add_depth(
         echo_range_z_scaling = np.cos(np.deg2rad(tilt))
 
     # Set orientation multiplier. 1 if facing downwards, -1 if facing upwards
-    orientation_mult = orientation_mult = 1 if downward else -1
+    orientation_mult = 1 if downward else -1
 
     # Compute `depth`
     ds["depth"] = transducer_depth + (orientation_mult * ds["echo_range"] * echo_range_z_scaling)
