@@ -38,16 +38,16 @@ def ek_use_platform_angles(
     pitch = platform_ds["pitch"]
     roll = platform_ds["roll"]
 
-    # Compute echo range z scaling from pitch roll rotations
+    # Compute echo range scaling from pitch roll rotations
     yaw = np.zeros_like(pitch.values)
     yaw_pitch_roll_euler_angles_stack = np.column_stack([yaw, pitch.values, roll.values])
     yaw_rot_pitch_roll = R.from_euler("ZYX", yaw_pitch_roll_euler_angles_stack, degrees=True)
-    echo_range_z_scaling = yaw_rot_pitch_roll.as_matrix()[:, -1, -1]
-    echo_range_z_scaling = xr.DataArray(
-        echo_range_z_scaling, dims="ping_time", coords={"ping_time": ping_time_da}
+    echo_range_scaling = yaw_rot_pitch_roll.as_matrix()[:, -1, -1]
+    echo_range_scaling = xr.DataArray(
+        echo_range_scaling, dims="ping_time", coords={"ping_time": ping_time_da}
     )
 
-    return echo_range_z_scaling
+    return echo_range_scaling
 
 
 def ek_use_beam_angles(
@@ -63,7 +63,7 @@ def ek_use_beam_angles(
     beam_direction_y = beam_ds["beam_direction_y"]
     beam_direction_z = beam_ds["beam_direction_z"]
 
-    # Compute echo range z scaling from pitch roll rotations
+    # Compute echo range scaling from pitch roll rotations
     beam_dir_rotmatrix_stack = [
         [
             np.array([0, 0, beam_direction_x[c]]),
@@ -73,9 +73,9 @@ def ek_use_beam_angles(
         for c in range(len(beam_direction_x))
     ]
     rot_beam_direction = R.from_matrix(beam_dir_rotmatrix_stack)
-    echo_range_z_scaling = rot_beam_direction.as_matrix()[:, -1, -1]
-    echo_range_z_scaling = xr.DataArray(
-        echo_range_z_scaling, dims="channel", coords={"channel": channel_da}
+    echo_range_scaling = rot_beam_direction.as_matrix()[:, -1, -1]
+    echo_range_scaling = xr.DataArray(
+        echo_range_scaling, dims="channel", coords={"channel": channel_da}
     )
 
-    return echo_range_z_scaling
+    return echo_range_scaling

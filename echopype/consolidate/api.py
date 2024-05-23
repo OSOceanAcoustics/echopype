@@ -146,22 +146,22 @@ def add_depth(
         # Compute transducer depth from user input depth offset
         transducer_depth = depth_offset
 
-    # Compute echo range z scaling:
+    # Compute echo range scaling:
     if use_platform_angles and sonar_model in ["EK60", "EK80"]:
-        # Compute echo range z scaling in EK systems using platform angle data
-        echo_range_z_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
+        # Compute echo range scaling in EK systems using platform angle data
+        echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
     elif use_beam_angles and sonar_model in ["EK60", "EK80"]:
-        # Compute echo range z scaling in EK systems using beam angle data
-        echo_range_z_scaling = ek_use_beam_angles(echodata["Sonar/Beam_group1"], ds["channel"])
+        # Compute echo range scaling in EK systems using beam angle data
+        echo_range_scaling = ek_use_beam_angles(echodata["Sonar/Beam_group1"], ds["channel"])
     else:
-        # Compute echo range z scaling from user input tilt
-        echo_range_z_scaling = np.cos(np.deg2rad(tilt))
+        # Compute echo range scaling from user input tilt
+        echo_range_scaling = np.cos(np.deg2rad(tilt))
 
     # Set orientation multiplier. 1 if facing downwards, -1 if facing upwards
     orientation_mult = 1 if downward else -1
 
     # Compute `depth`
-    ds["depth"] = transducer_depth + (orientation_mult * ds["echo_range"] * echo_range_z_scaling)
+    ds["depth"] = transducer_depth + (orientation_mult * ds["echo_range"] * echo_range_scaling)
 
     # Add history attribute
     history_attr = (

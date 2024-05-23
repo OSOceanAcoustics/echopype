@@ -193,19 +193,19 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
     assert transducer_depth["ping_time"].equals(ds_Sv["ping_time"])
 
     # Check dimensions for using EK platform angles to compute
-    # `platform_echo_range_z_scaling`.
-    platform_echo_range_z_scaling = ek_use_platform_angles(
+    # `platform_echo_range_scaling`.
+    platform_echo_range_scaling = ek_use_platform_angles(
         platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"]
     )
-    assert platform_echo_range_z_scaling.dims == ('ping_time',)
-    assert platform_echo_range_z_scaling["ping_time"].equals(ds_Sv["ping_time"])
+    assert platform_echo_range_scaling.dims == ('ping_time',)
+    assert platform_echo_range_scaling["ping_time"].equals(ds_Sv["ping_time"])
 
-    # Check dimensions for using EK beam angles to compute `beam_echo_range_z_scaling`.
-    beam_echo_range_z_scaling = ek_use_beam_angles(
+    # Check dimensions for using EK beam angles to compute `beam_echo_range_scaling`.
+    beam_echo_range_scaling = ek_use_beam_angles(
         beam_ds=ed["Sonar/Beam_group1"], channel_da=ds_Sv["channel"]
     )
-    assert beam_echo_range_z_scaling.dims == ('channel',)
-    assert beam_echo_range_z_scaling["channel"].equals(ds_Sv["channel"])
+    assert beam_echo_range_scaling.dims == ('channel',)
+    assert beam_echo_range_scaling["channel"].equals(ds_Sv["channel"])
 
 
 @pytest.mark.integration
