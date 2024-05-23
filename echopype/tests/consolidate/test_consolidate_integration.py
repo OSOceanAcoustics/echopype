@@ -320,24 +320,15 @@ def test_add_depth_with_platform_vertical_offsets(file, sonar_model, compute_Sv_
                 transducer_depth_value = transducer_depth.isel(
                     channel=channel_index, ping_time=ping_time_index
                 ).data
-                # Check if first range sample and transducer depth at specific channel and ping time are
-                # equal.
-                if range_sample_index == 0:
-                    assert np.isclose(
-                        depth_value,
-                        transducer_depth_value,
-                        rtol=1e-10,
-                        atol=1e-10
-                    )
-                else:
-                    assert np.isclose(
-                        depth_value,
-                        ds_Sv["echo_range"].isel(
-                            channel=channel_index, ping_time=ping_time_index, range_sample=range_sample_index
-                        ).data + transducer_depth_value,
-                        rtol=1e-10,
-                        atol=1e-10
-                    )
+                # Check if depth value is equal to corresponding `echo_range` value + transducer depth value
+                assert np.isclose(
+                    depth_value,
+                    ds_Sv["echo_range"].isel(
+                        channel=channel_index, ping_time=ping_time_index, range_sample=range_sample_index
+                    ).data + transducer_depth_value,
+                    rtol=1e-10,
+                    atol=1e-10
+                )
 
 
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
