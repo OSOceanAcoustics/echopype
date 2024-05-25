@@ -212,7 +212,7 @@ def add_remove_background_noise_attrs(
     SNR_threshold: float,
     noise_max: float,
 ) -> xr.DataArray:
-    """Add attributes to the remove background noise function."""
+    """Add attributes to a `remove_background_noise` data array."""
     da.attrs = {
         "long_name": f"Volume backscattering strength, {sv_type} (Sv re 1 m-1)",
         "units": "dB",
