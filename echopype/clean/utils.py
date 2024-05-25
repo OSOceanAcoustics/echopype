@@ -83,26 +83,11 @@ def calc_transient_noise_pooled_Sv(
     return pooled_Sv
 
 
-def _upsample_using_depth(
-    downsampled_Sv: np.ndarray,
-    depth_bins: np.ndarray,
-    original_Sv: np.ndarray,
-    original_depth_array: np.ndarray,
-) -> np.ndarray:
-    """
-    Upsample the downsampled array via using depth bins and the original Sv depth array to assign
-    downsampled values to the an array of the same shape as the original Sv array.
-    """
-    # Initialize upsampled Sv
-    upsampled_Sv = np.zeros_like(original_Sv)
-
-    # Iterate through depth array
-    for depth_index, depth in enumerate(original_depth_array):
-        for bin_index, bin in enumerate(depth_bins):
-            if bin.left <= depth < bin.right:
-                upsampled_Sv[depth_index] = downsampled_Sv[bin_index]
-                break
-
+def _upsample_using_mapping(downsampled_Sv: np.ndarray, upsample_mapping: np.ndarray) -> np.ndarray:
+    """Upsample using downsampled Sv and upsample mapping."""
+    upsampled_Sv = np.zeros_like(upsample_mapping, dtype=np.float64)
+    for upsampled_index, downsampled_index in enumerate(upsample_mapping):
+        upsampled_Sv[upsampled_index] = downsampled_Sv[downsampled_index]
     return upsampled_Sv
 
 
@@ -112,8 +97,9 @@ def downsample_upsample_along_depth(ds_Sv: xr.Dataset, depth_bin: float) -> xr.D
     noise masking.
     """
     # Validate and compute range interval
-    echo_range_max = ds_Sv["depth"].max()
-    range_interval = np.arange(0, echo_range_max + depth_bin, depth_bin)
+    depth_min = ds_Sv["depth"].min()
+    depth_max = ds_Sv["depth"].max()
+    range_interval = np.arange(depth_min, depth_max + depth_bin, depth_bin)
     range_interval = _convert_bins_to_interval_index(range_interval)
 
     # Downsample Sv along range sample
@@ -129,21 +115,32 @@ def downsample_upsample_along_depth(ds_Sv: xr.Dataset, depth_bin: float) -> xr.D
         skipna=True,
     ).pipe(_lin2log)
 
+    # Create upsample mapping
+    left_bin_values = [interval.left for interval in downsampled_Sv["depth_bins"].data]
+    upsample_mapping = xr.DataArray(
+        # Digitize denotes a value belonging in the first bin as being assigned to index 1 and prior
+        # to first bin as index 0. Since we want to create an index to index mapping between depth
+        # bins and the original Sv `depth`, this default behavior should be offset to the left,
+        # i.e a -1 applied to each value in the digitized array.
+        # Additionally, this subtraction will never result in -1 since `depth` will never contain
+        # any values prior to the first bin.
+        np.digitize(ds_Sv["depth"], left_bin_values) - 1,
+        dims=["channel", "ping_time", "range_sample"],
+    )
+
     # Upsample the downsampled Sv
     upsampled_Sv = xr.apply_ufunc(
-        _upsample_using_depth,
+        _upsample_using_mapping,
+        # Need to compute arrays since indexing fails when delayed:
         downsampled_Sv.compute(),
-        downsampled_Sv["depth_bins"].compute(),
-        ds_Sv["Sv"].compute(),
-        ds_Sv["depth"].compute(),
-        input_core_dims=[["depth_bins"], ["depth_bins"], ["range_sample"], ["range_sample"]],
+        upsample_mapping.compute(),
+        input_core_dims=[["depth_bins"], ["range_sample"]],
         output_core_dims=[["range_sample"]],
         exclude_dims=set(["depth_bins", "range_sample"]),
         dask="parallelized",
         vectorize=True,
         output_dtypes=[np.float64],
     )
-    upsampled_Sv["range_sample"] = ds_Sv["range_sample"]
 
     return downsampled_Sv, upsampled_Sv
 

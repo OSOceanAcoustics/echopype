@@ -263,9 +263,9 @@ def test_downsample_upsample_along_depth(chunk):
                         channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices
                         ).pipe(_log2lin)
                     )
-                ).data
-                assert np.isclose(manual_downsampled_bin_Sv, flox_downsampled_bin_Sv)
-
+                )
+                assert np.isclose(manual_downsampled_bin_Sv, flox_downsampled_bin_Sv, atol=1e-10, rtol=1e-10)
+  
                 # Check that depth bins encapsulated the correct original resolution depth values
                 manual_depth_array = original_resolution_depth.isel(
                     channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices
