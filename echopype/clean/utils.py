@@ -141,6 +141,8 @@ def downsample_upsample_along_depth(ds_Sv: xr.Dataset, depth_bin: float) -> xr.D
         vectorize=True,
         output_dtypes=[np.float64],
     )
+    # Set range sample coords
+    upsampled_Sv = upsampled_Sv.assign_coords(range_sample=ds_Sv["range_sample"])
 
     return downsampled_Sv, upsampled_Sv
 
