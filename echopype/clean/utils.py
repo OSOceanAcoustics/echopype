@@ -6,7 +6,9 @@ from ..commongrid.utils import _convert_bins_to_interval_index
 from ..utils.compute import _lin2log, _log2lin
 
 
-def calc_transient_noise_pooled_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above):
+def calc_transient_noise_pooled_Sv(
+    ds_Sv: xr.Dataset, func: str, depth_bin: float, num_side_pings: int, exclude_above: float
+) -> xr.DataArray:
     """
     Compute pooled Sv array for transient noise masking.
     """
@@ -81,7 +83,12 @@ def calc_transient_noise_pooled_Sv(ds_Sv, func, depth_bin, num_side_pings, exclu
     return pooled_Sv
 
 
-def _upsample_using_depth(downsampled_Sv, depth_bins, original_Sv, original_depth_array):
+def _upsample_using_depth(
+    downsampled_Sv: np.ndarray,
+    depth_bins: np.ndarray,
+    original_Sv: np.ndarray,
+    original_depth_array: np.ndarray,
+) -> np.ndarray:
     """
     Upsample the downsampled array via using depth bins and the original Sv depth array to assign
     downsampled values to the an array of the same shape as the original Sv array.
@@ -99,7 +106,7 @@ def _upsample_using_depth(downsampled_Sv, depth_bins, original_Sv, original_dept
     return upsampled_Sv
 
 
-def downsample_upsample_along_depth(ds_Sv, depth_bin):
+def downsample_upsample_along_depth(ds_Sv: xr.Dataset, depth_bin: float) -> xr.DataArray:
     """
     Downsample and upsample Sv to mimic what was done in echopy impulse
     noise masking.
@@ -141,7 +148,9 @@ def downsample_upsample_along_depth(ds_Sv, depth_bin):
     return downsampled_Sv, upsampled_Sv
 
 
-def echopy_impulse_noise_mask(Sv, num_side_pings, impulse_noise_threshold):
+def echopy_impulse_noise_mask(
+    Sv: np.ndarray, num_side_pings: int, impulse_noise_threshold: float
+) -> np.ndarray:
     """Single-channel impulse noise mask computation from echopy."""
     # Construct the two ping side-by-side comparison arrays
     dummy = np.zeros((Sv.shape[0], num_side_pings)) * np.nan
@@ -159,8 +168,13 @@ def echopy_impulse_noise_mask(Sv, num_side_pings, impulse_noise_threshold):
 
 
 def echopy_attenuated_signal_mask(
-    Sv, depth, upper_limit_sl, lower_limit_sl, num_pings, attenuation_signal_threshold
-):
+    Sv: np.ndarray,
+    depth: np.ndarray,
+    upper_limit_sl: float,
+    lower_limit_sl: float,
+    num_pings: int,
+    attenuation_signal_threshold: float,
+) -> np.ndarray:
     """Single-channel attenuated signal mask computation from echopy."""
     # Initialize mask
     attenuated_mask = np.zeros(Sv.shape, dtype=bool)
@@ -189,3 +203,27 @@ def echopy_attenuated_signal_mask(
                 attenuated_mask[ping_time_idx, :] = True
 
     return attenuated_mask
+
+
+def add_remove_background_noise_attrs(
+    da: xr.DataArray,
+    sv_type: str,
+    ping_num: int,
+    range_sample_num: int,
+    SNR_threshold: float,
+    noise_max: float,
+) -> xr.DataArray:
+    """Add attributes to the remove background noise function."""
+    da.attrs = {
+        "long_name": f"Volume backscattering strength, {sv_type} (Sv re 1 m-1)",
+        "units": "dB",
+        "actual_range": [
+            round(float(da.min().values), 2),
+            round(float(da.max().values), 2),
+        ],
+        "noise_ping_num": ping_num,
+        "noise_range_sample_num": range_sample_num,
+        "SNR_threshold": SNR_threshold,
+        "noise_max": noise_max,
+    }
+    return da

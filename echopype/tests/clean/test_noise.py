@@ -508,13 +508,3 @@ def test_remove_background_noise():
         np.count_nonzero(null.isel(channel=0, range_sample=slice(None, 50)))
         == 6
     )
-
-
-def test_remove_background_noise_no_sound_absorption():
-    """
-    Tests remove_background_noise on toy data that does
-    not have sound absorption as a variable.
-    """
-
-    pytest.xfail(f"Tests for remove_background_noise have not been implemented" +
-                 " when no sound absorption is provided!")

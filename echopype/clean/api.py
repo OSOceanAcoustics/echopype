@@ -9,10 +9,11 @@ import numpy as np
 import xarray as xr
 
 from ..commongrid.utils import _setup_and_validate
+from ..utils.compute import _lin2log, _log2lin
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
-from .background_noise_est import BackgroundNoiseEst
 from .utils import (
+    add_remove_background_noise_attrs,
     calc_transient_noise_pooled_Sv,
     downsample_upsample_along_depth,
     echopy_attenuated_signal_mask,
@@ -29,7 +30,7 @@ def mask_transient_noise(
     num_side_pings: int = 50,
     exclude_above: Union[int, float] = 250.0,
     transient_noise_threshold: Union[int, float] = 12.0,
-):
+) -> xr.DataArray:
     """
     Locate and create a mask for transient noise using a pooling comparison.
 
@@ -55,11 +56,13 @@ def mask_transient_noise(
 
     References
     ----------
-    Ryan et al. (2015) Reducing bias due to noise and attenuation in
-    open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+    This function's implementation is based on the following text reference:
 
-    Code was derived from echopy's numpy single-channel implementation of transient noise masking
-    and translated into xarray code:
+        Ryan et al. (2015) Reducing bias due to noise and attenuation in
+        open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+
+    Additionally, this code was derived from echopy's numpy single-channel implementation of
+    transient noise masking and translated into xarray code:
     https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_transient.py # noqa
     """
     if "depth" not in ds_Sv.data_vars:
@@ -101,7 +104,7 @@ def mask_impulse_noise(
     depth_bin: str = "5m",
     num_side_pings: int = 1,
     impulse_noise_threshold: Union[int, float] = 10.0,
-):
+) -> xr.DataArray:
     """
     Locate and create a mask for impulse noise using a ping-wise two-sided comparison.
 
@@ -123,11 +126,13 @@ def mask_impulse_noise(
 
     References
     ----------
-    Ryan et al. (2015) Reducing bias due to noise and attenuation in
-    open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+    This function's implementation is based on the following text reference:
 
-    Code was derived from echopy's numpy single-channel implementation of impulse noise masking
-    and translated into xarray code:
+        Ryan et al. (2015) Reducing bias due to noise and attenuation in
+        open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+
+    Additionally, code was derived from echopy's numpy single-channel implementation of
+    impulse noise masking and translated into xarray code:
     https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_impulse.py # noqa
     """
     if "depth" not in ds_Sv.data_vars:
@@ -172,7 +177,7 @@ def mask_attenuated_signal(
     lower_limit_sl: Union[int, float] = 500.0,
     num_pings: int = 30,
     attenuation_signal_threshold: Union[int, float] = 8.0,
-):
+) -> xr.DataArray:
     """
     Locate attenuated signals and create an attenuated signal mask.
 
@@ -196,11 +201,13 @@ def mask_attenuated_signal(
 
     References
     ----------
-    Ryan et al. (2015) Reducing bias due to noise and attenuation in
-    open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+    This function's implementation is based on the following text reference:
 
-    Code was derived from echopy's numpy single-channel implementation of attenuation signal masking
-    and translated into xarray code:
+        Ryan et al. (2015) Reducing bias due to noise and attenuation in
+        open-ocean echo integration data, ICES Journal of Marine Science, 72: 2482–2493.
+
+    Additionally, code was derived from echopy's numpy single-channel implementation of
+    attenuation signal masking and translated into xarray code:
     https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_attenuated.py # noqa
     """
     if "depth" not in ds_Sv.data_vars:
@@ -245,74 +252,130 @@ def mask_attenuated_signal(
     return attenuated_mask
 
 
-def estimate_background_noise(ds_Sv, ping_num, range_sample_num, noise_max=None):
+def estimate_background_noise(
+    ds_Sv: xr.Dataset, ping_num: int, range_sample_num: int, noise_max: float = None
+) -> xr.DataArray:
     """
     Estimate background noise by computing mean calibrated power of a collection of pings.
-
-    See ``remove_noise`` for reference.
 
     Parameters
     ----------
     ds_Sv : xr.Dataset
-        dataset containing ``Sv`` and ``echo_range`` [m]
+        Dataset containing ``Sv`` and ``echo_range`` [m].
     ping_num : int
-        number of pings to obtain noise estimates
+        Number of pings to obtain noise estimates
     range_sample_num : int
-        number of samples along the ``range_sample`` dimension to obtain noise estimates
-    noise_max : float
-        the upper limit for background noise expected under the operating conditions
+        Number of samples along the ``range_sample`` dimension to obtain noise estimates.
+    noise_max : float, default `None`
+        The upper limit for background noise expected under the operating conditions.
 
     Returns
     -------
     A DataArray containing noise estimated from the input ``ds_Sv``
+
+    Notes
+    -----
+    This function's implementation is based on the following text reference:
+
+        De Robertis & Higginbottom. 2007.
+        A post-processing technique to estimate the signal-to-noise ratio
+        and remove echosounder background noise.
+        ICES Journal of Marine Sciences 64(6): 1282–1291.
     """
-    noise_obj = BackgroundNoiseEst(
-        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num
+    # Compute transmission loss
+    spreading_loss = 20 * np.log10(ds_Sv["echo_range"].where(ds_Sv["echo_range"] >= 1, other=1))
+    absorption_loss = 2 * ds_Sv["sound_absorption"] * ds_Sv["echo_range"]
+
+    # Compute power binned averages
+    power_cal = _log2lin(ds_Sv["Sv"] - spreading_loss - absorption_loss)
+    power_cal_binned_avg = 10 * np.log10(
+        power_cal.coarsen(
+            ping_time=ping_num,
+            range_sample=range_sample_num,
+            boundary="pad",
+        ).mean()
     )
-    noise_obj.estimate_noise(noise_max=noise_max)
-    return noise_obj.Sv_noise
+
+    # Compute noise
+    noise = power_cal_binned_avg.min(dim="range_sample", skipna=True)
+
+    # Align noise `ping_time` to the first index of each coarsened `ping_time` bin
+    noise = noise.assign_coords(ping_time=ping_num * np.arange(len(noise["ping_time"])))
+
+    # Limit max noise level
+    noise = noise.where(noise < noise_max, noise_max) if noise_max is not None else noise
+
+    # Upsample noise to original ping time dimension
+    Sv_noise = (
+        noise.reindex({"ping_time": power_cal["ping_time"]}, method="ffill")
+        + spreading_loss
+        + absorption_loss
+    )
+
+    return Sv_noise
 
 
 @add_processing_level("L*B")
-def remove_background_noise(ds_Sv, ping_num, range_sample_num, noise_max=None, SNR_threshold=3):
+def remove_background_noise(
+    ds_Sv: xr.Dataset,
+    ping_num: int,
+    range_sample_num: int,
+    noise_max: float = None,
+    SNR_threshold: float = 3.0,
+) -> xr.Dataset:
     """
     Remove noise by using estimates of background noise
     from mean calibrated power of a collection of pings.
-
-    Reference: De Robertis & Higginbottom. 2007.
-    A post-processing technique to estimate the signal-to-noise ratio
-    and remove echosounder background noise.
-    ICES Journal of Marine Sciences 64(6): 1282–1291.
 
     Parameters
     ----------
     ds_Sv : xr.Dataset
         dataset containing ``Sv`` and ``echo_range`` [m]
     ping_num : int
-        number of pings to obtain noise estimates
+        Number of pings to obtain noise estimates.
     range_sample_num : int
-        number of samples along the ``range_sample`` dimension to obtain noise estimates
-    noise_max : float
-        the upper limit for background noise expected under the operating conditions
-    SNR_threshold : float
-        acceptable signal-to-noise ratio, default to 3 dB
+        Number of samples along the ``range_sample`` dimension to obtain noise estimates.
+    noise_max : float, default `None`
+        The upper limit for background noise expected under the operating conditions.
+    SNR_threshold : float, default `3.0`
+        Acceptable signal-to-noise ratio, default to 3 dB.
 
     Returns
     -------
     The input dataset with additional variables, including
     the corrected Sv (``Sv_corrected``) and the noise estimates (``Sv_noise``)
-    """
-    noise_obj = BackgroundNoiseEst(
-        ds_Sv=ds_Sv.copy(), ping_num=ping_num, range_sample_num=range_sample_num
-    )
-    noise_obj.remove_noise(noise_max=noise_max, SNR_threshold=SNR_threshold)
-    ds_Sv = noise_obj.ds_Sv
 
+    Notes
+    -----
+    This function's implementation is based on the following text reference:
+
+        De Robertis & Higginbottom. 2007.
+        A post-processing technique to estimate the signal-to-noise ratio
+        and remove echosounder background noise.
+        ICES Journal of Marine Sciences 64(6): 1282–1291.
+    """
+    # Compute Sv_noise
+    Sv_noise = estimate_background_noise(ds_Sv, ping_num, range_sample_num, noise_max=noise_max)
+
+    # Correct Sv for noise
+    linear_corrected_Sv = _log2lin(ds_Sv["Sv"]) - _log2lin(Sv_noise)
+    corrected_Sv = _lin2log(linear_corrected_Sv.where(linear_corrected_Sv > 0, other=np.nan))
+    corrected_Sv = corrected_Sv.where(corrected_Sv - Sv_noise > SNR_threshold, other=np.nan)
+
+    # Assemble output dataset
+    ds_Sv["Sv_noise"] = Sv_noise
+    ds_Sv["Sv_noise"] = add_remove_background_noise_attrs(
+        ds_Sv["Sv_noise"], "noise", ping_num, range_sample_num, SNR_threshold, noise_max
+    )
+    ds_Sv["Sv_corrected"] = corrected_Sv
+    ds_Sv["Sv_corrected"] = add_remove_background_noise_attrs(
+        ds_Sv["Sv_corrected"], "corrected", ping_num, range_sample_num, SNR_threshold, noise_max
+    )
     prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "clean.remove_background_noise"
     ds_Sv = ds_Sv.assign_attrs(prov_dict)
 
-    # The output ds_Sv is built as a copy of the input ds_Sv, so the step below is
+    # The output `ds_Sv` is built as a copy of the input `ds_Sv`, so the step below is
     # not needed, strictly speaking. But doing makes the decorator function more generic
     ds_Sv = insert_input_processing_level(ds_Sv, input_ds=ds_Sv)
 
