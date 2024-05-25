@@ -11,7 +11,7 @@ class ParseEK80(ParseEK):
         idx_file="",
         storage_options={},
         sonar_model="EK80",
-        **kwaargs,
+        **kwargs,
     ):
         super().__init__(file, bot_file, idx_file, storage_options, sonar_model)
         self.environment = {}  # dictionary to store environment data

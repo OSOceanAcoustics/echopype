@@ -224,7 +224,7 @@ class ParseAd2cp(ParseBase):
         file,
         storage_options={},
         sonar_model="AD2CP",
-        **kwaargs,
+        **kwargs,
     ):
         super().__init__(file, storage_options, sonar_model)
         self.config = None

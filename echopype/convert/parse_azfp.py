@@ -117,7 +117,7 @@ class ParseAZFP(ParseBase):
         file_meta,
         storage_options={},
         sonar_model="AZFP",
-        **kwaargs,
+        **kwargs,
     ):
         super().__init__(file, storage_options, sonar_model)
         # Parent class attributes
