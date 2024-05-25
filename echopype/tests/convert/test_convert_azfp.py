@@ -196,7 +196,7 @@ def test_convert_azfp_01a_pressure_temperature(azfp_path):
 
 def test_load_parse_azfp_xml(azfp_path):
     azfp_xml_path = azfp_path / '23081211.XML'
-    parseAZFP = ParseAZFP(None, str(azfp_xml_path), "", "")
+    parseAZFP = ParseAZFP(None, str(azfp_xml_path), {}, "")
     parseAZFP.load_AZFP_xml()
     expected_params = ['instrument_type_string', 'instrument_type', 'major', 'minor', 'date',
                        'program_name', 'program', 'CPU', 'serial_number', 'board_version',
