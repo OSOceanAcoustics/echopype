@@ -171,7 +171,7 @@ def echopy_attenuated_signal_mask(
     depth: np.ndarray,
     upper_limit_sl: float,
     lower_limit_sl: float,
-    num_pings: int,
+    num_side_pings: int,
     attenuation_signal_threshold: float,
 ) -> np.ndarray:
     """Single-channel attenuated signal mask computation from echopy."""
@@ -186,8 +186,8 @@ def echopy_attenuated_signal_mask(
 
         # Mask when attenuation masking is feasible
         if not (
-            (ping_time_idx - num_pings < 0)
-            | (ping_time_idx + num_pings > Sv.shape[0] - 1)
+            (ping_time_idx - num_side_pings < 0)
+            | (ping_time_idx + num_side_pings > Sv.shape[0] - 1)
             | np.all(np.isnan(Sv[ping_time_idx, up:lw]))
         ):
             # Compare ping and block medians, and mask ping if difference greater than
@@ -195,7 +195,12 @@ def echopy_attenuated_signal_mask(
             pingmedian = _lin2log(np.nanmedian(_log2lin(Sv[ping_time_idx, up:lw])))
             blockmedian = _lin2log(
                 np.nanmedian(
-                    _log2lin(Sv[(ping_time_idx - num_pings) : (ping_time_idx + num_pings), up:lw])
+                    _log2lin(
+                        Sv[
+                            (ping_time_idx - num_side_pings) : (ping_time_idx + num_side_pings),
+                            up:lw,
+                        ]
+                    )
                 )
             )
             if (pingmedian - blockmedian) < attenuation_signal_threshold:

@@ -177,37 +177,113 @@ def test_calc_transient_noise_pooled_Sv_values(chunk, func):
     # Compute Sv
     ds_Sv["Sv"] = ds_Sv["Sv"].compute()
 
-    # Manually check correct binning and aggregation values
-    assert np.isclose(
-        pooled_Sv.isel(channel=0, ping_time=2, range_sample=2).data,
-        _lin2log(
-            _log2lin(ds_Sv["Sv"].isel(channel=0, ping_time=slice(0, 5), range_sample=slice(1, 4))).pipe(
-                np.nanmean if func == "nanmean" else np.nanmedian
-            )
-        ),
-        rtol=1e-10,
-        atol=1e-10,
+    # Check correct binning and aggregation values
+    for channel_index in range(len(ds_Sv["channel"])):
+        for ping_time_index in range(len(ds_Sv["ping_time"])):
+            for range_sample_index in range(len(ds_Sv["range_sample"])):
+                # Grab pooled value
+                pooled_value = pooled_Sv.isel(
+                    channel=channel_index,
+                    ping_time=ping_time_index,
+                    range_sample=range_sample_index
+                ).data
+                if not np.isnan(pooled_value):
+                    assert np.isclose(
+                        pooled_value,
+                        # Compute pooled value using the fact that the depth bin covers
+                        # 3 depth values (1 below, middle, 1 above) and that the ping bin
+                        # covers 5 ping values (2 below, middle, 2 above).
+                        _lin2log(
+                            _log2lin(
+                                ds_Sv["Sv"].isel(
+                                    channel=channel_index,
+                                    ping_time=slice(ping_time_index-2, ping_time_index+3),
+                                    range_sample=slice(range_sample_index-1, range_sample_index+2)
+                                )
+                            ).pipe(
+                                np.nanmean if func == "nanmean" else np.nanmedian
+                            )
+                        ),
+                        rtol=1e-10,
+                        atol=1e-10,
+                    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk", "func"),
+    [
+        (False, "nanmean"),
+        (True, "nanmean"),
+        (False, "nanmedian"),
+        (True, "nanmedian"),
+    ],
+)
+def test_transient_noise_mask_values(chunk, func):
+    """Manually check if impulse noise mask removes transient noise values."""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
     )
-    assert np.isclose(
-        pooled_Sv.isel(channel=1, ping_time=3, range_sample=3).data,
-        _lin2log(
-            _log2lin(ds_Sv["Sv"].isel(channel=1, ping_time=slice(1, 6), range_sample=slice(2, 5))).pipe(
-                np.nanmean if func == "nanmean" else np.nanmedian
-            )
-        ),
-        rtol=1e-10,
-        atol=1e-10,
-    )
-    assert np.isclose(
-        pooled_Sv.isel(channel=2, ping_time=4, range_sample=3).data,
-        _lin2log(
-            _log2lin(ds_Sv["Sv"].isel(channel=2, ping_time=slice(2, 7), range_sample=slice(2, 5))).pipe(
-                np.nanmean if func == "nanmean" else np.nanmedian
-            )
-        ),
-        rtol=1e-10,
-        atol=1e-10,
-    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Select Sv subset
+    ds_Sv = ds_Sv.isel(ping_time=slice(294, 300), range_sample=slice(1794,1800))
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Set window args
+    depth_bin = "0.2m" # depth values ~0.2m apart per range sample
+    num_side_pings=2
+    exclude_above = 250
+    transient_noise_threshold = 12
+
+    # Compute transient noise mask
+    transient_noise_mask = ep.clean.mask_transient_noise(
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above, transient_noise_threshold
+    ).compute()
+
+    # Remove impulse noise from Sv
+    ds_Sv["Sv_cleaned_of_transient_noise"] = xr.where(
+        transient_noise_mask,
+        np.nan,
+        ds_Sv["Sv"]
+    ).compute()
+
+    # Compute Sv
+    ds_Sv["Sv"] = ds_Sv["Sv"].compute()
+
+    # Check if transient noise values have been removed:
+    for channel_index in range(len(ds_Sv["channel"])):
+        for ping_time_index in range(len(ds_Sv["ping_time"])):
+            for range_sample_index in range(len(ds_Sv["range_sample"])):
+                # Grab cleaned value
+                Sv_value = ds_Sv["Sv_cleaned_of_transient_noise"].isel(
+                    channel=channel_index,
+                    ping_time=ping_time_index,
+                    range_sample=range_sample_index
+                ).data
+                # Compute pooled value using the fact that the depth bin covers
+                # 3 depth values (1 below, middle, 1 above) and that the ping bin
+                # covers 5 ping values (2 below, middle, 2 above).
+                pooled_value = _lin2log(
+                    _log2lin(
+                        ds_Sv["Sv"].isel(
+                            channel=channel_index,
+                            ping_time=slice(ping_time_index-2, ping_time_index+3),
+                            range_sample=slice(range_sample_index-1, range_sample_index+2)
+                        )
+                    ).pipe(
+                        np.nanmean if func == "nanmean" else np.nanmedian
+                    )
+                )
+                # Check negation of transient noise condition only when both values are not NaN:
+                if not np.isnan(Sv_value) and not np.isnan(pooled_value):
+                    assert Sv_value - pooled_value <= transient_noise_threshold
 
 
 @pytest.mark.integration
@@ -320,21 +396,21 @@ def test_impulse_noise_mask_values(chunk):
         # Iterate through every range sample
         for range_sample_index in range(len(ds_Sv["range_sample"])):
             # Iterate through every valid ping time
-            for ping_time_index in range(1, len(ds_Sv["ping_time"]) - 1):
+            for ping_time_index in range(2, len(ds_Sv["ping_time"]) - 2):
                 # Grab range sample row array
                 row_array = ds_Sv["upsampled_Sv_cleaned_of_impulse_noise"].isel(
                     channel=channel_index,
-                    ping_time=slice(ping_time_index - 1, ping_time_index + 2),
+                    ping_time=slice(ping_time_index - 2, ping_time_index + 3),
                     range_sample=range_sample_index
                 ).data
                 # Compute left and right subtraction values
-                left_subtracted_value = row_array[1] - row_array[0]
-                right_subtracted_value = row_array[1] - row_array[2]
-                # Check negation of impulse condition if middle array and subtraction values are not NaN
+                left_subtracted_value = row_array[2] - row_array[0]
+                right_subtracted_value = row_array[2] - row_array[4]
+                # Check negation of impulse condition if middle array value and subtraction values are not NaN
                 if not (
-                    np.isnan(row_array[1]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)
+                    np.isnan(row_array[2]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)
                 ):
-                    assert (row_array[1] - row_array[0] <= 10.0 or row_array[1] - row_array[2] <= 10.0)
+                    assert (left_subtracted_value <= 10.0 or right_subtracted_value <= 10.0)
 
 
 @pytest.mark.integration
@@ -369,12 +445,12 @@ def test_mask_attenuated_signal_outside_searching_range():
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
     # Create mask
-    upper_limit_sl, lower_limit_sl, num_pings, attenuation_signal_threshold = 1800, 2800, 30, -6 # units: (m, m, pings, dB)
+    upper_limit_sl, lower_limit_sl, num_side_pings, attenuation_signal_threshold = 1800, 2800, 15, -6 # units: (m, m, pings, dB)
     attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         upper_limit_sl,
         lower_limit_sl,
-        num_pings,
+        num_side_pings,
         attenuation_signal_threshold
     )
     
@@ -405,12 +481,12 @@ def test_mask_attenuated_signal_against_echopy(chunk):
         ds_Sv = ds_Sv.chunk("auto")
 
     # Create mask
-    upper_limit_sl, lower_limit_sl, num_pings, attenuation_signal_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
+    upper_limit_sl, lower_limit_sl, num_side_pings, attenuation_signal_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
     attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         upper_limit_sl,
         lower_limit_sl,
-        num_pings,
+        num_side_pings,
         attenuation_signal_threshold
     )
 

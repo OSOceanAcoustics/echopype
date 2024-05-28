@@ -102,7 +102,7 @@ def mask_transient_noise(
 def mask_impulse_noise(
     ds_Sv: xr.Dataset,
     depth_bin: str = "5m",
-    num_side_pings: int = 1,
+    num_side_pings: int = 2,
     impulse_noise_threshold: Union[int, float] = 10.0,
 ) -> xr.DataArray:
     """
@@ -114,7 +114,7 @@ def mask_impulse_noise(
         Calibrated Sv data with depth data variable.
     depth_bin : str, default `5`m
         Donwsampling bin size along ``depth`` in meters.
-    num_side_pings : int, default `1`
+    num_side_pings : int, default `2`
         Number of side pings to look at for the two-side comparison.
     impulse_noise_threshold : Union[int, float], default `10.0`dB
         Impulse noise threshold value (dB) for the two-side comparison.
@@ -175,7 +175,7 @@ def mask_attenuated_signal(
     ds_Sv: xr.Dataset,
     upper_limit_sl: Union[int, float] = 400.0,
     lower_limit_sl: Union[int, float] = 500.0,
-    num_pings: int = 30,
+    num_side_pings: int = 15,
     attenuation_signal_threshold: Union[int, float] = 8.0,
 ) -> xr.DataArray:
     """
@@ -189,7 +189,7 @@ def mask_attenuated_signal(
         Upper limit of deep scattering layer line (m).
     lower_limit_sl : Union[int, float], default `500`m
         Lower limit of deep scattering layer line (m).
-    num_pings : int, default `30`
+    num_side_pings : int, default `15`
         Number of preceding & subsequent pings defining the block.
     attenuation_signal_threshold : Union[int, float], default `8.0`dB
         Attenuation signal threshold value (dB) for the ping-block comparison.
@@ -233,7 +233,7 @@ def mask_attenuated_signal(
         echopy_attenuated_signal_mask,
         upper_limit_sl=upper_limit_sl,
         lower_limit_sl=lower_limit_sl,
-        num_pings=num_pings,
+        num_side_pings=num_side_pings,
         attenuation_signal_threshold=attenuation_signal_threshold,
     )
 
