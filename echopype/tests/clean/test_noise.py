@@ -247,7 +247,7 @@ def test_transient_noise_mask_values(chunk, func):
         ds_Sv, func, depth_bin, num_side_pings, exclude_above, transient_noise_threshold
     ).compute()
 
-    # Remove impulse noise from Sv
+    # Remove transient noise from Sv
     ds_Sv["Sv_cleaned_of_transient_noise"] = xr.where(
         transient_noise_mask,
         np.nan,
