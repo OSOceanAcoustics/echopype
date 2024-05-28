@@ -130,6 +130,9 @@ def add_depth(
         # Grab sonar model
         sonar_model = echodata["Sonar"].attrs["sonar_model"]
 
+        # TODO: Check for sonar beam group name by checking channels of `ds_Sv` vs echodata
+        # beam_group1 and beam_group2
+
         # Raise value error if sonar model is supported for `use_platform/beam_...` arguments
         if sonar_model not in ["EK60", "EK80"] and (
             use_platform_vertical_offsets or use_platform_angles or use_beam_angles

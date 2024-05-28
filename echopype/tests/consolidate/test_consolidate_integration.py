@@ -255,9 +255,9 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
     # Check if the expected warnings are logged
     for group_name, variable_name in group_variable_name_pairs:
         expected_warning = (
-            f"The `{group_name}` group `{variable_name}` variable array contains NaNs. "
-            "This will result in NaNs in the final `depth` array. Consider filling the NaNs "
-            "and calling `.add_depth(...)` again."
+            f"The Echodata `{group_name}` group `{variable_name}` variable array contains "
+            "NaNs. This will result in NaNs in the final `depth` array. Consider filling the "
+            "NaNs and calling `.add_depth(...)` again."
         )
         assert any(expected_warning in record.message for record in caplog.records)
 

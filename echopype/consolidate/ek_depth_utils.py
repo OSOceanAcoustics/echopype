@@ -20,9 +20,9 @@ def _check_and_log_nans(
         # Log warning if the group variable contains any NaNs
         if np.any(np.isnan(group_var.values)):
             logger.warning(
-                f"The `{group_name}` group `{variable_name}` variable array contains NaNs. "
-                "This will result in NaNs in the final `depth` array. Consider filling the NaNs "
-                "and calling `.add_depth(...)` again."
+                f"The Echodata `{group_name}` group `{variable_name}` variable array contains "
+                "NaNs. This will result in NaNs in the final `depth` array. Consider filling the "
+                "NaNs and calling `.add_depth(...)` again."
             )
 
 
