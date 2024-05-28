@@ -83,14 +83,6 @@ def calc_transient_noise_pooled_Sv(
     return pooled_Sv
 
 
-def _upsample_using_mapping(downsampled_Sv: np.ndarray, upsample_mapping: np.ndarray) -> np.ndarray:
-    """Upsample using downsampled Sv and upsample mapping."""
-    upsampled_Sv = np.zeros_like(upsample_mapping, dtype=np.float64)
-    for upsampled_index, downsampled_index in enumerate(upsample_mapping):
-        upsampled_Sv[upsampled_index] = downsampled_Sv[downsampled_index]
-    return upsampled_Sv
-
-
 def downsample_upsample_along_depth(ds_Sv: xr.Dataset, depth_bin: float) -> xr.DataArray:
     """
     Downsample and upsample Sv to mimic what was done in echopy impulse
@@ -115,34 +107,47 @@ def downsample_upsample_along_depth(ds_Sv: xr.Dataset, depth_bin: float) -> xr.D
         skipna=True,
     ).pipe(_lin2log)
 
-    # Create upsample mapping
-    left_bin_values = [interval.left for interval in downsampled_Sv["depth_bins"].data]
-    upsample_mapping = xr.DataArray(
-        # Digitize denotes a value belonging in the first bin as being assigned to index 1 and prior
-        # to first bin as index 0. Since we want to create an index to index mapping between depth
-        # bins and the original Sv `depth`, this default behavior should be offset to the left,
-        # i.e a -1 applied to each value in the digitized array.
-        # Additionally, this subtraction will never result in -1 since `depth` will never contain
-        # any values prior to the first bin.
-        np.digitize(ds_Sv["depth"], left_bin_values) - 1,
+    # Assign a depth bin index to each Sv depth value
+    depth_bin_assignment = xr.DataArray(
+        np.digitize(
+            ds_Sv["depth"], [interval.left for interval in downsampled_Sv["depth_bins"].data]
+        ),
         dims=["channel", "ping_time", "range_sample"],
     )
 
-    # Upsample the downsampled Sv
-    upsampled_Sv = xr.apply_ufunc(
-        _upsample_using_mapping,
-        # Need to compute arrays since indexing fails when delayed:
-        downsampled_Sv.compute(),
-        upsample_mapping.compute(),
-        input_core_dims=[["depth_bins"], ["range_sample"]],
-        output_core_dims=[["range_sample"]],
-        exclude_dims=set(["depth_bins", "range_sample"]),
-        dask="parallelized",
-        vectorize=True,
-        output_dtypes=[np.float64],
-    )
-    # Set range sample coords
-    upsampled_Sv = upsampled_Sv.assign_coords(range_sample=ds_Sv["range_sample"])
+    # Initialize upsampled Sv
+    upsampled_Sv = ds_Sv["Sv"].copy()
+
+    # Iterate through all channels
+    for channel_index in range(len(depth_bin_assignment["channel"])):
+        # Iterate through all ping times
+        for ping_time_index in range(len(depth_bin_assignment["ping_time"])):
+            # Get unique range sample values along a single ping from the digitized depth array:
+            # NOTE: The unique index corresponds to the first unique value's position which in
+            # turn corresponds to the first range sample value contained in each depth bin.
+            _, unique_range_sample_indices = np.unique(
+                depth_bin_assignment.isel(channel=channel_index, ping_time=ping_time_index).data,
+                return_index=True,
+            )
+
+            # Select a single ping downsampled Sv vector
+            subset_downsampled_Sv = downsampled_Sv.isel(
+                channel=channel_index, ping_time=ping_time_index
+            )
+
+            # Substitute depth bin coordinate in the downsampled Sv to be the range sample value
+            # corresponding to the first element (lowest depth value) of each depth bin, and rename
+            # `depth_bin` coordinate to `range_sample`.
+            subset_downsampled_Sv = subset_downsampled_Sv.assign_coords(
+                {"depth_bins": unique_range_sample_indices}
+            ).rename({"depth_bins": "range_sample"})
+
+            # Upsample via `reindex` `ffill`
+            upsampled_Sv[dict(channel=channel_index, ping_time=ping_time_index)] = (
+                subset_downsampled_Sv.reindex(
+                    {"range_sample": ds_Sv["range_sample"]}, method="ffill"
+                )
+            )
 
     return downsampled_Sv, upsampled_Sv
 
