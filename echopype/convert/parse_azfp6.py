@@ -1,11 +1,10 @@
-
 import os
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime as dt
+from io import BytesIO
 from struct import unpack
 
-from io import BytesIO
 import fsspec
 import numpy as np
 
@@ -15,7 +14,7 @@ from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+_\\w+.azfp"
 
-#NOTE: These values may change once the new AZFP details are finalized
+# NOTE: These values may change once the new AZFP details are finalized
 
 # Common Sv_offset values for frequency > 38 kHz
 SV_OFFSET_HF = {
@@ -47,7 +46,7 @@ SV_OFFSET = {
     },
     417000.0: {
         **SV_OFFSET_HF,
-        68: 1.0, #NOTE: This is a dummy value, needs to be determined 
+        68: 1.0,  # NOTE: This is a dummy value, needs to be determined
     },
     455000.0: {
         250: 1.3,
@@ -60,44 +59,44 @@ SV_OFFSET = {
 }
 
 HEADER_FIELDS = [
-'FirstHeaderRecord',
-'HeaderBytes',
-'HeaderNumRecords',
-'ProfileNumber', #'BURST_NUMBER',
-'SerialNumber', #'INST_SERIAL_NUM',
-'Date', 
-'AcqStatus',
-'BurstInt', #'BURST_INTERVAL',
-'BaseTime',
-'PingPeriod',
-'PingPeriodCounts',
-'PingPerProfile', #'PING_PER_BURST',
-'AvgPings', #'AVERAGE_BURST_PINGS',
-'NumAcqPings', #'NUM_ACQUIRED_BURST_PINGS',
-'FirstPing',
-'LastPing',
-'DataError',
-'OverRun',
-'Phase',
-'NumChan',#'NUM_STORED_FREQUENCIES',
-'DigRate', #'DIG_RATE',
-'LockOutIndex', #'LOCKOUT_INDEX',
-'NumBins', #'BINS',
-'RangeSamplesPerBin', #'RANGE_SAMPLES_PER_BIN',
-'DataType', #'DATA_TYPE',
-'PulseLen', #'PULSE_LENGTH',
-'BoardNum', #'BOARD' 
-'Frequency', #'FREQUENCY',
-'NumSensors',
-'SensorStatus',
-'Ancillary',  #'SENSOR_DATA',
-'GpsDateTime', #optional 
-'GpsLatLon', #optional
-'Custom',  #0X70 to 0x7F CUSTOM 0 Set by user Set by user Variable values
-'LastHeaderRecord'
+    "FirstHeaderRecord",
+    "HeaderBytes",
+    "HeaderNumRecords",
+    "ProfileNumber",  #'BURST_NUMBER',
+    "SerialNumber",  #'INST_SERIAL_NUM',
+    "Date",
+    "AcqStatus",
+    "BurstInt",  #'BURST_INTERVAL',
+    "BaseTime",
+    "PingPeriod",
+    "PingPeriodCounts",
+    "PingPerProfile",  #'PING_PER_BURST',
+    "AvgPings",  #'AVERAGE_BURST_PINGS',
+    "NumAcqPings",  #'NUM_ACQUIRED_BURST_PINGS',
+    "FirstPing",
+    "LastPing",
+    "DataError",
+    "OverRun",
+    "Phase",
+    "NumChan",  #'NUM_STORED_FREQUENCIES',
+    "DigRate",  #'DIG_RATE',
+    "LockOutIndex",  #'LOCKOUT_INDEX',
+    "NumBins",  #'BINS',
+    "RangeSamplesPerBin",  #'RANGE_SAMPLES_PER_BIN',
+    "DataType",  #'DATA_TYPE',
+    "PulseLen",  #'PULSE_LENGTH',
+    "BoardNum",  #'BOARD'
+    "Frequency",  #'FREQUENCY',
+    "NumSensors",
+    "SensorStatus",
+    "Ancillary",  #'SENSOR_DATA',
+    "GpsDateTime",  # optional
+    "GpsLatLon",  # optional
+    "Custom",  # 0X70 to 0x7F CUSTOM 0 Set by user Set by user Variable values
+    "LastHeaderRecord",
 ]
 
-OPTIONAL_HEADER_FIELDS = ['gps_date_time', 'gps_lat_lon', 'custom']
+OPTIONAL_HEADER_FIELDS = ["gps_date_time", "gps_lat_lon", "custom"]
 
 logger = _init_logger(__name__)
 
@@ -106,21 +105,22 @@ class ParseAZFP6(ParseBase):
     """Class for converting data from ASL Environmental Sciences AZFP echosounder."""
 
     # Instrument specific constants
-    XML_FILE_TYPE       = 0XF044CC11 #Also the start flag
-    XML_END_FLAG        = 0XE088DD66
-    DATA_START_FLAG     = 0xFF01AA00
-    HEADER_START_FLAG   = 0XBCD0 
-    HEADER_END_FLAG     = 0xABC1 
-    DATA_END_FLAG       = 0xEF02BB66 
+    XML_FILE_TYPE = 0xF044CC11  # Also the start flag
+    XML_END_FLAG = 0xE088DD66
+    DATA_START_FLAG = 0xFF01AA00
+    HEADER_START_FLAG = 0xBCD0
+    HEADER_END_FLAG = 0xABC1
+    DATA_END_FLAG = 0xEF02BB66
 
+    RECORD_DATA_TYPE_MASK = 0x00E0
+    ARRAY_BITS_MASK = 0x001F
+    CODE_BITS_MASK = 0x7F00
+    TYPE_BITS_MASK = 0x00E0
+    REQUIRED_BITS_MASK = 0x8000
 
-    RECORD_DATA_TYPE_MASK   = 0X00E0
-    ARRAY_BITS_MASK         = 0x001F
-    CODE_BITS_MASK          = 0x7F00 
-    TYPE_BITS_MASK          = 0x00E0 
-    REQUIRED_BITS_MASK      = 0x8000 
-
-    def __init__(self, file, file_meta, storage_options={}, dgram_zarr_vars={}, sonar_model="AZFP6"):
+    def __init__(
+        self, file, file_meta, storage_options={}, dgram_zarr_vars={}, sonar_model="AZFP6"
+    ):
         super().__init__(file, storage_options, sonar_model)
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
@@ -131,30 +131,29 @@ class ParseAZFP6(ParseBase):
         self.unpacked_data = defaultdict(list)
         self.sonar_type = "AZFP6"
 
-
     def load_AZFP_xml(self, raw):
         """
         Parses the AZFP XML file embedded in the AZFP file.
-        
+
         Updates self.parameters
         """
-        xml_byte_size = unpack('<I', raw.read(4))[0]
+        xml_byte_size = unpack("<I", raw.read(4))[0]
         xml_string = raw.read(xml_byte_size)
         self.unpacked_data["num_prev_xml_bytes"] = xml_byte_size
-            
-        if (
-            int.from_bytes(raw.read(4), 'little') != self.XML_END_FLAG
-        ):
+
+        if int.from_bytes(raw.read(4), "little") != self.XML_END_FLAG:
             logger.error("Error reading xml string")
-            raise ValueError("Error reading xml string") 
-        
-        xml_prev_byte_size = unpack("<I", raw.read(4))[0]    # read num bytes for prev record
+            raise ValueError("Error reading xml string")
+
+        xml_prev_byte_size = unpack("<I", raw.read(4))[0]  # read num bytes for prev record
         self.unpacked_data["num_prev_xml_bytes"] = xml_prev_byte_size
 
-        parser = ET.XMLParser(encoding = 'iso-8859-5')
+        parser = ET.XMLParser(encoding="iso-8859-5")
         phase_number = None
         self.parameters["phase_number"] = []
-        for event, child in ET.iterparse(BytesIO(xml_string), events=("start", "end"), parser=parser):
+        for event, child in ET.iterparse(
+            BytesIO(xml_string), events=("start", "end"), parser=parser
+        ):
             if event == "end" and child.tag == "Phases":
                 phase_number = None
             if event == "start":
@@ -162,7 +161,7 @@ class ParseAZFP6(ParseBase):
                     camel_case_tag = camelcase2snakecase(child.tag)
                 else:
                     camel_case_tag = child.tag
-                
+
                 if len(child.attrib) > 0:
                     for key, val in child.attrib.items():
                         attrib_tag = camel_case_tag + "_" + camelcase2snakecase(key)
@@ -174,7 +173,7 @@ class ParseAZFP6(ParseBase):
 
                 if all(char == "\n" for char in child.text):
                     continue
-                
+
                 try:
                     val = int(child.text)
                 except ValueError:
@@ -185,17 +184,15 @@ class ParseAZFP6(ParseBase):
 
                 if phase_number is not None and camel_case_tag != "phase":
                     camel_case_tag += f"_phase{phase_number}"
-                    
-                #print(camel_case_tag, val)
+
+                # print(camel_case_tag, val)
                 self.parameters[camel_case_tag].append(val)
 
         # Handling the case where there is only one value for each parameter
         for key, val in self.parameters.items():
-            #print(f"key={key} -> {val}")
+            # print(f"key={key} -> {val}")
             if len(val) == 1:
                 self.parameters[key] = val[0]
-       
-       
 
     def _compute_temperature(self, ping_num, is_valid):
         """
@@ -287,7 +284,6 @@ class ParseAZFP6(ParseBase):
         P = v_in * self.parameters["a1"] + self.parameters["a0"] - 10.125
         return P
 
-
     def parse_raw(self):
         """
         Parse raw data file from AZFP echosounder.
@@ -309,22 +305,22 @@ class ParseAZFP6(ParseBase):
         tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
 
         with fmap.fs.open(fmap.root, "rb") as file:
-            
+
             if (
-                unpack('<I', file.read(4))[0] == self.XML_FILE_TYPE
+                unpack("<I", file.read(4))[0] == self.XML_FILE_TYPE
             ):  # first field should match hard-coded FILE_TYPE from manufacturer
                 self.load_AZFP_xml(file)
             else:
                 raise ValueError("Unknown file type")
-            
+
             ping_num = 0
             eof = False
             while not eof:
                 try:
-                    header_flag, num_data_bytes = unpack('<II', file.read(8))
+                    header_flag, num_data_bytes = unpack("<II", file.read(8))
                 except:
                     break
-                
+
                 if header_flag == self.DATA_START_FLAG:
                     # Reading will stop if the file contains an unexpected flag
                     self.unpacked_data["num_data_bytes"].append(num_data_bytes)
@@ -371,8 +367,8 @@ class ParseAZFP6(ParseBase):
                         self.unpacked_data["battery_tx"].append(
                             self._compute_battery(ping_num, battery_type="tx")
                         )
-                    
-                        header_flag, num_data_bytes = unpack('<II', file.read(8))
+
+                        header_flag, num_data_bytes = unpack("<II", file.read(8))
                         if header_flag != self.DATA_END_FLAG:
                             logger.error("Invalid flag detected, possibly corrupted data file.")
                             break
@@ -385,7 +381,7 @@ class ParseAZFP6(ParseBase):
                     # End of file
                     eof = True
                 ping_num += 1
-              
+
         self._check_uniqueness()
         self._get_ping_time()
 
@@ -397,13 +393,12 @@ class ParseAZFP6(ParseBase):
             # if it is not a nested list, make the value into a ndarray
             if isinstance(val, (list, tuple)) and (not isinstance(val[0], (list, tuple))):
                 self.unpacked_data[key] = np.asarray(val)
-                
 
         # cast all list parameter values to np array, so they are easier to reference
         for key, val in self.parameters.items():
             if isinstance(val, (list, tuple)):
                 self.parameters[key] = np.asarray(val)
-        
+
         # Get frequency values
         freq_old = self.unpacked_data["frequency"]
 
@@ -419,7 +414,6 @@ class ParseAZFP6(ParseBase):
             self.Sv_offset[ind] = self._calc_Sv_offset(
                 self.freq_sorted[ind], self.unpacked_data["pulse_len"][ich]
             )
-    
 
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
@@ -433,20 +427,20 @@ class ParseAZFP6(ParseBase):
             date_vals[4],
             int(date_vals[5] + date_vals[6] / 100),
         )
-        
+
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
         logger.info(f"parsing file {filename}, " f"time of first ping: {timestr}")
-            
+
     def _get_masked_data(self, rc):
         """
-        Determine the datatype and size of the data 
+        Determine the datatype and size of the data
 
         Parameters
         ----------
         rc
             address byte code
-           
-        
+
+
         Returns
         -----------
             byte_code
@@ -454,29 +448,37 @@ class ParseAZFP6(ParseBase):
             byte_size
                 number of bytes for each data block element
             array_size
-                number of items in data block 
+                number of items in data block
 
         """
         dt = rc & self.RECORD_DATA_TYPE_MASK
         array_size = (rc & self.ARRAY_BITS_MASK) + 1
-        
-        if dt == 0x00: #int16
-            byte_code = 'h'; byte_size = 2
-        elif dt == 0x20: #uint16 
-            byte_code = 'H'; byte_size = 2
-        elif dt == 0x40: #int32
-            byte_code = 'i'; byte_size = 4
-        elif dt == 0x60: #int32
-            byte_code = 'I'; byte_size = 4
-        elif dt == 0x80: #int64
-            byte_code = 'q'; byte_size = 8
-        elif dt == 0xA0: #uint64
-            byte_code = 'Q'; byte_size = 8
-        elif dt == 0xC0: #double
-            byte_code = 'd'; byte_size = 8
-        elif dt == 0xE0: #uint8
-            byte_code = 'c'; byte_size = 1
-        return byte_code, byte_size, array_size 
+
+        if dt == 0x00:  # int16
+            byte_code = "h"
+            byte_size = 2
+        elif dt == 0x20:  # uint16
+            byte_code = "H"
+            byte_size = 2
+        elif dt == 0x40:  # int32
+            byte_code = "i"
+            byte_size = 4
+        elif dt == 0x60:  # int32
+            byte_code = "I"
+            byte_size = 4
+        elif dt == 0x80:  # int64
+            byte_code = "q"
+            byte_size = 8
+        elif dt == 0xA0:  # uint64
+            byte_code = "Q"
+            byte_size = 8
+        elif dt == 0xC0:  # double
+            byte_code = "d"
+            byte_size = 8
+        elif dt == 0xE0:  # uint8
+            byte_code = "c"
+            byte_size = 1
+        return byte_code, byte_size, array_size
 
     def _split_header(self, raw):
         """Splits the header information into a dictionary.
@@ -493,35 +495,35 @@ class ParseAZFP6(ParseBase):
         -------
             True or False depending on whether the unpacking was successful
         """
-        
+
         header_byte_cnt = 4
-           
-        #Read first 4 bytes which contain the first header record 
+
+        # Read first 4 bytes which contain the first header record
         rc, val = unpack("<HH", raw.read(4))
         if val != self.HEADER_START_FLAG:
             logger.error(f"Invalid header block, is this an {self.sonar_type} file?")
             return False
-        
+
         self.unpacked_data[camelcase2snakecase(HEADER_FIELDS[0])].append(val)
         for field in HEADER_FIELDS[1:]:
             field = camelcase2snakecase(field)
             rc = unpack("<H", raw.read(2))[0]
-            byte_code, byte_size, array_size = self._get_masked_data(rc) 
-            val = unpack("<"+byte_code*array_size, raw.read(byte_size*array_size))
-            header_byte_cnt += 2 + byte_size*array_size
-           
+            byte_code, byte_size, array_size = self._get_masked_data(rc)
+            val = unpack("<" + byte_code * array_size, raw.read(byte_size * array_size))
+            header_byte_cnt += 2 + byte_size * array_size
+
             if val[0] == self.HEADER_END_FLAG:
                 self.unpacked_data[camelcase2snakecase(HEADER_FIELDS[-1])].append(val[0])
-                break 
-           
-            self.unpacked_data[field].append(*val if len(val) == 1 else [val]) #list(val)
-        
-        if (
-            header_byte_cnt != self.unpacked_data["header_bytes"][0]
-        ):
-            logger.error(f"Error reading header: {header_byte_cnt} != {self.unpacked_data['header_bytes'][0]}")
+                break
+
+            self.unpacked_data[field].append(*val if len(val) == 1 else [val])  # list(val)
+
+        if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
+            logger.error(
+                f"Error reading header: {header_byte_cnt} != {self.unpacked_data['header_bytes'][0]}"
+            )
             return False
-           
+
         return True
 
     def _add_counts(self, raw, ping_num):
@@ -559,8 +561,10 @@ class ParseAZFP6(ParseBase):
         """Check for ping-by-ping consistency of sampling parameters and reduce if identical."""
         if not self.unpacked_data:
             self.parse_raw()
-       
-        if np.array(self.unpacked_data["first_header_record"]).size != 1:  #profile_flag # Only check uniqueness once.
+
+        if (
+            np.array(self.unpacked_data["first_header_record"]).size != 1
+        ):  # profile_flag # Only check uniqueness once.
             # fields with num_freq data
             field_w_freq = (
                 "dig_rate",
@@ -568,7 +572,7 @@ class ParseAZFP6(ParseBase):
                 "num_bins",
                 "range_samples_per_bin",
                 "data_type",
-                #"gain",
+                # "gain",
                 "pulse_len",
                 "board_num",
                 "frequency",
@@ -584,8 +588,8 @@ class ParseAZFP6(ParseBase):
                 "ping_period",
                 "phase",
                 "num_chan",
-                #"spare_chan",
-                "custom"
+                # "spare_chan",
+                "custom",
             )
             for field in field_w_freq:
                 uniq = np.unique(self.unpacked_data[field], axis=0)
@@ -598,33 +602,32 @@ class ParseAZFP6(ParseBase):
                 if uniq.shape[0] == 1:
                     self.unpacked_data[field] = uniq.squeeze()
                 elif uniq.shape[0] == 0 and field in OPTIONAL_HEADER_FIELDS:
-                    self.unpacked_data[field] = None #TODO: This may break sonar-netcdf4 conventions 
+                    self.unpacked_data[field] = (
+                        None  # TODO: This may break sonar-netcdf4 conventions
+                    )
                 else:
                     raise ValueError(f"Header value {field} is not constant for each ping")
 
     def _get_gps_time(self):
         """Assemble gps time from parsed values.
-        
+
         This is an optional parameter, the values will be 0 if no GPS was attached during data collection
         """
         if not self.unpacked_data:
             self.parse_raw()
 
         np_time = []
-        for year, month, day, hour, min, sec, nsec in self.unpacked_data["gps_date_time"]: #:
+        for year, month, day, hour, min, sec, nsec in self.unpacked_data["gps_date_time"]:  #:
             try:
                 np_time.append(
                     np.datetime64(
-                        dt(
-                            year, month, day, hour, min, int(sec + nsec / 100)
-                        ).replace(tzinfo=None),
+                        dt(year, month, day, hour, min, int(sec + nsec / 100)).replace(tzinfo=None),
                         "[ns]",
                     )
                 )
             except:
                 np_time.append(np.int64(0))
         return np_time
-
 
     def _get_ping_time(self):
         """Assemble ping time from parsed values."""
@@ -636,9 +639,7 @@ class ParseAZFP6(ParseBase):
         for year, month, day, hour, min, sec, nsec in self.unpacked_data["date"]:
             ping_time.append(
                 np.datetime64(
-                    dt(
-                        year, month, day, hour, min, int(sec + nsec / 100)
-                    ).replace(tzinfo=None),
+                    dt(year, month, day, hour, min, int(sec + nsec / 100)).replace(tzinfo=None),
                     "[ns]",
                 )
             )

@@ -202,7 +202,7 @@ class SetGroupsAZFP6(SetGroupsBase):
 
         # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
         time1 = self.parser_obj._get_gps_time()
-        time1 = [np.nan] if not np.any(time1) else time1 
+        time1 = [np.nan] if not np.any(time1) else time1
 
         # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
         # and single-value (np.nan) tilt_x and tilt_y
@@ -214,13 +214,21 @@ class SetGroupsAZFP6(SetGroupsBase):
             time2 = self.parser_obj.ping_time
 
         gps_latlon = np.array(unpacked_data["gps_lat_lon"])
-        lat = [np.nan] if np.isnan(gps_latlon[:, 0]).all() or not np.any(gps_latlon[:, 0]) else gps_latlon[:, 0] 
-        lon = [np.nan] if np.isnan(gps_latlon[:, 1]).all() or not np.any(gps_latlon[:, 1]) else gps_latlon[:, 1]
+        lat = (
+            [np.nan]
+            if np.isnan(gps_latlon[:, 0]).all() or not np.any(gps_latlon[:, 0])
+            else gps_latlon[:, 0]
+        )
+        lon = (
+            [np.nan]
+            if np.isnan(gps_latlon[:, 1]).all() or not np.any(gps_latlon[:, 1])
+            else gps_latlon[:, 1]
+        )
 
         # Handle potential nan timestamp for time1 and time2
         time1 = self._nan_timestamp_handler(time1)
         time2 = self._nan_timestamp_handler(time2)  # should not be nan; but add for completeness
-        
+
         ds = xr.Dataset(
             {
                 "latitude": (
@@ -349,7 +357,9 @@ class SetGroupsAZFP6(SetGroupsBase):
         for ich in self.parser_obj.freq_ind_sorted:
             N.append(
                 np.array(
-                    [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["date"]))] #year
+                    [
+                        unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["date"]))
+                    ]  # year
                 )
             )
 
@@ -380,7 +390,6 @@ class SetGroupsAZFP6(SetGroupsBase):
         else:
             # TODO: not sure what this error means
             raise ValueError("dig_rate and range_samples not unique across frequencies")
-
 
         ds = xr.Dataset(
             {
@@ -439,13 +448,13 @@ class SetGroupsAZFP6(SetGroupsBase):
                         "valid_range": (0.0, 4 * np.pi),
                     },
                 ),
-                #"gain_correction": (
+                # "gain_correction": (
                 #    ["channel"],
                 #    np.array(
                 #        unpacked_data["gain"][self.parser_obj.freq_ind_sorted], dtype=np.float64
                 #    ),
                 #    {"long_name": "Gain correction", "units": "dB"},
-                #),
+                # ),
                 "sample_interval": (
                     ["channel"],
                     sample_int,
@@ -536,7 +545,7 @@ class SetGroupsAZFP6(SetGroupsBase):
                 "conversion_equation_t": "type_4",
             },
         )
-        
+
         # Manipulate some Dataset dimensions to adhere to convention
         self.beam_groups_to_convention(
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
@@ -550,16 +559,22 @@ class SetGroupsAZFP6(SetGroupsBase):
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
         Sv_offset = self.parser_obj.Sv_offset
-        phase_params = ["burst_interval", "pings_per_burst", "average_burst_pings", "base_time", "ping_period_counts"]
+        phase_params = [
+            "burst_interval",
+            "pings_per_burst",
+            "average_burst_pings",
+            "base_time",
+            "ping_period_counts",
+        ]
         phase_freq_params = [
             "dig_rate",
             "range_samples",
             "range_averaging_samples",
             "lock_out_index",
-            #"gain",
+            # "gain",
             "storage_format",
         ]
-        
+
         tdn = []
         for num in parameters["phase_number"]:
             tdn.append(parameters[f"pulse_len_phase{num}"][self.parser_obj.freq_ind_sorted] / 1e6)
@@ -569,12 +584,12 @@ class SetGroupsAZFP6(SetGroupsBase):
                 parameters[param].append(
                     parameters[f"{param}_phase{num}"][self.parser_obj.freq_ind_sorted]
                 )
-        
+
         for param in phase_params:
             for num in parameters["phase_number"]:
                 parameters[param].append(parameters[f"{param}_phase{num}"])
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
-        
+
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
@@ -646,11 +661,11 @@ class SetGroupsAZFP6(SetGroupsBase):
                     unpacked_data["ancillary"],
                     {"long_name": "Tilt-X, Y, Battery, Pressure, Temperature"},
                 ),
-                #"ad_channels": (
+                # "ad_channels": (
                 #    ["ping_time", "ad_len"],
                 #    unpacked_data["ad"],
                 #    {"long_name": "AD channel 6 and 7"},
-                #),
+                # ),
                 "battery_main": (["ping_time"], unpacked_data["battery_main"]),
                 "battery_tx": (["ping_time"], unpacked_data["battery_tx"]),
                 "profile_number": (["ping_time"], unpacked_data["profile_number"]),
@@ -701,15 +716,17 @@ class SetGroupsAZFP6(SetGroupsBase):
                     unpacked_data["num_chan"],
                     {"long_name": "Number of channels (1, 2, 3, or 4)"},
                 ),
-                "base_time" : (
+                "base_time": (
                     [],
                     unpacked_data["base_time"],
-                    {"long_name" : "Base time, min 0.2 sec and max 1.5 sec. Time for driving the ping interval"}  
+                    {
+                        "long_name": "Base time, min 0.2 sec and max 1.5 sec. Time for driving the ping interval"
+                    },
                 ),
-                "ping_period_counts" : (
+                "ping_period_counts": (
                     [],
                     unpacked_data["ping_period_counts"],
-                    {"long_name" : "Ping period counts. The number of BaseTimer counts."}  
+                    {"long_name": "Ping period counts. The number of BaseTimer counts."},
                 ),
                 # parameters with channel dimension from XML file
                 "XML_transmit_duration_nominal": (
@@ -717,11 +734,11 @@ class SetGroupsAZFP6(SetGroupsBase):
                     tdn,
                     {"long_name": "(From XML file) Nominal bandwidth of transmitted pulse"},
                 ),  # tdn comes from parameters
-                #"XML_gain_correction": (
+                # "XML_gain_correction": (
                 #    ["phase_number", "channel"],
                 #    parameters["gain"],
                 #    {"long_name": "(From XML file) Gain correction"},
-                #),
+                # ),
                 "instrument_type": parameters["instrument_type"][0],
                 "minor": parameters["minor"],
                 "major": parameters["major"],
@@ -868,11 +885,11 @@ class SetGroupsAZFP6(SetGroupsBase):
                     ["ancillary_len"],
                     list(range(len(unpacked_data["ancillary"][0]))),
                 ),
-                #"ad_len": (["ad_len"], list(range(len(unpacked_data["ad"][0])))),
-                #"phase_number": (
+                # "ad_len": (["ad_len"], list(range(len(unpacked_data["ad"][0])))),
+                # "phase_number": (
                 #    ["phase_number"],
                 #    sorted([int(num) for num in parameters["phase_number"]]),
-                #),
+                # ),
             },
         )
         return set_time_encodings(ds)
