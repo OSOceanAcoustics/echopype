@@ -261,7 +261,7 @@ def get_transmit_signal(
 
 def _convolve_per_channel(backscatter_subset: np.ndarray, replica_dict: dict, channels: dict):
     """
-    Convolve backscatter subset array along range sample dimension for each channel.
+    Convolve `backscatter_subset` array along range sample dimension for each channel.
     The `backscatter_subset` array is a numpy array and has implicit dimensions
     `('range_sample', 'channel')`.
 
