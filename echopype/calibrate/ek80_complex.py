@@ -259,15 +259,35 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
-def _convolve_per_channel(m, replica_dict, channels):
-    convolved = np.zeros_like(m, dtype=np.complex64)
-    # Iterate over channels
-    for i, channel in enumerate(channels):
-        # Extract replica values
-        replica = replica_dict[str(channel.values)]
-        # Convolve backscatter and chirp replica
-        convolved[:, i] = signal.convolve(m[:, i], replica, mode="full")[replica.size - 1 :]
-    return convolved
+def _convolve_per_channel(backscatter_subset: np.ndarray, replica_dict: dict, channels: dict):
+    """
+    Convolve `backscatter_subset` array along range sample dimension for each channel.
+    The `backscatter_subset` array is a numpy array and has implicit dimensions
+    `('range_sample', 'channel')`.
+
+    When the `backscatter_subset` array is all 0s, we return it since the resulting
+    convolution will be all 0s, irrespective of what the corresponding transmit
+    signal is.
+
+    When this function is used in `compress_pulse`, the array that is being sent
+    as backscatter subset corresponds to a specific `ping_time` and `beam`, from
+    the backscatter array.
+    """
+    # Return if all 0s
+    if np.all(backscatter_subset == 0.0 + 0.0j):
+        return backscatter_subset
+    else:
+        # Create zeros like array from `backscatter_subset`
+        convolved = np.zeros_like(backscatter_subset, dtype=np.complex64)
+        # Iterate over channels
+        for i, channel in enumerate(channels):
+            # Extract replica values
+            replica = replica_dict[str(channel.values)]
+            # Convolve backscatter and chirp replica
+            convolved[:, i] = signal.convolve(backscatter_subset[:, i], replica, mode="full")[
+                replica.size - 1 :
+            ]
+        return convolved
 
 
 def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
@@ -285,34 +305,22 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     xr.DataArray
         A data array containing pulse compression output.
     """
-    # Select channel `chan` and drop the specific beam dimension if all of the values are nan.
-    # Additionally, in the same for loop, compute the replica dictionary values from the chirp.
-    backscatter_NaN_beam_drop_all = []
-    replica_dict = {}
-    for channel in backscatter["channel"]:
-        # TODO: Once `dropna` allows for dropping along multiple dimensions, put this outside of the
-        # loop and remove the concatenate.
-        backscatter_NaN_beam_drop = backscatter.sel(channel=channel).dropna(dim="beam", how="all")
-        backscatter_NaN_beam_drop_all.append(backscatter_NaN_beam_drop)
-
-        # Extract tx
-        tx = chirp[str(channel.values)]
-        # Compute complex conjugate of transmit values and reverse order of elements
-        replica_dict[str(channel.values)] = np.flipud(np.conj(tx))
-    # Concatenate backscatter channels with dropped NaN beam dimensions.
-    backscatter_NaN_beam_drop_all = xr.concat(backscatter_NaN_beam_drop_all, dim="channel")
-
-    # Create NaN mask
-    nan_mask = np.isnan(backscatter_NaN_beam_drop_all)
+    # Calculate the transmit signal values from the chirp dictionary
+    replica_dict = {
+        # Compute conjugate and flip for each channel's transmit signal
+        str(channel.values): np.flipud(np.conj(chirp[str(channel.values)]))
+        for channel in backscatter["channel"]
+    }
 
     # Zero out backscatter NaN values
-    backscatter_NaN_beam_drop_all = xr.where(nan_mask, 0.0 + 0j, backscatter_NaN_beam_drop_all)
+    nan_mask = np.isnan(backscatter)
+    backscatter_with_zeroed_nans = xr.where(nan_mask, 0.0 + 0.0j, backscatter)
 
     # Create a partial function of the convolve function to pass in chirp and channels
     _convolve_per_channel_partial = partial(
         _convolve_per_channel,
         replica_dict=replica_dict,
-        channels=backscatter_NaN_beam_drop_all["channel"],
+        channels=backscatter_with_zeroed_nans["channel"],
     )
 
     # Apply convolve on backscatter and replica (along range sample and channel dimension):
@@ -320,7 +328,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     #  the data is chunked with only one chunk along the core dimensions.
     pc = xr.apply_ufunc(
         _convolve_per_channel_partial,
-        backscatter_NaN_beam_drop_all.chunk({"range_sample": -1, "channel": -1}),
+        backscatter_with_zeroed_nans.chunk({"range_sample": -1, "channel": -1}),
         input_core_dims=[["range_sample", "channel"]],
         output_core_dims=[["range_sample", "channel"]],
         dask="parallelized",
@@ -328,7 +336,7 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
         output_dtypes=[np.complex64],
     )
 
-    # Restore NaN values in the resulting array.
+    # Restore NaN values in the pulse compressed array
     pc = xr.where(nan_mask, np.nan, pc)
 
     return pc
