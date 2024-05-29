@@ -277,7 +277,7 @@ def _convolve_per_channel(backscatter_subset: np.ndarray, replica_dict: dict, ch
     if np.all(backscatter_subset == 0.0 + 0.0j):
         return backscatter_subset
     else:
-        # Create zeros like array from `m`
+        # Create zeros like array from `backscatter_subset`
         convolved = np.zeros_like(backscatter_subset, dtype=np.complex64)
         # Iterate over channels
         for i, channel in enumerate(channels):
