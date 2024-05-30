@@ -54,7 +54,7 @@ def ek_use_platform_vertical_offsets(
             {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
         ).drop_vars("time2")
     else:
-        transducer_depth["time2"] = transducer_depth["time2"].rename({"time2": "ping_time"})
+        transducer_depth = transducer_depth.rename({"time2": "ping_time"})
 
     return transducer_depth
 
