@@ -47,10 +47,14 @@ def ek_use_platform_vertical_offsets(
     # Compute z translation for transducer position vs water level
     transducer_depth = transducer_offset_z - (water_level + vertical_offset)
 
-    # Interpolate `transducer_depth`'s `time2` dimension to `ping_time`:
-    transducer_depth = transducer_depth.interp(
-        {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
-    ).drop_vars("time2")
+    # If `time2` does not differ from `ping_time_da`, we rename `time2` to 'ping_time',
+    # else interpolate `transducer_depth`'s `time2` dimension to `ping_time`.
+    if not ping_time_da.equals(transducer_depth["time2"].rename({"time2": "ping_time"})):
+        transducer_depth = transducer_depth.interp(
+            {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
+        ).drop_vars("time2")
+    else:
+        transducer_depth["time2"] = transducer_depth["time2"].rename({"time2": "ping_time"})
 
     return transducer_depth
 
