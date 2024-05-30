@@ -130,9 +130,6 @@ def add_depth(
         # Grab sonar model
         sonar_model = echodata["Sonar"].attrs["sonar_model"]
 
-        # TODO: Check for sonar beam group name by checking channels of `ds_Sv` vs echodata
-        # beam_group1 and beam_group2
-
         # Raise value error if sonar model is supported for `use_platform/beam_...` arguments
         if sonar_model not in ["EK60", "EK80"] and (
             use_platform_vertical_offsets or use_platform_angles or use_beam_angles
@@ -154,8 +151,14 @@ def add_depth(
         # Compute echo range scaling in EK systems using platform angle data
         echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
     elif use_beam_angles and sonar_model in ["EK60", "EK80"]:
+        # Identify beam group name by checking channel values of `ds`
+        if echodata["Sonar/Beam_group1"]["channel"].equals(ds["channel"]):
+            beam_group_name = "Beam_group1"
+        else:
+            beam_group_name = "Beam_group2"
+
         # Compute echo range scaling in EK systems using beam angle data
-        echo_range_scaling = ek_use_beam_angles(echodata["Sonar/Beam_group1"], ds["channel"])
+        echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"], ds["channel"])
     else:
         # Compute echo range scaling from user input tilt
         echo_range_scaling = np.cos(np.deg2rad(tilt))
@@ -170,9 +173,9 @@ def add_depth(
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. depth` calculated using:"
         f" Sv `echo_range`"
-        f"{', Echodata Platform Vertical Offset Data' if use_platform_vertical_offsets else ''}"
-        f"{', Echodata Platform Angle Data' if use_platform_angles else ''}"
-        f"{', Echodata Beam Angle Data' if use_beam_angles else ''}"
+        f"{', Echodata `Platform` Vertical Offset Data' if use_platform_vertical_offsets else ''}"
+        f"{', Echodata `Platform` Angle Data' if use_platform_angles else ''}"
+        f"{', Echodata `%s` Angle Data' % (beam_group_name) if use_beam_angles else ''}"
         "."
     )
     ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})

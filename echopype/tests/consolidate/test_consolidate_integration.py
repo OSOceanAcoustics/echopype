@@ -353,6 +353,10 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     ed = ep.open_raw(file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
 
+    # Subset ds_Sv to include only first 5 `range_sample` coordinates
+    # since the test takes too long to iterate through every value
+    ds_Sv = ds_Sv.isel(range_sample=slice(0,5))
+
     # Replace any Platform Vertical Offset NaN values with 0
     ed["Platform"]["water_level"] = ed["Platform"]["water_level"].fillna(0)
     ed["Platform"]["vertical_offset"] = ed["Platform"]["vertical_offset"].fillna(0)
@@ -365,7 +369,7 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     history_attribute = ds_Sv["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata Platform Vertical Offset Data."
+        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Vertical Offset Data."
     )
 
     # Compute transducer depth
@@ -375,8 +379,8 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     for channel_index in range(len(ds_Sv["channel"])):
         # Iterate through every ping time
         for ping_time_index in range(len(ds_Sv["ping_time"])):
-            # Iterate through first 5 range sample indices
-            for range_sample_index in range(0, 5):
+            # Iterate through every range sample
+            for range_sample_index in range(len(ds_Sv["range_sample"])):
                 # Extract relevant values
                 depth_value = ds_Sv["depth"].isel(
                     channel=channel_index, ping_time=ping_time_index, range_sample=range_sample_index
@@ -435,7 +439,7 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwaargs
     history_attribute = ds_Sv["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata Platform Angle Data."
+        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Angle Data."
     )
 
     # Compute transducer depth
@@ -505,7 +509,7 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
     history_attribute = ds_Sv["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata Beam Angle Data."
+        ". depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angle Data."
     )
 
     # Compute echo range scaling values
@@ -532,6 +536,45 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
                     equal_nan=True
                 )
             )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs, expected_beam_group_name", [
+    (
+        "echopype/test_data/ek80/Summer2018--D20180905-T033113.raw",
+        "EK80",
+        {"waveform_mode":"BB", "encode_mode":"complex"},
+        "Beam_group1"
+    ),
+    (
+        "echopype/test_data/ek80/Summer2018--D20180905-T033113.raw",
+        "EK80",
+        {"waveform_mode":"CW", "encode_mode":"power"},
+        "Beam_group2"
+    )
+])
+def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
+    file, sonar_model, compute_Sv_kwaargs, expected_beam_group_name
+):
+    """
+    Test `depth` channel when using EK Beam angles from two separate calibrated
+    Sv datasets (that are from the same raw file) using two differing pairs of
+    calibration key word arguments. The two tests should correspond to different
+    beam groups i.e. beam group 1 and beam group 2.
+    """
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(file, sonar_model=sonar_model)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+
+    # Compute `depth` using beam angle values
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+
+    # Check history attribute
+    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute_without_time = history_attribute[33:]
+    assert history_attribute_without_time == (
+        f". depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angle Data."
+    )
 
 
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:
