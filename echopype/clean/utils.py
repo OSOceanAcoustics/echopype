@@ -7,7 +7,7 @@ from ..commongrid.utils import _convert_bins_to_interval_index
 from ..utils.compute import _lin2log, _log2lin
 
 
-def calc_transient_noise_pooled_Sv(
+def pool_Sv(
     ds_Sv: xr.Dataset, func: str, depth_bin: float, num_side_pings: int, exclude_above: float
 ) -> xr.DataArray:
     """
@@ -84,7 +84,7 @@ def calc_transient_noise_pooled_Sv(
     return pooled_Sv
 
 
-def uniform_depth_calc_transient_noise_pooled_Sv(
+def index_binning_pool_Sv(
     ds_Sv: xr.Dataset, func: str, depth_bin: int, num_side_pings: int, exclude_above: float
 ) -> xr.DataArray:
     """
@@ -92,10 +92,12 @@ def uniform_depth_calc_transient_noise_pooled_Sv(
     """
     # Create `ds_Sv` copy
     ds_Sv_copy = (
-        ds_Sv.copy().drop_dims("filenames").transpose("channel", "ping_time", "range_sample")
+        ds_Sv.copy()
+        # Drop `filenames` dimension if exists and transpose Dataset
+        .drop_dims("filenames", errors="ignore").transpose("channel", "ping_time", "range_sample")
     )
 
-    # Compute number of range sample indices are needed to encapsulate the `depth_bin`
+    # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
     # value per channel.
     all_chan_num_range_sample_indices = np.ceil(
         depth_bin / np.nanmean(np.diff(ds_Sv_copy["depth"], axis=2), axis=(1, 2))

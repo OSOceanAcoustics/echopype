@@ -3,7 +3,11 @@ import xarray as xr
 import echopype as ep
 import pytest
 
-from echopype.clean.utils import calc_transient_noise_pooled_Sv, downsample_upsample_along_depth
+from echopype.clean.utils import (
+    pool_Sv,
+    index_binning_pool_Sv,
+    downsample_upsample_along_depth,
+)
 from echopype.utils.compute import _lin2log, _log2lin
 
 
@@ -115,7 +119,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog):
         (True, "nanmedian"),
     ],
 )
-def test_calc_transient_noise_pooled_Sv_values(chunk, func):
+def test_pool_Sv_values(chunk, func):
     """
     Manually check if the pooled Sv for transient noise masking contains 
     the correct nan boundary and the correct bin aggregate values.
@@ -141,7 +145,7 @@ def test_calc_transient_noise_pooled_Sv_values(chunk, func):
     exclude_above = 250
 
     # Compute pooled Sv
-    pooled_Sv = calc_transient_noise_pooled_Sv(
+    pooled_Sv = pool_Sv(
         ds_Sv, func, depth_bin, num_side_pings, exclude_above
     ).compute()
 
@@ -276,6 +280,218 @@ def test_transient_noise_mask_values(chunk, func):
                             channel=channel_index,
                             ping_time=slice(ping_time_index-2, ping_time_index+3),
                             range_sample=slice(range_sample_index-1, range_sample_index+2)
+                        )
+                    ).pipe(
+                        np.nanmean if func == "nanmean" else np.nanmedian
+                    )
+                )
+                # Check negation of transient noise condition only when both values are not NaN:
+                if not np.isnan(Sv_value) and not np.isnan(pooled_value):
+                    assert Sv_value - pooled_value <= transient_noise_threshold
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk", "func"),
+    [
+        (False, "nanmean"),
+        (True, "nanmean"),
+        (False, "nanmedian"),
+        (True, "nanmedian"),
+    ],
+)
+def test_index_binning_pool_Sv_values(chunk, func):
+    """
+    Manually check if the index binning pooled Sv for transient noise masking contains 
+    the correct nan boundary and the correct bin aggregate values.
+    """
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw("echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Select Sv subset
+    ds_Sv = ds_Sv.isel(ping_time=slice(100,120), range_sample=slice(1000,1020))
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Set window args
+    depth_bin = 1
+    num_side_pings=1
+    exclude_above = 186
+
+    # Compute pooled Sv using index binning
+    pooled_Sv = index_binning_pool_Sv(
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above
+    ).compute()
+
+    # Compute `ds_Sv` prior to using it for manual testing
+    ds_Sv = ds_Sv.compute()
+
+    # Iterate through channels
+    for channel_index in range(len(ds_Sv["channel"])):
+        # Grab single channel Sv
+        chan_ds_Sv = ds_Sv.isel(channel=channel_index)
+
+        # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
+        # value per channel.
+        num_range_sample_indices = np.ceil(
+            depth_bin / np.nanmean(np.diff(chan_ds_Sv["depth"], axis=1), axis=(0,1))
+        ).astype(int)
+
+        # Compute min and max values
+        range_sample_min = ds_Sv["range_sample"].min()
+        range_sample_max = ds_Sv["range_sample"].max()
+        ping_time_index_min = 0
+        ping_time_index_max = len(ds_Sv["ping_time"])
+
+        # Create ping time indices array
+        ping_time_indices = xr.DataArray(
+            np.arange(len(chan_ds_Sv["ping_time"]), dtype=int),
+            dims=["ping_time"],
+            coords=[ds_Sv["ping_time"]],
+            name="ping_time_indices",
+        )
+
+        # Check appropriate NaN boundaries
+        within_mask = (
+            (chan_ds_Sv["range_sample"] - num_range_sample_indices >= range_sample_min) &
+            (chan_ds_Sv["range_sample"] + num_range_sample_indices <= range_sample_max) &
+            (chan_ds_Sv["depth"] -depth_bin >= exclude_above) &
+            (ping_time_indices - num_side_pings >= ping_time_index_min) &
+            (ping_time_indices + num_side_pings <= ping_time_index_max)
+        )
+        unique_pool_boundary_values = np.unique(
+            pooled_Sv.where(~within_mask)
+        )
+
+        # Check that NaN is the only pool boundary unique value
+        assert np.isclose(unique_pool_boundary_values, np.array([np.nan]), equal_nan=True)
+
+        # Check correct binning and aggregation values
+        for ping_time_index in range(len(chan_ds_Sv["ping_time"])):
+            for range_sample_index in range(len(chan_ds_Sv["range_sample"])):
+                # Grab pooled value
+                pooled_value = pooled_Sv.isel(
+                    channel=channel_index,
+                    ping_time=ping_time_index,
+                    range_sample=range_sample_index
+                ).data
+                if not np.isnan(pooled_value):
+                    # Check that manually computed pool value matches Dask-Image's
+                    # generic filter output
+                    assert np.isclose(
+                        pooled_value,
+                        _lin2log(
+                            _log2lin(
+                                ds_Sv["Sv"].isel(
+                                    channel=channel_index,
+                                    ping_time=slice(
+                                        ping_time_index - num_side_pings,
+                                        ping_time_index + 1 + num_side_pings
+                                    ),
+                                    range_sample=slice(
+                                        range_sample_index - num_range_sample_indices,
+                                        range_sample_index + 1 + num_range_sample_indices
+                                    )
+                                )
+                            ).pipe(
+                                np.nanmean if func == "nanmean" else np.nanmedian
+                            )
+                        ),
+                        rtol=1e-10,
+                        atol=1e-10,
+                    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk", "func"),
+    [
+        (False, "nanmean"),
+        (True, "nanmean"),
+        (False, "nanmedian"),
+        (True, "nanmedian"),
+    ],
+)
+def test_index_binning_transient_noise_mask_values(chunk, func):
+    """Manually check if impulse noise mask removes transient noise values when using index binning."""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw("echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Select Sv subset
+    ds_Sv = ds_Sv.isel(ping_time=slice(100,120), range_sample=slice(1000,1020))
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Set window args
+    depth_bin_str = "1m"
+    depth_bin = 1
+    num_side_pings=1
+    exclude_above = 186
+    transient_noise_threshold = 12
+
+    # Compute transient noise mask
+    transient_noise_mask = ep.clean.mask_transient_noise(
+        ds_Sv,
+        func,
+        depth_bin_str,
+        num_side_pings,
+        exclude_above,
+        transient_noise_threshold,
+        use_index_binning=True
+    ).compute()
+
+    # Compute `ds_Sv` prior to using it for manual testing
+    ds_Sv = ds_Sv.compute()
+
+    # Remove transient noise from Sv
+    ds_Sv["Sv_cleaned_of_transient_noise"] = xr.where(
+        transient_noise_mask,
+        np.nan,
+        ds_Sv["Sv"]
+    )
+
+    # Check if transient noise values have been removed:
+    for channel_index in range(len(ds_Sv["channel"])):
+        # Grab single channel Sv
+        chan_ds_Sv = ds_Sv.isel(channel=channel_index)
+
+        # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
+        # value per channel.
+        num_range_sample_indices = np.ceil(
+            depth_bin / np.nanmean(np.diff(chan_ds_Sv["depth"], axis=1), axis=(0,1))
+        ).astype(int)
+
+        # Iterate through ping time indices
+        for ping_time_index in range(len(ds_Sv["ping_time"])):
+            # Iterate through range sample indices
+            for range_sample_index in range(len(ds_Sv["range_sample"])):
+                # Grab cleaned value
+                Sv_value = ds_Sv["Sv_cleaned_of_transient_noise"].isel(
+                    channel=channel_index,
+                    ping_time=ping_time_index,
+                    range_sample=range_sample_index
+                ).data
+                # Compute pooled value
+                pooled_value = _lin2log(
+                    _log2lin(
+                        ds_Sv["Sv"].isel(
+                            channel=channel_index,
+                            ping_time=slice(
+                                ping_time_index - num_side_pings,
+                                ping_time_index + 1 + num_side_pings
+                            ),
+                            range_sample=slice(
+                                range_sample_index - num_range_sample_indices,
+                                range_sample_index + 1 + num_range_sample_indices
+                            )
                         )
                     ).pipe(
                         np.nanmean if func == "nanmean" else np.nanmedian

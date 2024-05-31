@@ -14,11 +14,11 @@ from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .utils import (
     add_remove_background_noise_attrs,
-    calc_transient_noise_pooled_Sv,
     downsample_upsample_along_depth,
     echopy_attenuated_signal_mask,
     echopy_impulse_noise_mask,
-    uniform_depth_calc_transient_noise_pooled_Sv,
+    index_binning_pool_Sv,
+    pool_Sv,
 )
 
 logger = _init_logger(__name__)
@@ -96,15 +96,11 @@ def mask_transient_noise(
     if not use_index_binning:
         # Compute pooled Sv with assumption that depth is not uniform across
         # `ping_time` and `channel`
-        pooled_Sv = calc_transient_noise_pooled_Sv(
-            ds_Sv, func, depth_bin, num_side_pings, exclude_above
-        )
+        pooled_Sv = pool_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above)
     else:
         # Compute pooled Sv using Dask-Image's Generic Filter with assumption that depth is uniform
         # across `ping_time` per `channel` dimension.
-        pooled_Sv = uniform_depth_calc_transient_noise_pooled_Sv(
-            ds_Sv, func, depth_bin, num_side_pings, exclude_above
-        )
+        pooled_Sv = index_binning_pool_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above)
 
     # Compute transient noise mask
     transient_noise_mask = ds_Sv["Sv"] - pooled_Sv > transient_noise_threshold
