@@ -6,6 +6,7 @@ import pytest
 from echopype.clean.utils import (
     pool_Sv,
     index_binning_pool_Sv,
+    index_binning_downsample_upsample_along_depth,
     downsample_upsample_along_depth,
 )
 from echopype.utils.compute import _lin2log, _log2lin
@@ -557,7 +558,7 @@ def test_downsample_upsample_along_depth(chunk):
                     )
                 )
                 assert np.isclose(manual_downsampled_bin_Sv, flox_downsampled_bin_Sv, atol=1e-10, rtol=1e-10)
-  
+
                 # Check that depth bins encapsulated the correct original resolution depth values
                 manual_depth_array = original_resolution_depth.isel(
                     channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices
@@ -576,8 +577,90 @@ def test_downsample_upsample_along_depth(chunk):
         (True),
     ],
 )
-def test_impulse_noise_mask_values(chunk):
+def test_index_binning_downsample_upsample_along_depth(chunk):
+    """Test index binning downsampled-upsampled values."""
+    # Open raw, calibrate, and add depth
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+    ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Subset `ds_Sv`
+    ds_Sv = ds_Sv.isel(ping_time=slice(100, 120), range_sample=slice(0, 100))
+
+    if chunk:
+        # Chunk calibrated Sv
+        ds_Sv = ds_Sv.chunk("auto")
+
+    # Run downsampling and upsampling
+    depth_bin = 2
+    upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin)
+
+    # Compute DataArray
+    upsampled_Sv = upsampled_Sv.compute()
+
+    # Iterate through all channels
+    for channel_index in range(len(upsampled_Sv["channel"])):
+        # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
+        # value per channel.
+        num_range_sample_indices = np.ceil(
+            depth_bin / np.nanmean(
+                np.diff(ds_Sv["depth"].isel(channel=0), axis=1), axis=(0,1)
+            )
+        ).astype(int)
+        # Iterate through all ping times
+        for ping_time_index in range(len(upsampled_Sv["ping_time"])):
+            for range_bin_index in range(
+                np.ceil(
+                    len(upsampled_Sv["range_sample"]) / num_range_sample_indices
+                ).astype(int)
+            ):
+                # Grab upsampled values
+                upsampled_values = upsampled_Sv.isel(
+                    channel=channel_index,
+                    ping_time=ping_time_index,
+                    range_sample=slice(
+                        num_range_sample_indices * range_bin_index,
+                        num_range_sample_indices * (range_bin_index + 1)
+                    )
+                ).data
+                # Manually compute bin value
+                manual_value = _lin2log(
+                    np.nanmean(
+                        ds_Sv["Sv"].isel(
+                            channel=channel_index,
+                            ping_time=ping_time_index,
+                            range_sample=slice(
+                                num_range_sample_indices * range_bin_index,
+                                num_range_sample_indices * (range_bin_index + 1)
+                            )
+                        ).pipe(_log2lin)
+                    )
+                )
+                assert np.isclose(
+                    np.unique(upsampled_values),
+                    manual_value,
+                    atol=1e-10,
+                    rtol=1e-10,
+                )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("chunk, use_index_binning"),
+    [
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+    ],
+)
+def test_impulse_noise_mask_values(chunk, use_index_binning):
     """Manually check if impulse noise mask removes impulse noise values."""
+    # TODO: Tests don't work when `use_index_binning=True`
+
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
@@ -594,10 +677,21 @@ def test_impulse_noise_mask_values(chunk):
     ds_Sv = ds_Sv.isel(ping_time=slice(100, 120), range_sample=slice(0, 100))
 
     # Create impulse noise mask
-    impulse_noise_mask = ep.clean.mask_impulse_noise(ds_Sv, "2m")
+    depth_bin = 2
+    depth_bin_str = "2m"
+    num_side_pings = 2
+    impulse_noise_mask = ep.clean.mask_impulse_noise(
+        ds_Sv,
+        depth_bin_str,
+        num_side_pings,
+        use_index_binning
+    ).compute()
 
     # Compute upsampled data
-    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 2)
+    if not use_index_binning:
+        _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin)
+    else:
+        upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin)
     upsampled_Sv = upsampled_Sv.compute()
 
     # Remove impulse noise from Sv
@@ -605,26 +699,32 @@ def test_impulse_noise_mask_values(chunk):
         impulse_noise_mask,
         np.nan,
         upsampled_Sv
-    ).compute()
+    )
 
     # Iterate through every channel
     for channel_index in range(len(ds_Sv["channel"])):
         # Iterate through every range sample
         for range_sample_index in range(len(ds_Sv["range_sample"])):
             # Iterate through every valid ping time
-            for ping_time_index in range(2, len(ds_Sv["ping_time"]) - 2):
+            for ping_time_index in range(
+                num_side_pings,
+                len(ds_Sv["ping_time"]) - num_side_pings
+            ):
                 # Grab range sample row array
                 row_array = ds_Sv["upsampled_Sv_cleaned_of_impulse_noise"].isel(
                     channel=channel_index,
-                    ping_time=slice(ping_time_index - 2, ping_time_index + 3),
+                    ping_time=slice(
+                        ping_time_index - num_side_pings,
+                        ping_time_index + num_side_pings + 1
+                    ),
                     range_sample=range_sample_index
                 ).data
                 # Compute left and right subtraction values
-                left_subtracted_value = row_array[2] - row_array[0]
-                right_subtracted_value = row_array[2] - row_array[4]
+                left_subtracted_value = row_array[num_side_pings] - row_array[0]
+                right_subtracted_value = row_array[num_side_pings] - row_array[num_side_pings * 2]
                 # Check negation of impulse condition if middle array value and subtraction values are not NaN
                 if not (
-                    np.isnan(row_array[2]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)
+                    np.isnan(row_array[num_side_pings]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)
                 ):
                     assert (left_subtracted_value <= 10.0 or right_subtracted_value <= 10.0)
 

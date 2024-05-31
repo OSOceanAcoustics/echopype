@@ -17,6 +17,7 @@ from .utils import (
     downsample_upsample_along_depth,
     echopy_attenuated_signal_mask,
     echopy_impulse_noise_mask,
+    index_binning_downsample_upsample_along_depth,
     index_binning_pool_Sv,
     pool_Sv,
 )
@@ -113,6 +114,7 @@ def mask_impulse_noise(
     depth_bin: str = "5m",
     num_side_pings: int = 2,
     impulse_noise_threshold: Union[int, float] = 10.0,
+    use_index_binning: bool = False,
 ) -> xr.DataArray:
     """
     Locate and create a mask for impulse noise using a ping-wise two-sided comparison.
@@ -127,6 +129,9 @@ def mask_impulse_noise(
         Number of side pings to look at for the two-side comparison.
     impulse_noise_threshold : Union[int, float], default `10.0`dB
         Impulse noise threshold value (dB) for the two-side comparison.
+    use_index_binning : bool, default `False`
+        Speeds up aggregations by assuming depth is uniform and binning based
+        on `range_sample` indices instead of `depth` values.
 
     Returns
     -------
@@ -156,8 +161,14 @@ def mask_impulse_noise(
     # Setup and validate Sv and depth bin
     ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", depth_bin)
 
-    # Downsample and Upsample Sv along depth
-    _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin)
+    if not use_index_binning:
+        # Compute Upsampled Sv with assumption that depth is not uniform across
+        # `ping_time` and `channel`
+        _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin)
+    else:
+        # Compute Upsampled Sv using Coarsen with assumption that depth is uniform
+        # across `ping_time` per `channel` dimension.
+        upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin)
 
     # Create partial of `echopy_impulse_noise_mask`
     partial_echopy_impulse_noise_mask = partial(
@@ -165,6 +176,16 @@ def mask_impulse_noise(
         num_side_pings=num_side_pings,
         impulse_noise_threshold=impulse_noise_threshold,
     )
+
+    # Must rechunk `range_sample` to full chunk because of the following `ValueError`
+    # from `apply_ufunc`:
+    # 'dimension range_sample on 0th function argument to apply_ufunc with dask='parallelized'
+    # consists of multiple chunks, but is also a core dimension. To fix, either rechunk into
+    # a single array chunk along this dimension, i.e., ``.chunk(dict(range_sample=-1))``, or
+    # pass ``allow_rechunk=True`` in ``dask_gufunc_kwargs`` but beware that this may
+    # significantly increase memory usage'.
+    if not (hasattr(upsampled_Sv, "chunks") and upsampled_Sv.chunks is not None):
+        upsampled_Sv = upsampled_Sv.chunk(dict(range_sample=-1))
 
     # Create noise mask
     impulse_noise_mask = xr.apply_ufunc(

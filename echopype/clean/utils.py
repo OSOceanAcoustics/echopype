@@ -91,9 +91,8 @@ def index_binning_pool_Sv(
     Compute pooled Sv array for transient noise masking using index binning.
 
     This function makes the assumption that within each channel, the difference
-    between depth values is uniform across all pings. Thus, computing the
-    number of range sample indices needed to cover the depth bin is a
-    channel-specific task.
+    between depth values is uniform across all pings. Thus, computing the number of
+    range sample indices needed to cover the depth bin is a channel-specific task.
     """
     # Create `ds_Sv` copy
     ds_Sv_copy = (
@@ -240,6 +239,71 @@ def downsample_upsample_along_depth(ds_Sv: xr.Dataset, depth_bin: float) -> xr.D
             )
 
     return downsampled_Sv, upsampled_Sv
+
+
+def index_binning_downsample_upsample_along_depth(
+    ds_Sv: xr.Dataset, depth_bin: float
+) -> xr.DataArray:
+    """
+    Downsample and upsample Sv using index binning to mimic what was done in echopy
+    impulse noise masking.
+
+    This function makes the assumption that within each channel, the difference
+    between depth values is uniform across all pings. Thus, computing the number of
+    range sample indices needed to cover the depth bin is a channel-specific task.
+    """
+    # Create `ds_Sv` copy
+    ds_Sv_copy = (
+        ds_Sv.copy()
+        # Drop `filenames` dimension if exists and transpose Dataset
+        .drop_dims("filenames", errors="ignore").transpose("channel", "ping_time", "range_sample")
+    )
+
+    # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
+    # value per channel.
+    all_chan_num_range_sample_indices = np.ceil(
+        depth_bin / np.nanmean(np.diff(ds_Sv_copy["depth"], axis=2), axis=(1, 2))
+    ).astype(int)
+
+    # Create list for upsampled Sv DataArrays
+    upsampled_Sv_list = []
+
+    # Iterate through channels
+    for channel_index in range(len(ds_Sv_copy["channel"])):
+        # Grab channel-specific number of range sample indices for vertical binning
+        chan_num_range_sample_indices = all_chan_num_range_sample_indices[channel_index]
+
+        # Compute channel-specific coarsened Sv
+        chan_coarsened_Sv = (
+            ds_Sv_copy["Sv"]
+            .isel(channel=channel_index)
+            .pipe(_log2lin)
+            .coarsen(
+                range_sample=chan_num_range_sample_indices,
+                boundary="pad",
+            )
+            .mean(skipna=True)
+            .pipe(_lin2log)
+        )
+
+        # Align coarsened Sv `range_sample` to the first index of each coarsened `range_sample` bin
+        chan_coarsened_Sv = chan_coarsened_Sv.assign_coords(
+            range_sample=chan_num_range_sample_indices
+            * np.arange(len(chan_coarsened_Sv["range_sample"]))
+        )
+
+        # Upsample Sv using reindex
+        chan_upsampled_Sv = chan_coarsened_Sv.reindex(
+            {"range_sample": ds_Sv_copy["range_sample"]}, method="ffill"
+        )
+
+        # Place channel-specific upsampled Sv into list
+        upsampled_Sv_list.append(chan_upsampled_Sv)
+
+    # Concatenate arrays along channel dimension
+    upsampled_Sv = xr.concat(upsampled_Sv_list, dim="channel")
+
+    return upsampled_Sv
 
 
 def echopy_impulse_noise_mask(
