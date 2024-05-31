@@ -311,7 +311,7 @@ def test_index_binning_pool_Sv_values(chunk, func):
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
     # Select Sv subset
-    ds_Sv = ds_Sv.isel(ping_time=slice(100,120), range_sample=slice(1000,1020))
+    ds_Sv = ds_Sv.isel(ping_time=slice(100,120), range_sample=slice(990,1020))
 
     if chunk:
         # Chunk calibrated Sv
@@ -424,7 +424,7 @@ def test_index_binning_transient_noise_mask_values(chunk, func):
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
     # Select Sv subset
-    ds_Sv = ds_Sv.isel(ping_time=slice(100,120), range_sample=slice(1000,1020))
+    ds_Sv = ds_Sv.isel(ping_time=slice(100,120), range_sample=slice(990,1020))
 
     if chunk:
         # Chunk calibrated Sv
