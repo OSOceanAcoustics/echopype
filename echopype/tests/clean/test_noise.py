@@ -319,7 +319,7 @@ def test_index_binning_pool_Sv_values(chunk, func):
 
     # Set window args
     depth_bin = 1
-    num_side_pings=1
+    num_side_pings = 2
     exclude_above = 186
 
     # Compute pooled Sv using index binning
@@ -433,7 +433,7 @@ def test_index_binning_transient_noise_mask_values(chunk, func):
     # Set window args
     depth_bin_str = "1m"
     depth_bin = 1
-    num_side_pings=1
+    num_side_pings = 2
     exclude_above = 186
     transient_noise_threshold = 12
 
@@ -479,7 +479,7 @@ def test_index_binning_transient_noise_mask_values(chunk, func):
                     ping_time=ping_time_index,
                     range_sample=range_sample_index
                 ).data
-                # Compute pooled value
+                # Manually compute pooled value
                 pooled_value = _lin2log(
                     _log2lin(
                         ds_Sv["Sv"].isel(
