@@ -88,7 +88,12 @@ def index_binning_pool_Sv(
     ds_Sv: xr.Dataset, func: str, depth_bin: int, num_side_pings: int, exclude_above: float
 ) -> xr.DataArray:
     """
-    Compute pooled Sv array for transient noise masking.
+    Compute pooled Sv array for transient noise masking using index binning.
+
+    This function makes the assumption that within each channel, the difference
+    between depth values is uniform across all pings. Thus, computing the
+    number of range sample indices needed to cover the depth bin is a
+    channel-specific task.
     """
     # Create `ds_Sv` copy
     ds_Sv_copy = (
