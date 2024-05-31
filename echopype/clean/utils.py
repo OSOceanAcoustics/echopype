@@ -1,3 +1,4 @@
+import dask_image.ndfilters
 import flox.xarray
 import numpy as np
 import xarray as xr
@@ -79,6 +80,90 @@ def calc_transient_noise_pooled_Sv(
                             ping_time=ping_time_index,
                         )
                     ] = aggregate_window_Sv_value
+
+    return pooled_Sv
+
+
+def uniform_depth_calc_transient_noise_pooled_Sv(
+    ds_Sv: xr.Dataset, func: str, depth_bin: int, num_side_pings: int, exclude_above: float
+) -> xr.DataArray:
+    """
+    Compute pooled Sv array for transient noise masking.
+    """
+    # Create `ds_Sv` copy
+    ds_Sv_copy = (
+        ds_Sv.copy().drop_dims("filenames").transpose("channel", "ping_time", "range_sample")
+    )
+
+    # Compute number of range sample indices are needed to encapsulate the `depth_bin`
+    # value per channel.
+    all_chan_num_range_sample_indices = np.ceil(
+        depth_bin / np.nanmean(np.diff(ds_Sv_copy["depth"], axis=2), axis=(1, 2))
+    ).astype(int)
+
+    # Create list for pooled Sv DataArrays
+    pooled_Sv_list = []
+
+    # Iterate through channels
+    for channel_index in range(len(ds_Sv_copy["channel"])):
+        # Create calibrated Sv DataArray copies and remove values too close to the surface
+        min_range_sample = (ds_Sv["depth"] <= exclude_above).argmin().values
+        chan_Sv = (
+            ds_Sv_copy["Sv"]
+            .copy()
+            .isel(
+                channel=channel_index,
+                range_sample=slice(min_range_sample, len(ds_Sv["range_sample"])),
+            )
+        )
+        chan_pooled_Sv = (
+            ds_Sv_copy["Sv"]
+            .copy()
+            .isel(
+                channel=channel_index,
+                range_sample=slice(min_range_sample, len(ds_Sv["range_sample"])),
+            )
+        )
+
+        # Grab channel-specific number of range sample indices for vertical binning
+        chan_num_range_sample_indices = all_chan_num_range_sample_indices[channel_index]
+
+        # Create pooling size list
+        pooling_size = [(2 * num_side_pings) + 1, (2 * chan_num_range_sample_indices) + 1]
+
+        # Rechunk Sv if already computed. Rechunking is needed to turn the inner Numpy
+        # Array to a Dask Array, since `dask_image.ndfilter.generic_filter` requires
+        # a Dask Array.
+        if not (hasattr(chan_Sv, "chunks") and chan_Sv.chunks is not None):
+            # Chunk based on pooling sizes
+            chan_Sv = chan_Sv.chunk({"ping_time": pooling_size[0], "range_sample": pooling_size[1]})
+
+        # Compute `chan_pooled_Sv` values using dask-image's generic filter
+        chan_pooled_Sv.values = _lin2log(
+            dask_image.ndfilters.generic_filter(
+                chan_Sv.pipe(_log2lin).data,
+                function=np.nanmean if func == "nanmean" else np.nanmedian,
+                size=pooling_size,
+                mode="constant",
+                cval=np.nan,
+            )
+        )
+
+        # Subset valid pooled Sv values too close to the edge of the echogram
+        chan_pooled_Sv = chan_pooled_Sv.isel(
+            ping_time=slice(num_side_pings, -num_side_pings),
+            range_sample=slice(chan_num_range_sample_indices, -chan_num_range_sample_indices),
+        )
+
+        # Expand `chan_pooled_Sv` to original Sv dimensions, turning the previously
+        # mentioned invalid values into `NaNs`.
+        chan_pooled_Sv = chan_pooled_Sv.reindex_like(ds_Sv_copy["Sv"].isel(channel=channel_index))
+
+        # Place in pooled Sv list
+        pooled_Sv_list.append(chan_pooled_Sv)
+
+    # Concatenate arrays along channel dimension
+    pooled_Sv = xr.concat(pooled_Sv_list, dim="channel")
 
     return pooled_Sv
 

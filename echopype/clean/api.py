@@ -18,6 +18,7 @@ from .utils import (
     downsample_upsample_along_depth,
     echopy_attenuated_signal_mask,
     echopy_impulse_noise_mask,
+    uniform_depth_calc_transient_noise_pooled_Sv,
 )
 
 logger = _init_logger(__name__)
@@ -30,6 +31,7 @@ def mask_transient_noise(
     num_side_pings: int = 50,
     exclude_above: Union[int, float] = 250.0,
     transient_noise_threshold: Union[int, float] = 12.0,
+    use_index_binning: bool = False,
 ) -> xr.DataArray:
     """
     Locate and create a mask for transient noise using a pooling comparison.
@@ -40,14 +42,17 @@ def mask_transient_noise(
         Calibrated Sv data with depth data variable.
     func: str, default `nanmean`
         Pooling function used in the pooled Sv aggregation.
-    depth_bin : str, default `20`m
-        Pooling radius along ``depth`` in meters.
+    depth_bin : str, default `20m`
+        Pooling radius vertically along `depth` or `range_sample`.
     num_side_pings : int, default `50`
         Number of side pings to look at for the pooling.
     exclude_above : Union[int, float], default `250`m
         Exclude all depth above (closer to the surface than) this value.
     transient_noise_threshold : Union[int, float], default `10.0`dB
         Transient noise threshold value (dB) for the pooling comparison.
+    use_index_binning : bool, default `False`
+        Speeds up aggregations by assuming depth is uniform and binning based
+        on `range_sample` indices instead of `depth` values.
 
     Returns
     -------
@@ -65,7 +70,7 @@ def mask_transient_noise(
     transient noise masking and translated into xarray code:
     https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_transient.py # noqa
     """
-    if "depth" not in ds_Sv.data_vars:
+    if "depth" not in ds_Sv.data_vars and not use_index_binning:
         raise ValueError(
             "Masking attenuated signal requires depth data variable in `ds_Sv`. "
             "Consider adding depth with `ds_Sv = ep.consolidate.add_depth(ds_Sv)`."
@@ -85,13 +90,21 @@ def mask_transient_noise(
         "the overhead sorting."
     )
 
-    # Setup depth bin
+    # Setup and validate Sv and depth bin
     ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", depth_bin)
 
-    # Compute pooled Sv
-    pooled_Sv = calc_transient_noise_pooled_Sv(
-        ds_Sv, func, depth_bin, num_side_pings, exclude_above
-    )
+    if not use_index_binning:
+        # Compute pooled Sv with assumption that depth is not uniform across
+        # `ping_time` and `channel`
+        pooled_Sv = calc_transient_noise_pooled_Sv(
+            ds_Sv, func, depth_bin, num_side_pings, exclude_above
+        )
+    else:
+        # Compute pooled Sv using coarsen with assumption that depth is uniform across
+        # `ping_time` and `channel`.
+        pooled_Sv = uniform_depth_calc_transient_noise_pooled_Sv(
+            ds_Sv, func, depth_bin, num_side_pings, exclude_above
+        )
 
     # Compute transient noise mask
     transient_noise_mask = ds_Sv["Sv"] - pooled_Sv > transient_noise_threshold
