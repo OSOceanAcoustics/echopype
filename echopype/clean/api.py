@@ -100,8 +100,8 @@ def mask_transient_noise(
             ds_Sv, func, depth_bin, num_side_pings, exclude_above
         )
     else:
-        # Compute pooled Sv using coarsen with assumption that depth is uniform across
-        # `ping_time` and `channel`.
+        # Compute pooled Sv using Dask-Image's Generic Filter with assumption that depth is uniform
+        # across `ping_time` per `channel` dimension.
         pooled_Sv = uniform_depth_calc_transient_noise_pooled_Sv(
             ds_Sv, func, depth_bin, num_side_pings, exclude_above
         )
