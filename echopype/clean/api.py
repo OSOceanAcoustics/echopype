@@ -184,7 +184,7 @@ def mask_impulse_noise(
     # a single array chunk along this dimension, i.e., ``.chunk(dict(range_sample=-1))``, or
     # pass ``allow_rechunk=True`` in ``dask_gufunc_kwargs`` but beware that this may
     # significantly increase memory usage'.
-    if not (hasattr(upsampled_Sv, "chunks") and upsampled_Sv.chunks is not None):
+    if hasattr(upsampled_Sv, "chunks") and upsampled_Sv.chunks is not None:
         upsampled_Sv = upsampled_Sv.chunk(dict(range_sample=-1))
 
     # Create noise mask

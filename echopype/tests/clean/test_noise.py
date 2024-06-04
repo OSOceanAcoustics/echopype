@@ -680,10 +680,12 @@ def test_impulse_noise_mask_values(chunk, use_index_binning):
     depth_bin = 2
     depth_bin_str = "2m"
     num_side_pings = 2
+    impulse_noise_threshold= 10.0
     impulse_noise_mask = ep.clean.mask_impulse_noise(
         ds_Sv,
         depth_bin_str,
         num_side_pings,
+        impulse_noise_threshold,
         use_index_binning
     ).compute()
 
@@ -726,7 +728,7 @@ def test_impulse_noise_mask_values(chunk, use_index_binning):
                 if not (
                     np.isnan(row_array[num_side_pings]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)
                 ):
-                    assert (left_subtracted_value <= 10.0 or right_subtracted_value <= 10.0)
+                    assert (left_subtracted_value <= impulse_noise_threshold or right_subtracted_value <= impulse_noise_threshold)
 
 
 @pytest.mark.integration
