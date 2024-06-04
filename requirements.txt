@@ -1,3 +1,4 @@
+bottleneck
 dask[array,distributed]
 jinja2
 netCDF4>1.6
