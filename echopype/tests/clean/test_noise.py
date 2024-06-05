@@ -660,8 +660,6 @@ def test_index_binning_downsample_upsample_along_depth(chunk):
 )
 def test_impulse_noise_mask_values(chunk, use_index_binning):
     """Manually check if impulse noise mask removes impulse noise values."""
-    # TODO: Tests don't work when `use_index_binning=True`
-
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
