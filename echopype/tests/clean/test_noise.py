@@ -322,10 +322,11 @@ def test_index_binning_pool_Sv_values(chunk, func):
     depth_bin = 1
     num_side_pings = 2
     exclude_above = 186
+    chunk_dict = {}
 
     # Compute pooled Sv using index binning
     pooled_Sv = index_binning_pool_Sv(
-        ds_Sv, func, depth_bin, num_side_pings, exclude_above
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above, chunk_dict
     ).compute()
 
     # Compute `ds_Sv` prior to using it for manual testing
