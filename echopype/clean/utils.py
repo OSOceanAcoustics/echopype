@@ -85,7 +85,12 @@ def pool_Sv(
 
 
 def index_binning_pool_Sv(
-    ds_Sv: xr.Dataset, func: str, depth_bin: int, num_side_pings: int, exclude_above: float
+    ds_Sv: xr.Dataset,
+    func: str,
+    depth_bin: int,
+    num_side_pings: int,
+    exclude_above: float,
+    chunk_dict: dict,
 ) -> xr.DataArray:
     """
     Compute pooled Sv array for transient noise masking using index binning.
@@ -137,12 +142,8 @@ def index_binning_pool_Sv(
         # Create pooling size list
         pooling_size = [(2 * num_side_pings) + 1, (2 * chan_num_range_sample_indices) + 1]
 
-        # Rechunk Sv if already computed. Rechunking is needed to turn the inner Numpy
-        # Array to a Dask Array, since `dask_image.ndfilter.generic_filter` requires
-        # a Dask Array.
-        if not (hasattr(chan_Sv, "chunks") and chan_Sv.chunks is not None):
-            # Chunk based on pooling sizes
-            chan_Sv = chan_Sv.chunk({"ping_time": pooling_size[0], "range_sample": pooling_size[1]})
+        # Rechunk Sv since `generic_filter` expects a Dask Array
+        chan_Sv = chan_Sv.chunk(chunk_dict)
 
         # Compute `chan_pooled_Sv` values using dask-image's generic filter
         chan_pooled_Sv.values = _lin2log(
@@ -150,7 +151,7 @@ def index_binning_pool_Sv(
                 chan_Sv.pipe(_log2lin).data,
                 function=np.nanmean if func == "nanmean" else np.nanmedian,
                 size=pooling_size,
-            )
+            ).compute()
         )
 
         # Remove invalid pooled Sv values that are too close to the edge of the echogram

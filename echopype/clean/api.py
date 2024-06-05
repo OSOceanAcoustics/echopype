@@ -28,11 +28,12 @@ logger = _init_logger(__name__)
 def mask_transient_noise(
     ds_Sv: xr.Dataset,
     func: str = "nanmean",
-    depth_bin: str = "20m",
-    num_side_pings: int = 50,
+    depth_bin: str = "10m",
+    num_side_pings: int = 25,
     exclude_above: Union[int, float] = 250.0,
     transient_noise_threshold: Union[int, float] = 12.0,
     use_index_binning: bool = False,
+    chunk_dict: dict = {},
 ) -> xr.DataArray:
     """
     Locate and create a mask for transient noise using a pooling comparison.
@@ -43,9 +44,9 @@ def mask_transient_noise(
         Calibrated Sv data with depth data variable.
     func: str, default `nanmean`
         Pooling function used in the pooled Sv aggregation.
-    depth_bin : str, default `20m`
+    depth_bin : str, default `10m`
         Pooling radius vertically along `depth`.
-    num_side_pings : int, default `50`
+    num_side_pings : int, default `25`
         Number of side pings to look at for the pooling.
     exclude_above : Union[int, float], default `250`m
         Exclude all depth above (closer to the surface than) this value.
@@ -54,6 +55,9 @@ def mask_transient_noise(
     use_index_binning : bool, default `False`
         Speeds up aggregations by assuming depth is uniform and binning based
         on `range_sample` indices instead of `depth` values.
+    chunk_dict : dict, default `{}`
+        Dictionary containing chunk sizes for use in the Dask-Image
+        pooling function. Only used when `use_index_binning=True`.
 
     Returns
     -------
@@ -101,7 +105,9 @@ def mask_transient_noise(
     else:
         # Compute pooled Sv using Dask-Image's Generic Filter with assumption that depth is uniform
         # across `ping_time` per `channel` dimension.
-        pooled_Sv = index_binning_pool_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above)
+        pooled_Sv = index_binning_pool_Sv(
+            ds_Sv, func, depth_bin, num_side_pings, exclude_above, chunk_dict
+        )
 
     # Compute transient noise mask
     transient_noise_mask = ds_Sv["Sv"] - pooled_Sv > transient_noise_threshold
@@ -185,7 +191,7 @@ def mask_impulse_noise(
     # pass ``allow_rechunk=True`` in ``dask_gufunc_kwargs`` but beware that this may
     # significantly increase memory usage'.
     if hasattr(upsampled_Sv, "chunks") and upsampled_Sv.chunks is not None:
-        upsampled_Sv = upsampled_Sv.chunk(dict(range_sample=-1))
+        upsampled_Sv = upsampled_Sv.chunk(dict(range_sample=-1, ping_time=-1))
 
     # Create noise mask
     impulse_noise_mask = xr.apply_ufunc(
