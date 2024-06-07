@@ -62,37 +62,38 @@ HEADER_FIELDS = [
     "FirstHeaderRecord",
     "HeaderBytes",
     "HeaderNumRecords",
-    "ProfileNumber",  #'BURST_NUMBER',
-    "SerialNumber",  #'INST_SERIAL_NUM',
+    "ProfileNumber",
+    "SerialNumber",
     "Date",
     "AcqStatus",
-    "BurstInt",  #'BURST_INTERVAL',
+    "BurstInt",
     "BaseTime",
     "PingPeriod",
     "PingPeriodCounts",
-    "PingPerProfile",  #'PING_PER_BURST',
-    "AvgPings",  #'AVERAGE_BURST_PINGS',
-    "NumAcqPings",  #'NUM_ACQUIRED_BURST_PINGS',
+    "PingPerProfile",
+    "AvgPings",
+    "NumAcqPings",
     "FirstPing",
     "LastPing",
     "DataError",
     "OverRun",
     "Phase",
-    "NumChan",  #'NUM_STORED_FREQUENCIES',
-    "DigRate",  #'DIG_RATE',
-    "LockOutIndex",  #'LOCKOUT_INDEX',
-    "NumBins",  #'BINS',
-    "RangeSamplesPerBin",  #'RANGE_SAMPLES_PER_BIN',
-    "DataType",  #'DATA_TYPE',
-    "PulseLen",  #'PULSE_LENGTH',
-    "BoardNum",  #'BOARD'
-    "Frequency",  #'FREQUENCY',
+    "NumChan",
+    "DigRate",
+    "LockOutIndex",
+    "NumBins",
+    "RangeSamplesPerBin",
+    "DataType",
+    "PulseLen",
+    "BoardNum",
+    "Frequency",
     "NumSensors",
     "SensorStatus",
-    "Ancillary",  #'SENSOR_DATA',
-    "GpsDateTime",  # optional
-    "GpsLatLon",  # optional
-    "Custom",  # 0X70 to 0x7F CUSTOM 0 Set by user Set by user Variable values
+    "Ancillary",
+    "GpsDateTime",
+    "GpsLatLon",
+    # 0X70 to 0x7F CUSTOM 0 Set by user Set by user Variable values
+    "Custom",
     "LastHeaderRecord",
 ]
 
@@ -520,8 +521,8 @@ class ParseAZFP6(ParseBase):
 
         if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
             logger.error(
-                f"Error reading header: {header_byte_cnt} != {self.unpacked_data['header_bytes'][0]}"
-            )
+                "Error reading header: {} != {}".format(
+                    header_byte_cnt, self.unpacked_data['header_bytes'][0]))
             return False
 
         return True
@@ -609,10 +610,8 @@ class ParseAZFP6(ParseBase):
                     raise ValueError(f"Header value {field} is not constant for each ping")
 
     def _get_gps_time(self):
-        """Assemble gps time from parsed values.
-
-        This is an optional parameter, the values will be 0 if no GPS was attached during data collection
-        """
+        '''Assemble gps time from parsed values. This is an optional parameter, the values will be
+           0 if no GPS was attached during data collection'''
         if not self.unpacked_data:
             self.parse_raw()
 

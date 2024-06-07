@@ -720,7 +720,7 @@ class SetGroupsAZFP6(SetGroupsBase):
                     [],
                     unpacked_data["base_time"],
                     {
-                        "long_name": "Base time, min 0.2 sec and max 1.5 sec. Time for driving the ping interval"
+                        "long_name": "Base time driving ping interval, min 0.2 sec and max 1.5 sec."
                     },
                 ),
                 "ping_period_counts": (
