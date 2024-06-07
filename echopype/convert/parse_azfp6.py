@@ -522,7 +522,9 @@ class ParseAZFP6(ParseBase):
         if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
             logger.error(
                 "Error reading header: {} != {}".format(
-                    header_byte_cnt, self.unpacked_data['header_bytes'][0]))
+                    header_byte_cnt, self.unpacked_data["header_bytes"][0]
+                )
+            )
             return False
 
         return True
@@ -610,8 +612,8 @@ class ParseAZFP6(ParseBase):
                     raise ValueError(f"Header value {field} is not constant for each ping")
 
     def _get_gps_time(self):
-        '''Assemble gps time from parsed values. This is an optional parameter, the values will be
-           0 if no GPS was attached during data collection'''
+        """Assemble gps time from parsed values. This is an optional parameter, the values will be
+        0 if no GPS was attached during data collection"""
         if not self.unpacked_data:
             self.parse_raw()
 
