@@ -280,13 +280,13 @@ def _convolve_per_channel(backscatter_subset: np.ndarray, replica_dict: dict, ch
         # Create zeros like array from `backscatter_subset`
         convolved = np.zeros_like(backscatter_subset, dtype=np.complex64)
         # Iterate over channels
-        for i, channel in enumerate(channels):
+        for ch_seq, channel in enumerate(channels):
             # Extract replica values
             replica = replica_dict[str(channel.values)]
             # Convolve backscatter and chirp replica
-            convolved[:, i] = signal.convolve(backscatter_subset[:, i], replica, mode="full")[
-                replica.size - 1 :
-            ]
+            convolved[:, ch_seq] = signal.convolve(
+                backscatter_subset[:, ch_seq], replica, mode="full"
+            )[replica.size - 1 :]
         return convolved
 
 
@@ -326,9 +326,13 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     # Apply convolve on backscatter and replica (along range sample and channel dimension):
     # To enable parallelized computation with `dask='parallelized'`, we rechunk to ensure that
     #  the data is chunked with only one chunk along the core dimensions.
+    if backscatter_with_zeroed_nans.chunks is not None:
+        backscatter_with_zeroed_nans = backscatter_with_zeroed_nans.chunk(
+            {"range_sample": -1, "channel": -1}
+        )
     pc = xr.apply_ufunc(
         _convolve_per_channel_partial,
-        backscatter_with_zeroed_nans.chunk({"range_sample": -1, "channel": -1}),
+        backscatter_with_zeroed_nans,
         input_core_dims=[["range_sample", "channel"]],
         output_core_dims=[["range_sample", "channel"]],
         dask="parallelized",

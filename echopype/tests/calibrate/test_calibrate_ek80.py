@@ -306,7 +306,10 @@ def test_ek80_BB_power_compute_Sv(
         encode_mode=encode_mode,
     )
     pyel_vals = pyel_BB_p_data["sv_data"]
-    ep_vals = ds_Sv["Sv"].sel(channel=ch_sel).squeeze().data.compute()
+    if dask_array:
+        ep_vals = ds_Sv["Sv"].sel(channel=ch_sel).squeeze().data.compute()	
+    else:	
+        ep_vals = ds_Sv["Sv"].sel(channel=ch_sel).squeeze().data
 
     assert pyel_vals.shape == ep_vals.shape
     idx_to_cmp = ~(
