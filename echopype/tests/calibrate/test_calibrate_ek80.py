@@ -234,7 +234,7 @@ def test_ek80_BB_power_from_complex(
     tx, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs)
 
     # Get power from complex samples
-    prx = cal_obj._get_power_from_complex(beam=beam, chirp=tx, z_et=z_et, z_er=z_er)
+    prx = cal_obj._get_power_from_complex(beam=beam, chirp=tx, z_et=z_et, z_er=z_er).compute()
 
     ch_sel = "WBT 714590-15 ES70-7C"
 
@@ -307,8 +307,8 @@ def test_ek80_BB_power_compute_Sv(
     )
     pyel_vals = pyel_BB_p_data["sv_data"]
     if dask_array:
-        ep_vals = ds_Sv["Sv"].sel(channel=ch_sel).squeeze().data.compute()
-    else:
+        ep_vals = ds_Sv["Sv"].sel(channel=ch_sel).squeeze().data.compute()	
+    else:	
         ep_vals = ds_Sv["Sv"].sel(channel=ch_sel).squeeze().data
 
     assert pyel_vals.shape == ep_vals.shape
@@ -353,7 +353,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     pc = ep.calibrate.ek80_complex.compress_pulse(
         backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"],
         chirp=chirp,
-    )
+    ).compute()
     pc = pc / ep.calibrate.ek80_complex.get_norm_fac(chirp)  # normalization for each channel
     pc_mean = pc.sel(channel="WBT 549762-15 ES70-7C").mean(dim="beam").dropna("range_sample")
 
