@@ -99,7 +99,7 @@ def test_raw_to_mvbs(
     _presence_test(Sv_ds, "Level 2A")
 
     # ---- Noise removal
-    denoised_ds = ep.clean.remove_noise(Sv_ds, ping_num=10, range_sample_num=20)
+    denoised_ds = ep.clean.remove_background_noise(Sv_ds, ping_num=10, range_sample_num=20)
     _presence_test(denoised_ds, "Level 2B")
 
     # ---- apply_mask based on frequency differencing
