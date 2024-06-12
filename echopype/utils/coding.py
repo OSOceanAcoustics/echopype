@@ -275,3 +275,28 @@ def set_storage_encodings(ds: xr.Dataset, compression_settings: dict, engine: st
         encoding = dict()
 
     return encoding
+
+
+def chunk_echodata(echodata, chunk_dict):
+    """Chunk each group of an Echodata object based on the chunking dictionary"""
+    # Iterate through groups
+    ed_group_map = echodata.group_map
+    for key in ed_group_map.keys():
+        echodata_group = ed_group_map[key]["ep_group"]
+        if echodata_group is not None:
+            group = echodata[echodata_group]
+            if group is not None:
+                # Get shared dimensions
+                group_dims = set(group.sizes.keys())
+                chunk_dims = set(chunk_dict.keys())
+                shared_dims = group_dims & chunk_dims
+
+                # Create a subset dictionary containing chunks with shared dimensions
+                subset_chunks = {
+                    key: value for key, value in chunk_dict.items() if key in shared_dims
+                }
+
+                # Chunk group
+                echodata[echodata_group] = group.chunk(subset_chunks)
+
+    return echodata

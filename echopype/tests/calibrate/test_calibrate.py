@@ -45,6 +45,50 @@ def test_compute_Sv_returns_water_level(ek60_path):
     assert 'water_level' in ds_Sv.data_vars
 
 
+@pytest.mark.parametrize(
+    ("use_swap", "chunk_dict"),
+    [
+        (True, None),
+        (True, {"channel": 1, "ping_time": 15, "range_sample": 500}),
+        (False, None),
+        (False, {"channel": 1, "ping_time": 15, "range_sample": 500})
+    ]
+)
+def test_compute_Sv_ek60_chunks_use_swap(use_swap, chunk_dict, ek60_path):
+    """Test outputs of `compute_Sv` on EK60 when `use_swap` and `chunk_dict` are provided."""
+    # Grab test file
+    ek60_raw_path = str(
+        ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
+    )
+
+    # Convert file
+    echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
+
+    # Calibrate to get Sv
+    Sv = ep.calibrate.compute_Sv(
+        echodata,
+        use_swap=use_swap,
+        chunk_dict=chunk_dict
+    )["Sv"]
+
+    if use_swap:
+        # Check that there are only 2 layers of the task graph
+        assert 2 == len(Sv.data.dask.layers)
+    elif not use_swap and chunk_dict:
+        # Check that there are many more than 2 layers of the task graph
+        assert 77 == len(Sv.data.dask.layers)
+    elif not use_swap and not chunk_dict:
+        # Check that Sv data is not a dask array and is instead a numpy array
+        assert isinstance(Sv.data, np.ndarray)
+    if chunk_dict:
+        # Check that Sv dataset chunks match expected chunks
+        expected_chunks = (
+            (1, 1, 1, 1, 1),
+            (15, 15, 12),
+            (500, 500, 386),
+        )
+        assert expected_chunks == Sv.chunks
+
 def test_compute_Sv_ek60_echoview(ek60_path):
     # constant range_sample
     ek60_raw_path = str(
