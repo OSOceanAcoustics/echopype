@@ -3,12 +3,11 @@ Functions for reducing variabilities in backscatter data.
 """
 
 from functools import partial
-from typing import Union
 
 import numpy as np
 import xarray as xr
 
-from ..commongrid.utils import _setup_and_validate
+from ..commongrid.utils import _parse_x_bin
 from ..utils.compute import _lin2log, _log2lin
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
@@ -17,6 +16,7 @@ from .utils import (
     downsample_upsample_along_depth,
     echopy_attenuated_signal_mask,
     echopy_impulse_noise_mask,
+    extract_dB,
     index_binning_downsample_upsample_along_depth,
     index_binning_pool_Sv,
     pool_Sv,
@@ -30,8 +30,8 @@ def mask_transient_noise(
     func: str = "nanmean",
     depth_bin: str = "10m",
     num_side_pings: int = 25,
-    exclude_above: Union[int, float] = 250.0,
-    transient_noise_threshold: Union[int, float] = 12.0,
+    exclude_above: str = "250.0m",
+    transient_noise_threshold: str = "12.0db",
     use_index_binning: bool = False,
     chunk_dict: dict = {},
 ) -> xr.DataArray:
@@ -48,9 +48,9 @@ def mask_transient_noise(
         Pooling bin size vertically along `depth`.
     num_side_pings : int, default `25`
         Number of side pings to look at for the pooling.
-    exclude_above : Union[int, float], default `250`m
+    exclude_above : str, default `250m`
         Exclude all depth above (closer to the surface than) this value.
-    transient_noise_threshold : Union[int, float], default `10.0`dB
+    transient_noise_threshold : str, default `10.0db`
         Transient noise threshold value (dB) for the pooling comparison.
     use_index_binning : bool, default `False`
         Speeds up aggregations by assuming depth is uniform and binning based
@@ -95,8 +95,12 @@ def mask_transient_noise(
         "the overhead sorting."
     )
 
-    # Setup and validate Sv and depth bin
-    ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", depth_bin)
+    # Extract dB float value
+    transient_noise_threshold = extract_dB(transient_noise_threshold)
+
+    # Setup and validate depth bin and `exclude_above` values
+    depth_bin = _parse_x_bin(depth_bin, "range_bin")
+    exclude_above = _parse_x_bin(exclude_above, "range_bin")
 
     if not use_index_binning:
         # Compute pooled Sv with assumption that depth is not uniform across
@@ -119,7 +123,7 @@ def mask_impulse_noise(
     ds_Sv: xr.Dataset,
     depth_bin: str = "5m",
     num_side_pings: int = 2,
-    impulse_noise_threshold: Union[int, float] = 10.0,
+    impulse_noise_threshold: str = "10.0dB",
     use_index_binning: bool = False,
 ) -> xr.DataArray:
     """
@@ -129,11 +133,11 @@ def mask_impulse_noise(
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    depth_bin : str, default `5`m
+    depth_bin : str, default `5m`
         Donwsampling bin size along ``depth`` in meters.
     num_side_pings : int, default `2`
         Number of side pings to look at for the two-side comparison.
-    impulse_noise_threshold : Union[int, float], default `10.0`dB
+    impulse_noise_threshold : str, default `10.0dB`
         Impulse noise threshold value (dB) for the two-side comparison.
     use_index_binning : bool, default `False`
         Speeds up aggregations by assuming depth is uniform and binning based
@@ -164,8 +168,11 @@ def mask_impulse_noise(
     # Copy `ds_Sv`
     ds_Sv = ds_Sv.copy()
 
-    # Setup and validate Sv and depth bin
-    ds_Sv, depth_bin = _setup_and_validate(ds_Sv, "depth", depth_bin)
+    # Extract dB float value
+    impulse_noise_threshold = extract_dB(impulse_noise_threshold)
+
+    # Setup and validate depth bin
+    depth_bin = _parse_x_bin(depth_bin, "range_bin")
 
     if not use_index_binning:
         # Compute Upsampled Sv with assumption that depth is not uniform across
@@ -209,10 +216,10 @@ def mask_impulse_noise(
 
 def mask_attenuated_signal(
     ds_Sv: xr.Dataset,
-    upper_limit_sl: Union[int, float] = 400.0,
-    lower_limit_sl: Union[int, float] = 500.0,
+    upper_limit_sl: str = "400.0m",
+    lower_limit_sl: str = "500.0m",
     num_side_pings: int = 15,
-    attenuation_signal_threshold: Union[int, float] = 8.0,
+    attenuation_signal_threshold: str = "8.0dB",
 ) -> xr.DataArray:
     """
     Locate attenuated signals and create an attenuated signal mask.
@@ -221,13 +228,13 @@ def mask_attenuated_signal(
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    upper_limit_sl : Union[int, float], default `400`m
+    upper_limit_sl : str, default `400m`
         Upper limit of deep scattering layer line (m).
-    lower_limit_sl : Union[int, float], default `500`m
+    lower_limit_sl : str, default `500m`
         Lower limit of deep scattering layer line (m).
     num_side_pings : int, default `15`
         Number of preceding & subsequent pings defining the block.
-    attenuation_signal_threshold : Union[int, float], default `8.0`dB
+    attenuation_signal_threshold : str, default `8.0dB`
         Attenuation signal threshold value (dB) for the ping-block comparison.
 
     Returns
@@ -259,6 +266,13 @@ def mask_attenuated_signal(
     # Copy `ds_Sv`
     ds_Sv = ds_Sv.copy()
 
+    # Extract dB float value
+    attenuation_signal_threshold = extract_dB(attenuation_signal_threshold)
+
+    # Setup and validate upper and lower limit SL range values
+    lower_limit_sl = _parse_x_bin(lower_limit_sl, "range_bin")
+    upper_limit_sl = _parse_x_bin(upper_limit_sl, "range_bin")
+
     # Return empty masks if searching range is outside the echosounder range
     if (upper_limit_sl > ds_Sv["depth"].max()) or (lower_limit_sl < ds_Sv["depth"].min()):
         attenuated_mask = xr.zeros_like(ds_Sv["Sv"], dtype=bool)
@@ -289,7 +303,7 @@ def mask_attenuated_signal(
 
 
 def estimate_background_noise(
-    ds_Sv: xr.Dataset, ping_num: int, range_sample_num: int, noise_max: float = None
+    ds_Sv: xr.Dataset, ping_num: int, range_sample_num: int, background_noise_max: str = None
 ) -> xr.DataArray:
     """
     Estimate background noise by computing mean calibrated power of a collection of pings.
@@ -302,8 +316,8 @@ def estimate_background_noise(
         Number of pings to obtain noise estimates
     range_sample_num : int
         Number of samples along the ``range_sample`` dimension to obtain noise estimates.
-    noise_max : float, default `None`
-        The upper limit for background noise expected under the operating conditions.
+    background_noise_max : str, default `None`
+        The upper limit (dB) for background noise expected under the operating conditions.
 
     Returns
     -------
@@ -318,6 +332,10 @@ def estimate_background_noise(
         and remove echosounder background noise.
         ICES Journal of Marine Sciences 64(6): 1282–1291.
     """
+    if background_noise_max is not None:
+        # Extract dB float value
+        background_noise_max = extract_dB(background_noise_max)
+
     # Compute transmission loss
     spreading_loss = 20 * np.log10(ds_Sv["echo_range"].where(ds_Sv["echo_range"] >= 1, other=1))
     absorption_loss = 2 * ds_Sv["sound_absorption"] * ds_Sv["echo_range"]
@@ -339,7 +357,11 @@ def estimate_background_noise(
     noise = noise.assign_coords(ping_time=ping_num * np.arange(len(noise["ping_time"])))
 
     # Limit max noise level
-    noise = noise.where(noise < noise_max, noise_max) if noise_max is not None else noise
+    noise = (
+        noise.where(noise < background_noise_max, background_noise_max)
+        if background_noise_max is not None
+        else noise
+    )
 
     # Upsample noise to original ping time dimension
     Sv_noise = (
@@ -356,7 +378,7 @@ def remove_background_noise(
     ds_Sv: xr.Dataset,
     ping_num: int,
     range_sample_num: int,
-    noise_max: float = None,
+    background_noise_max: str = None,
     SNR_threshold: float = 3.0,
 ) -> xr.Dataset:
     """
@@ -371,9 +393,9 @@ def remove_background_noise(
         Number of pings to obtain noise estimates.
     range_sample_num : int
         Number of samples along the ``range_sample`` dimension to obtain noise estimates.
-    noise_max : float, default `None`
+    background_noise_max : str, default `None`
         The upper limit for background noise expected under the operating conditions.
-    SNR_threshold : float, default `3.0`
+    SNR_threshold : str, default `3.0dB`
         Acceptable signal-to-noise ratio, default to 3 dB.
 
     Returns
@@ -390,8 +412,14 @@ def remove_background_noise(
         and remove echosounder background noise.
         ICES Journal of Marine Sciences 64(6): 1282–1291.
     """
+    if SNR_threshold is not None:
+        # Extract dB float value
+        SNR_threshold = extract_dB(SNR_threshold)
+
     # Compute Sv_noise
-    Sv_noise = estimate_background_noise(ds_Sv, ping_num, range_sample_num, noise_max=noise_max)
+    Sv_noise = estimate_background_noise(
+        ds_Sv, ping_num, range_sample_num, background_noise_max=background_noise_max
+    )
 
     # Correct Sv for noise
     linear_corrected_Sv = _log2lin(ds_Sv["Sv"]) - _log2lin(Sv_noise)
@@ -401,11 +429,16 @@ def remove_background_noise(
     # Assemble output dataset
     ds_Sv["Sv_noise"] = Sv_noise
     ds_Sv["Sv_noise"] = add_remove_background_noise_attrs(
-        ds_Sv["Sv_noise"], "noise", ping_num, range_sample_num, SNR_threshold, noise_max
+        ds_Sv["Sv_noise"], "noise", ping_num, range_sample_num, SNR_threshold, background_noise_max
     )
     ds_Sv["Sv_corrected"] = corrected_Sv
     ds_Sv["Sv_corrected"] = add_remove_background_noise_attrs(
-        ds_Sv["Sv_corrected"], "corrected", ping_num, range_sample_num, SNR_threshold, noise_max
+        ds_Sv["Sv_corrected"],
+        "corrected",
+        ping_num,
+        range_sample_num,
+        SNR_threshold,
+        background_noise_max,
     )
     prov_dict = echopype_prov_attrs(process_type="processing")
     prov_dict["processing_function"] = "clean.remove_background_noise"

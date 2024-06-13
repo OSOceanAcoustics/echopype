@@ -1,3 +1,5 @@
+import re
+
 import dask_image.ndfilters
 import flox.xarray
 import numpy as np
@@ -5,6 +7,16 @@ import xarray as xr
 
 from ..commongrid.utils import _convert_bins_to_interval_index
 from ..utils.compute import _lin2log, _log2lin
+
+
+def extract_dB(dB_str: str) -> float:
+    """Extract float value from decibal string in the form of 'NUMdB'."""
+    # Search for numeric part using regular expressions and convert to float
+    match = re.search(r"-?\d+\.?\d*", dB_str)
+    if match:
+        return float(match.group())
+    else:
+        raise ValueError("Decibal string must be formatted as 'NUMdB'")
 
 
 def pool_Sv(
@@ -99,41 +111,31 @@ def index_binning_pool_Sv(
     between depth values is uniform across all pings. Thus, computing the number of
     range sample indices needed to cover the depth bin is a channel-specific task.
     """
-    # Create `ds_Sv` copy
-    ds_Sv_copy = (
-        ds_Sv.copy()
-        # Drop `filenames` dimension if exists and transpose Dataset
-        .drop_dims("filenames", errors="ignore").transpose("channel", "ping_time", "range_sample")
+    # Drop `filenames` dimension if exists and transpose Dataset
+    ds_Sv = ds_Sv.drop_dims("filenames", errors="ignore").transpose(
+        "channel", "ping_time", "range_sample"
     )
 
     # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
     # value per channel.
     all_chan_num_range_sample_indices = np.ceil(
-        depth_bin / np.nanmean(np.diff(ds_Sv_copy["depth"], axis=2), axis=(1, 2))
+        depth_bin / np.nanmean(np.diff(ds_Sv["depth"], axis=2), axis=(1, 2))
     ).astype(int)
 
     # Create list for pooled Sv DataArrays
     pooled_Sv_list = []
 
     # Iterate through channels
-    for channel_index in range(len(ds_Sv_copy["channel"])):
+    for channel_index in range(len(ds_Sv["channel"])):
         # Create calibrated Sv DataArray copies and remove values too close to the surface
         min_range_sample = (ds_Sv["depth"] <= exclude_above).argmin().values
-        chan_Sv = (
-            ds_Sv_copy["Sv"]
-            .copy()
-            .isel(
-                channel=channel_index,
-                range_sample=slice(min_range_sample, len(ds_Sv["range_sample"])),
-            )
+        chan_Sv = ds_Sv["Sv"].isel(
+            channel=channel_index,
+            range_sample=slice(min_range_sample, None),
         )
-        chan_pooled_Sv = (
-            ds_Sv_copy["Sv"]
-            .copy()
-            .isel(
-                channel=channel_index,
-                range_sample=slice(min_range_sample, len(ds_Sv["range_sample"])),
-            )
+        chan_pooled_Sv = ds_Sv["Sv"].isel(
+            channel=channel_index,
+            range_sample=slice(min_range_sample, None),
         )
 
         # Grab channel-specific number of range sample indices for vertical binning
@@ -162,7 +164,7 @@ def index_binning_pool_Sv(
 
         # Expand `chan_pooled_Sv` to original Sv dimensions, turning the previously
         # mentioned invalid values into `NaNs`
-        chan_pooled_Sv = chan_pooled_Sv.reindex_like(ds_Sv_copy["Sv"].isel(channel=channel_index))
+        chan_pooled_Sv = chan_pooled_Sv.reindex_like(ds_Sv["Sv"].isel(channel=channel_index))
 
         # Place in pooled Sv list
         pooled_Sv_list.append(chan_pooled_Sv)
@@ -253,30 +255,28 @@ def index_binning_downsample_upsample_along_depth(
     between depth values is uniform across all pings. Thus, computing the number of
     range sample indices needed to cover the depth bin is a channel-specific task.
     """
-    # Create `ds_Sv` copy
-    ds_Sv_copy = (
-        ds_Sv.copy()
-        # Drop `filenames` dimension if exists and transpose Dataset
-        .drop_dims("filenames", errors="ignore").transpose("channel", "ping_time", "range_sample")
+    # Drop `filenames` dimension if exists and transpose Dataset
+    ds_Sv = ds_Sv.drop_dims("filenames", errors="ignore").transpose(
+        "channel", "ping_time", "range_sample"
     )
 
     # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
     # value per channel.
     all_chan_num_range_sample_indices = np.ceil(
-        depth_bin / np.nanmean(np.diff(ds_Sv_copy["depth"], axis=2), axis=(1, 2))
+        depth_bin / np.nanmean(np.diff(ds_Sv["depth"], axis=2), axis=(1, 2))
     ).astype(int)
 
     # Create list for upsampled Sv DataArrays
     upsampled_Sv_list = []
 
     # Iterate through channels
-    for channel_index in range(len(ds_Sv_copy["channel"])):
+    for channel_index in range(len(ds_Sv["channel"])):
         # Grab channel-specific number of range sample indices for vertical binning
         chan_num_range_sample_indices = all_chan_num_range_sample_indices[channel_index]
 
         # Compute channel-specific coarsened Sv
         chan_coarsened_Sv = (
-            ds_Sv_copy["Sv"]
+            ds_Sv["Sv"]
             .isel(channel=channel_index)
             .pipe(_log2lin)
             .coarsen(
@@ -295,7 +295,7 @@ def index_binning_downsample_upsample_along_depth(
 
         # Upsample Sv using reindex
         chan_upsampled_Sv = chan_coarsened_Sv.reindex(
-            {"range_sample": ds_Sv_copy["range_sample"]}, method="ffill"
+            {"range_sample": ds_Sv["range_sample"]}, method="ffill"
         )
 
         # Place channel-specific upsampled Sv into list

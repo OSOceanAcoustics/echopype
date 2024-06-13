@@ -71,9 +71,9 @@ def test_transient_mask_noise_func_error_and_warnings(caplog):
     ds_Sv = ds_Sv.isel(ping_time=slice(290, 300), range_sample=slice(1794,1800))
 
     # Set window args
-    depth_bin="0.2m"
-    num_side_pings=2
-    exclude_above = 250
+    depth_bin = "0.2m"
+    num_side_pings = 2
+    exclude_above = "250m"
 
     ### Check for `nanmedian` warning:
 
@@ -243,13 +243,14 @@ def test_transient_noise_mask_values(chunk, func):
 
     # Set window args
     depth_bin = "0.2m" # depth values ~0.2m apart per range sample
-    num_side_pings=2
-    exclude_above = 250
+    num_side_pings = 2
+    exclude_above = "250m"
+    transient_noise_threshold_str = "12dB"
     transient_noise_threshold = 12
 
     # Compute transient noise mask
     transient_noise_mask = ep.clean.mask_transient_noise(
-        ds_Sv, func, depth_bin, num_side_pings, exclude_above, transient_noise_threshold
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above, transient_noise_threshold_str
     ).compute()
 
     # Remove transient noise from Sv
@@ -436,7 +437,8 @@ def test_index_binning_transient_noise_mask_values(chunk, func):
     depth_bin_str = "1m"
     depth_bin = 1
     num_side_pings = 2
-    exclude_above = 186
+    exclude_above = "186m"
+    transient_noise_threshold_str = "12dB"
     transient_noise_threshold = 12
 
     # Compute transient noise mask
@@ -446,7 +448,7 @@ def test_index_binning_transient_noise_mask_values(chunk, func):
         depth_bin_str,
         num_side_pings,
         exclude_above,
-        transient_noise_threshold,
+        transient_noise_threshold_str,
         use_index_binning=True
     ).compute()
 
@@ -679,12 +681,13 @@ def test_impulse_noise_mask_values(chunk, use_index_binning):
     depth_bin = 2
     depth_bin_str = "2m"
     num_side_pings = 2
-    impulse_noise_threshold= 10.0
+    impulse_noise_threshold_str = "10.0dB"
+    impulse_noise_threshold = 10.0
     impulse_noise_mask = ep.clean.mask_impulse_noise(
         ds_Sv,
         depth_bin_str,
         num_side_pings,
-        impulse_noise_threshold,
+        impulse_noise_threshold_str,
         use_index_binning
     ).compute()
 
@@ -745,8 +748,8 @@ def test_mask_attenuated_signal_limit_error():
     with pytest.raises(ValueError):
         ep.clean.mask_attenuated_signal(
             ds_Sv,
-            upper_limit_sl=180,
-            lower_limit_sl=170,
+            upper_limit_sl="180m",
+            lower_limit_sl="170m",
         )
 
 
@@ -762,7 +765,9 @@ def test_mask_attenuated_signal_outside_searching_range():
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
     # Create mask
-    upper_limit_sl, lower_limit_sl, num_side_pings, attenuation_signal_threshold = 1800, 2800, 15, -6 # units: (m, m, pings, dB)
+    upper_limit_sl, lower_limit_sl, num_side_pings, attenuation_signal_threshold = (
+        "1800m", "2800m", 15, "-6dB"
+    ) # units: (m, m, pings, dB)
     attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         upper_limit_sl,
@@ -798,7 +803,9 @@ def test_mask_attenuated_signal_against_echopy(chunk):
         ds_Sv = ds_Sv.chunk("auto")
 
     # Create mask
-    upper_limit_sl, lower_limit_sl, num_side_pings, attenuation_signal_threshold = 180, 280, 30, -6 # units: (m, m, pings, dB)
+    upper_limit_sl, lower_limit_sl, num_side_pings, attenuation_signal_threshold = (
+        "180m", "280m", 30, "-6dB"
+    ) # units: (m, m, pings, dB)
     attenuated_mask = ep.clean.mask_attenuated_signal(
         ds_Sv,
         upper_limit_sl,
@@ -856,7 +863,7 @@ def test_remove_background_noise():
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
     ds_Sv = ep.clean.remove_background_noise(
-        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
+        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold="0dB"
     )
 
     # Test if noise points are nan
@@ -893,7 +900,7 @@ def test_remove_background_noise():
     ds_Sv = ds_Sv.assign(sound_absorption=0.001)
     # Run noise removal
     ds_Sv = ep.clean.remove_background_noise(
-        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold=0
+        ds_Sv, ping_num=2, range_sample_num=5, SNR_threshold="0dB"
     )
     null = ds_Sv.Sv_corrected.isnull()
     # Test to see if the right number of points are removed before the range gets too large
