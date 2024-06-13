@@ -45,7 +45,7 @@ def mask_transient_noise(
     func: str, default `nanmean`
         Pooling function used in the pooled Sv aggregation.
     depth_bin : str, default `10m`
-        Pooling radius vertically along `depth`.
+        Pooling bin size vertically along `depth`.
     num_side_pings : int, default `25`
         Number of side pings to look at for the pooling.
     exclude_above : Union[int, float], default `250`m
