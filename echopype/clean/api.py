@@ -77,6 +77,7 @@ def mask_transient_noise(
 
     Examples
     --------
+    ```
     # Default Transient Noise Mask Usage: Without using index binning along the vertical axis:
     >>> mask_transient_noise(
     >>>     ds_Sv
@@ -101,6 +102,7 @@ def mask_transient_noise(
     >>>     use_index_binning = True,
     >>>     chunk_dict = {"ping_time": 1000, "range_sample": 50}
     >>> )
+    ```
     """
     if "depth" not in ds_Sv.data_vars and not use_index_binning:
         raise ValueError(
