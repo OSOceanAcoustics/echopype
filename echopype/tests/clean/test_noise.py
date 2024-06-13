@@ -30,23 +30,34 @@ def test_extract_dB():
 
 
 @pytest.mark.integration
-def test_mask_functions_with_no_depth():
-    """Test mask functions when the depth variable is not within `ds_Sv`."""
+@pytest.mark.parametrize(
+    ("range_var"),
+    [
+        ("depth"),
+        ("echo_range"),
+    ],
+)
+def test_mask_functions_with_no_vertical_range_variables(range_var):
+    """Test mask functions when no vertical range variables are in `ds_Sv`."""
     # Open raw and calibrate
     ed = ep.open_raw(
         "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
+    
+    if range_var == "echo_range":
+        # Drop `echo_range`
+        ds_Sv = ds_Sv.drop_vars("echo_range")
 
-    # `depth` is not contained in `ds_Sv`. Ensure that `ValueError` is raised
+    # `range_var` is not contained in `ds_Sv`. Ensure that `ValueError` is raised
     # for all masking functions.
     with pytest.raises(ValueError):
-        ep.clean.mask_attenuated_signal(ds_Sv)
+        ep.clean.mask_attenuated_signal(ds_Sv, range_var=range_var)
     with pytest.raises(ValueError):
-        ep.clean.mask_impulse_noise(ds_Sv)
+        ep.clean.mask_impulse_noise(ds_Sv, range_var=range_var)
     with pytest.raises(ValueError):
-        ep.clean.mask_transient_noise(ds_Sv)
+        ep.clean.mask_transient_noise(ds_Sv, range_var=range_var)
 
 
 @pytest.mark.integration
@@ -161,10 +172,11 @@ def test_pool_Sv_values(chunk, func):
     depth_bin = 0.2 # depth values ~0.2m apart per range sample
     num_side_pings=2
     exclude_above = 250
+    range_var = "depth"
 
     # Compute pooled Sv
     pooled_Sv = pool_Sv(
-        ds_Sv, func, depth_bin, num_side_pings, exclude_above
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above, range_var,
     ).compute()
 
     # Compute min and max values
@@ -340,11 +352,12 @@ def test_index_binning_pool_Sv_values(chunk, func):
     depth_bin = 1
     num_side_pings = 2
     exclude_above = 186
+    range_var = "depth"
     chunk_dict = {}
 
     # Compute pooled Sv using index binning
     pooled_Sv = index_binning_pool_Sv(
-        ds_Sv, func, depth_bin, num_side_pings, exclude_above, chunk_dict
+        ds_Sv, func, depth_bin, num_side_pings, exclude_above, range_var, chunk_dict
     ).compute()
 
     # Compute `ds_Sv` prior to using it for manual testing
@@ -549,7 +562,7 @@ def test_downsample_upsample_along_depth(chunk):
         ds_Sv = ds_Sv.chunk("auto")
 
     # Run downsampling and upsampling
-    downsampled_Sv, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 2)
+    downsampled_Sv, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, 2, "depth")
 
     # Compute DataArrays
     downsampled_Sv = downsampled_Sv.compute()
@@ -616,7 +629,7 @@ def test_index_binning_downsample_upsample_along_depth(chunk):
 
     # Run downsampling and upsampling
     depth_bin = 2
-    upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin)
+    upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin, "depth")
 
     # Compute DataArray
     upsampled_Sv = upsampled_Sv.compute()
@@ -700,19 +713,21 @@ def test_impulse_noise_mask_values(chunk, use_index_binning):
     num_side_pings = 2
     impulse_noise_threshold_str = "10.0dB"
     impulse_noise_threshold = 10.0
+    range_var = "depth"
     impulse_noise_mask = ep.clean.mask_impulse_noise(
         ds_Sv,
         depth_bin_str,
         num_side_pings,
         impulse_noise_threshold_str,
+        range_var,
         use_index_binning
     ).compute()
 
     # Compute upsampled data
     if not use_index_binning:
-        _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin)
+        _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin, range_var)
     else:
-        upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin)
+        upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin, range_var)
     upsampled_Sv = upsampled_Sv.compute()
 
     # Remove impulse noise from Sv

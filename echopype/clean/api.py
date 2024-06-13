@@ -32,6 +32,7 @@ def mask_transient_noise(
     num_side_pings: int = 25,
     exclude_above: str = "250.0m",
     transient_noise_threshold: str = "12.0dB",
+    range_var: str = "depth",
     use_index_binning: bool = False,
     chunk_dict: dict = {},
 ) -> xr.DataArray:
@@ -52,6 +53,8 @@ def mask_transient_noise(
         Exclude all depth above (closer to the surface than) this value.
     transient_noise_threshold : str, default `10.0dB`
         Transient noise threshold value (dB) for the pooling comparison.
+    range_var : str, default `depth`
+        Vertical Axis Range Variable. Can be either `depth` or `echo_range`.
     use_index_binning : bool, default `False`
         Speeds up aggregations by assuming depth is uniform and binning based
         on `range_sample` indices instead of `depth` values.
@@ -88,6 +91,7 @@ def mask_transient_noise(
     >>>     num_side_pings = 25,
     >>>     exclude_above = "250.0m",
     >>>     transient_noise_threshold = "12.0dB",
+    >>>     range_var = "depth",
     >>>     use_index_binning = False
     >>> )
 
@@ -102,15 +106,18 @@ def mask_transient_noise(
     >>>     num_side_pings = 25,
     >>>     exclude_above = "250.0m",
     >>>     transient_noise_threshold = "12.0dB",
+    >>>     range_var = "depth",
     >>>     use_index_binning = True,
     >>>     chunk_dict = {"ping_time": 1000, "range_sample": 50}
     >>> )
 
     """
-    if "depth" not in ds_Sv.data_vars and not use_index_binning:
+    # Check range variable
+    if range_var not in ["echo_range", "depth"]:
+        raise ValueError("`range_var` must be either `echo_range` or `depth`.")
+    if range_var not in ds_Sv.data_vars and not use_index_binning:
         raise ValueError(
-            "Masking attenuated signal requires depth data variable in `ds_Sv`. "
-            "Consider adding depth with `ds_Sv = ep.consolidate.add_depth(ds_Sv)`."
+            f"Masking transient noise requires `{range_var}` data variable in `ds_Sv`."
         )
 
     # Copy `ds_Sv`
@@ -137,12 +144,12 @@ def mask_transient_noise(
     if not use_index_binning:
         # Compute pooled Sv with assumption that depth is not uniform across
         # `ping_time` and `channel`
-        pooled_Sv = pool_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above)
+        pooled_Sv = pool_Sv(ds_Sv, func, depth_bin, num_side_pings, exclude_above, range_var)
     else:
         # Compute pooled Sv using Dask-Image's Generic Filter with assumption that depth is uniform
         # across `ping_time` per `channel` dimension.
         pooled_Sv = index_binning_pool_Sv(
-            ds_Sv, func, depth_bin, num_side_pings, exclude_above, chunk_dict
+            ds_Sv, func, depth_bin, num_side_pings, exclude_above, range_var, chunk_dict
         )
 
     # Compute transient noise mask
@@ -156,6 +163,7 @@ def mask_impulse_noise(
     depth_bin: str = "5m",
     num_side_pings: int = 2,
     impulse_noise_threshold: str = "10.0dB",
+    range_var: str = "depth",
     use_index_binning: bool = False,
 ) -> xr.DataArray:
     """
@@ -171,6 +179,8 @@ def mask_impulse_noise(
         Number of side pings to look at for the two-side comparison.
     impulse_noise_threshold : str, default `10.0dB`
         Impulse noise threshold value (dB) for the two-side comparison.
+    range_var : str, default `depth`
+        Vertical Axis Range Variable. Can be either `depth` or `echo_range`.
     use_index_binning : bool, default `False`
         Speeds up aggregations by assuming depth is uniform and binning based
         on `range_sample` indices instead of `depth` values.
@@ -191,11 +201,11 @@ def mask_impulse_noise(
     impulse noise masking and translated into xarray code:
     https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_impulse.py # noqa
     """
-    if "depth" not in ds_Sv.data_vars:
-        raise ValueError(
-            "Masking attenuated signal requires depth data variable in `ds_Sv`. "
-            "Consider adding depth with `ds_Sv = ep.consolidate.add_depth(ds_Sv)`."
-        )
+    # Check range variable
+    if range_var not in ["echo_range", "depth"]:
+        raise ValueError("`range_var` must be either `echo_range` or `depth`.")
+    if range_var not in ds_Sv.data_vars and not use_index_binning:
+        raise ValueError(f"Masking impulse noise requires `{range_var}` data variable in `ds_Sv`.")
 
     # Copy `ds_Sv`
     ds_Sv = ds_Sv.copy()
@@ -209,11 +219,11 @@ def mask_impulse_noise(
     if not use_index_binning:
         # Compute Upsampled Sv with assumption that depth is not uniform across
         # `ping_time` and `channel`
-        _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin)
+        _, upsampled_Sv = downsample_upsample_along_depth(ds_Sv, depth_bin, range_var)
     else:
         # Compute Upsampled Sv using Coarsen with assumption that depth is uniform
         # across `ping_time` per `channel` dimension.
-        upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin)
+        upsampled_Sv = index_binning_downsample_upsample_along_depth(ds_Sv, depth_bin, range_var)
 
     # Create partial of `echopy_impulse_noise_mask`
     partial_echopy_impulse_noise_mask = partial(
@@ -252,6 +262,7 @@ def mask_attenuated_signal(
     lower_limit_sl: str = "500.0m",
     num_side_pings: int = 15,
     attenuation_signal_threshold: str = "8.0dB",
+    range_var: str = "depth",
 ) -> xr.DataArray:
     """
     Locate attenuated signals and create an attenuated signal mask.
@@ -268,6 +279,8 @@ def mask_attenuated_signal(
         Number of preceding & subsequent pings defining the block.
     attenuation_signal_threshold : str, default `8.0dB`
         Attenuation signal threshold value (dB) for the ping-block comparison.
+    range_var : str, default `depth`
+        Vertical Axis Range Variable. Can be either `depth` or `echo_range`.
 
     Returns
     -------
@@ -285,10 +298,12 @@ def mask_attenuated_signal(
     attenuation signal masking and translated into xarray code:
     https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_attenuated.py # noqa
     """
-    if "depth" not in ds_Sv.data_vars:
+    # Check range variable
+    if range_var not in ["echo_range", "depth"]:
+        raise ValueError("`range_var` must be either `echo_range` or `depth`.")
+    if range_var not in ds_Sv.data_vars:
         raise ValueError(
-            "Masking attenuated signal requires depth data variable in `ds_Sv`. "
-            "Consider adding depth with `ds_Sv = ep.consolidate.add_depth(ds_Sv)`."
+            f"Masking attenuated signal requires `{range_var}` data variable in `ds_Sv`."
         )
 
     # Check range values
@@ -306,8 +321,8 @@ def mask_attenuated_signal(
     upper_limit_sl = _parse_x_bin(upper_limit_sl, "range_bin")
 
     # Return empty masks if searching range is outside the echosounder range
-    if (upper_limit_sl > ds_Sv["depth"].max()) or (lower_limit_sl < ds_Sv["depth"].min()):
-        attenuated_mask = xr.zeros_like(ds_Sv["Sv"], dtype=bool)
+    if (upper_limit_sl > ds_Sv[range_var].max()) or (lower_limit_sl < ds_Sv[range_var].min()):
+        attenuated_mask = xr.zeros_like(ds_Sv[range_var], dtype=bool)
         return attenuated_mask
 
     # Create partial of echopy attenuation mask computation
@@ -323,7 +338,7 @@ def mask_attenuated_signal(
     attenuated_mask = xr.apply_ufunc(
         partial_echopy_attenuation_mask,
         ds_Sv["Sv"],
-        ds_Sv["depth"],
+        ds_Sv[range_var],
         input_core_dims=[["ping_time", "range_sample"], ["ping_time", "range_sample"]],
         output_core_dims=[["ping_time", "range_sample"]],
         dask="parallelized",
