@@ -12,9 +12,15 @@ from ..utils.compute import _lin2log, _log2lin
 def extract_dB(dB_str: str) -> float:
     """Extract float value from decibal string in the form of 'NUMdB'."""
     # Search for numeric part using regular expressions and convert to float
-    match = re.search(r"-?\d+\.?\d*", dB_str)
+    if not isinstance(dB_str, str):
+        raise TypeError(
+            "Decibal input must be a string formatted as `NUMdB` ."
+            f"Cannot be of type `{type(dB_str)}`."
+        )
+    pattern = r"^[-+]?\d+\.?\d*dB$"  # Ensures exact match with "NUMdB" format
+    match = re.search(pattern, dB_str)
     if match:
-        return float(match.group())
+        return float(match.group(0)[:-2])  # Extract number and remove "dB"
     else:
         raise ValueError("Decibal string must be formatted as 'NUMdB'")
 

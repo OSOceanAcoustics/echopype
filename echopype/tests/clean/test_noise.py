@@ -4,12 +4,29 @@ import echopype as ep
 import pytest
 
 from echopype.clean.utils import (
+    extract_dB,
     pool_Sv,
     index_binning_pool_Sv,
     index_binning_downsample_upsample_along_depth,
     downsample_upsample_along_depth,
 )
 from echopype.utils.compute import _lin2log, _log2lin
+
+
+@pytest.mark.unit
+def test_extract_dB():
+    """Test for correct outputs and errors of `extract_dB`."""
+    # Check correct values
+    assert extract_dB("10dB") == 10.0
+    assert extract_dB("10.0dB") == 10.0
+    # Check for invalid strings
+    with pytest.raises(ValueError):
+        extract_dB("10")
+    with pytest.raises(ValueError):
+        extract_dB("10db")
+    # Check invalid type
+    with pytest.raises(TypeError):
+        extract_dB(10)
 
 
 @pytest.mark.integration
