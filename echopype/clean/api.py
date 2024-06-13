@@ -43,22 +43,22 @@ def mask_transient_noise(
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    func: str, default `nanmean`
+    func: str, default "nanmean"
         Pooling function used in the pooled Sv aggregation.
-    depth_bin : str, default `10m`
-        Pooling bin size vertically along `depth`.
-    num_side_pings : int, default `25`
+    depth_bin : str, default "10m"
+        Pooling bin size vertically along the vertical range variable (`range_var`).
+    num_side_pings : int, default 25
         Number of side pings to look at for the pooling.
-    exclude_above : str, default `250m`
+    exclude_above : str, default "250m"
         Exclude all depth above (closer to the surface than) this value.
-    transient_noise_threshold : str, default `10.0dB`
+    transient_noise_threshold : str, default "10.0dB"
         Transient noise threshold value (dB) for the pooling comparison.
-    range_var : str, default `depth`
-        Vertical Axis Range Variable. Can be either `depth` or `echo_range`.
-    use_index_binning : bool, default `False`
+    range_var : str, default "depth"
+        Vertical Range Variable. Can be either `depth` or `echo_range`.
+    use_index_binning : bool, default "False"
         Speeds up aggregations by assuming depth is uniform and binning based
         on `range_sample` indices instead of `depth` values.
-    chunk_dict : dict, default `{}`
+    chunk_dict : dict, default {}
         Dictionary containing chunk sizes for use in the Dask-Image
         pooling function. Only used when `use_index_binning=True`.
 
@@ -95,8 +95,8 @@ def mask_transient_noise(
     >>>     use_index_binning = False
     >>> )
 
-    Vertical Index Binning Transient Noise Mask Usage with Chunking across vertical
-    and horizontal axis:
+    Vertical Index Binning Transient Noise Mask Usage with Chunking across Vertical
+    and Horizontal Axis:
 
     >>> mask_transient_noise(
     >>>     ds_Sv
@@ -173,15 +173,15 @@ def mask_impulse_noise(
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    depth_bin : str, default `5m`
-        Donwsampling bin size along ``depth`` in meters.
-    num_side_pings : int, default `2`
+    depth_bin : str, default "5m"
+        Donwsampling bin size along vertical range variable (`range_var`) in meters.
+    num_side_pings : int, default 2
         Number of side pings to look at for the two-side comparison.
-    impulse_noise_threshold : str, default `10.0dB`
+    impulse_noise_threshold : str, default "10.0dB"
         Impulse noise threshold value (dB) for the two-side comparison.
-    range_var : str, default `depth`
-        Vertical Axis Range Variable. Can be either `depth` or `echo_range`.
-    use_index_binning : bool, default `False`
+    range_var : str, default "depth"
+        Vertical Axis Range Variable. Can be either "depth" or "echo_range".
+    use_index_binning : bool, default False
         Speeds up aggregations by assuming depth is uniform and binning based
         on `range_sample` indices instead of `depth` values.
 
@@ -279,7 +279,7 @@ def mask_attenuated_signal(
         Number of preceding & subsequent pings defining the block.
     attenuation_signal_threshold : str, default `8.0dB`
         Attenuation signal threshold value (dB) for the ping-block comparison.
-    range_var : str, default `depth`
+    range_var : str, default "depth"
         Vertical Axis Range Variable. Can be either `depth` or `echo_range`.
 
     Returns
