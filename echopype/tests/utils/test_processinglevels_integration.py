@@ -11,8 +11,8 @@ pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="Test data not a
 
 @pytest.mark.xfail(
     reason=(
-        "Not sure yet. Will list this as an issue to address "
-        "elsewhere since this is outside of the scope of PR 1331"
+        "Not sure why this fails. Will list this as an issue to address "
+        "in issue #1332, since this is outside of the scope of PR #1331."
     )
 )
 @pytest.mark.parametrize(
