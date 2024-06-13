@@ -74,6 +74,33 @@ def mask_transient_noise(
     Additionally, this code was derived from echopy's numpy single-channel implementation of
     transient noise masking and translated into xarray code:
     https://github.com/open-ocean-sounding/echopy/blob/master/echopy/processing/mask_transient.py # noqa
+
+    Examples
+    --------
+    # Default Transient Noise Mask Usage: Without using index binning along the vertical axis:
+    >>> mask_transient_noise(
+    >>>     ds_Sv
+    >>>     func="nanmean",
+    >>>     func="nanmean",
+    >>>     depth_bin = "10m",
+    >>>     num_side_pings = 25,
+    >>>     exclude_above = "250.0m",
+    >>>     transient_noise_threshold = "12.0dB",
+    >>>     use_index_binning = False
+    >>> )
+    # Vertical Index Binning Transient Noise Mask Usage with Chunking across vertical
+    # and horizontal axis.
+    >>> mask_transient_noise(
+    >>>     ds_Sv
+    >>>     func="nanmean",
+    >>>     func="nanmean",
+    >>>     depth_bin = "10m",
+    >>>     num_side_pings = 25,
+    >>>     exclude_above = "250.0m",
+    >>>     transient_noise_threshold = "12.0dB",
+    >>>     use_index_binning = True,
+    >>>     chunk_dict = {"ping_time": 1000, "range_sample": 50}
+    >>> )
     """
     if "depth" not in ds_Sv.data_vars and not use_index_binning:
         raise ValueError(
