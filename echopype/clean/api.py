@@ -31,7 +31,7 @@ def mask_transient_noise(
     depth_bin: str = "10m",
     num_side_pings: int = 25,
     exclude_above: str = "250.0m",
-    transient_noise_threshold: str = "12.0db",
+    transient_noise_threshold: str = "12.0dB",
     use_index_binning: bool = False,
     chunk_dict: dict = {},
 ) -> xr.DataArray:
@@ -50,7 +50,7 @@ def mask_transient_noise(
         Number of side pings to look at for the pooling.
     exclude_above : str, default `250m`
         Exclude all depth above (closer to the surface than) this value.
-    transient_noise_threshold : str, default `10.0db`
+    transient_noise_threshold : str, default `10.0dB`
         Transient noise threshold value (dB) for the pooling comparison.
     use_index_binning : bool, default `False`
         Speeds up aggregations by assuming depth is uniform and binning based
