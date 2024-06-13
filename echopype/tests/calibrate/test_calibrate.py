@@ -45,6 +45,7 @@ def test_compute_Sv_returns_water_level(ek60_path):
     assert 'water_level' in ds_Sv.data_vars
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("use_swap", "chunk_dict"),
     [
@@ -88,6 +89,7 @@ def test_compute_Sv_ek60_chunks_use_swap(use_swap, chunk_dict, ek60_path):
             (500, 500, 386),
         )
         assert expected_chunks == Sv.chunks
+
 
 def test_compute_Sv_ek60_echoview(ek60_path):
     # constant range_sample
