@@ -91,7 +91,17 @@ def test_compute_Sv_ek60_chunks_use_swap(use_swap, chunk_dict, ek60_path):
         assert expected_chunks == Sv.chunks
 
 
-def test_compute_Sv_ek60_echoview(ek60_path):
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("use_swap", "chunk_dict"),
+    [
+        (True, None),
+        (True, {"channel": 1, "ping_time": 15, "range_sample": 500}),
+        (False, None),
+        (False, {"channel": 1, "ping_time": 15, "range_sample": 500})
+    ]
+)
+def test_compute_Sv_ek60_echoview(use_swap, chunk_dict, ek60_path):
     # constant range_sample
     ek60_raw_path = str(
         ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
@@ -102,7 +112,7 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata)
+    ds_Sv = ep.calibrate.compute_Sv(echodata, use_swap=use_swap, chunk_dict=chunk_dict)
 
     # Compare with EchoView outputs
     channels = []
@@ -126,7 +136,17 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     )
 
 
-def test_compute_Sv_ek60_matlab(ek60_path):
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("use_swap", "chunk_dict"),
+    [
+        (True, None),
+        (True, {"channel": 1, "ping_time": 15, "range_sample": 500}),
+        (False, None),
+        (False, {"channel": 1, "ping_time": 15, "range_sample": 500})
+    ]
+)
+def test_compute_Sv_ek60_matlab(use_swap, chunk_dict, ek60_path):
     ek60_raw_path = str(
         ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
     )
@@ -138,8 +158,8 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     echodata = ep.open_raw(ek60_raw_path, sonar_model='EK60')
 
     # Calibrate to get Sv
-    ds_Sv = ep.calibrate.compute_Sv(echodata)
-    ds_TS = ep.calibrate.compute_TS(echodata)
+    ds_Sv = ep.calibrate.compute_Sv(echodata, use_swap=use_swap, chunk_dict=chunk_dict)
+    ds_TS = ep.calibrate.compute_TS(echodata, use_swap=use_swap, chunk_dict=chunk_dict)
 
     # Load matlab outputs and test
 
