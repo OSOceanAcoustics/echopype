@@ -19,11 +19,14 @@ def test_extract_dB():
     # Check correct values
     assert extract_dB("10dB") == 10.0
     assert extract_dB("10.0dB") == 10.0
-    # Check for invalid strings
+    assert extract_dB("10db") == 10.0 # b doesn't need to be capitalized
+    # Check for invalid string
     with pytest.raises(ValueError):
         extract_dB("10")
     with pytest.raises(ValueError):
-        extract_dB("10db")
+        extract_dB("10 db")
+    with pytest.raises(ValueError):
+        extract_dB("10db1")
     # Check invalid type
     with pytest.raises(TypeError):
         extract_dB(10)

@@ -14,15 +14,15 @@ def extract_dB(dB_str: str) -> float:
     # Search for numeric part using regular expressions and convert to float
     if not isinstance(dB_str, str):
         raise TypeError(
-            "Decibal input must be a string formatted as `NUMdB` ."
+            "Decibal input must be a string formatted as `NUMdB` or `NUMdb."
             f"Cannot be of type `{type(dB_str)}`."
         )
-    pattern = r"^[-+]?\d+\.?\d*dB$"  # Ensures exact match with "NUMdB" format
-    match = re.search(pattern, dB_str)
+    pattern = r"^[-+]?\d+\.?\d*(?:dB|db)$"  # Ensures exact match with format
+    match = re.search(pattern, dB_str, flags=re.IGNORECASE)  # Case-insensitive search
     if match:
         return float(match.group(0)[:-2])  # Extract number and remove "dB"
     else:
-        raise ValueError("Decibal string must be formatted as 'NUMdB'")
+        raise ValueError("Decibal string must be formatted as 'NUMdB' or `NUMdb")
 
 
 def pool_Sv(

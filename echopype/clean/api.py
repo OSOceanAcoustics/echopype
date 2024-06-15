@@ -86,7 +86,6 @@ def mask_transient_noise(
     >>> mask_transient_noise(
     >>>     ds_Sv
     >>>     func="nanmean",
-    >>>     func="nanmean",
     >>>     depth_bin = "10m",
     >>>     num_side_pings = 25,
     >>>     exclude_above = "250.0m",
@@ -101,7 +100,6 @@ def mask_transient_noise(
     >>> mask_transient_noise(
     >>>     ds_Sv
     >>>     func="nanmean",
-    >>>     func="nanmean",
     >>>     depth_bin = "10m",
     >>>     num_side_pings = 25,
     >>>     exclude_above = "250.0m",
@@ -111,6 +109,11 @@ def mask_transient_noise(
     >>>     chunk_dict = {"ping_time": 1000, "range_sample": 50}
     >>> )
 
+    To compute the pooled Sv, prior to the binning operation, the number of range sample
+    indices needed to encapsulate "10m" will be calculated, and this number will be used to
+    do a completely index based nanmean binning operation. This operation is exactly the
+    same as applying a mean filter over an image, but in this case, it is applied to an
+    Echogram.
     """
     # Check range variable
     if range_var not in ["echo_range", "depth"]:
