@@ -18,7 +18,9 @@ def test_extract_dB():
     """Test for correct outputs and errors of `extract_dB`."""
     # Check correct values
     assert extract_dB("10dB") == 10.0
+    assert extract_dB("-10dB") == -10.0
     assert extract_dB("10.0dB") == 10.0
+    assert extract_dB("-10.0dB") == -10.0
     assert extract_dB("10db") == 10.0 # b doesn't need to be capitalized
     # Check for invalid string
     with pytest.raises(ValueError):
@@ -145,10 +147,10 @@ def test_transient_mask_noise_func_error_and_warnings(caplog):
 @pytest.mark.parametrize(
     ("chunk", "func"),
     [
-        (False, "nanmean"),
-        (True, "nanmean"),
-        (False, "nanmedian"),
-        (True, "nanmedian"),
+        (False, np.nanmean),
+        (True, np.nanmean),
+        (False, np.nanmedian),
+        (True, np.nanmedian),
     ],
 )
 def test_pool_Sv_values(chunk, func):
@@ -237,9 +239,7 @@ def test_pool_Sv_values(chunk, func):
                                     ping_time=slice(ping_time_index-2, ping_time_index+3),
                                     range_sample=slice(range_sample_index-1, range_sample_index+2)
                                 )
-                            ).pipe(
-                                np.nanmean if func == "nanmean" else np.nanmedian
-                            )
+                            ).pipe(func)
                         ),
                         rtol=1e-10,
                         atol=1e-10,
@@ -328,10 +328,10 @@ def test_transient_noise_mask_values(chunk, func):
 @pytest.mark.parametrize(
     ("chunk", "func"),
     [
-        (False, "nanmean"),
-        (True, "nanmean"),
-        (False, "nanmedian"),
-        (True, "nanmedian"),
+        (False, np.nanmean),
+        (True, np.nanmean),
+        (False, np.nanmedian),
+        (True, np.nanmedian),
     ],
 )
 def test_index_binning_pool_Sv_values(chunk, func):
@@ -433,9 +433,7 @@ def test_index_binning_pool_Sv_values(chunk, func):
                                         range_sample_index + 1 + num_range_sample_indices
                                     )
                                 )
-                            ).pipe(
-                                np.nanmean if func == "nanmean" else np.nanmedian
-                            )
+                            ).pipe(func)
                         ),
                         rtol=1e-10,
                         atol=1e-10,

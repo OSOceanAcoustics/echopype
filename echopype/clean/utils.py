@@ -1,4 +1,5 @@
 import re
+from typing import Callable
 
 import dask_image.ndfilters
 import flox.xarray
@@ -27,7 +28,7 @@ def extract_dB(dB_str: str) -> float:
 
 def pool_Sv(
     ds_Sv: xr.Dataset,
-    func: str,
+    func: Callable,
     depth_bin: float,
     num_side_pings: int,
     exclude_above: float,
@@ -90,9 +91,7 @@ def pool_Sv(
                         & (ping_time_indices <= ping_time_index + num_side_pings)
                     )
                     window_Sv = chan_Sv.where(window_mask, other=np.nan).pipe(_log2lin)
-                    aggregate_window_Sv_value = window_Sv.pipe(
-                        np.nanmean if func == "nanmean" else np.nanmedian
-                    )
+                    aggregate_window_Sv_value = window_Sv.pipe(func)
                     aggregate_window_Sv_value = _lin2log(aggregate_window_Sv_value)
 
                     # Put aggregate value in pooled Sv array
@@ -109,7 +108,7 @@ def pool_Sv(
 
 def index_binning_pool_Sv(
     ds_Sv: xr.Dataset,
-    func: str,
+    func: Callable,
     depth_bin: int,
     num_side_pings: int,
     exclude_above: float,
@@ -163,7 +162,7 @@ def index_binning_pool_Sv(
         chan_pooled_Sv.values = _lin2log(
             dask_image.ndfilters.generic_filter(
                 chan_Sv.pipe(_log2lin).data,
-                function=np.nanmean if func == "nanmean" else np.nanmedian,
+                function=func,
                 size=pooling_size,
             ).compute()
         )

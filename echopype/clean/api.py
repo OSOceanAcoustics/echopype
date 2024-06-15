@@ -128,14 +128,18 @@ def mask_transient_noise(
 
     # Check for appropriate function passed in
     if func != "nanmean" and func != "nanmedian":
-        raise ValueError("Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`.")
-
-    # Warn when `func=nanmedian` since the sorting overhead makes it incredibly slow compared to
-    # `nanmean`.
-    logger.warning(
-        "Consider using `func=nanmean`. `func=nanmedian` is an incredibly slow operation due to "
-        "the overhead sorting."
-    )
+        raise ValueError(f"Input `func` is `{func}`. `func` must be `nanmean` or `nanmedian`.")
+    # Assign string to numpy function
+    if func == "nanmean":
+        func = np.nanmean
+    elif func == "nanmedian":
+        # Warn when `func=nanmedian` since the sorting overhead makes it incredibly slow compared to
+        # `nanmean`.
+        logger.warning(
+            "Consider using `func=nanmean`. `func=nanmedian` is an incredibly slow operation due "
+            "to the overhead sorting."
+        )
+        func = np.nanmedian
 
     # Extract dB float value
     transient_noise_threshold = extract_dB(transient_noise_threshold)
