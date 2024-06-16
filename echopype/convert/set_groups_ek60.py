@@ -696,9 +696,13 @@ class SetGroupsEK60(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        # Grab channel mode array and replace `NaNs` with `-1`
-        # `-1` is described in the `channel_mode` attributes as "Unknown"
-        ds["channel_mode"] = ds["channel_mode"].fillna(-1)
+        # Check if there exists `NaNs` in the channel mode array. If there are, they exist
+        # because the `self.parser_obj.ping_data_dict["transmit_mode"]` object does not contain
+        # a uniform number of transmit mode values per channel.
+        if ds["channel_mode"].isnull().any():
+            # Grab channel mode array and replace `NaNs` with `-1`
+            # `-1` is described in the `channel_mode` attributes as "Unknown"
+            ds["channel_mode"] = ds["channel_mode"].fillna(-1)
 
         return [set_time_encodings(ds)]
 
