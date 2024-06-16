@@ -1,9 +1,12 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-from echopype import open_raw
 import pytest
 
+from echopype import open_raw
+import echopype as ep
 
 @pytest.fixture
 def ek60_path(test_path):
@@ -208,3 +211,40 @@ def test_convert_es60_no_unicode_error(es60_path):
         open_raw(raw_path, sonar_model='EK60')
     except UnicodeDecodeError:
         pytest.fail("UnicodeDecodeError raised")
+
+
+@pytest.mark.parametrize(
+    ("file_path"),
+    [
+        "DY1002_EK60-D20100318-T023008_rep_freq.raw",
+        "from_echopy/JR230-D20091215-T121917.raw"
+    ]
+)
+@pytest.mark.integration
+def test_convert_ek60_no_runtime_warning(file_path, ek60_path):
+    """
+    Check that no runtime warning is called when there are different number of channel mode
+    values per channel, and check that the appropriate `-1` filling is done on the channel
+    mode array.
+    """
+    # Catch and throw error for any `RuntimeWarning`
+    with warnings.catch_warnings():
+        warnings.simplefilter(action="error", category=RuntimeWarning)
+        ed = ep.open_raw(ek60_path / file_path, sonar_model="EK60")
+    # Parse EK60 RAW File
+    ek60_parser = ep.convert.parse_ek60.ParseEK60(
+        ek60_path / file_path, None
+    )
+    ek60_parser.parse_raw()
+    # Check that the number of `channel_mode` -1 values matches the difference between the
+    # number of recorded transmit mode values and the total number of ping times
+    for ch in ek60_parser.ping_data_dict["transmit_mode"].keys():
+        transmit_mode_list = ek60_parser.ping_data_dict["transmit_mode"][ch]
+        transmit_mode_list_length = len(transmit_mode_list)
+        expected_num_negative_ones = len(
+            ed["Sonar/Beam_group1"]["ping_time"]
+        ) - transmit_mode_list_length
+        num_negative_ones = (
+            ed["Sonar/Beam_group1"]["channel_mode"].isel(channel=ch-1) == -1
+        ).sum().values
+        assert num_negative_ones == expected_num_negative_ones

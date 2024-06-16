@@ -696,6 +696,10 @@ class SetGroupsEK60(SetGroupsBase):
             ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
+        # Grab channel mode array and replace `NaNs` with `-1`
+        # `-1` is described in the `channel_mode` attributes as "Unknown"
+        ds["channel_mode"] = ds["channel_mode"].fillna(-1)
+
         return [set_time_encodings(ds)]
 
     def set_vendor(self) -> xr.Dataset:
