@@ -440,8 +440,9 @@ class SetGroupsBase(abc.ABC):
         platform_ds["longitude_idx"] = platform_ds["longitude_idx"].assign_attrs(
             {
                 "long_name": "Index File Derived Platform Longitude",
-                "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
-                + "dataset's `time3` dimension. This is different from `NMEA`longitude.",
+                "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                + "dataset's `time3` dimension. "
+                + "This is different from longitude from the NMEA datagram.",
             }
         )
 
