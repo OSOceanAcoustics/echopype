@@ -326,7 +326,7 @@ def _check_file(
         idx_fsmap = fsspec.get_mapper(idx_file, **storage_options)
         if not idx_fsmap.fs.exists(idx_fsmap.root):
             raise FileNotFoundError(
-                f"There is no file named {idx_file}. The `.IDX` file must be contained in "
+                f"There is no file named {idx_file}. The .IDX file must be contained in "
                 + " the same directory as that of the input 'raw' file."
             )
     else:
