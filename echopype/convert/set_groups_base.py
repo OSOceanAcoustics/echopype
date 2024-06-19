@@ -432,8 +432,9 @@ class SetGroupsBase(abc.ABC):
         platform_ds["latitude_idx"] = platform_ds["latitude_idx"].assign_attrs(
             {
                 "long_name": "Index File Derived Platform Latitude",
-                "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
-                + "dataset's `time3` dimension. This is different from `NMEA` latitude.",
+                "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                + "dataset's `time3` dimension. "
+                + "This is different from latitude stored in the NMEA datagram.",
             }
         )
         platform_ds["longitude_idx"] = platform_ds["longitude_idx"].assign_attrs(
