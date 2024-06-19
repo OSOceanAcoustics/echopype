@@ -48,7 +48,7 @@ def test_convert_ek60_with_missing_bot_idx_file():
         ("echopype/test_data/ek80/idx_bot/Hake-D20230711-T182702.raw", "EK80"),
     ]
 )
-def test_convert_ek60_with_bot_file(file, sonar_model):
+def test_convert_ek_with_bot_file(file, sonar_model):
     """Check variable dimensions, time encodings, and attributes when `.BOT` file is parsed."""
     # Open Raw and Parse `.BOT`
     ed = open_raw(
