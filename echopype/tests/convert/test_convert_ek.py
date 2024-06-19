@@ -94,7 +94,7 @@ def test_convert_ek60_with_bot_file(file, sonar_model):
         ("echopype/test_data/ek80/idx_bot/Hake-D20230711-T182702.raw", "EK80"),
     ]
 )
-def test_convert_ek60_with_idx_file(file, sonar_model):
+def test_convert_ek_with_idx_file(file, sonar_model):
     """Check variable dimensions and attributes when `.IDX` file is parsed."""
     # Open Raw and Parse `.IDX`
     ed = open_raw(
