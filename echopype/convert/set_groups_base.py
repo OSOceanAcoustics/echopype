@@ -497,7 +497,7 @@ class SetGroupsBase(abc.ABC):
             }
         )
         vendor_ds["detected_seafloor_depth"] = vendor_ds["detected_seafloor_depth"].assign_attrs(
-            {"long_name": "Echosounder detected seafloor depth from `.BOT` datagrams."}
+            {"long_name": "Echosounder detected seafloor depth from the BOT datagrams."}
         )
         vendor_ds = set_time_encodings(vendor_ds)
 
