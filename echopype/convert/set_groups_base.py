@@ -416,7 +416,7 @@ class SetGroupsBase(abc.ABC):
         platform_ds["time3"] = platform_ds["time3"].assign_attrs(
             {
                 "axis": "T",
-                "long_name": "Timestamps from `.IDX` datagrams",
+                "long_name": "Timestamps from the IDX datagrams",
                 "standard_name": "time",
                 "comment": "Time coordinate corresponding to index file vessel "
                 + "distance and latitude/longitude data.",
