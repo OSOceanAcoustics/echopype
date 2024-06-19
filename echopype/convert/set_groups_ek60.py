@@ -314,8 +314,8 @@ class SetGroupsEK60(SetGroupsBase):
         if (
             (self.parser_obj.idx_file != "")
             and self.parser_obj.idx["vessel_distance"]
-            and self.parser_obj.idx["latitude_idx"]
-            and self.parser_obj.idx["longitude_idx"]
+            and self.parser_obj.idx["idx_latitude"]
+            and self.parser_obj.idx["idx_latitude"]
             and self.parser_obj.idx["timestamp"]
         ):
             ds = self._add_index_data_to_platform_ds(ds)

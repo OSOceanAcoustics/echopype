@@ -22,8 +22,8 @@ def expected_array_shape(file, datagram_type, datagram_item):
 @pytest.mark.integration
 def test_convert_ek60_with_missing_bot_idx_file():
     """
-    Check appropriate FileNotFoundError when attempting to parse `.BOT` and `.IDX` file that do
-    not exist in the same folder for which the `.RAW` file exists."""
+    Check appropriate FileNotFoundError when attempting to parse .BOT and IDX file that do
+    not exist in the same folder for which the .RAW file exists."""
     with pytest.raises(FileNotFoundError):
         open_raw(
             "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
@@ -49,8 +49,8 @@ def test_convert_ek60_with_missing_bot_idx_file():
     ]
 )
 def test_convert_ek_with_bot_file(file, sonar_model):
-    """Check variable dimensions, time encodings, and attributes when `.BOT` file is parsed."""
-    # Open Raw and Parse `.BOT`
+    """Check variable dimensions, time encodings, and attributes when BOT file is parsed."""
+    # Open Raw and Parse BOT
     ed = open_raw(
         file,
         sonar_model=sonar_model,
@@ -73,12 +73,12 @@ def test_convert_ek_with_bot_file(file, sonar_model):
     assert (
         ed["Vendor_specific"]["detected_seafloor_depth"].attrs[
             "long_name"
-        ] == "Echosounder detected seafloor depth from `.BOT` datagrams."
+        ] == "Echosounder detected seafloor depth from the BOT datagrams."
     )
 
     # Check time attributes
     time_attrs = ed["Vendor_specific"]["ping_time"].attrs
-    assert time_attrs["long_name"] == "Timestamps from `.BOT` datagrams"
+    assert time_attrs["long_name"] == "Timestamps from the BOT datagrams"
     assert time_attrs["standard_name"] == "time"
     assert time_attrs["axis"] == "T"
     assert time_attrs["comment"] == "Time coordinate corresponding to seafloor detection data."
@@ -95,8 +95,8 @@ def test_convert_ek_with_bot_file(file, sonar_model):
     ]
 )
 def test_convert_ek_with_idx_file(file, sonar_model):
-    """Check variable dimensions and attributes when `.IDX` file is parsed."""
-    # Open Raw and Parse `.IDX`
+    """Check variable dimensions and attributes when IDX file is parsed."""
+    # Open Raw and Parse IDX
     ed = open_raw(
         file,
         sonar_model=sonar_model,
@@ -107,8 +107,8 @@ def test_convert_ek_with_idx_file(file, sonar_model):
     # Check data variable lengths
     assert (
         len(platform["vessel_distance"]) == \
-        len(platform["latitude_idx"]) == \
-        len(platform["longitude_idx"]) == \
+        len(platform["idx_latitude"]) == \
+        len(platform["idx_longitude"]) == \
         expected_array_shape(file, "idx", "distance")[0] == \
         expected_array_shape(file, "idx", "latitude")[0] == \
         expected_array_shape(file, "idx", "longitude")[0]
@@ -118,7 +118,7 @@ def test_convert_ek_with_idx_file(file, sonar_model):
     platform["time3"].attrs == (
         {
             "axis": "T",
-            "long_name": "Timestamps from `.IDX` datagrams",
+            "long_name": "Timestamps from IDX datagrams",
             "standard_name": "time",
             "comment": "Time coordinate corresponding to index file vessel "
             + "distance and latitude/longitude data.",
@@ -127,21 +127,23 @@ def test_convert_ek_with_idx_file(file, sonar_model):
     assert platform["vessel_distance"].attrs == (
         {
             "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
-            "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+            "comment": "Data from the IDX datagrams. Aligns time-wise with this "
             + "dataset's `time3` dimension.",
         }
     )
-    assert platform["latitude_idx"].attrs == (
+    assert platform["idx_latitude"].attrs == (
         {
             "long_name": "Index File Derived Platform Latitude",
-            "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
-            + "dataset's `time3` dimension. This is different from `NMEA` latitude.",
+            "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+            + "dataset's `time3` dimension. "
+            + "This is different from latitude stored in the NMEA datagram.",
         }
     )
-    assert platform["longitude_idx"].attrs == (
+    assert platform["idx_longitude"].attrs == (
         {
             "long_name": "Index File Derived Platform Longitude",
-            "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
-            + "dataset's `time3` dimension. This is different from `NMEA`longitude.",
+            "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+            + "dataset's `time3` dimension. "
+            + "This is different from longitude from the NMEA datagram.",
         }
     )

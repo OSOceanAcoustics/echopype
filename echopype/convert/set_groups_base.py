@@ -368,20 +368,20 @@ class SetGroupsBase(abc.ABC):
         platform_ds: xr.Dataset,
     ) -> xr.Dataset:
         """
-        Append index data from `.IDX` file to the `Platform` dataset.
+        Append index data from IDX file to the `Platform` dataset.
         Index file data contains latitude, longitude, and vessel distance traveled.
 
         Parameters
         ----------
         platform_ds : xr.Dataset
-            `Platform` dataset without `.IDX` data.
+            `Platform` dataset without IDX data.
 
         Returns
         -------
         platform_ds : xr.Dataset
-            `Platform` dataset with `.IDX` data.
-            Contains new `time3` dimension to correspond with `.IDX` timestamps that
-            align with `vessel_distance`, `latitude_idx`, and `longitude_idx`.
+            `Platform` dataset with IDX data.
+            Contains new `time3` dimension to correspond with IDX timestamps that
+            align with `vessel_distance`, `idx_latitude`, and `idx_longitude`.
 
         Notes
         -----
@@ -401,13 +401,13 @@ class SetGroupsBase(abc.ABC):
                     dims=("time3"),
                     coords={"time3": timestamp_array},
                 ),
-                "latitude_idx": xr.DataArray(
-                    np.array(self.parser_obj.idx["latitude_idx"]),
+                "idx_latitude": xr.DataArray(
+                    np.array(self.parser_obj.idx["idx_latitude"]),
                     dims=("time3"),
                     coords={"time3": timestamp_array},
                 ),
-                "longitude_idx": xr.DataArray(
-                    np.array(self.parser_obj.idx["longitude_idx"]),
+                "idx_longitude": xr.DataArray(
+                    np.array(self.parser_obj.idx["idx_longitude"]),
                     dims=("time3"),
                     coords={"time3": timestamp_array},
                 ),
@@ -425,11 +425,11 @@ class SetGroupsBase(abc.ABC):
         platform_ds["vessel_distance"] = platform_ds["vessel_distance"].assign_attrs(
             {
                 "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
-                "comment": "Data derived from `.IDX` datagrams. Aligns time-wise with this "
+                "comment": "Data from the IDX datagrams. Aligns time-wise with this "
                 + "dataset's `time3` dimension.",
             }
         )
-        platform_ds["latitude_idx"] = platform_ds["latitude_idx"].assign_attrs(
+        platform_ds["idx_latitude"] = platform_ds["idx_latitude"].assign_attrs(
             {
                 "long_name": "Index File Derived Platform Latitude",
                 "comment": "Data from the IDX datagrams. Aligns time-wise with this "
@@ -437,7 +437,7 @@ class SetGroupsBase(abc.ABC):
                 + "This is different from latitude stored in the NMEA datagram.",
             }
         )
-        platform_ds["longitude_idx"] = platform_ds["longitude_idx"].assign_attrs(
+        platform_ds["idx_longitude"] = platform_ds["idx_longitude"].assign_attrs(
             {
                 "long_name": "Index File Derived Platform Longitude",
                 "comment": "Data from the IDX datagrams. Aligns time-wise with this "
