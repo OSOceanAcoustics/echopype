@@ -490,7 +490,7 @@ class SetGroupsBase(abc.ABC):
         )
         vendor_ds["ping_time"] = vendor_ds["ping_time"].assign_attrs(
             {
-                "long_name": "Timestamps from `.BOT` datagrams",
+                "long_name": "Timestamps from the BOT datagrams",
                 "standard_name": "time",
                 "axis": "T",
                 "comment": "Time coordinate corresponding to seafloor detection data.",
