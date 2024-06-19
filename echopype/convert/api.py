@@ -314,7 +314,7 @@ def _check_file(
         bot_fsmap = fsspec.get_mapper(bot_file, **storage_options)
         if not bot_fsmap.fs.exists(bot_fsmap.root):
             raise FileNotFoundError(
-                f"There is no file named {bot_file}. The `.BOT` file must be contained in "
+                f"There is no file named {bot_file}. The .BOT file must be contained in "
                 + " the same directory as that of the input 'raw' file."
             )
     else:
