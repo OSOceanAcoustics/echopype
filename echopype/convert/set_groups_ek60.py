@@ -313,6 +313,8 @@ class SetGroupsEK60(SetGroupsBase):
         # If `.IDX` file exists and `.IDX` data is parsed
         if (
             (self.parser_obj.idx_file != "")
+            and self.parser_obj.idx["ping_number"]
+            and self.parser_obj.idx["file_offset"]
             and self.parser_obj.idx["vessel_distance"]
             and self.parser_obj.idx["idx_latitude"]
             and self.parser_obj.idx["idx_latitude"]

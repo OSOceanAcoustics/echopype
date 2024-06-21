@@ -106,9 +106,13 @@ def test_convert_ek_with_idx_file(file, sonar_model):
 
     # Check data variable lengths
     assert (
+        len(platform["ping_number"]) == \
+        len(platform["file_offset"]) == \
         len(platform["vessel_distance"]) == \
         len(platform["idx_latitude"]) == \
         len(platform["idx_longitude"]) == \
+        expected_array_shape(file, "idx", "ping_number")[0] == \
+        expected_array_shape(file, "idx", "file_offset")[0] == \
         expected_array_shape(file, "idx", "distance")[0] == \
         expected_array_shape(file, "idx", "latitude")[0] == \
         expected_array_shape(file, "idx", "longitude")[0]

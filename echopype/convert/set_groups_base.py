@@ -396,6 +396,16 @@ class SetGroupsBase(abc.ABC):
         )
         platform_ds = platform_ds.assign(
             {
+                "ping_number": xr.DataArray(
+                    np.array(self.parser_obj.idx["ping_number"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                ),
+                "file_offset": xr.DataArray(
+                    np.array(self.parser_obj.idx["file_offset"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                ),
                 "vessel_distance": xr.DataArray(
                     np.array(self.parser_obj.idx["vessel_distance"]),
                     dims=("time3"),
@@ -422,6 +432,7 @@ class SetGroupsBase(abc.ABC):
                 + "distance and latitude/longitude data.",
             }
         )
+        # TODO: Add attributes for `ping_number` and `file_offset`
         platform_ds["vessel_distance"] = platform_ds["vessel_distance"].assign_attrs(
             {
                 "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
