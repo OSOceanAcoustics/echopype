@@ -1,4 +1,5 @@
 import xarray as xr
+import zarr
 
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination
@@ -126,7 +127,9 @@ def _compute_cal(
         cal_ds.to_zarr(zarr_store, compute=True)
 
         # Open zarr stores
-        cal_ds = xr.open_dataset(zarr_store, engine="zarr", chunks={})
+        cal_ds = xr.open_dataset(
+            zarr_store, engine="zarr", chunks={}, synchronizer=zarr.sync.ThreadSynchronizer()
+        )
 
     return cal_ds
 
