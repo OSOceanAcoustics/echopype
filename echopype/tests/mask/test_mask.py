@@ -1160,10 +1160,11 @@ def test_apply_mask(
             attrs={"long_name": "mask_no_channel"},
         ),
         xr.DataArray(
-            np.array([[[1, 1, 1], [np.nan, np.nan, np.nan]],
-                      [[np.nan, np.nan, np.nan], [1, 1, 1]]]),
-            coords={"ping_time": np.arange(2), "depth": np.arange(2),
-                    "channel": ["chan1", "chan2", "chan3"]}
+            np.array([[[ 1, np.nan], [np.nan,  1]],
+                      [[ 1, np.nan], [np.nan,  1]],
+                      [[ 1, np.nan], [np.nan,  1]]]),
+            coords={"channel": ["chan1", "chan2", "chan3"],
+                    "ping_time": np.arange(2), "depth": np.arange(2)},
         )),
 
         # source_no_ch_mask_with_ch_fail
@@ -1240,6 +1241,8 @@ def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
                                                 )
         
         # Check mask to match truth
+        print(masked_ds[var_name])
+        print(truth_da)
         assert masked_ds[var_name].equals(truth_da)
 
 
