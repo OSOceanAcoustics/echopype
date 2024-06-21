@@ -1335,7 +1335,7 @@ def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
     assert MVBS_freq_diff["Sv"].dims == ("channel", "ping_time", range_var)
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_validate_source_ds_and_check_mask_dim_alignment():
     """
     Tests that ValueErrors are raised for `_validate_source_ds_and_check_mask_dim_alignment`.
