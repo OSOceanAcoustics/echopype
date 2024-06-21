@@ -1363,9 +1363,6 @@ def test_validate_source_ds_and_check_mask_dim_alignment():
         storage_options={},
     )
 
-    # Apply frequency differencing mask to MVBS
-    MVBS_freq_diff = ep.mask.apply_mask(MVBS, diff)
-
     # Test that ValueError is raised when diff is missing `ping_time` but
     # MVBS has `ping_time`
     with pytest.raises(ValueError):
