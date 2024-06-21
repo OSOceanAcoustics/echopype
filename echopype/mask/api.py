@@ -22,7 +22,7 @@ str2ops = {
 }
 
 
-def _validate_source_ds(source_ds, mask, var_name, storage_options_ds):
+def _validate_source_ds_and_check_mask_dim_alignment(source_ds, mask, var_name, storage_options_ds):
     """
     Validate the input ``source_ds`` and the associated ``storage_options_mask``.
     """
@@ -33,22 +33,31 @@ def _validate_source_ds(source_ds, mask, var_name, storage_options_ds):
         # open up Dataset using source_ds path
         source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
 
-    # Grab non-channel dimensions of mask
+    # Grab dimensions of mask
     if isinstance(mask, list):
-        # Assumes that mask dimensions are uniform
-        mask_dims = mask[0].dims
+        mask_dims = set()
+        for mask_indiv in mask:
+            for dim in mask_indiv.dims:
+                mask_dims.add(dim)
     else:
-        mask_dims = mask.dims
-    mask_dims = set(mask_dims).discard("channel")
+        mask_dims = set(mask.dims)
 
-    # Grab non-channel dimensions of the target variable in source ds
-    target_variable_dims = set(source_ds[var_name].dims).discard("channel")
+    # Grab dimensions of the target variable in source ds
+    target_variable_dims = set(source_ds[var_name].dims)
+
+    # Raise ValueError if the mask has channel dim but the target variable doesn't
+    if "channel" in mask_dims and "channel" not in target_variable_dims:
+        raise ValueError(
+            "'channel' is in Mask dimensions but not in the Source " "Dataset Variable dimensions."
+        )
 
     # If non-channel dimensions don't align raise ValueError
+    mask_dims.discard("channel")
+    target_variable_dims.discard("channel")
     if mask_dims != target_variable_dims:
         raise ValueError(
-            f"Non-Channel Mask Dimensions ({mask_dims}) do not match "
-            "Non-Channel Source Dataset Variable Dimensions "
+            f"Non-Channel Mask dimensions ({mask_dims}) do not match "
+            "Non-Channel Source Dataset Variable dimensions "
             f"({target_variable_dims})."
         )
 
@@ -344,7 +353,9 @@ def apply_mask(
     mask = _validate_and_collect_mask_input(mask, storage_options_mask)
 
     # Validate the source_ds and make sure it aligns with the mask input
-    source_ds = _validate_source_ds(source_ds, mask, var_name, storage_options_ds)
+    source_ds = _validate_source_ds_and_check_mask_dim_alignment(
+        source_ds, mask, var_name, storage_options_ds
+    )
 
     # Check var_name and sanitize fill_value dimensions if an array
     fill_value = _check_var_name_fill_value(source_ds, var_name, fill_value)
@@ -407,6 +418,9 @@ def apply_mask(
     output_ds[var_name] = output_ds[var_name].assign_attrs(
         _variable_prov_attrs(output_ds[var_name], mask)
     )
+
+    # Transpose to original dimension order
+    output_ds[var_name] = output_ds[var_name].transpose(*source_da.dims)
 
     # Attribute handling
     process_type = "mask"

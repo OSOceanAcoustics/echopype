@@ -10,7 +10,7 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import _validate_and_collect_mask_input, _check_var_name_fill_value
+from echopype.mask.api import _validate_source_ds_and_check_mask_dim_alignment, _validate_and_collect_mask_input, _check_var_name_fill_value
 from echopype.mask.freq_diff import (
     _parse_freq_diff_eq,
     _check_freq_diff_source_Sv,
@@ -1243,8 +1243,103 @@ def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
         assert masked_ds[var_name].equals(truth_da)
 
 
-@pytest.mark.test
-def test_apply_mask_dims_using_MVBS():
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "range_var, use_multi_channel_mask", [
+        ("echo_range", True),
+        ("echo_range", False),
+        ("depth", True),
+        ("depth", False),
+    ]
+)
+def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
+    """
+    Check for correct values and dimensions when using `apply_mask` to apply
+    frequency differencing masks to MVBS.
+    """
+    # Parse Raw File
+    ed = ep.open_raw(
+        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        sonar_model="EK60"
+    )
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    if range_var == "depth":
+        # Add depth
+        ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Compute MVBS
+    MVBS = ep.commongrid.compute_MVBS(
+        ds_Sv=ds_Sv,
+        range_var=range_var,
+        range_bin="1m",
+        ping_time_bin="10s"
+    )
+
+    if use_multi_channel_mask:
+        # Create two frequency differencing masks that in total cover channels
+        # 18kHz - 200kHz:
+        # (120kHz - 38kHz) and (38kHz - 18kHz)
+        diff = [
+            ep.mask.frequency_differencing(
+                source_Sv=MVBS,
+                freqABEq="120000.0Hz - 38000.0Hz > 0dB",
+                storage_options={},
+            ).expand_dims(dim={"channel": MVBS["channel"][0:2].data}),
+            ep.mask.frequency_differencing(
+                source_Sv=MVBS,
+                freqABEq="38000.0Hz - 18000.0Hz > 0dB",
+                storage_options={},
+            ).expand_dims(dim={"channel": MVBS["channel"][2:6].data}),
+        ]
+
+        # Apply frequency differencing mask to MVBS
+        MVBS_freq_diff = ep.mask.apply_mask(MVBS, diff)
+
+        # Check masked MVBS values
+        assert np.allclose(
+            xr.where(diff[0], MVBS["Sv"].isel(channel=slice(0,2)), np.nan),
+            MVBS_freq_diff["Sv"].isel(channel=slice(0,2)),
+            equal_nan=True
+        )
+        assert np.allclose(
+            xr.where(diff[1], MVBS["Sv"].isel(channel=slice(2,6)), np.nan),
+            MVBS_freq_diff["Sv"].isel(channel=slice(2,6)),
+            equal_nan=True
+        )
+    else:
+        # Create frequency differencing (120kHz - 38kHz) mask
+        diff = ep.mask.frequency_differencing(
+            source_Sv=MVBS,
+            freqABEq="120000.0Hz - 38000.0Hz > 0dB",
+            storage_options={},
+        )
+
+        # Apply frequency differencing mask to MVBS
+        MVBS_freq_diff = ep.mask.apply_mask(MVBS, diff)
+
+        # Check masked MVBS values
+        assert np.allclose(
+            xr.where(
+                diff.expand_dims(dim={"channel": MVBS["channel"].data}),
+                MVBS["Sv"],
+                np.nan
+            ),
+            MVBS_freq_diff["Sv"],
+            equal_nan=True
+        )
+
+    # Check dimensions
+    assert MVBS_freq_diff["Sv"].dims == ("channel", "ping_time", range_var)
+
+
+@pytest.mark.integration
+def test_validate_source_ds_and_check_mask_dim_alignment():
+    """
+    Tests that ValueErrors are raised for `_validate_source_ds_and_check_mask_dim_alignment`.
+    """
     # Parse Raw File
     ed = ep.open_raw(
         raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
@@ -1271,5 +1366,21 @@ def test_apply_mask_dims_using_MVBS():
     # Apply frequency differencing mask to MVBS
     MVBS_freq_diff = ep.mask.apply_mask(MVBS, diff)
 
-    # TODO: Why is this transposed weirdly with channel at the end?
-    assert MVBS_freq_diff["Sv"].dims == ("ping_time", "echo_range", "channel")
+    # Test that ValueError is raised when diff is missing `ping_time` but
+    # MVBS has `ping_time`
+    with pytest.raises(ValueError):
+        _validate_source_ds_and_check_mask_dim_alignment(
+            MVBS, diff.isel(ping_time=0).drop_vars("ping_time"),
+            "Sv",
+            {}
+        )
+
+    # Test that ValueError is raised when MVBS has no `channel` dimension
+    # and diff has `channel` dimension
+    with pytest.raises(ValueError):
+        _validate_source_ds_and_check_mask_dim_alignment(
+            MVBS.isel(channel=0),
+            diff.expand_dims(dim={"channel": MVBS["channel"].data}),
+            "Sv",
+            {}
+        )
