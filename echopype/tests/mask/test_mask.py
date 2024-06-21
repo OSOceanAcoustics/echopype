@@ -1241,3 +1241,35 @@ def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
         
         # Check mask to match truth
         assert masked_ds[var_name].equals(truth_da)
+
+
+@pytest.mark.test
+def test_apply_mask_dims_using_MVBS():
+    # Parse Raw File
+    ed = ep.open_raw(
+        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        sonar_model="EK60"
+    )
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # Compute MVBS
+    MVBS = ep.commongrid.compute_MVBS(
+        ds_Sv=ds_Sv,
+        range_bin="1m",
+        ping_time_bin="10s"
+    )
+
+    # Create frequency differencing (120kHz - 38kHz) mask
+    diff = ep.mask.frequency_differencing(
+        source_Sv=MVBS,
+        freqABEq="120000.0Hz - 38000.0Hz > 0dB",
+        storage_options={},
+    )
+
+    # Apply frequency differencing mask to MVBS
+    MVBS_freq_diff = ep.mask.apply_mask(MVBS, diff)
+
+    # TODO: Why is this transposed weirdly with channel at the end?
+    assert MVBS_freq_diff["Sv"].dims == ("ping_time", "echo_range", "channel")
