@@ -455,8 +455,8 @@ class SetGroupsEK80(SetGroupsBase):
             and self.parser_obj.idx["ping_number"]
             and self.parser_obj.idx["file_offset"]
             and self.parser_obj.idx["vessel_distance"]
-            and self.parser_obj.idx["idx_latitude"]
-            and self.parser_obj.idx["idx_latitude"]
+            and self.parser_obj.idx["latitude"]
+            and self.parser_obj.idx["longitude"]
             and self.parser_obj.idx["timestamp"]
         ):
             ds = self._add_index_data_to_platform_ds(ds)

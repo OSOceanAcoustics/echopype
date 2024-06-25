@@ -566,8 +566,8 @@ class ParseEK(ParseBase):
                 self.idx["ping_number"].append(new_datagram["ping_number"])
                 self.idx["file_offset"].append(new_datagram["file_offset"])
                 self.idx["vessel_distance"].append(new_datagram["distance"])
-                self.idx["idx_latitude"].append(new_datagram["latitude"])
-                self.idx["idx_longitude"].append(new_datagram["longitude"])
+                self.idx["latitude"].append(new_datagram["latitude"])
+                self.idx["longitude"].append(new_datagram["longitude"])
                 self.idx["timestamp"].append(new_datagram["timestamp"])
 
             # DEP datagrams contain sounder detected bottom depths from .out files

@@ -394,32 +394,51 @@ class SetGroupsBase(abc.ABC):
                 "calendar": DEFAULT_TIME_ENCODING["calendar"],
             },
         )
+        # TODO: Add attributes for `ping_number` and `file_offset`
         platform_ds = platform_ds.assign(
             {
-                "ping_number": xr.DataArray(
+                "idx_ping_number": xr.DataArray(
                     np.array(self.parser_obj.idx["ping_number"]),
                     dims=("time3"),
                     coords={"time3": timestamp_array},
                 ),
-                "file_offset": xr.DataArray(
+                "idx_file_offset": xr.DataArray(
                     np.array(self.parser_obj.idx["file_offset"]),
                     dims=("time3"),
                     coords={"time3": timestamp_array},
                 ),
-                "vessel_distance": xr.DataArray(
+                "idx_vessel_distance": xr.DataArray(
                     np.array(self.parser_obj.idx["vessel_distance"]),
                     dims=("time3"),
                     coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Vessel distance in nautical miles (nmi) from start of "
+                        + "recording.",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension.",
+                    },
                 ),
                 "idx_latitude": xr.DataArray(
-                    np.array(self.parser_obj.idx["idx_latitude"]),
+                    np.array(self.parser_obj.idx["latitude"]),
                     dims=("time3"),
                     coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Index File Derived Platform Latitude",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension. "
+                        + "This is different from latitude stored in the NMEA datagram.",
+                    },
                 ),
                 "idx_longitude": xr.DataArray(
-                    np.array(self.parser_obj.idx["idx_longitude"]),
+                    np.array(self.parser_obj.idx["longitude"]),
                     dims=("time3"),
                     coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Index File Derived Platform Longitude",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension. "
+                        + "This is different from longitude from the NMEA datagram.",
+                    },
                 ),
             }
         )
@@ -430,30 +449,6 @@ class SetGroupsBase(abc.ABC):
                 "standard_name": "time",
                 "comment": "Time coordinate corresponding to index file vessel "
                 + "distance and latitude/longitude data.",
-            }
-        )
-        # TODO: Add attributes for `ping_number` and `file_offset`
-        platform_ds["vessel_distance"] = platform_ds["vessel_distance"].assign_attrs(
-            {
-                "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
-                "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-                + "dataset's `time3` dimension.",
-            }
-        )
-        platform_ds["idx_latitude"] = platform_ds["idx_latitude"].assign_attrs(
-            {
-                "long_name": "Index File Derived Platform Latitude",
-                "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-                + "dataset's `time3` dimension. "
-                + "This is different from latitude stored in the NMEA datagram.",
-            }
-        )
-        platform_ds["idx_longitude"] = platform_ds["idx_longitude"].assign_attrs(
-            {
-                "long_name": "Index File Derived Platform Longitude",
-                "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-                + "dataset's `time3` dimension. "
-                + "This is different from longitude from the NMEA datagram.",
             }
         )
 
@@ -496,6 +491,9 @@ class SetGroupsBase(abc.ABC):
                     np.array(self.parser_obj.bot["depth"]).T,
                     dims=("channel", "ping_time"),
                     coords={"ping_time": timestamp_array},
+                    attrs={
+                        "long_name": "Echosounder detected seafloor depth from the BOT datagrams."
+                    },
                 )
             }
         )
@@ -506,9 +504,6 @@ class SetGroupsBase(abc.ABC):
                 "axis": "T",
                 "comment": "Time coordinate corresponding to seafloor detection data.",
             }
-        )
-        vendor_ds["detected_seafloor_depth"] = vendor_ds["detected_seafloor_depth"].assign_attrs(
-            {"long_name": "Echosounder detected seafloor depth from the BOT datagrams."}
         )
         vendor_ds = set_time_encodings(vendor_ds)
 

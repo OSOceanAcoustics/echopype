@@ -106,9 +106,9 @@ def test_convert_ek_with_idx_file(file, sonar_model):
 
     # Check data variable lengths
     assert (
-        len(platform["ping_number"]) == \
-        len(platform["file_offset"]) == \
-        len(platform["vessel_distance"]) == \
+        len(platform["idx_ping_number"]) == \
+        len(platform["idx_file_offset"]) == \
+        len(platform["idx_vessel_distance"]) == \
         len(platform["idx_latitude"]) == \
         len(platform["idx_longitude"]) == \
         expected_array_shape(file, "idx", "ping_number")[0] == \
@@ -128,7 +128,7 @@ def test_convert_ek_with_idx_file(file, sonar_model):
             + "distance and latitude/longitude data.",
         }
     )
-    assert platform["vessel_distance"].attrs == (
+    assert platform["idx_vessel_distance"].attrs == (
         {
             "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
             "comment": "Data from the IDX datagrams. Aligns time-wise with this "
