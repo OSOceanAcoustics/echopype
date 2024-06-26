@@ -435,7 +435,7 @@ def test_convert_ek80_mru1(ek80_path):
     """Make sure we can convert EK80 file with MRU1 datagram."""
     ek80_mru1_path = str(ek80_path.joinpath('20231016_Cal_-D20231016-T220322.raw'))
     echodata = open_raw(raw_file=ek80_mru1_path, sonar_model='EK80')
-    parser = ParseEK80(str(ek80_mru1_path), None)
+    parser = ParseEK80(str(ek80_mru1_path))
     parser.parse_raw()
 
     np.all(echodata["Platform"]["pitch"].data == np.array(parser.mru["pitch"]))

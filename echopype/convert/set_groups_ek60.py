@@ -310,6 +310,18 @@ class SetGroupsEK60(SetGroupsBase):
         ds = xr.merge([ds, ds_plat], combine_attrs="override")
         ds = ds.assign_attrs(platform_dict)
 
+        # If `.IDX` file exists and `.IDX` data is parsed
+        if (
+            (self.parser_obj.idx_file != "")
+            and self.parser_obj.idx["ping_number"]
+            and self.parser_obj.idx["file_offset"]
+            and self.parser_obj.idx["vessel_distance"]
+            and self.parser_obj.idx["latitude"]
+            and self.parser_obj.idx["longitude"]
+            and self.parser_obj.idx["timestamp"]
+        ):
+            ds = self._add_index_data_to_platform_ds(ds)
+
         return set_time_encodings(ds)
 
     def set_beam(self) -> List[xr.Dataset]:
@@ -756,4 +768,13 @@ class SetGroupsEK60(SetGroupsBase):
                 ),
             },
         )
+
+        # If `.BOT` file exists and `.BOT` data is parsed
+        if (
+            (self.parser_obj.bot_file != "")
+            and self.parser_obj.bot["depth"]
+            and self.parser_obj.bot["timestamp"]
+        ):
+            ds = self._add_seafloor_detection_data_to_vendor_ds(ds)
+
         return ds

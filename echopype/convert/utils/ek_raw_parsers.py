@@ -600,6 +600,92 @@ class SimradMRUParser(_SimradDatagramParser):
         return struct.pack(datagram_fmt, *datagram_contents)
 
 
+class SimradIDXParser(_SimradDatagramParser):
+    """
+    ER60/EK80 IDX datagram contains the following keys:
+
+
+        type:         string == 'IDX0'
+        low_date:     long uint representing LSBytes of 64bit NT date
+        high_date:    long uint representing MSBytes of 64bit NT date
+        timestamp:    datetime.datetime object of NT date, assumed to be UTC
+        ping_number:  int
+        distance :    float
+        latitude:     float
+        longitude:    float
+        file_offset:  int
+
+    The following methods are defined:
+
+        from_string(str):   Parse a raw ER60/EK80 IDX datagram
+                            (with leading/trailing datagram size stripped)
+
+        to_string():    Returns the datagram as a raw string (including leading/trailing size
+                        fields) ready for writing to disk
+    """
+
+    def __init__(self):
+        headers = {
+            0: [
+                ("type", "4s"),
+                ("low_date", "L"),
+                ("high_date", "L"),
+                # ('dummy', 'L'),   # There are 4 extra bytes in this datagram
+                ("ping_number", "L"),
+                ("distance", "d"),
+                ("latitude", "d"),
+                ("longitude", "d"),
+                ("file_offset", "L"),
+            ]
+        }
+
+        _SimradDatagramParser.__init__(self, "IDX", headers)
+
+    def _unpack_contents(self, raw_string, bytes_read, version):
+        """
+        Unpacks the data in raw_string into dictionary containing IDX data
+
+        :param raw_string:
+        :type raw_string: str
+
+        :returns: None
+        """
+
+        header_values = struct.unpack(
+            self.header_fmt(version), raw_string[: self.header_size(version)]
+        )
+        data = {}
+
+        for indx, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[indx]
+            if isinstance(data[field], bytes):
+                #  first try to decode as utf-8 but fall back to latin_1 if that fails
+                try:
+                    data[field] = data[field].decode("utf-8")
+                except:
+                    data[field] = data[field].decode("latin_1")
+
+        data["timestamp"] = nt_to_unix((data["low_date"], data["high_date"]))
+        data["timestamp"] = data["timestamp"].replace(tzinfo=None)
+        data["bytes_read"] = bytes_read
+
+        return data
+
+    def _pack_contents(self, data, version):
+
+        datagram_fmt = self.header_fmt(version)
+        datagram_contents = []
+
+        if version == 0:
+
+            for field in self.header_fields(version):
+                if isinstance(data[field], str):
+                    data[field] = data[field].encode("latin_1")
+                datagram_contents.append(data[field])
+
+        return struct.pack(datagram_fmt, *datagram_contents)
+
+
 class SimradXMLParser(_SimradDatagramParser):
     """
     EK80 XML datagram contains the following keys:
