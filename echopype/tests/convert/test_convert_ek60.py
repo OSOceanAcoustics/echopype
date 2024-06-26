@@ -221,10 +221,10 @@ def test_convert_es60_no_unicode_error(es60_path):
         "from_echopy/JR230-D20091215-T121917.raw"
     ]
 )
-def test_convert_ek60_no_runtime_warning_and_dtype(file_path, ek60_path):
+def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
     """
     Check that no runtime warning is called when there are different number of channel mode
-    values per channel.
+    values per channel and check that `channel_mode` is of type `np.float16`.
     """
     # Catch and throw error for any `RuntimeWarning`
     with warnings.catch_warnings():
