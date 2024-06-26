@@ -234,5 +234,5 @@ def test_convert_ek60_no_runtime_warning_and_dtype(file_path, ek60_path):
         # Check dtype
         assert np.issubdtype(
             ed["Sonar/Beam_group1"]["channel_mode"].data.dtype,
-            np.float64
+            np.float16
         )

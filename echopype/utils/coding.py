@@ -41,7 +41,7 @@ EXPECTED_VAR_DTYPE = {
     "channel": np.str_,
     "cal_channel_id": np.str_,
     "beam": np.str_,
-    "channel_mode": np.float64,
+    "channel_mode": np.float16,
     "beam_stabilisation": np.byte,
     "non_quantitative_processing": np.int16,
 }  # channel name  # beam name
