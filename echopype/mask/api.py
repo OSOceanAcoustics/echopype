@@ -47,9 +47,7 @@ def _validate_source_ds_and_check_mask_dim_alignment(source_ds, mask, var_name, 
 
     # Raise ValueError if the mask has channel dim but the target variable doesn't
     if "channel" in mask_dims and "channel" not in target_variable_dims:
-        raise ValueError(
-            "'channel' is a dimension in mask but not a dimension in source."
-        )
+        raise ValueError("'channel' is a dimension in mask but not a dimension in source.")
 
     # If non-channel dimensions don't align raise ValueError
     mask_dims.discard("channel")
