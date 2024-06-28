@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import partial
 from typing import Dict, Literal, Optional, Union
 
 import numpy as np
@@ -258,6 +259,37 @@ def get_transmit_signal(
     return y_all, y_time_all
 
 
+def _convolve_per_channel(backscatter_subset: np.ndarray, replica_dict: dict, channels: dict):
+    """
+    Convolve `backscatter_subset` array along range sample dimension for each channel.
+    The `backscatter_subset` array is a numpy array and has implicit dimensions
+    `('range_sample', 'channel')`.
+
+    When the `backscatter_subset` array is all 0s, we return it since the resulting
+    convolution will be all 0s, irrespective of what the corresponding transmit
+    signal is.
+
+    When this function is used in `compress_pulse`, the array that is being sent
+    as backscatter subset corresponds to a specific `ping_time` and `beam`, from
+    the backscatter array.
+    """
+    # Return if all 0s
+    if np.all(backscatter_subset == 0.0 + 0.0j):
+        return backscatter_subset
+    else:
+        # Create zeros like array from `backscatter_subset`
+        convolved = np.zeros_like(backscatter_subset, dtype=np.complex64)
+        # Iterate over channels
+        for ch_seq, channel in enumerate(channels):
+            # Extract replica values
+            replica = replica_dict[str(channel.values)]
+            # Convolve backscatter and chirp replica
+            convolved[:, ch_seq] = signal.convolve(
+                backscatter_subset[:, ch_seq], replica, mode="full"
+            )[replica.size - 1 :]
+        return convolved
+
+
 def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     """Perform pulse compression on the backscatter data.
 
@@ -273,47 +305,45 @@ def compress_pulse(backscatter: xr.DataArray, chirp: Dict) -> xr.DataArray:
     xr.DataArray
         A data array containing pulse compression output.
     """
-    pc_all = []
+    # Calculate the transmit signal values from the chirp dictionary
+    replica_dict = {
+        # Compute conjugate and flip for each channel's transmit signal
+        str(channel.values): np.flipud(np.conj(chirp[str(channel.values)]))
+        for channel in backscatter["channel"]
+    }
 
-    for chan in backscatter["channel"]:
-        # Select channel `chan` and drop the specific beam dimension if all of the values are nan.
-        backscatter_chan = backscatter.sel(channel=chan).dropna(dim="beam", how="all")
+    # Zero out backscatter NaN values
+    nan_mask = np.isnan(backscatter)
+    backscatter_with_zeroed_nans = xr.where(nan_mask, 0.0 + 0.0j, backscatter)
 
-        # Create NaN mask
-        # If `backscatter_chan` is lazy loaded, then `nan_mask` too will be lazy loaded.
-        nan_mask = np.isnan(backscatter_chan)
+    # Create a partial function of the convolve function to pass in chirp and channels
+    _convolve_per_channel_partial = partial(
+        _convolve_per_channel,
+        replica_dict=replica_dict,
+        channels=backscatter_with_zeroed_nans["channel"],
+    )
 
-        # Zero out backscatter NaN values
-        # If `nan_mask` is lazy loaded, then resulting `backscatter_chan` will be lazy loaded.
-        backscatter_chan = xr.where(nan_mask, 0.0 + 0j, backscatter_chan)
+    # Apply convolve on backscatter and replica (along range sample and channel dimension):
+    # To enable parallelized computation with `dask='parallelized'`, we rechunk to ensure that
+    #  the data is chunked with only one chunk along the core dimensions.
+    if backscatter_with_zeroed_nans.chunks is not None:
+        backscatter_with_zeroed_nans = backscatter_with_zeroed_nans.chunk(
+            {"range_sample": -1, "channel": -1}
+        )
+    pc = xr.apply_ufunc(
+        _convolve_per_channel_partial,
+        backscatter_with_zeroed_nans,
+        input_core_dims=[["range_sample", "channel"]],
+        output_core_dims=[["range_sample", "channel"]],
+        dask="parallelized",
+        vectorize=True,
+        output_dtypes=[np.complex64],
+    )
 
-        # Extract transmit values
-        tx = chirp[str(chan.values)]
+    # Restore NaN values in the pulse compressed array
+    pc = xr.where(nan_mask, np.nan, pc)
 
-        # Compute complex conjugate of transmit values and reverse order of elements
-        replica = np.flipud(np.conj(tx))
-
-        # Apply convolve on backscatter (along range sample dimension) and replica
-        pc = xr.apply_ufunc(
-            lambda m: (signal.convolve(m, replica, mode="full")[replica.size - 1 :]),
-            backscatter_chan,
-            input_core_dims=[["range_sample"]],
-            output_core_dims=[["range_sample"]],
-            dask="parallelized",
-            vectorize=True,
-            output_dtypes=[np.complex64],
-        ).compute()
-
-        # Restore NaN values in the resulting array.
-        # Computing of `nan_mask` here is necessary in the case when `nan_mask` is lazy loaded
-        # or else the resulting `pc` will also be lazy loaded.
-        pc = xr.where(nan_mask.compute(), np.nan, pc)
-
-        pc_all.append(pc)
-
-    pc_all = xr.concat(pc_all, dim="channel")
-
-    return pc_all
+    return pc
 
 
 def get_norm_fac(chirp: Dict) -> xr.DataArray:

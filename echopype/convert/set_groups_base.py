@@ -362,3 +362,149 @@ class SetGroupsBase(abc.ABC):
 
         self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
         self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)
+
+    def _add_index_data_to_platform_ds(
+        self,
+        platform_ds: xr.Dataset,
+    ) -> xr.Dataset:
+        """
+        Append index data from IDX file to the `Platform` dataset.
+        Index file data contains latitude, longitude, and vessel distance traveled.
+
+        Parameters
+        ----------
+        platform_ds : xr.Dataset
+            `Platform` dataset without IDX data.
+
+        Returns
+        -------
+        platform_ds : xr.Dataset
+            `Platform` dataset with IDX data.
+            Contains new `time3` dimension to correspond with IDX timestamps that
+            align with `vessel_distance`, `idx_latitude`, and `idx_longitude`.
+
+        Notes
+        -----
+        This function is only called for EK60/EK80 conversion.
+        """
+        timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
+            np.array(self.parser_obj.idx["timestamp"]),
+            **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            },
+        )
+        # TODO: Add attributes for `ping_number` and `file_offset`
+        platform_ds = platform_ds.assign(
+            {
+                "idx_ping_number": xr.DataArray(
+                    np.array(self.parser_obj.idx["ping_number"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                ),
+                "idx_file_offset": xr.DataArray(
+                    np.array(self.parser_obj.idx["file_offset"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                ),
+                "idx_vessel_distance": xr.DataArray(
+                    np.array(self.parser_obj.idx["vessel_distance"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Vessel distance in nautical miles (nmi) from start of "
+                        + "recording.",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension.",
+                    },
+                ),
+                "idx_latitude": xr.DataArray(
+                    np.array(self.parser_obj.idx["latitude"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Index File Derived Platform Latitude",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension. "
+                        + "This is different from latitude stored in the NMEA datagram.",
+                    },
+                ),
+                "idx_longitude": xr.DataArray(
+                    np.array(self.parser_obj.idx["longitude"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Index File Derived Platform Longitude",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension. "
+                        + "This is different from longitude from the NMEA datagram.",
+                    },
+                ),
+            }
+        )
+        platform_ds["time3"] = platform_ds["time3"].assign_attrs(
+            {
+                "axis": "T",
+                "long_name": "Timestamps from the IDX datagrams",
+                "standard_name": "time",
+                "comment": "Time coordinate corresponding to index file vessel "
+                + "distance and latitude/longitude data.",
+            }
+        )
+
+        return platform_ds.transpose("channel", "time1", "time2", "time3")
+
+    def _add_seafloor_detection_data_to_vendor_ds(
+        self,
+        vendor_ds: xr.Dataset,
+    ) -> xr.Dataset:
+        """
+        Append seafloor detection data from `.BOT` file to the `Vendor_specific` dataset.
+
+        Parameters
+        ----------
+        vendor_ds : xr.Dataset
+            `Vendor_specific` dataset without `.BOT` data.
+
+        Returns
+        -------
+        vendor_ds : xr.Dataset
+            `Vendor_specific` dataset with `.BOT` data.
+            Contains new `ping_time` dimension to correspond with `detected_seafloor_depth`.
+            Note that `detected_seafloor_depth` values corresponding to the same `ping_time`
+            may have differing values along `channel`.
+
+        Notes
+        -----
+        This function is only called for EK60/EK80 conversion.
+        """
+        timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
+            np.array(self.parser_obj.bot["timestamp"]),
+            **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            },
+        )
+        vendor_ds = vendor_ds.assign(
+            {
+                "detected_seafloor_depth": xr.DataArray(
+                    np.array(self.parser_obj.bot["depth"]).T,
+                    dims=("channel", "ping_time"),
+                    coords={"ping_time": timestamp_array},
+                    attrs={
+                        "long_name": "Echosounder detected seafloor depth from the BOT datagrams."
+                    },
+                )
+            }
+        )
+        vendor_ds["ping_time"] = vendor_ds["ping_time"].assign_attrs(
+            {
+                "long_name": "Timestamps from the BOT datagrams",
+                "standard_name": "time",
+                "axis": "T",
+                "comment": "Time coordinate corresponding to seafloor detection data.",
+            }
+        )
+        vendor_ds = set_time_encodings(vendor_ds)
+
+        return vendor_ds
