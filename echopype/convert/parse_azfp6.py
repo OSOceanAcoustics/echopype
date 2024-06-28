@@ -192,19 +192,19 @@ class ParseAZFP6(ParseBase):
 
                 # print(camel_case_tag, val)
                 self.parameters[camel_case_tag].append(val)
-            
+
         # Handling the case where there is only one value for each parameter
         for key, val in self.parameters.items():
-            if len(val) == 1 and key != 'phase_number':
+            if len(val) == 1 and key != "phase_number":
                 self.parameters[key] = val[0]
-                
-        self.parameters["phase_number"] = [str(n+1) for n in range(self.parameters['num_phases'])]
-        #Gain was removed, for backward compatability adding in a Gain=1 field
-        for phase in range(self.parameters['num_phases']):
-            self.parameters[f'gain_phase{phase+1}'] = [1]*self.parameters['num_freq']
 
-        #from pprint import pprint as pp
-        #pp(self.parameters)
+        self.parameters["phase_number"] = [str(n + 1) for n in range(self.parameters["num_phases"])]
+        # Gain was removed, for backward compatibility adding in a Gain=1 field
+        for phase in range(self.parameters["num_phases"]):
+            self.parameters[f"gain_phase{phase+1}"] = [1] * self.parameters["num_freq"]
+
+        # from pprint import pprint as pp
+        # pp(self.parameters)
 
     def _compute_temperature(self, ping_num, is_valid):
         """
@@ -293,7 +293,7 @@ class ParseAZFP6(ParseBase):
 
         counts = self.unpacked_data["ancillary"][ping_num][3]
         v_in = 2.5 * (counts / 65535)
-        P = v_in * self.parameters["a1"] + self.parameters["a0"] #- 10.125
+        P = v_in * self.parameters["a1"] + self.parameters["a0"]  # - 10.125
         return P
 
     def parse_raw(self):
@@ -586,7 +586,7 @@ class ParseAZFP6(ParseBase):
                 "num_bins",
                 "range_samples_per_bin",
                 "data_type",
-                #"gain", #Gain was removed from sensor in ULS6
+                # "gain", #Gain was removed from sensor in ULS6
                 "pulse_len",
                 "board_num",
                 "frequency",
@@ -633,7 +633,9 @@ class ParseAZFP6(ParseBase):
             try:
                 np_time.append(
                     np.datetime64(
-                        dt(year, month, day, hour, min, sec, int(sec + nsec / 100.)).replace(tzinfo=None),
+                        dt(year, month, day, hour, min, sec, int(sec + nsec / 100.0)).replace(
+                            tzinfo=None
+                        ),
                         "[ns]",
                     )
                 )
@@ -651,10 +653,10 @@ class ParseAZFP6(ParseBase):
         for year, month, day, hour, min, sec, nsec in self.unpacked_data["date"]:
             ping_time.append(
                 np.datetime64(
-                    dt(year, month, day, hour, min, int(sec + nsec / 100.)).replace(tzinfo=None),
+                    dt(year, month, day, hour, min, int(sec + nsec / 100.0)).replace(tzinfo=None),
                     "[ns]",
-                ) #+ np.timedelta64(nsec, 'ns')
-                )
+                )  # + np.timedelta64(nsec, 'ns')
+            )
         self.ping_time = ping_time
 
     @staticmethod

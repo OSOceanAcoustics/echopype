@@ -8,12 +8,13 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_time_encodings
-#from .set_groups_base import SetGroupsBase
+
+# from .set_groups_base import SetGroupsBase
 from .set_groups_azfp import SetGroupsAZFP
+
 
 class SetGroupsAZFP6(SetGroupsAZFP):
     """Class for saving groups to netcdf or zarr from AZFP6 data files."""
-
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -42,7 +43,6 @@ class SetGroupsAZFP6(SetGroupsAZFP):
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
 
-
         # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
         # and single-value (np.nan) tilt_x and tilt_y
         tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
@@ -51,7 +51,6 @@ class SetGroupsAZFP6(SetGroupsAZFP):
             time2 = [self.parser_obj.ping_time[0]]
         else:
             time2 = self.parser_obj.ping_time
-        
 
         gps_latlon = np.array(unpacked_data["gps_lat_lon"])
         lat = (
@@ -66,8 +65,8 @@ class SetGroupsAZFP6(SetGroupsAZFP):
         )
         # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
         time1 = self.parser_obj._get_gps_time()
-        #If there is an issue with the GPS timestamps, use ping time?
-        #time1 = time2 if not np.any(time1) else time1
+        # If there is an issue with the GPS timestamps, use ping time?
+        # time1 = time2 if not np.any(time1) else time1
         time1 = [np.nan] if len(lat) != len(time1) else time1
 
         # Handle potential nan timestamp for time1 and time2
@@ -293,13 +292,13 @@ class SetGroupsAZFP6(SetGroupsAZFP):
                         "valid_range": (0.0, 4 * np.pi),
                     },
                 ),
-                #"gain_correction": (
+                # "gain_correction": (
                 #    ["channel"],
                 #    np.array(
                 #        unpacked_data["gain"][self.parser_obj.freq_ind_sorted], dtype=np.float64
                 #    ),
                 #    {"long_name": "Gain correction", "units": "dB"},
-                #),
+                # ),
                 "sample_interval": (
                     ["channel"],
                     sample_int,
@@ -423,9 +422,11 @@ class SetGroupsAZFP6(SetGroupsAZFP):
         tdn = []
         for num in parameters["phase_number"]:
             try:
-                tdn.append(parameters[f"pulse_len_phase{num}"][self.parser_obj.freq_ind_sorted] / 1e6)
+                tdn.append(
+                    parameters[f"pulse_len_phase{num}"][self.parser_obj.freq_ind_sorted] / 1e6
+                )
             except:
-                tdn.append([np.nan]*len(self.parser_obj.freq_ind_sorted))
+                tdn.append([np.nan] * len(self.parser_obj.freq_ind_sorted))
         tdn = np.array(tdn)
         for param in phase_freq_params:
             for num in parameters["phase_number"]:
@@ -434,9 +435,7 @@ class SetGroupsAZFP6(SetGroupsAZFP):
                         parameters[f"{param}_phase{num}"][self.parser_obj.freq_ind_sorted]
                     )
                 except:
-                    parameters[param].append(
-                       [np.nan]*len(self.parser_obj.freq_ind_sorted)
-                    )
+                    parameters[param].append([np.nan] * len(self.parser_obj.freq_ind_sorted))
 
         for param in phase_params:
             for num in parameters["phase_number"]:
@@ -444,7 +443,6 @@ class SetGroupsAZFP6(SetGroupsAZFP):
                 parameters[param].append(np.nan if isinstance(p, list) else p)
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
-        
         ds = xr.Dataset(
             {
                 "frequency_nominal": (
@@ -518,7 +516,7 @@ class SetGroupsAZFP6(SetGroupsAZFP):
                 ),
                 "ad_channels": (
                     ["ping_time", "ad_len"],
-                    anc[:, -2:], #compatability with <uls5
+                    anc[:, -2:],  # compatibility with <uls5
                     {"long_name": "AD channel 6 and 7"},
                 ),
                 "battery_main": (["ping_time"], unpacked_data["battery_main"]),
@@ -742,7 +740,7 @@ class SetGroupsAZFP6(SetGroupsAZFP):
                 "phase_number": (
                     ["phase_number"],
                     sorted([int(num) for num in parameters["phase_number"]]),
-                 ),
+                ),
             },
         )
         return set_time_encodings(ds)

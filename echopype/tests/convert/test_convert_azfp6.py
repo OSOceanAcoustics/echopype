@@ -123,12 +123,12 @@ def test_convert_azfp_01a_matlab_derived(azfp_path):
                 ds_matlab_output['Output']['Tx'][0][0].squeeze(),
                 echodata["Platform"].tilt_x
     )
-    #check dervied tilt y
+    #check derived tilt y
     assert np.array_equal(
                 ds_matlab_output['Output']['Ty'][0][0].squeeze(),
                 echodata["Platform"].tilt_y
     )
-    #check dervied temperature, accept minor rounding differences
+    #check derived temperature, accept minor rounding differences
     assert np.allclose(
                 ds_matlab_output['Output']['T'][0][0].squeeze(),
                 echodata["Environment"].temperature,
