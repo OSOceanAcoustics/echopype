@@ -723,7 +723,7 @@ def test_update_platform_latlon_notimestamp(test_path):
     assert ed["Platform"]["latitude"].dims[0] in platform_preexisting_dims
     assert ed['Platform']['longitude'].coords['time1'].values[0] == ed['Sonar/Beam_group1'].ping_time.data[0]
 
-@pytest.mark.test
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "chunk_dict",

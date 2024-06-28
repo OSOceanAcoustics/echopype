@@ -5,6 +5,7 @@ from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.env_params_old import EnvParams
 import xarray as xr
+import dask.array as da
 
 
 @pytest.fixture
@@ -265,3 +266,43 @@ def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
         ed, waveform_mode="BB", encode_mode="complex"
     )
     assert isinstance(ds_Sv, xr.Dataset)
+
+
+@pytest.mark.integration
+def test_check_echodata_backscatter_size(caplog):
+    """Tests for _check_echodata_backscatter_size warning."""
+    # Parse Echodata Object
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/ooi/CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw",
+        sonar_model="EK60",
+    )
+    
+    # Replace Beam Group 1 with a mock Dataset with a large (more than 2 GB) backscatter_r array
+    ed["Sonar/Beam_group1"] = xr.Dataset(
+        {
+            "backscatter_r": (
+                ("channel", "ping_time", "range_sample"),
+                da.random.random((3, 100000, 1000))
+            )
+        }
+    )
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Run Backscatter Size check
+    ep.calibrate.api._check_echodata_backscatter_size(ed)
+
+    # Check that warning message is called
+    warning_message = (
+        "The Echodata Backscatter Variables are large and can cause memory issues. "
+        "Consider modifying compute_Sv workflow: "
+        "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) and after `compute_Sv` "
+        "run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. This will ensure that the bulk of the "
+        "computation does not overwhelm your system's memory. The former ensures that "
+        "`compute_Sv` is lazily evaluated and the latter points computation towards a Zarr "
+        "Store in Disk instead of on RAM."
+    )
+    assert warning_message == caplog.records[0].message
+    
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
