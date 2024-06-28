@@ -296,11 +296,10 @@ def test_check_echodata_backscatter_size(caplog):
     warning_message = (
         "The Echodata Backscatter Variables are large and can cause memory issues. "
         "Consider modifying compute_Sv workflow: "
-        "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) and after `compute_Sv` "
-        "run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. This will ensure that the bulk of the "
-        "computation does not overwhelm your system's memory. The former ensures that "
-        "`compute_Sv` is lazily evaluated and the latter points computation towards a Zarr "
-        "Store in Disk instead of on RAM."
+        "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) "
+        "and after `compute_Sv` run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. "
+        "This will ensure that the computation is lazily evaluated, "
+        "with the results stored directly in a Zarr store on disk, rather then in memory."
     )
     assert warning_message == caplog.records[0].message
     
