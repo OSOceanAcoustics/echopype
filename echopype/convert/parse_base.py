@@ -43,14 +43,15 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, storage_options, sonar_model):
+    def __init__(self, file, bot_file, idx_file, storage_options, sonar_model):
         super().__init__(file, storage_options, sonar_model)
-
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
         self.timestamp_pattern = FILENAME_DATETIME_EK60
 
         # Class attributes
+        self.bot_file = bot_file
+        self.idx_file = idx_file
         self.config_datagram = None
         self.ping_data_dict = defaultdict(lambda: defaultdict(list))  # ping data
         self.ping_data_dict_tx = defaultdict(lambda: defaultdict(list))  # transmit ping data
@@ -64,6 +65,8 @@ class ParseEK(ParseBase):
         self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
         self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
+        self.bot = defaultdict(list)  # Dictionary to store bottom depth values
+        self.idx = defaultdict(list)  # Dictionary to store index file values
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
@@ -368,6 +371,18 @@ class ParseEK(ParseBase):
             # Read the rest of datagrams
             self._read_datagrams(fid)
 
+        # Read bottom datagrams if `self.bot_file`` is not empty
+        if self.bot_file != "":
+            bot_datagrams = RawSimradFile(self.bot_file, "r", storage_options=self.storage_options)
+            bot_datagrams.read(1)  # Read everything after the `.CON` config datagram
+            self._read_datagrams(bot_datagrams)
+
+        # Read index datagrams if `self.idx_file`` is not empty
+        if self.idx_file != "":
+            idx_datagrams = RawSimradFile(self.idx_file, "r", storage_options=self.storage_options)
+            idx_datagrams.read(1)  # Read everything after the `.CON` config datagram
+            self._read_datagrams(idx_datagrams)
+
         # Convert ping time to 1D numpy array, stored in dict indexed by channel,
         #  this will help merge data from all channels into a cube
         for ch, val in self.ping_time.items():
@@ -543,7 +558,17 @@ class ParseEK(ParseBase):
 
             # BOT datagrams contain sounder detected bottom depths from .bot files
             elif new_datagram["type"].startswith("BOT"):
-                logger.info("BOT datagram encountered.")
+                self.bot["depth"].append(new_datagram["depth"])
+                self.bot["timestamp"].append(new_datagram["timestamp"])
+
+            # IDX datagrams contain lat/lon and vessel distance from .idx files
+            elif new_datagram["type"].startswith("IDX"):
+                self.idx["ping_number"].append(new_datagram["ping_number"])
+                self.idx["file_offset"].append(new_datagram["file_offset"])
+                self.idx["vessel_distance"].append(new_datagram["distance"])
+                self.idx["latitude"].append(new_datagram["latitude"])
+                self.idx["longitude"].append(new_datagram["longitude"])
+                self.idx["timestamp"].append(new_datagram["timestamp"])
 
             # DEP datagrams contain sounder detected bottom depths from .out files
             # as well as reflectivity data
