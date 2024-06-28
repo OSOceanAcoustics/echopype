@@ -46,7 +46,7 @@ SV_OFFSET = {
     },
     417000.0: {
         **SV_OFFSET_HF,
-        68: 1.0,  # NOTE: This is a dummy value, needs to be determined
+        68: 0,  # NOTE: Not official offset, Matlab code defaults to 0 in this scenario
     },
     455000.0: {
         250: 1.3,
@@ -151,7 +151,6 @@ class ParseAZFP6(ParseBase):
 
         parser = ET.XMLParser(encoding="iso-8859-5")
         phase_number = None
-        self.parameters["phase_number"] = []
         for event, child in ET.iterparse(
             BytesIO(xml_string), events=("start", "end"), parser=parser
         ):
@@ -188,12 +187,19 @@ class ParseAZFP6(ParseBase):
 
                 # print(camel_case_tag, val)
                 self.parameters[camel_case_tag].append(val)
-
+            
         # Handling the case where there is only one value for each parameter
         for key, val in self.parameters.items():
-            # print(f"key={key} -> {val}")
-            if len(val) == 1:
+            if len(val) == 1 and key != 'phase_number':
                 self.parameters[key] = val[0]
+                
+        self.parameters["phase_number"] = [str(n+1) for n in range(self.parameters['num_phases'])]
+        #Gain was removed, for backward compatability adding in a Gain=1 field
+        for phase in range(self.parameters['num_phases']):
+            self.parameters[f'gain_phase{phase+1}'] = [1]*self.parameters['num_freq']
+
+        #from pprint import pprint as pp
+        #pp(self.parameters)
 
     def _compute_temperature(self, ping_num, is_valid):
         """
@@ -257,14 +263,14 @@ class ParseAZFP6(ParseBase):
         type
             either "main" or "tx"
         """
-        USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
+        USL6_BAT_CONSTANT = (2.5 / 65535.0) * (86.6 + 475.0) / 86.6
 
         if battery_type == "main":
             N = self.unpacked_data["ancillary"][ping_num][2]
         elif battery_type == "tx":
             N = self.unpacked_data["ancillary"][ping_num][-2]
 
-        return N * USL5_BAT_CONSTANT
+        return N * USL6_BAT_CONSTANT
 
     def _compute_pressure(self, ping_num, is_valid):
         """
@@ -282,7 +288,7 @@ class ParseAZFP6(ParseBase):
 
         counts = self.unpacked_data["ancillary"][ping_num][3]
         v_in = 2.5 * (counts / 65535)
-        P = v_in * self.parameters["a1"] + self.parameters["a0"] - 10.125
+        P = v_in * self.parameters["a1"] + self.parameters["a0"] #- 10.125
         return P
 
     def parse_raw(self):
@@ -575,7 +581,7 @@ class ParseAZFP6(ParseBase):
                 "num_bins",
                 "range_samples_per_bin",
                 "data_type",
-                # "gain",
+                #"gain", #Gain was removed from sensor in ULS6
                 "pulse_len",
                 "board_num",
                 "frequency",
@@ -622,7 +628,7 @@ class ParseAZFP6(ParseBase):
             try:
                 np_time.append(
                     np.datetime64(
-                        dt(year, month, day, hour, min, int(sec + nsec / 100)).replace(tzinfo=None),
+                        dt(year, month, day, hour, min, sec, int(sec + nsec / 100.)).replace(tzinfo=None),
                         "[ns]",
                     )
                 )
@@ -640,10 +646,10 @@ class ParseAZFP6(ParseBase):
         for year, month, day, hour, min, sec, nsec in self.unpacked_data["date"]:
             ping_time.append(
                 np.datetime64(
-                    dt(year, month, day, hour, min, int(sec + nsec / 100)).replace(tzinfo=None),
+                    dt(year, month, day, hour, min, int(sec + nsec / 100.)).replace(tzinfo=None),
                     "[ns]",
+                ) #+ np.timedelta64(nsec, 'ns')
                 )
-            )
         self.ping_time = ping_time
 
     @staticmethod
