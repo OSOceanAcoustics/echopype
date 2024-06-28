@@ -54,9 +54,9 @@ def _validate_source_ds_and_check_mask_dim_alignment(source_ds, mask, var_name, 
     target_variable_dims.discard("channel")
     if mask_dims != target_variable_dims:
         raise ValueError(
-            f"Non-Channel Mask dimensions ({mask_dims}) do not match "
-            "Non-Channel Source Dataset Variable dimensions "
-            f"({target_variable_dims})."
+            f"The dimensions of mask: ({mask_dims}) do not match "
+            f"the dimensions of source ({target_variable_dims}) "
+            "when not considering 'channel'."
         )
 
     return source_ds
