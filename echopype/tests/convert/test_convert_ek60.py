@@ -6,7 +6,7 @@ from scipy.io import loadmat
 import pytest
 
 from echopype import open_raw
-import echopype as ep
+
 
 @pytest.fixture
 def ek60_path(test_path):
@@ -229,7 +229,7 @@ def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
     # Catch and throw error for any `RuntimeWarning`
     with warnings.catch_warnings():
         warnings.simplefilter(action="error", category=RuntimeWarning)
-        ed = ep.open_raw(ek60_path / file_path, sonar_model="EK60")
+        ed = open_raw(ek60_path / file_path, sonar_model="EK60")
 
         # Check dtype
         assert np.issubdtype(
