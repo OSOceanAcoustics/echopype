@@ -120,7 +120,12 @@ class ParseAZFP6(ParseBase):
     REQUIRED_BITS_MASK = 0x8000
 
     def __init__(
-        self, file, file_meta, storage_options={}, dgram_zarr_vars={}, sonar_model="AZFP6"
+        self,
+        file,
+        file_meta,
+        storage_options={},
+        sonar_model="AZFP6",
+        **kwargs,
     ):
         super().__init__(file, storage_options, sonar_model)
         # Parent class attributes

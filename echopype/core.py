@@ -53,6 +53,8 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
     "AZFP6": {
         "validate_ext": validate_ext(".azfp"),
         "xml": False,
+        "accepts_bot": False,
+        "accepts_idx": False,
         "parser": ParseAZFP6,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP6,
