@@ -1,10 +1,7 @@
 import xarray as xr
-import zarr
 
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination
-from ..utils.coding import chunk_echodata
-from ..utils.io import create_temp_zarr_store
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
@@ -30,8 +27,6 @@ def _compute_cal(
     ecs_file=None,
     waveform_mode=None,
     encode_mode=None,
-    use_swap=False,
-    chunk_dict=None,
 ):
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
@@ -49,10 +44,6 @@ def _compute_cal(
                 "This sonar model only record data as power or power/angle samples "
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
-
-    # If chunks is not `None`, then chunk Echodata groups
-    if chunk_dict is not None:
-        echodata = chunk_echodata(echodata, chunk_dict)
 
     # Set up calibration object
     cal_obj = CALIBRATOR[echodata.sonar_model](
@@ -119,18 +110,6 @@ def _compute_cal(
     if "water_level" in echodata["Platform"].data_vars.keys():
         cal_ds["water_level"] = echodata["Platform"].water_level
 
-    if use_swap:
-        # Setup temp store
-        zarr_store = create_temp_zarr_store()
-
-        # Save to zarr stores and point computation towards the `zarr_root`
-        cal_ds.to_zarr(zarr_store, compute=True)
-
-        # Open zarr stores
-        cal_ds = xr.open_dataset(
-            zarr_store, engine="zarr", chunks={}, synchronizer=zarr.sync.ThreadSynchronizer()
-        )
-
     return cal_ds
 
 
@@ -193,16 +172,6 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         - `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
-
-    use_swap : bool, {"False", "True"}, optional
-        Flag to use disk swap in case of a large memory footprint.
-        When set to ``True`` this function will create a temporary zarr store
-        at the operating system's temporary directory.
-
-    chunk_dict : dict, optional
-        Chunking schema for Echodata groups. If a dictionary is passed in,
-        this will result in a completely lazy-loaded Xarray Sv Dataset as
-        the output.
 
     Returns
     -------
