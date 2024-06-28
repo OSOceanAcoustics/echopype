@@ -21,9 +21,9 @@ logger = _init_logger(__name__)
 
 def _check_echodata_backscatter_size(echodata: EchoData):
     """
-    Extracts total gigabytes in `backscatter_r` and `backscatter_i`. If above 2 GiB,
-    then raises warning for how to proceed with the `compute_Sv` workflow without
-    destroying overwhelming the system's memory.
+    Extracts total size of `backscatter_r` and `backscatter_i` in a beam group.
+    If the size is above 2 GiB, raises a warning showing a recommended workflow
+    that will not overwhelm the system memory.
 
     Parameters
     ----------
