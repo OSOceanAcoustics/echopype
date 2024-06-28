@@ -10,7 +10,7 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import _validate_source_ds_and_check_mask_dim_alignment, _validate_and_collect_mask_input, _check_var_name_fill_value
+from echopype.mask.api import _check_mask_dim_alignment, _validate_and_collect_mask_input, _check_var_name_fill_value
 from echopype.mask.freq_diff import (
     _parse_freq_diff_eq,
     _check_freq_diff_source_Sv,
@@ -1282,60 +1282,56 @@ def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
     )
 
     if use_multi_channel_mask:
-        # Create two frequency differencing masks that in total cover channels
-        # 18kHz - 200kHz:
-        # (120kHz - 38kHz) and (38kHz - 18kHz)
-        diff = [
-            ep.mask.frequency_differencing(
-                source_Sv=MVBS,
-                freqABEq="120000.0Hz - 38000.0Hz > 0dB",
-                storage_options={},
+        # Create two random bit masks
+        mask = [
+            xr.DataArray(
+                np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS[range_var]))),
+                dims=("ping_time", range_var),
             ).expand_dims(dim={"channel": MVBS["channel"][0:2].data}),
-            ep.mask.frequency_differencing(
-                source_Sv=MVBS,
-                freqABEq="38000.0Hz - 18000.0Hz > 0dB",
-                storage_options={},
+            xr.DataArray(
+                np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS[range_var]))),
+                dims=("ping_time", range_var),
             ).expand_dims(dim={"channel": MVBS["channel"][2:6].data}),
         ]
 
-        # Apply frequency differencing mask to MVBS
-        MVBS_freq_diff = ep.mask.apply_mask(MVBS, diff)
+        # Apply mask on MVBS
+        MVBS_masked = ep.mask.apply_mask(MVBS, mask)
 
         # Check masked MVBS values
         assert np.allclose(
-            xr.where(diff[0], MVBS["Sv"].isel(channel=slice(0,2)), np.nan),
-            MVBS_freq_diff["Sv"].isel(channel=slice(0,2)),
+            xr.where(mask[0], MVBS["Sv"].isel(channel=slice(0,2)), np.nan),
+            MVBS_masked["Sv"].isel(channel=slice(0,2)),
             equal_nan=True
         )
         assert np.allclose(
-            xr.where(diff[1], MVBS["Sv"].isel(channel=slice(2,6)), np.nan),
-            MVBS_freq_diff["Sv"].isel(channel=slice(2,6)),
+            xr.where(mask[1], MVBS["Sv"].isel(channel=slice(2,6)), np.nan),
+            MVBS_masked["Sv"].isel(channel=slice(2,6)),
             equal_nan=True
         )
     else:
-        # Create frequency differencing (120kHz - 38kHz) mask
-        diff = ep.mask.frequency_differencing(
-            source_Sv=MVBS,
-            freqABEq="120000.0Hz - 38000.0Hz > 0dB",
-            storage_options={},
+        # Create random bit mask
+        mask = xr.DataArray(
+            np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS[range_var]))),
+            dims=("ping_time", range_var),
         )
 
-        # Apply frequency differencing mask to MVBS
-        MVBS_freq_diff = ep.mask.apply_mask(MVBS, diff)
+        # Apply mask on MVBS
+        MVBS_masked = ep.mask.apply_mask(MVBS, mask)
 
         # Check masked MVBS values
         assert np.allclose(
             xr.where(
-                diff.expand_dims(dim={"channel": MVBS["channel"].data}),
+                mask.expand_dims(dim={"channel": MVBS["channel"].data}),
                 MVBS["Sv"],
                 np.nan
             ),
-            MVBS_freq_diff["Sv"],
+            MVBS_masked["Sv"],
             equal_nan=True
         )
 
+
     # Check dimensions
-    assert MVBS_freq_diff["Sv"].dims == ("channel", "ping_time", range_var)
+    assert MVBS_masked["Sv"].dims == ("channel", "ping_time", range_var)
 
 
 @pytest.mark.unit
@@ -1359,28 +1355,26 @@ def test_validate_source_ds_and_check_mask_dim_alignment():
         ping_time_bin="10s"
     )
 
-    # Create frequency differencing (120kHz - 38kHz) mask
-    diff = ep.mask.frequency_differencing(
-        source_Sv=MVBS,
-        freqABEq="120000.0Hz - 38000.0Hz > 0dB",
-        storage_options={},
+    # Create random bit mask
+    mask = xr.DataArray(
+        np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS["echo_range"]))),
+        dims=("ping_time", "echo_range"),
     )
 
     # Test that ValueError is raised when diff is missing `ping_time` but
     # MVBS has `ping_time`
     with pytest.raises(ValueError):
-        _validate_source_ds_and_check_mask_dim_alignment(
-            MVBS, diff.isel(ping_time=0).drop_vars("ping_time"),
-            "Sv",
-            {}
+        _check_mask_dim_alignment(
+            MVBS,
+            mask.isel(ping_time=0).drop_vars("ping_time"),
+            "Sv"
         )
 
     # Test that ValueError is raised when MVBS has no `channel` dimension
     # and diff has `channel` dimension
     with pytest.raises(ValueError):
-        _validate_source_ds_and_check_mask_dim_alignment(
+        _check_mask_dim_alignment(
             MVBS.isel(channel=0),
-            diff.expand_dims(dim={"channel": MVBS["channel"].data}),
-            "Sv",
-            {}
+            mask.expand_dims(dim={"channel": MVBS["channel"].data}),
+            "Sv"
         )

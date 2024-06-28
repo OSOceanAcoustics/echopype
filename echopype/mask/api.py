@@ -22,17 +22,10 @@ str2ops = {
 }
 
 
-def _validate_source_ds_and_check_mask_dim_alignment(source_ds, mask, var_name, storage_options_ds):
+def _check_mask_dim_alignment(source_ds, mask, var_name):
     """
-    Validate the input ``source_ds`` and the associated ``storage_options_mask``.
+    Check that mask aligns with source_ds.
     """
-    # Validate the source_ds type or path (if it is provided)
-    source_ds, file_type = validate_source(source_ds, storage_options_ds)
-
-    if isinstance(source_ds, str):
-        # open up Dataset using source_ds path
-        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
-
     # Grab dimensions of mask
     if isinstance(mask, list):
         mask_dims = set()
@@ -347,13 +340,18 @@ def apply_mask(
     xr.Dataset
         A Dataset with the same format of ``source_ds`` with the mask(s) applied to ``var_name``
     """
+    # Validate the source_ds type or path (if it is provided)
+    source_ds, file_type = validate_source(source_ds, storage_options_ds)
+
+    if isinstance(source_ds, str):
+        # open up Dataset using source_ds path
+        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
+
     # Validate and form the mask input to be used downstream
     mask = _validate_and_collect_mask_input(mask, storage_options_mask)
 
     # Validate the source_ds and make sure it aligns with the mask input
-    source_ds = _validate_source_ds_and_check_mask_dim_alignment(
-        source_ds, mask, var_name, storage_options_ds
-    )
+    source_ds = _check_mask_dim_alignment(source_ds, mask, var_name)
 
     # Check var_name and sanitize fill_value dimensions if an array
     fill_value = _check_var_name_fill_value(source_ds, var_name, fill_value)
@@ -417,7 +415,7 @@ def apply_mask(
         _variable_prov_attrs(output_ds[var_name], mask)
     )
 
-    # Transpose to original dimension order
+    # Use the original dimension order
     output_ds[var_name] = output_ds[var_name].transpose(*source_da.dims)
 
     # Attribute handling
