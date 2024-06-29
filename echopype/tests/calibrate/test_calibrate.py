@@ -269,28 +269,78 @@ def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
 
 
 @pytest.mark.integration
-def test_check_echodata_backscatter_size(caplog):
+@pytest.mark.parametrize(
+    "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
+    [
+        ("azfp/17031001.01A", "AZFP", "azfp/17030815.XML", None, None),
+        ("ek60/DY1801_EK60-D20180211-T164025.raw", "EK60", None, None, None),
+        ("ek80/D20170912-T234910.raw", "EK80", None, "BB", "complex"),
+        ("ek80/D20230804-T083032.raw", "EK80", None, "CW", "complex"),
+        ("ek80/Summer2018--D20180905-T033113.raw", "EK80", None, "CW", "power")
+    ]
+)
+def test_check_echodata_backscatter_size(
+    raw_path,
+    sonar_model,
+    xml_path,
+    waveform_mode,
+    encode_mode,
+    caplog
+):
     """Tests for _check_echodata_backscatter_size warning."""
     # Parse Echodata Object
     ed = ep.open_raw(
-        "echopype/test_data/ek60/ooi/CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw",
-        sonar_model="EK60",
+        raw_file=f"echopype/test_data/{raw_path}",
+        sonar_model=sonar_model,
+        xml_path=f"echopype/test_data/{xml_path}",
     )
-    
-    # Replace Beam Group 1 with a mock Dataset with a large (more than 2 GB) backscatter_r array
-    ed["Sonar/Beam_group1"] = xr.Dataset(
-        {
-            "backscatter_r": (
-                ("channel", "ping_time", "range_sample"),
-                da.random.random((3, 100000, 1000))
-            )
+
+    # Compute environment parameters if AZFP
+    env_params = None
+    if sonar_model == "AZFP":
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
+        env_params = {
+            'temperature': avg_temperature,
+            'salinity': 27.9,
+            'pressure': 59,
         }
+
+    # Create calibration object
+    cal_obj = ep.calibrate.api.CALIBRATOR[ed.sonar_model](
+        ed,
+        env_params=env_params,
+        cal_params=None,
+        ecs_file=None,
+        waveform_mode=waveform_mode,
+        encode_mode=encode_mode,
     )
+
+    # Replace Beam Group 1 with a mock Dataset with a large (more than 2 GB)
+    # backscatter_r array
+    if sonar_model == "EK80" and waveform_mode == "complex":
+        cal_obj.echodata[cal_obj.ed_beam_group] = xr.Dataset(
+            {
+                "backscatter_r": (
+                    ("channel", "beam", "ping_time", "range_sample"),
+                    da.random.random((3, 4, 100000, 1000))
+                )
+            }
+        )
+    else:
+        cal_obj.echodata["Sonar/Beam_group1"] = xr.Dataset(
+            {
+                "backscatter_r": (
+                    ("channel", "ping_time", "range_sample"),
+                    da.random.random((3, 100000, 1000))
+                )
+            }
+        )
+
     # Turn on logger verbosity
     ep.utils.log.verbose(override=False)
 
     # Run Backscatter Size check
-    ep.calibrate.api._check_echodata_backscatter_size(ed)
+    cal_obj._check_echodata_backscatter_size()
 
     # Check that warning message is called
     warning_message = (

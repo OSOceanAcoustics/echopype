@@ -91,3 +91,49 @@ class CalibrateBase(abc.ABC):
             ds_out[key] = val
 
         return ds_out
+
+    def _check_echodata_backscatter_size(self):
+        """
+        Extracts total size of `backscatter_r` and `backscatter_i` in a beam group.
+        If the size is above 2 GiB, raises a warning showing a recommended workflow
+        that will not overwhelm the system memory.
+
+        Parameters
+        ----------
+        echodata : EchoData
+            An `EchoData` object created by using `open_raw` or `open_converted`
+        """
+        # TODO: Refactor this to make it more specific to the sonar model?
+        # May not need to do this group map and group variable iteration...
+
+        # Iterate through Echodata Beam Groups to extract total number of bytes for
+        # backscatter variables
+        total_nbytes = 0
+        ed_group_map = self.echodata.group_map
+        for key in ed_group_map.keys():
+            echodata_group = ed_group_map[key]["ep_group"]
+            if (
+                echodata_group is not None
+                and echodata_group.startswith("Sonar/Beam_group")
+                and self.echodata[echodata_group] is not None
+            ):
+                variables = list(self.echodata[echodata_group].variables.keys())
+                backscatter_variables = [
+                    variable for variable in variables if variable.startswith("backscatter_")
+                ]
+                for backscatter_variable in backscatter_variables:
+                    total_nbytes += self.echodata[echodata_group][backscatter_variable].nbytes
+
+        # Compute GigaBytes from Bytes
+        total_gb = total_nbytes / (1024**3)
+
+        # Raise Warning if above 2.0
+        if total_gb > 2.0:
+            logger.warning(
+                "The Echodata Backscatter Variables are large and can cause memory issues. "
+                "Consider modifying compute_Sv workflow: "
+                "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) "
+                "and after `compute_Sv` run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. "
+                "This will ensure that the computation is lazily evaluated, "
+                "with the results stored directly in a Zarr store on disk, rather then in memory."
+            )
