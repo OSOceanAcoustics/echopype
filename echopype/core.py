@@ -7,6 +7,7 @@ from typing_extensions import Literal
 
 from .convert.parse_ad2cp import ParseAd2cp
 from .convert.parse_azfp import ParseAZFP
+from .convert.parse_bi500 import ParseBI500
 from .convert.parse_ek60 import ParseEK60
 from .convert.parse_ek80 import ParseEK80
 from .convert.set_groups_ad2cp import SetGroupsAd2cp
@@ -16,7 +17,7 @@ from .convert.set_groups_ek80 import SetGroupsEK80
 
 if TYPE_CHECKING:
     # Please keep SonarModelsHint updated with the keys of the SONAR_MODELS dict
-    SonarModelsHint = Literal["AZFP", "EK60", "ES70", "EK80", "ES80", "EA640", "AD2CP"]
+    SonarModelsHint = Literal["AZFP", "EK60", "ES70", "EK80", "ES80", "EA640", "AD2CP", "BI500"]
     PathHint = Union[str, os.PathLike, FSMap]
     FileFormatHint = Literal[".nc", ".zarr"]
     EngineHint = Literal["netcdf4", "zarr"]
@@ -96,5 +97,12 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseAd2cp,
         "parsed2zarr": None,
         "set_groups": SetGroupsAd2cp,
+    },
+    "BI500": {
+        "validate_ext": validate_ext(""),
+        "xml": False,
+        "parser": ParseBI500,
+        "parsed2zarr": None,
+        # "set_groups": SetGroupsBI500,
     },
 }
