@@ -722,3 +722,46 @@ def test_update_platform_latlon_notimestamp(test_path):
     assert ed["Platform"]["longitude"].dims[0] in platform_preexisting_dims
     assert ed["Platform"]["latitude"].dims[0] in platform_preexisting_dims
     assert ed['Platform']['longitude'].coords['time1'].values[0] == ed['Sonar/Beam_group1'].ping_time.data[0]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "chunk_dict",
+    [
+        ({"ping_time": 10, "range_sample": 100}),
+        ({"time1": 10, "time2": 10}),
+    ],
+)
+def test_echodata_chunk(chunk_dict):
+    # Parse Raw File
+    ed = echopype.open_raw(
+        "echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        sonar_model="EK60"
+    )
+
+    # Chunk Echodata object
+    ed = ed.chunk(chunk_dict)
+
+    # Iterate through groups
+    ed_group_map = ed.group_map
+    for key in ed_group_map.keys():
+        echodata_group = ed_group_map[key]["ep_group"]
+        if echodata_group is not None:
+            group = ed[echodata_group]
+            if group is not None:
+                # Grab group chunk dict
+                group_chunk_dict = group.chunks
+
+                # Get shared dimensions
+                group_dims = set(list(group_chunk_dict.keys()))
+                chunk_dims = set(chunk_dict.keys())
+                shared_dims = group_dims & chunk_dims
+
+                # Check that all but the last chunk are equal to the desired chunk size
+                # Check that the last chunk is equal or less than the desired chunk size
+                for key in shared_dims:
+                    desired_chunk_size = chunk_dict[key]
+                    chunk_sizes = group_chunk_dict[key]
+                    for chunk_size in chunk_sizes[:-1]:
+                        assert chunk_size == desired_chunk_size
+                    assert chunk_sizes[-1] <= desired_chunk_size

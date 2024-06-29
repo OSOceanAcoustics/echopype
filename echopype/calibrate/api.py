@@ -55,6 +55,9 @@ def _compute_cal(
         encode_mode=encode_mode,
     )
 
+    # Check Echodata Backscatter Size
+    cal_obj._check_echodata_backscatter_size()
+
     # Perform calibration
     if cal_type == "Sv":
         cal_ds = cal_obj.compute_Sv()
@@ -76,10 +79,6 @@ def _compute_cal(
                 "TS": "Target strength (TS re 1 m^2)",
             }[cal_type],
             "units": "dB",
-            "actual_range": [
-                round(float(ds[cal_type].min().values), 2),
-                round(float(ds[cal_type].max().values), 2),
-            ],
         }
         if echodata.sonar_model == "EK80":
             ds[cal_type] = ds[cal_type].assign_attrs(

@@ -637,3 +637,38 @@ class EchoData:
         else:
             path = Path(self.converted_raw_path)
             return str(path.parent / (path.stem + ".zarr"))
+
+    def chunk(self, chunk_dict: dict):
+        """
+        Chunks each group in an Echodata object based on the provided chunking dictionary.
+        Dimensions not specified in the chunking dictionary will be chunked into a single
+        piece along that dimension.
+
+        Parameters
+        ----------
+        chunk_dict : dict
+            A dictionary specifying the chunk sizes for each dimension. Keys correspond
+            to dimension names, and values specify the desired chunk size for that
+            dimension.
+        """
+        # Iterate through groups
+        ed_group_map = self.group_map
+        for key in ed_group_map.keys():
+            echodata_group = ed_group_map[key]["ep_group"]
+            if echodata_group is not None:
+                group = self[echodata_group]
+                if group is not None:
+                    # Get shared dimensions
+                    group_dims = set(group.sizes.keys())
+                    chunk_dims = set(chunk_dict.keys())
+                    shared_dims = group_dims & chunk_dims
+
+                    # Create a subset dictionary containing chunks with shared dimensions
+                    subset_chunks = {
+                        key: value for key, value in chunk_dict.items() if key in shared_dims
+                    }
+
+                    # Chunk group
+                    self[echodata_group] = group.chunk(subset_chunks)
+
+        return self
