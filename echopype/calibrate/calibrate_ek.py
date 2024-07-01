@@ -320,7 +320,7 @@ class CalibrateEK80(CalibrateEK):
             # assume transmit_type identical for all pings in a channel
             first_ping_transmit_type = (
                 beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
-            )  # noqa
+            ).compute()  # noqa
             return {
                 # For BB: Keep only non-CW channels (LFM or FMD) based on transmit_type
                 "BB": first_ping_transmit_type.where(
@@ -542,9 +542,9 @@ class CalibrateEK80(CalibrateEK):
                 ping_time=beam["ping_time"],
             )
             # Use pulse_duration in place of tau_effective for GPT channels
-            # below assumesthat all transmit parameters are identical
+            # TODO: below assumes that all transmit parameters are identical
             # and needs to be changed when allowing transmit parameters to vary by ping
-            ch_GPT = vend["transceiver_type"] == "GPT"
+            ch_GPT = (vend["transceiver_type"] == "GPT").compute()
             tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
 
             # equivalent_beam_angle

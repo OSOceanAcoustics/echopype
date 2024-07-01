@@ -22,20 +22,35 @@ str2ops = {
 }
 
 
-def _validate_source_ds(source_ds, storage_options_ds):
+def _check_mask_dim_alignment(source_ds, mask, var_name):
     """
-    Validate the input ``source_ds`` and the associated ``storage_options_mask``.
+    Check that mask aligns with source_ds.
     """
-    # Validate the source_ds type or path (if it is provided)
-    source_ds, file_type = validate_source(source_ds, storage_options_ds)
+    # Grab dimensions of mask
+    if isinstance(mask, list):
+        mask_dims = set()
+        for mask_indiv in mask:
+            for dim in mask_indiv.dims:
+                mask_dims.add(dim)
+    else:
+        mask_dims = set(mask.dims)
 
-    if isinstance(source_ds, str):
-        # open up Dataset using source_ds path
-        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
+    # Grab dimensions of the target variable in source ds
+    target_variable_dims = set(source_ds[var_name].dims)
 
-    # Check source_ds coordinates
-    if "ping_time" not in source_ds or "range_sample" not in source_ds:
-        raise ValueError("'source_ds' must have coordinates 'ping_time' and 'range_sample'!")
+    # Raise ValueError if the mask has channel dim but the target variable doesn't
+    if "channel" in mask_dims and "channel" not in target_variable_dims:
+        raise ValueError("'channel' is a dimension in mask but not a dimension in source.")
+
+    # If non-channel dimensions don't align raise ValueError
+    mask_dims.discard("channel")
+    target_variable_dims.discard("channel")
+    if mask_dims != target_variable_dims:
+        raise ValueError(
+            f"The dimensions of mask: ({mask_dims}) do not match "
+            f"the dimensions of source ({target_variable_dims}) "
+            "when not considering 'channel'."
+        )
 
     return source_ds
 
@@ -106,15 +121,20 @@ def _validate_and_collect_mask_input(
             allowed_dims = [
                 ("ping_time", "range_sample"),
                 ("ping_time", "depth"),
+                ("ping_time", "echo_range"),
                 ("channel", "ping_time", "range_sample"),
                 ("channel", "ping_time", "depth"),
+                ("channel", "ping_time", "echo_range"),
             ]
             if mask[mask_ind].dims not in allowed_dims:
                 raise ValueError(
                     "Masks must have one of the following dimensions: "
-                    "('ping_time', 'range_sample'), ('ping_time', 'depth'), "
+                    "('ping_time', 'range_sample'), "
+                    "('ping_time', 'depth'), "
+                    "('ping_time', 'echo_range'), "
                     "('channel', 'ping_time', 'range_sample'), "
                     "('channel', 'ping_time', 'depth')"
+                    "('channel', 'ping_time', 'echo_range')"
                 )
 
         # Check for the channel dimension consistency
@@ -320,12 +340,18 @@ def apply_mask(
     xr.Dataset
         A Dataset with the same format of ``source_ds`` with the mask(s) applied to ``var_name``
     """
+    # Validate the source_ds type or path (if it is provided)
+    source_ds, file_type = validate_source(source_ds, storage_options_ds)
 
-    # Validate the source_ds
-    source_ds = _validate_source_ds(source_ds, storage_options_ds)
+    if isinstance(source_ds, str):
+        # open up Dataset using source_ds path
+        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
 
     # Validate and form the mask input to be used downstream
     mask = _validate_and_collect_mask_input(mask, storage_options_mask)
+
+    # Validate the source_ds and make sure it aligns with the mask input
+    source_ds = _check_mask_dim_alignment(source_ds, mask, var_name)
 
     # Check var_name and sanitize fill_value dimensions if an array
     fill_value = _check_var_name_fill_value(source_ds, var_name, fill_value)
@@ -388,6 +414,9 @@ def apply_mask(
     output_ds[var_name] = output_ds[var_name].assign_attrs(
         _variable_prov_attrs(output_ds[var_name], mask)
     )
+
+    # Use the original dimension order
+    output_ds[var_name] = output_ds[var_name].transpose(*source_da.dims)
 
     # Attribute handling
     process_type = "mask"

@@ -1,9 +1,9 @@
-import numpy as np
 import matplotlib as mpl
+import numpy as np
 
 __cmap_colors = {
-    'ek500': {
-        'rgb': (
+    "ek500": {
+        "rgb": (
             np.array(
                 [
                     [159, 159, 159],  # light grey
@@ -21,8 +21,8 @@ __cmap_colors = {
             )
             / 255
         ),
-        'under': '1',  # white
-        'over': np.array([120, 60, 40]) / 255,  # dark brown
+        "under": "1",  # white
+        "over": np.array([120, 60, 40]) / 255,  # dark brown
     }
 }
 
@@ -39,46 +39,44 @@ def _create_cmap(rgb, under=None, over=None):
 
 
 cmap_d = {}
-cmapnames = ['ek500']
+cmapnames = ["ek500"]
 
 # add colormaps and reversed to dictionary
 for cmapname in cmapnames:
     colors_d = __cmap_colors[cmapname]
-    rgb = colors_d['rgb']
+    rgb = colors_d["rgb"]
     cmap_d[cmapname] = _create_cmap(
-        rgb, under=colors_d.get('under', None), over=colors_d.get('over', None)
+        rgb, under=colors_d.get("under", None), over=colors_d.get("over", None)
     )
     cmap_d[cmapname].name = cmapname
-    cmap_d[cmapname + '_r'] = _create_cmap(
+    cmap_d[cmapname + "_r"] = _create_cmap(
         rgb[::-1, :],
-        under=colors_d.get('over', None),
-        over=colors_d.get('under', None),
+        under=colors_d.get("over", None),
+        over=colors_d.get("under", None),
     )
-    cmap_d[cmapname + '_r'].name = cmapname + '_r'
+    cmap_d[cmapname + "_r"].name = cmapname + "_r"
 
     # Register the cmap with matplotlib
     rgb_with_alpha = np.zeros((rgb.shape[0], 4))
     rgb_with_alpha[:, :3] = rgb
     rgb_with_alpha[:, 3] = 1.0  # set alpha channel to 1
-    reg_map = mpl.colors.ListedColormap(
-        rgb_with_alpha, 'ep.' + cmapname, rgb.shape[0]
-    )
-    if 'under' in colors_d:
-        reg_map.set_under(colors_d['under'])
+    reg_map = mpl.colors.ListedColormap(rgb_with_alpha, "ep." + cmapname, rgb.shape[0])
+    if "under" in colors_d:
+        reg_map.set_under(colors_d["under"])
 
-    if 'over' in colors_d:
-        reg_map.set_over(colors_d['over'])
+    if "over" in colors_d:
+        reg_map.set_over(colors_d["over"])
     mpl.colormaps.register(cmap=reg_map)
 
     # Register the reversed map
     reg_map_r = mpl.colors.ListedColormap(
-        rgb_with_alpha[::-1, :], 'ep.' + cmapname + '_r', rgb.shape[0]
+        rgb_with_alpha[::-1, :], "ep." + cmapname + "_r", rgb.shape[0]
     )
-    if 'under' in colors_d:
-        reg_map_r.set_over(colors_d['under'])
+    if "under" in colors_d:
+        reg_map_r.set_over(colors_d["under"])
 
-    if 'over' in colors_d:
-        reg_map_r.set_under(colors_d['over'])
+    if "over" in colors_d:
+        reg_map_r.set_under(colors_d["over"])
     mpl.colormaps.register(cmap=reg_map_r)
 
 # make colormaps available to call

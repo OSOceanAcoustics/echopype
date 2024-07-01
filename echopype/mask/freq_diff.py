@@ -135,7 +135,6 @@ def _check_freq_diff_source_Sv(
     # make sure that the frequency_nominal values are not repeated in source_Sv and
     # elements of freqAB are in frequency_nominal
     if freqAB is not None:
-        print(source_Sv.frequency_nominal.values)
         if len(set(source_Sv.frequency_nominal.values)) < source_Sv.frequency_nominal.size:
             raise ValueError(
                 "The provided source_Sv contains repeated "
