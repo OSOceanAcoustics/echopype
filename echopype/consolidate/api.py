@@ -96,11 +96,11 @@ def add_depth(
     use_platform_angles: bool, `False`
         If True, use Echodata Platform group angle values to compute `echo_range` scaling values.
         Currently only implemented for EK60/EK80 sonar models.
-        Cannot be used in tandem with Echodata Beam group angles.
+        In the current implementation cannot be used in tandem with `use_beam_angles`.
     use_beam_angles: bool `False`
         If True, use Echodata Beam group angle values to compute `echo_range` scaling values.
         Currently only implemented for EK60/EK80 sonar models.
-        Cannot be used in tandem with Echodata Platform group angles.
+        In the current implementation cannot be used in tandem with `use_platform_angles`.
 
     Returns
     -------
