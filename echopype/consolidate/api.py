@@ -112,7 +112,9 @@ def add_depth(
     # Raise `ValueError` if `echodata` is needed but not passed in
     if (not echodata) and (use_platform_vertical_offsets or use_platform_angles or use_beam_angles):
         raise ValueError(
-            "If any of `use_platform_vertical_offsets` or `use_platform_angles` is `True` "
+            "If any of `use_platform_vertical_offsets`, "
+            + "`use_platform_angles` "
+            + "or `use_beam_angles` is `True`, "
             + "then `echodata` cannot be `None`."
         )
 
