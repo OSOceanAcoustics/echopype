@@ -317,16 +317,29 @@ def test_check_echodata_backscatter_size(
 
     # Replace Beam Group 1 with a mock Dataset with a large (more than 2 GB)
     # backscatter_r array
-    if sonar_model == "EK80" and waveform_mode == "complex":
+    if sonar_model == "EK80" and encode_mode == "complex":
         cal_obj.echodata[cal_obj.ed_beam_group] = xr.Dataset(
             {
                 "backscatter_r": (
                     ("channel", "beam", "ping_time", "range_sample"),
-                    da.random.random((3, 4, 100000, 1000))
+                    da.random.random((3, 4, 100000, 1000)),
+                ),
+                "backscatter_i": (
+                    ("channel", "beam", "ping_time", "range_sample"),
+                    da.random.random((3, 4, 100000, 1000)).astype(np.complex128),
                 )
             }
         )
-    else:
+    elif sonar_model == "EK80" and encode_mode == "power":
+        cal_obj.echodata[cal_obj.ed_beam_group] = xr.Dataset(
+            {
+                "backscatter_r": (
+                    ("channel", "ping_time", "range_sample"),
+                    da.random.random((3, 100000, 1000))
+                )
+            }
+        )  
+    elif sonar_model in ["EK60", "AZFP"]:
         cal_obj.echodata["Sonar/Beam_group1"] = xr.Dataset(
             {
                 "backscatter_r": (
@@ -340,7 +353,10 @@ def test_check_echodata_backscatter_size(
     ep.utils.log.verbose(override=False)
 
     # Run Backscatter Size check
-    cal_obj._check_echodata_backscatter_size()
+    cal_obj._check_echodata_backscatter_size(
+        waveform_mode=waveform_mode,
+        encode_mode=encode_mode,
+    )
 
     # Check that warning message is called
     warning_message = (

@@ -56,7 +56,10 @@ def _compute_cal(
     )
 
     # Check Echodata Backscatter Size
-    cal_obj._check_echodata_backscatter_size()
+    cal_obj._check_echodata_backscatter_size(
+        waveform_mode=waveform_mode,
+        encode_mode=encode_mode,
+    )
 
     # Perform calibration
     if cal_type == "Sv":

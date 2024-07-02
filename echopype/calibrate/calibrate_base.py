@@ -92,7 +92,7 @@ class CalibrateBase(abc.ABC):
 
         return ds_out
 
-    def _check_echodata_backscatter_size(self):
+    def _check_echodata_backscatter_size(self, waveform_mode, encode_mode):
         """
         Extracts total size of `backscatter_r` and `backscatter_i` in a beam group.
         If the size is above 2 GiB, raises a warning showing a recommended workflow
@@ -103,26 +103,18 @@ class CalibrateBase(abc.ABC):
         echodata : EchoData
             An `EchoData` object created by using `open_raw` or `open_converted`
         """
-        # TODO: Refactor this to make it more specific to the sonar model?
-        # May not need to do this group map and group variable iteration...
+        # Initialize total nbytes
+        if self.echodata.sonar_model in ["EK60", "AZFP"]:
+            total_nbytes = self.echodata["Sonar/Beam_group1"]["backscatter_r"].nbytes
+        elif self.echodata.sonar_model == "EK80":
+            # Select source of backscatter data
+            beam = self.echodata[self.ed_beam_group]
 
-        # Iterate through Echodata Beam Groups to extract total number of bytes for
-        # backscatter variables
-        total_nbytes = 0
-        ed_group_map = self.echodata.group_map
-        for key in ed_group_map.keys():
-            echodata_group = ed_group_map[key]["ep_group"]
-            if (
-                echodata_group is not None
-                and echodata_group.startswith("Sonar/Beam_group")
-                and self.echodata[echodata_group] is not None
-            ):
-                variables = list(self.echodata[echodata_group].variables.keys())
-                backscatter_variables = [
-                    variable for variable in variables if variable.startswith("backscatter_")
-                ]
-                for backscatter_variable in backscatter_variables:
-                    total_nbytes += self.echodata[echodata_group][backscatter_variable].nbytes
+            # Go through waveform and encode cases
+            if (waveform_mode == "BB") or (waveform_mode == "CW" and encode_mode == "complex"):
+                total_nbytes = beam["backscatter_r"].nbytes + beam["backscatter_i"].nbytes
+            elif waveform_mode == "CW" and encode_mode == "power":
+                total_nbytes = beam["backscatter_r"].nbytes
 
         # Compute GigaBytes from Bytes
         total_gb = total_nbytes / (1024**3)
