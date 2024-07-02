@@ -1,8 +1,11 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-from echopype import open_raw
 import pytest
+
+from echopype import open_raw
 
 
 @pytest.fixture
@@ -208,3 +211,28 @@ def test_convert_es60_no_unicode_error(es60_path):
         open_raw(raw_path, sonar_model='EK60')
     except UnicodeDecodeError:
         pytest.fail("UnicodeDecodeError raised")
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("file_path"),
+    [
+        "DY1002_EK60-D20100318-T023008_rep_freq.raw",
+        "from_echopy/JR230-D20091215-T121917.raw"
+    ]
+)
+def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
+    """
+    Check that no runtime warning is called when there are different number of channel mode
+    values per channel and check that `channel_mode` is of type `np.float32`.
+    """
+    # Catch and throw error for any `RuntimeWarning`
+    with warnings.catch_warnings():
+        warnings.simplefilter(action="error", category=RuntimeWarning)
+        ed = open_raw(ek60_path / file_path, sonar_model="EK60")
+
+        # Check dtype
+        assert np.issubdtype(
+            ed["Sonar/Beam_group1"]["channel_mode"].data.dtype,
+            np.float32
+        )

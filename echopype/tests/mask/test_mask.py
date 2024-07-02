@@ -10,7 +10,7 @@ import os
 
 import echopype as ep
 import echopype.mask
-from echopype.mask.api import _validate_and_collect_mask_input, _check_var_name_fill_value
+from echopype.mask.api import _check_mask_dim_alignment, _validate_and_collect_mask_input, _check_var_name_fill_value
 from echopype.mask.freq_diff import (
     _parse_freq_diff_eq,
     _check_freq_diff_source_Sv,
@@ -1160,10 +1160,11 @@ def test_apply_mask(
             attrs={"long_name": "mask_no_channel"},
         ),
         xr.DataArray(
-            np.array([[[1, 1, 1], [np.nan, np.nan, np.nan]],
-                      [[np.nan, np.nan, np.nan], [1, 1, 1]]]),
-            coords={"ping_time": np.arange(2), "depth": np.arange(2),
-                    "channel": ["chan1", "chan2", "chan3"]}
+            np.array([[[ 1, np.nan], [np.nan,  1]],
+                      [[ 1, np.nan], [np.nan,  1]],
+                      [[ 1, np.nan], [np.nan,  1]]]),
+            coords={"channel": ["chan1", "chan2", "chan3"],
+                    "ping_time": np.arange(2), "depth": np.arange(2)},
         )),
 
         # source_no_ch_mask_with_ch_fail
@@ -1240,4 +1241,140 @@ def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
                                                 )
         
         # Check mask to match truth
+        print(masked_ds[var_name])
+        print(truth_da)
         assert masked_ds[var_name].equals(truth_da)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "range_var, use_multi_channel_mask", [
+        ("echo_range", True),
+        ("echo_range", False),
+        ("depth", True),
+        ("depth", False),
+    ]
+)
+def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
+    """
+    Check for correct values and dimensions when using `apply_mask` to apply
+    frequency differencing masks to MVBS.
+    """
+    # Parse Raw File
+    ed = ep.open_raw(
+        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        sonar_model="EK60"
+    )
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    if range_var == "depth":
+        # Add depth
+        ds_Sv = ep.consolidate.add_depth(ds_Sv)
+
+    # Compute MVBS
+    MVBS = ep.commongrid.compute_MVBS(
+        ds_Sv=ds_Sv,
+        range_var=range_var,
+        range_bin="1m",
+        ping_time_bin="10s"
+    )
+
+    if use_multi_channel_mask:
+        # Create two random bit masks
+        mask = [
+            xr.DataArray(
+                np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS[range_var]))),
+                dims=("ping_time", range_var),
+            ).expand_dims(dim={"channel": MVBS["channel"][0:2].data}),
+            xr.DataArray(
+                np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS[range_var]))),
+                dims=("ping_time", range_var),
+            ).expand_dims(dim={"channel": MVBS["channel"][2:6].data}),
+        ]
+
+        # Apply mask on MVBS
+        MVBS_masked = ep.mask.apply_mask(MVBS, mask)
+
+        # Check masked MVBS values
+        assert np.allclose(
+            xr.where(mask[0], MVBS["Sv"].isel(channel=slice(0,2)), np.nan),
+            MVBS_masked["Sv"].isel(channel=slice(0,2)),
+            equal_nan=True
+        )
+        assert np.allclose(
+            xr.where(mask[1], MVBS["Sv"].isel(channel=slice(2,6)), np.nan),
+            MVBS_masked["Sv"].isel(channel=slice(2,6)),
+            equal_nan=True
+        )
+    else:
+        # Create random bit mask
+        mask = xr.DataArray(
+            np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS[range_var]))),
+            dims=("ping_time", range_var),
+        )
+
+        # Apply mask on MVBS
+        MVBS_masked = ep.mask.apply_mask(MVBS, mask)
+
+        # Check masked MVBS values
+        assert np.allclose(
+            xr.where(
+                mask.expand_dims(dim={"channel": MVBS["channel"].data}),
+                MVBS["Sv"],
+                np.nan
+            ),
+            MVBS_masked["Sv"],
+            equal_nan=True
+        )
+
+
+    # Check dimensions
+    assert MVBS_masked["Sv"].dims == ("channel", "ping_time", range_var)
+
+
+@pytest.mark.unit
+def test_validate_source_ds_and_check_mask_dim_alignment():
+    """
+    Tests that ValueErrors are raised for `_validate_source_ds_and_check_mask_dim_alignment`.
+    """
+    # Parse Raw File
+    ed = ep.open_raw(
+        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        sonar_model="EK60"
+    )
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # Compute MVBS
+    MVBS = ep.commongrid.compute_MVBS(
+        ds_Sv=ds_Sv,
+        range_bin="1m",
+        ping_time_bin="10s"
+    )
+
+    # Create random bit mask
+    mask = xr.DataArray(
+        np.random.randint(2,size=(len(MVBS["ping_time"]),len(MVBS["echo_range"]))),
+        dims=("ping_time", "echo_range"),
+    )
+
+    # Test that ValueError is raised when diff is missing `ping_time` but
+    # MVBS has `ping_time`
+    with pytest.raises(ValueError):
+        _check_mask_dim_alignment(
+            MVBS,
+            mask.isel(ping_time=0).drop_vars("ping_time"),
+            "Sv"
+        )
+
+    # Test that ValueError is raised when MVBS has no `channel` dimension
+    # and diff has `channel` dimension
+    with pytest.raises(ValueError):
+        _check_mask_dim_alignment(
+            MVBS.isel(channel=0),
+            mask.expand_dims(dim={"channel": MVBS["channel"].data}),
+            "Sv"
+        )

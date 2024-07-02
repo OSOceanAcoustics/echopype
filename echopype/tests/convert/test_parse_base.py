@@ -48,6 +48,8 @@ class TestParseEK:
     def _get_parser(self, sonar_model, ping_data_dict):
         parser = ParseEK(
             file=self.file,
+            bot_file="",
+            idx_file="",
             storage_options=self.storage_options,
             sonar_model=sonar_model,
         )
@@ -59,6 +61,8 @@ class TestParseEK:
     def test_constructor(self, sonar_model):
         parser = ParseEK(
             file=self.file,
+            bot_file="",
+            idx_file="",
             storage_options=self.storage_options,
             sonar_model=sonar_model,
         )

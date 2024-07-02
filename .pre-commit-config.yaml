@@ -29,12 +29,12 @@ repos:
       - id: black
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
+    rev: 7.1.0
     hooks:
       - id: flake8
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.6
+    rev: v2.3.0
     hooks:
       - id: codespell
         # Checks spelling in `docs/source` and `echopype` dirs ONLY
