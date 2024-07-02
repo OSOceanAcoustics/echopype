@@ -24,6 +24,7 @@ def test_path():
         'ES70': TEST_DATA_FOLDER / "es70",
         'ES80': TEST_DATA_FOLDER / "es80",
         'AZFP': TEST_DATA_FOLDER / "azfp",
+        'AZFP6': TEST_DATA_FOLDER / "azfp6",
         'AD2CP': TEST_DATA_FOLDER / "ad2cp",
         'EK80_CAL': TEST_DATA_FOLDER / "ek80_bb_with_calibration",
         'EK80_EXT': TEST_DATA_FOLDER / "ek80_ext",
