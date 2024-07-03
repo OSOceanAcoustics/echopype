@@ -269,6 +269,95 @@ def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
 
 
 @pytest.mark.integration
+def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
+    """
+    Test computing combined Echodata object when ping time dimension in Beam group
+    extends past time1 dimension in Environment group.
+    The output Sv dataset should not have any NaN values within any of the time1
+    variables derived from the Environment group. Additionally, the output Sv dataset
+    should not contain the time1 dimension.
+    """
+    # Parse RAW files and combine Echodata objects
+    raw_list = [
+        "echopype/test_data/ek80/pifsc_saildrone/SD_TPOS2023_v03-Phase0-D20230530-T001150-0.raw",
+        "echopype/test_data/ek80/pifsc_saildrone/SD_TPOS2023_v03-Phase0-D20230530-T002350-0.raw",
+    ]
+    ed_list = []
+    for raw_file in raw_list:
+        ed = ep.open_raw(raw_file, sonar_model="EK80")
+        # Modify environment variables so that they are non-uniform across Echodata objects
+        ed["Environment"]["acidity"].values = [np.random.uniform(low=7.9, high=8.1)]
+        ed["Environment"]["salinity"].values = [np.random.uniform(low=34.0, high=35.0)]
+        ed["Environment"]["temperature"].values = [np.random.uniform(low=25.0, high=26.0)]
+        ed_list.append(ed)
+    ed_combined = ep.combine_echodata(ed_list)
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(
+        ed_combined,
+        waveform_mode="CW",
+        encode_mode="complex"
+    )
+
+    # Check that Sv doesn't have time1 coordinate
+    assert "time1" not in ds_Sv.coords
+
+    # Define environment related variables
+    environment_related_variable_names = [
+        "sound_absorption",
+        "temperature",
+        "salinity",
+        "pH",
+    ]
+
+    # Grab time variables
+    time1 = ed_combined["Environment"]["time1"]
+    ping_time = ed_combined["Sonar/Beam_group1"]["ping_time"]
+
+    # Iterate through vars
+    for env_var_name in environment_related_variable_names:
+        env_var = ds_Sv[env_var_name]
+        # Check that no NaNs exist
+        assert not np.any(np.isnan(env_var.data))
+
+        # Check that all values past the max of time1 are ffilled with value
+        # that is time-wise closest to max of time1
+        if "channel" not in env_var.dims:
+            assert np.allclose(
+                np.unique(
+                    env_var.sel(
+                        ping_time=slice(
+                            time1.max(),
+                            ping_time.max()
+                        )
+                    ).data
+                ),
+                env_var.sel(ping_time=slice(time1.max())).data[-1]
+            )
+        else:
+            # Iterate through environment variable channels to do the same
+            # check as above per channel
+            for channel_index in range(len(env_var["channel"])):
+                assert np.allclose(
+                    np.unique(
+                        env_var.isel(
+                            channel=channel_index
+                        )
+                        .sel(
+                            ping_time=slice(
+                                time1.max(),
+                                ping_time.max()
+                            )
+                        ).data
+                    ),
+                    env_var.isel(
+                        channel=channel_index
+                    ).sel(
+                        ping_time=slice(time1.max())
+                    ).data[-1]
+                )
+
+                
 @pytest.mark.parametrize(
     "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
     [
