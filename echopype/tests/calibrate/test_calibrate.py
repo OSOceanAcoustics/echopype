@@ -5,6 +5,7 @@ from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.env_params_old import EnvParams
 import xarray as xr
+import dask.array as da
 
 
 @pytest.fixture
@@ -45,6 +46,7 @@ def test_compute_Sv_returns_water_level(ek60_path):
     assert 'water_level' in ds_Sv.data_vars
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek60_echoview(ek60_path):
     # constant range_sample
     ek60_raw_path = str(
@@ -80,6 +82,7 @@ def test_compute_Sv_ek60_echoview(ek60_path):
     )
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek60_matlab(ek60_path):
     ek60_raw_path = str(
         ek60_path.joinpath('DY1801_EK60-D20180211-T164025.raw')
@@ -353,3 +356,104 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
                         ping_time=slice(time1.max())
                     ).data[-1]
                 )
+
+                
+@pytest.mark.parametrize(
+    "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
+    [
+        ("azfp/17031001.01A", "AZFP", "azfp/17030815.XML", None, None),
+        ("ek60/DY1801_EK60-D20180211-T164025.raw", "EK60", None, None, None),
+        ("ek80/D20170912-T234910.raw", "EK80", None, "BB", "complex"),
+        ("ek80/D20230804-T083032.raw", "EK80", None, "CW", "complex"),
+        ("ek80/Summer2018--D20180905-T033113.raw", "EK80", None, "CW", "power")
+    ]
+)
+def test_check_echodata_backscatter_size(
+    raw_path,
+    sonar_model,
+    xml_path,
+    waveform_mode,
+    encode_mode,
+    caplog
+):
+    """Tests for _check_echodata_backscatter_size warning."""
+    # Parse Echodata Object
+    ed = ep.open_raw(
+        raw_file=f"echopype/test_data/{raw_path}",
+        sonar_model=sonar_model,
+        xml_path=f"echopype/test_data/{xml_path}",
+    )
+
+    # Compute environment parameters if AZFP
+    env_params = None
+    if sonar_model == "AZFP":
+        avg_temperature = ed["Environment"]['temperature'].values.mean()
+        env_params = {
+            'temperature': avg_temperature,
+            'salinity': 27.9,
+            'pressure': 59,
+        }
+
+    # Create calibration object
+    cal_obj = ep.calibrate.api.CALIBRATOR[ed.sonar_model](
+        ed,
+        env_params=env_params,
+        cal_params=None,
+        ecs_file=None,
+        waveform_mode=waveform_mode,
+        encode_mode=encode_mode,
+    )
+
+    # Replace Beam Group 1 with a mock Dataset with a large (more than 2 GB)
+    # backscatter_r array
+    if sonar_model == "EK80" and encode_mode == "complex":
+        cal_obj.echodata[cal_obj.ed_beam_group] = xr.Dataset(
+            {
+                "backscatter_r": (
+                    ("channel", "beam", "ping_time", "range_sample"),
+                    da.random.random((3, 4, 100000, 1000)),
+                ),
+                "backscatter_i": (
+                    ("channel", "beam", "ping_time", "range_sample"),
+                    da.random.random((3, 4, 100000, 1000)).astype(np.complex128),
+                )
+            }
+        )
+    elif sonar_model == "EK80" and encode_mode == "power":
+        cal_obj.echodata[cal_obj.ed_beam_group] = xr.Dataset(
+            {
+                "backscatter_r": (
+                    ("channel", "ping_time", "range_sample"),
+                    da.random.random((3, 100000, 1000))
+                )
+            }
+        )  
+    elif sonar_model in ["EK60", "AZFP"]:
+        cal_obj.echodata["Sonar/Beam_group1"] = xr.Dataset(
+            {
+                "backscatter_r": (
+                    ("channel", "ping_time", "range_sample"),
+                    da.random.random((3, 100000, 1000))
+                )
+            }
+        )
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Run Backscatter Size check
+    cal_obj._check_echodata_backscatter_size()
+
+    # Check that warning message is called
+    warning_message = (
+        "The Echodata Backscatter Variables are large and can cause memory issues. "
+        "Consider modifying compute_Sv workflow: "
+        "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) "
+        "and after `compute_Sv` run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. "
+        "This will ensure that the computation is lazily evaluated, "
+        "with the results stored directly in a Zarr store on disk, rather then in memory."
+    )
+    assert warning_message == caplog.records[0].message
+    
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)

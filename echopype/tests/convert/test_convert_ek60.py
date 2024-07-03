@@ -224,7 +224,7 @@ def test_convert_es60_no_unicode_error(es60_path):
 def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
     """
     Check that no runtime warning is called when there are different number of channel mode
-    values per channel and check that `channel_mode` is of type `np.float16`.
+    values per channel and check that `channel_mode` is of type `np.float32`.
     """
     # Catch and throw error for any `RuntimeWarning`
     with warnings.catch_warnings():
@@ -234,5 +234,5 @@ def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
         # Check dtype
         assert np.issubdtype(
             ed["Sonar/Beam_group1"]["channel_mode"].data.dtype,
-            np.float16
+            np.float32
         )
