@@ -353,10 +353,7 @@ def test_check_echodata_backscatter_size(
     ep.utils.log.verbose(override=False)
 
     # Run Backscatter Size check
-    cal_obj._check_echodata_backscatter_size(
-        waveform_mode=waveform_mode,
-        encode_mode=encode_mode,
-    )
+    cal_obj._check_echodata_backscatter_size()
 
     # Check that warning message is called
     warning_message = (

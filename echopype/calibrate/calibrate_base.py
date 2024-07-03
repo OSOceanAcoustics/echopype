@@ -92,16 +92,11 @@ class CalibrateBase(abc.ABC):
 
         return ds_out
 
-    def _check_echodata_backscatter_size(self, waveform_mode, encode_mode):
+    def _check_echodata_backscatter_size(self):
         """
         Extracts total size of `backscatter_r` and `backscatter_i` in a beam group.
         If the size is above 2 GiB, raises a warning showing a recommended workflow
         that will not overwhelm the system memory.
-
-        Parameters
-        ----------
-        echodata : EchoData
-            An `EchoData` object created by using `open_raw` or `open_converted`
         """
         # Initialize total nbytes
         if self.echodata.sonar_model in ["EK60", "AZFP"]:
@@ -111,9 +106,11 @@ class CalibrateBase(abc.ABC):
             beam = self.echodata[self.ed_beam_group]
 
             # Go through waveform and encode cases
-            if (waveform_mode == "BB") or (waveform_mode == "CW" and encode_mode == "complex"):
+            if (self.waveform_mode == "BB") or (
+                self.waveform_mode == "CW" and self.encode_mode == "complex"
+            ):
                 total_nbytes = beam["backscatter_r"].nbytes + beam["backscatter_i"].nbytes
-            elif waveform_mode == "CW" and encode_mode == "power":
+            elif self.waveform_mode == "CW" and self.encode_mode == "power":
                 total_nbytes = beam["backscatter_r"].nbytes
 
         # Compute GigaBytes from Bytes
