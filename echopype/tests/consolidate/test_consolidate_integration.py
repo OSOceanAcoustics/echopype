@@ -205,7 +205,7 @@ def test_ek_use_beam_angles_output():
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
         "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
         "EK60",
@@ -227,14 +227,14 @@ def test_ek_use_beam_angles_output():
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
+def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwargs):
     """
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
     `ek_use_beam_angles` for correct dimensions.
     """
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(file, sonar_model=sonar_model)
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Check dimensions for using EK platform vertical offsets to compute
     # `transducer_depth`.
@@ -418,7 +418,7 @@ def test_add_depth_errors():
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
         "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
         "EK60",
@@ -440,11 +440,11 @@ def test_add_depth_errors():
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_Sv_kwaargs):
+def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_Sv_kwargs):
     """Test `depth` values when using EK Platform vertical offset values to compute it."""
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(file, sonar_model=sonar_model)
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Subset ds_Sv to include only first 5 `range_sample` coordinates
     # since the test takes too long to iterate through every value
@@ -493,7 +493,7 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
         "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
         "EK60",
@@ -515,11 +515,11 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwaargs):
+def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs):
     """Test `depth` values when using EK Platform angles to compute it."""
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(file, sonar_model=sonar_model)
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Replace any Beam Angle NaN values with 0
     ed["Platform"]["pitch"] = ed["Platform"]["pitch"].fillna(0)
@@ -562,7 +562,7 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwaargs
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
         "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
         "EK60",
@@ -584,11 +584,11 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwaargs
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
+def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
     """Test `depth` values when using EK Beam angles to compute it."""
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(file, sonar_model=sonar_model)
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Replace Beam Angle NaN values
     ed["Sonar/Beam_group1"]["beam_direction_x"] = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0)
@@ -632,7 +632,7 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs, expected_beam_group_name", [
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs, expected_beam_group_name", [
     (
         "echopype/test_data/ek80/Summer2018--D20180905-T033113.raw",
         "EK80",
@@ -647,7 +647,7 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
     )
 ])
 def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
-    file, sonar_model, compute_Sv_kwaargs, expected_beam_group_name
+    file, sonar_model, compute_Sv_kwargs, expected_beam_group_name
 ):
     """
     Test `depth` channel when using EK Beam angles from two separate calibrated
@@ -657,7 +657,7 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
     """
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(file, sonar_model=sonar_model)
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Compute `depth` using beam angle values
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
