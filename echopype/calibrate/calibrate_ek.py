@@ -28,8 +28,6 @@ class CalibrateEK(CalibrateBase):
 
         self.ed_beam_group = None  # will be assigned in child class
 
-        self.ed_beam_group = None  # will be assigned in child class
-
     def compute_echo_range(self, chan_sel: xr.DataArray = None):
         """
         Compute echo range for EK echosounders.

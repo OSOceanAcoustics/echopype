@@ -170,12 +170,6 @@ def compute_range_EK(
         else echodata[ed_beam_group].sel(channel=chan_sel)
     )
 
-    # Harmonize sound_speed time1 and Beam_groupX ping_time
-    sound_speed = harmonize_env_param_time(
-        p=sound_speed,
-        ping_time=beam.ping_time,
-    )
-
     # Range in meters, not modified for TVG compensation
     range_meter = beam["range_sample"] * beam["sample_interval"] * sound_speed / 2
     # make order of dims conform with the order of backscatter data
