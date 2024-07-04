@@ -255,8 +255,10 @@ def _check_file(
     raw_file,
     sonar_model: "SonarModelsHint",
     xml_path: Optional["PathHint"] = None,
+    include_bot: bool = False,
+    include_idx: bool = False,
     storage_options: Dict[str, str] = {},
-) -> Tuple[str, str]:
+) -> Tuple[str, str, str, str]:
     """Checks whether the file and/or xml file exists and
     whether they have the correct extensions.
 
@@ -268,16 +270,28 @@ def _check_file(
         model of the sonar instrument
     xml_path : str
         path to XML config file used by AZFP
+    include_bot : bool, default `False`
+        Include bottom depth file in parsing. Only used by EK60/EK80.
+    include_index : bool, default `False`
+        Include index file in parsing. Only used by EK60/EK80.
     storage_options : dict
         options for cloud storage
 
     Returns
     -------
-    file : str
+    raw_file : str
         path to existing raw data file
     xml : str
         path to existing xml file
         empty string if no xml file is required for the specified model
+    bot_file : str
+        Path to existing bot file.
+        Empty string if `.bot` file is not requested to be parsed and/or
+        `.bot` parsing is not allowed by the specified model.
+    idx_file : str
+        Path to existing idx file.
+        Empty string if `.idx` file is not requested to be parsed and/or
+        `.idx` parsing is not allowed by the specified model.
     """
     if SONAR_MODELS[sonar_model]["xml"]:  # if this sonar model expects an XML file
         if not xml_path:
@@ -294,16 +308,39 @@ def _check_file(
     else:
         xml = ""
 
+    # Check .bot file
+    if SONAR_MODELS[sonar_model]["accepts_bot"] and include_bot:
+        bot_file = str(Path(raw_file).with_suffix(".bot"))
+        bot_fsmap = fsspec.get_mapper(bot_file, **storage_options)
+        if not bot_fsmap.fs.exists(bot_fsmap.root):
+            raise FileNotFoundError(
+                f"There is no file named {bot_file}. The .BOT file must be contained in "
+                + " the same directory as that of the input 'raw' file."
+            )
+    else:
+        bot_file = ""
+
+    # Check .idx file
+    if SONAR_MODELS[sonar_model]["accepts_idx"] and include_idx:
+        idx_file = str(Path(raw_file).with_suffix(".idx"))
+        idx_fsmap = fsspec.get_mapper(idx_file, **storage_options)
+        if not idx_fsmap.fs.exists(idx_fsmap.root):
+            raise FileNotFoundError(
+                f"There is no file named {idx_file}. The .IDX file must be contained in "
+                + " the same directory as that of the input 'raw' file."
+            )
+    else:
+        idx_file = ""
+
     # TODO: https://github.com/OSOceanAcoustics/echopype/issues/229
     #  to add compatibility for pathlib.Path objects for local paths
     fsmap = fsspec.get_mapper(raw_file, **storage_options)
     validate_ext = SONAR_MODELS[sonar_model]["validate_ext"]
     if not fsmap.fs.exists(fsmap.root):
         raise FileNotFoundError(f"There is no file named {Path(raw_file).name}")
-
     validate_ext(Path(raw_file).suffix.upper())
 
-    return str(raw_file), str(xml)
+    return str(raw_file), str(xml), bot_file, idx_file
 
 
 @add_processing_level("L1A", is_echodata=True)
@@ -311,6 +348,8 @@ def open_raw(
     raw_file: "PathHint",
     sonar_model: "SonarModelsHint",
     xml_path: Optional["PathHint"] = None,
+    include_bot: bool = False,
+    include_idx: bool = False,
     convert_params: Optional[Dict[str, str]] = None,
     storage_options: Optional[Dict[str, str]] = None,
     use_swap: Union[bool, Literal["auto"]] = False,
@@ -338,6 +377,10 @@ def open_raw(
 
     xml_path : str
         path to XML config file used by AZFP
+    include_bot : bool, default `False`
+        Include bottom depth file in parsing. Only used by EK60/EK80.
+    include_index : bool, default `False`
+        Include index file in parsing. Only used by EK60/EK80.
     convert_params : dict
         parameters (metadata) that may not exist in the raw file
         and need to be added to the converted file
@@ -409,13 +452,18 @@ def open_raw(
         )
 
     # Check file extension and existence
-    file_chk, xml_chk = _check_file(raw_file, sonar_model, xml_path, storage_options)
+    file_chk, xml_chk, bot_chk, idx_chk = _check_file(
+        raw_file, sonar_model, xml_path, include_bot, include_idx, storage_options
+    )
 
     # Parse raw file and organize data into groups
     parser = SONAR_MODELS[sonar_model]["parser"](
         file_chk,
         # Currently used only for AZFP XML File
         file_meta=xml_chk,
+        # `bot_file` and `idx_file` used only for EK60/EK80 parsing
+        bot_file=bot_chk,
+        idx_file=idx_chk,
         storage_options=storage_options,
         sonar_model=sonar_model,
     )
