@@ -64,8 +64,8 @@ def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.
 def add_depth(
     ds: Union[xr.Dataset, str, pathlib.Path],
     echodata: Optional[Union[EchoData, str, pathlib.Path]] = None,
-    depth_offset: float = 0.0,
-    tilt: float = 0.0,
+    depth_offset: Optional[float] = None,
+    tilt: Optional[float] = None,
     downward: bool = True,
     use_platform_vertical_offsets: bool = False,
     use_platform_angles: bool = False,
@@ -79,27 +79,28 @@ def add_depth(
     ----------
     ds : xr.Dataset or str or pathlib.Path
         Source Sv dataset to which a depth variable will be added.
-    echodata : EchoData or str or pathlib.Path, optional, default `None`
+    echodata : Optional[EchoData, str, pathlib.Path], default `None`
         `EchoData` object from which the `Sv` dataset originated.
-    depth_offset : float, default `0.0`
+    depth_offset : Optional[float], default None
         Offset along the vertical (depth) dimension to account for actual transducer
         position in water, since `echo_range` is counted from transducer surface.
-        Will only be used if `use_platform_vertical_offsets=False`.
-    tilt : float, default `0.0`
+    tilt : Optional[float], default None.
         Transducer tilt angle [degree]. 0 corresponds to a transducer pointing vertically.
-        Will only be  used if both `use_platform_angles=False` and `use_beam_angles=False`.
     downward : bool, default `True`
         The transducers point downward.
     use_platform_vertical_offsets: bool, default `False`
         If True, use Echodata Platform group vertical offset values to compute transducer depth.
         Currently only implemented for EK60/EK80 sonar models.
+        If `depth_offset` is specified, Platform vertical offset values will not be used.
     use_platform_angles: bool, `False`
         If True, use Echodata Platform group angle values to compute `echo_range` scaling values.
         Currently only implemented for EK60/EK80 sonar models.
+        If `tilt` is specified, Platform group angle values will not be used.
         In the current implementation cannot be used in tandem with `use_beam_angles`.
     use_beam_angles: bool `False`
         If True, use Echodata Beam group angle values to compute `echo_range` scaling values.
         Currently only implemented for EK60/EK80 sonar models.
+        If `tilt` is specified, Beam group angle values will not be used.
         In the current implementation cannot be used in tandem with `use_platform_angles`.
 
     Returns
@@ -125,6 +126,17 @@ def add_depth(
             "Computing depth with both platform and beam angles is not implemented yet."
         )
 
+    # Log warnings when group variables are not used
+    if depth_offset is not None and use_platform_vertical_offsets:
+        logger.warning(
+            "When `depth_offset` is specified, platform vertical offset "
+            "variables will not be used."
+        )
+    if tilt is not None and (use_beam_angles or use_platform_angles):
+        logger.warning(
+            "When `tilt` is specified, beam/platform angle variables will " "not be used."
+        )
+
     if echodata:
         # Open Echodata
         echodata = open_source(echodata, "echodata", {})
@@ -132,7 +144,7 @@ def add_depth(
         # Grab sonar model
         sonar_model = echodata["Sonar"].attrs["sonar_model"]
 
-        # Raise value error if sonar model is supported for `use_platform/beam_...` arguments
+        # Raise value error if sonar model is not supported for `use_platform/beam_...` arguments
         if sonar_model not in ["EK60", "EK80"] and (
             use_platform_vertical_offsets or use_platform_angles or use_beam_angles
         ):
@@ -140,30 +152,36 @@ def add_depth(
                 f"`use_platform/beam_...` not implemented yet for `{sonar_model}`."
             )
 
-    # Compute transducer depth:
-    if use_platform_vertical_offsets and sonar_model in ["EK60", "EK80"]:
-        # Compute transducer depth in EK systems using platform vertical offset data
-        transducer_depth = ek_use_platform_vertical_offsets(echodata["Platform"], ds["ping_time"])
-    else:
-        # Compute transducer depth from user input depth offset
+    # Initialize transducer depth to 0.0 (no effect on depth)
+    transducer_depth = 0.0
+    if depth_offset:
+        # Set transducer depth to user specified depth offset
         transducer_depth = depth_offset
+    elif echodata and sonar_model in ["EK60", "EK80"]:
+        if use_platform_vertical_offsets:
+            # Compute transducer depth in EK systems using platform vertical offset data
+            transducer_depth = ek_use_platform_vertical_offsets(
+                echodata["Platform"], ds["ping_time"]
+            )
 
-    # Compute echo range scaling:
-    if use_platform_angles and sonar_model in ["EK60", "EK80"]:
-        # Compute echo range scaling in EK systems using platform angle data
-        echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
-    elif use_beam_angles and sonar_model in ["EK60", "EK80"]:
-        # Identify beam group name by checking channel values of `ds`
-        if echodata["Sonar/Beam_group1"]["channel"].equals(ds["channel"]):
-            beam_group_name = "Beam_group1"
-        else:
-            beam_group_name = "Beam_group2"
-
-        # Compute echo range scaling in EK systems using beam angle data
-        echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"], ds["channel"])
-    else:
-        # Compute echo range scaling from user input tilt
+    # Initialize echo range scaling to 1.0 (no effect on depth)
+    echo_range_scaling = 1.0
+    if tilt:
+        # Set echo range scaling (angular scaling) using user specified tilt
         echo_range_scaling = np.cos(np.deg2rad(tilt))
+    elif echodata and sonar_model in ["EK60", "EK80"]:
+        if use_platform_angles:
+            # Compute echo range scaling in EK systems using platform angle data
+            echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
+        elif use_beam_angles:
+            # Identify beam group name by checking channel values of `ds`
+            if echodata["Sonar/Beam_group1"]["channel"].equals(ds["channel"]):
+                beam_group_name = "Beam_group1"
+            else:
+                beam_group_name = "Beam_group2"
+
+            # Compute echo range scaling in EK systems using beam angle data
+            echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"])
 
     # Set orientation multiplier. 1 if facing downwards, -1 if facing upwards
     orientation_mult = 1 if downward else -1
@@ -172,12 +190,15 @@ def add_depth(
     ds["depth"] = transducer_depth + (orientation_mult * ds["echo_range"] * echo_range_scaling)
 
     # Add history attribute
+    used_platform_vertical_offsets = use_platform_vertical_offsets and not depth_offset
+    used_platform_angles = use_platform_angles and not tilt
+    used_beam_angles = use_beam_angles and not tilt
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. depth` calculated using:"
         f" Sv `echo_range`"
-        f"{', Echodata `Platform` Vertical Offset Data' if use_platform_vertical_offsets else ''}"
-        f"{', Echodata `Platform` Angle Data' if use_platform_angles else ''}"
-        f"{', Echodata `%s` Angle Data' % (beam_group_name) if use_beam_angles else ''}"
+        f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
+        f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
+        f"{', Echodata `%s` Angles' % (beam_group_name) if (used_beam_angles) else ''}"
         "."
     )
     ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})

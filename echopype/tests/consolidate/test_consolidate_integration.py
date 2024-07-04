@@ -151,6 +151,63 @@ def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     )
 
 
+@pytest.mark.unit
+def test_ek_use_platform_angles_output():
+    """
+    Test `use_platform_angle` outputs for 2 times when the boat is completely sideways
+    and 1 time when the boat has no sideways component (completely straight on z-axis).
+    """
+    # Create a Dataset with ping-time-specific pitch and roll arc degrees
+    # (with possible range -90 deg to 90 deg).
+    # In ping time 1 and 2, the platform is completely sideways so the echo range scaling
+    # should be 0 (i.e zeros out the entire depth).
+    # In ping time 3, the platform is completely vertical so the echo range scaling should
+    # be 1 (i.e no change).
+    ping_time_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=3), dims=("ping_time"))
+    platform_ds = xr.Dataset(
+        {
+            "pitch": xr.DataArray(
+                [-90, 0, 0],
+                dims=("ping_time")
+            ),
+            "roll": xr.DataArray(
+                [0, 90, 0],
+                dims=("ping_time")
+            ),
+        },
+        coords={"ping_time": ping_time_da}
+    )
+    echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_platform_angles(platform_ds, ping_time_da)
+    assert echo_range_scaling.isel(ping_time=0) == 0
+    assert echo_range_scaling.isel(ping_time=1) == 0
+    assert echo_range_scaling.isel(ping_time=2) == 1
+
+
+@pytest.mark.unit
+def test_ek_use_beam_angles_output():
+    """
+    Test `use_beam_angle` outputs for 2 sideways looking beams and 1 vertical looking beam.
+    """
+    # Create a Dataset with channel-specific beam direction vectors
+    # In channels 1 and 2, the transducers are not pointing vertically at all so the echo
+    # range scaling should be 0 (i.e zeros out the entire depth).
+    # In channel 3, the transducer is completely vertical so the echo range scaling should
+    # be 1 (i.e no change).
+    channel_da = xr.DataArray(["chan1", "chan2", "chan3"], dims=("channel"))
+    beam_ds = xr.Dataset(
+        {
+            "beam_direction_x": xr.DataArray([1, 0, 0], dims=("channel")),
+            "beam_direction_y": xr.DataArray([0, 1, 0], dims=("channel")),
+            "beam_direction_z": xr.DataArray([0, 0, 1], dims=("channel")),
+        },
+        coords={"channel": channel_da}
+    )
+    echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
+    assert echo_range_scaling.sel(channel="chan1") == 0
+    assert echo_range_scaling.sel(channel="chan2") == 0
+    assert echo_range_scaling.sel(channel="chan3") == 1
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwaargs", [
     (
@@ -194,16 +251,12 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwaargs):
 
     # Check dimensions for using EK platform angles to compute
     # `platform_echo_range_scaling`.
-    platform_echo_range_scaling = ek_use_platform_angles(
-        platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"]
-    )
+    platform_echo_range_scaling = ek_use_platform_angles(platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"])
     assert platform_echo_range_scaling.dims == ('ping_time',)
     assert platform_echo_range_scaling["ping_time"].equals(ds_Sv["ping_time"])
 
     # Check dimensions for using EK beam angles to compute `beam_echo_range_scaling`.
-    beam_echo_range_scaling = ek_use_beam_angles(
-        beam_ds=ed["Sonar/Beam_group1"], channel_da=ds_Sv["channel"]
-    )
+    beam_echo_range_scaling = ek_use_beam_angles(beam_ds=ed["Sonar/Beam_group1"])
     assert beam_echo_range_scaling.dims == ('channel',)
     assert beam_echo_range_scaling["channel"].equals(ds_Sv["channel"])
 
@@ -238,7 +291,7 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
     # Run EK depth util functions:
     ek_use_platform_vertical_offsets(platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"])
     ek_use_platform_angles(platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"])
-    ek_use_beam_angles(beam_ds=ed["Sonar/Beam_group1"], channel_da=ds_Sv["channel"])
+    ek_use_beam_angles(beam_ds=ed["Sonar/Beam_group1"])
 
     # Set (group, variable) name pairs
     group_variable_name_pairs = [
@@ -260,6 +313,48 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
             "NaNs and calling `.add_depth(...)` again."
         )
         assert any(expected_warning in record.message for record in caplog.records)
+
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
+
+
+@pytest.mark.integration
+def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog):
+    """
+    Tests warnings when `tilt` and `depth_offset` are being passed in when other
+    `use_*` arguments are passed in as `True`.
+    """
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(
+        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        sonar_model="EK80"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Run `add_depth` with `tilt`, `depth_offset` as Non-NaN, using beam group angles,
+    # and platform vertical offset values
+    ep.consolidate.add_depth(
+        ds_Sv,
+        ed,
+        depth_offset=9.15,
+        tilt=0.1,
+        use_platform_vertical_offsets=True,
+        use_beam_angles=True,
+    )
+
+    # Check if the expected warnings are logged
+    depth_offset_warning = (
+        "When `depth_offset` is specified, platform vertical offset "
+        "variables will not be used."
+    )
+    tilt_warning = (
+        "When `tilt` is specified, beam/platform angle variables will " "not be used."
+    )
+    for warning in [depth_offset_warning, tilt_warning]:
+        assert any(warning in record.message for record in caplog.records)
 
     # Turn off logger verbosity
     ep.utils.log.verbose(override=True)
@@ -309,7 +404,9 @@ def test_add_depth_errors():
 
     # Test that all three errors are called:
     with pytest.raises(ValueError, match=(
-        "If any of `use_platform_vertical_offsets` or `use_platform_angles` is `True` "
+        "If any of `use_platform_vertical_offsets`, "
+        + "`use_platform_angles` "
+        + "or `use_beam_angles` is `True`, "
         + "then `echodata` cannot be `None`."
     )):
         ep.consolidate.add_depth(ds_Sv, None, use_platform_angles=True)
@@ -369,7 +466,7 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     history_attribute = ds_Sv["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Vertical Offset Data."
+        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Vertical Offsets."
     )
 
     # Compute transducer depth
@@ -439,7 +536,7 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwaargs
     history_attribute = ds_Sv["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Angle Data."
+        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Angles."
     )
 
     # Compute transducer depth
@@ -497,10 +594,10 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
     ed = ep.open_raw(file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwaargs)
 
-    # Replace any Beam Angle NaN values with 0
+    # Replace Beam Angle NaN values
     ed["Sonar/Beam_group1"]["beam_direction_x"] = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0)
     ed["Sonar/Beam_group1"]["beam_direction_y"] = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna(0)
-    ed["Sonar/Beam_group1"]["beam_direction_z"] = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(0)
+    ed["Sonar/Beam_group1"]["beam_direction_z"] = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1)
 
     # Compute `depth` using beam angle values
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
@@ -509,11 +606,11 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwaargs):
     history_attribute = ds_Sv["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angle Data."
+        ". depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
     )
 
     # Compute echo range scaling values
-    echo_range_scaling = ek_use_beam_angles(ed["Sonar/Beam_group1"], ds_Sv["channel"])
+    echo_range_scaling = ek_use_beam_angles(ed["Sonar/Beam_group1"])
 
     # Iterate through every channel
     for channel_index in range(len(ds_Sv["channel"])):
@@ -573,7 +670,7 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
     history_attribute = ds_Sv["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        f". depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angle Data."
+        f". depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."
     )
 
 

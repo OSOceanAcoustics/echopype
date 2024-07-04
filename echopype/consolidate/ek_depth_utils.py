@@ -59,10 +59,7 @@ def ek_use_platform_vertical_offsets(
     return transducer_depth
 
 
-def ek_use_platform_angles(
-    platform_ds: xr.Dataset,
-    ping_time_da: xr.DataArray,
-) -> xr.DataArray:
+def ek_use_platform_angles(platform_ds: xr.Dataset, ping_time_da: xr.DataArray) -> xr.DataArray:
     """
     Use `pitch` and `roll` from the EK Platform group to compute echo range rotational values.
     """
@@ -87,7 +84,6 @@ def ek_use_platform_angles(
 
 def ek_use_beam_angles(
     beam_ds: xr.Dataset,
-    channel_da: xr.DataArray,
 ) -> xr.DataArray:
     """
     Use `beam_direction_x`, `beam_direction_y`, and `beam_direction_z` from the EK Beam group to
@@ -115,7 +111,7 @@ def ek_use_beam_angles(
     rot_beam_direction = R.from_matrix(beam_dir_rotmatrix_stack)
     echo_range_scaling = rot_beam_direction.as_matrix()[:, -1, -1]
     echo_range_scaling = xr.DataArray(
-        echo_range_scaling, dims="channel", coords={"channel": channel_da}
+        echo_range_scaling, dims="channel", coords={"channel": beam_ds["channel"]}
     )
 
     return echo_range_scaling
