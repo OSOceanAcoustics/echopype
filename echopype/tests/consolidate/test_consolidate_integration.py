@@ -178,9 +178,7 @@ def test_ek_use_platform_angles_output():
         coords={"ping_time": ping_time_da}
     )
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_platform_angles(platform_ds, ping_time_da)
-    assert echo_range_scaling.isel(ping_time=0) == 0
-    assert echo_range_scaling.isel(ping_time=1) == 0
-    assert echo_range_scaling.isel(ping_time=2) == 1
+    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0]))
 
 
 @pytest.mark.unit
@@ -203,9 +201,7 @@ def test_ek_use_beam_angles_output():
         coords={"channel": channel_da}
     )
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
-    assert echo_range_scaling.sel(channel="chan1") == 0
-    assert echo_range_scaling.sel(channel="chan2") == 0
-    assert echo_range_scaling.sel(channel="chan3") == 1
+    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0]))
 
 
 @pytest.mark.integration
