@@ -163,22 +163,23 @@ def test_ek_use_platform_angles_output():
     # should be 0 (i.e zeros out the entire depth).
     # In ping time 3, the platform is completely vertical so the echo range scaling should
     # be 1 (i.e no change).
-    ping_time_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=3), dims=("ping_time"))
+    # In ping time 4, the platform is tilted by 45 deg so the echo range scaling should
+    # be 1/sqrt(2).
     platform_ds = xr.Dataset(
         {
             "pitch": xr.DataArray(
-                [-90, 0, 0],
+                [-90, 0, 0, -45],
                 dims=("ping_time")
             ),
             "roll": xr.DataArray(
-                [0, 90, 0],
+                [0, 90, 0, 0],
                 dims=("ping_time")
             ),
         },
         coords={"ping_time": ping_time_da}
     )
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_platform_angles(platform_ds, ping_time_da)
-    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0]))
+    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0, 1/np.sqrt(2)]))
 
 
 @pytest.mark.unit
