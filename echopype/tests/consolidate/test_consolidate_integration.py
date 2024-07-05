@@ -165,6 +165,7 @@ def test_ek_use_platform_angles_output():
     # be 1 (i.e no change).
     # In ping time 4, the platform is tilted by 45 deg so the echo range scaling should
     # be 1/sqrt(2).
+    ping_time_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=4), dims=("ping_time"))
     platform_ds = xr.Dataset(
         {
             "pitch": xr.DataArray(
@@ -194,7 +195,7 @@ def test_ek_use_beam_angles_output():
     # be 1 (i.e no change).
     # In channel 4, the transducer is tilted to the x direction by 30 deg, so the
     # echo range scaling should be sqrt(3)/2.
-    channel_da = xr.DataArray(["chan1", "chan2", "chan3"], dims=("channel"))
+    channel_da = xr.DataArray(["chan1", "chan2", "chan3", "chan4"], dims=("channel"))
     beam_ds = xr.Dataset(
         {
             "beam_direction_x": xr.DataArray([1, 0, 0, 1/2], dims=("channel")),
