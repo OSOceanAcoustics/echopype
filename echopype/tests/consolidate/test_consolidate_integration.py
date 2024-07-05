@@ -192,17 +192,19 @@ def test_ek_use_beam_angles_output():
     # range scaling should be 0 (i.e zeros out the entire depth).
     # In channel 3, the transducer is completely vertical so the echo range scaling should
     # be 1 (i.e no change).
+    # In channel 4, the transducer is tilted to the x direction by 30 deg, so the
+    # echo range scaling should be sqrt(3)/2.
     channel_da = xr.DataArray(["chan1", "chan2", "chan3"], dims=("channel"))
     beam_ds = xr.Dataset(
         {
-            "beam_direction_x": xr.DataArray([1, 0, 0], dims=("channel")),
-            "beam_direction_y": xr.DataArray([0, 1, 0], dims=("channel")),
-            "beam_direction_z": xr.DataArray([0, 0, 1], dims=("channel")),
+            "beam_direction_x": xr.DataArray([1, 0, 0, 1/2], dims=("channel")),
+            "beam_direction_y": xr.DataArray([0, 1, 0, 0], dims=("channel")),
+            "beam_direction_z": xr.DataArray([0, 0, 1, np.sqrt(3)/2], dims=("channel")),
         },
         coords={"channel": channel_da}
     )
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
-    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0]))
+    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0, np.sqrt(3)/2]))
 
 
 @pytest.mark.integration
