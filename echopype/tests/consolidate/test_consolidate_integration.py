@@ -350,7 +350,7 @@ def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog):
         "variables will not be used."
     )
     tilt_warning = (
-        "When `tilt` is specified, beam/platform angle variables will " "not be used."
+        "When `tilt` is specified, beam/platform angle variables will not be used."
     )
     for warning in [depth_offset_warning, tilt_warning]:
         assert any(warning in record.message for record in caplog.records)
