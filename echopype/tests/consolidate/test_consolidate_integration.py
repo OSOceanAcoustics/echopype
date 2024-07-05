@@ -472,28 +472,13 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     # Compute transducer depth
     transducer_depth = ek_use_platform_vertical_offsets(ed["Platform"], ds_Sv["ping_time"])
     
-    # Iterate through every channel
-    for channel_index in range(len(ds_Sv["channel"])):
-        # Iterate through every ping time
-        for ping_time_index in range(len(ds_Sv["ping_time"])):
-            # Iterate through every range sample
-            for range_sample_index in range(len(ds_Sv["range_sample"])):
-                # Extract relevant values
-                depth_value = ds_Sv["depth"].isel(
-                    channel=channel_index, ping_time=ping_time_index, range_sample=range_sample_index
-                ).data
-                transducer_depth_value = transducer_depth.isel(
-                    channel=channel_index, ping_time=ping_time_index
-                ).data
-                # Check if depth value is equal to corresponding `echo_range` value + transducer depth value
-                assert np.isclose(
-                    depth_value,
-                    ds_Sv["echo_range"].isel(
-                        channel=channel_index, ping_time=ping_time_index, range_sample=range_sample_index
-                    ).data + transducer_depth_value,
-                    rtol=1e-10,
-                    atol=1e-10
-                )
+    # Check if depth value is equal to corresponding `echo_range` value + transducer depth value
+    assert np.isclose(
+        ds_Sv["depth"],
+        ds_Sv["echo_range"].data + transducer_depth,
+        rtol=1e-10,
+        atol=1e-10
+    )
 
 
 @pytest.mark.integration
@@ -542,27 +527,14 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
     # Compute transducer depth
     echo_range_scaling = ek_use_platform_angles(ed["Platform"], ds_Sv["ping_time"])
 
-    # Iterate through every ping time
-    for ping_time_index in range(len(ds_Sv["ping_time"])):
-        # Grab echo range scaling value
-        echo_range_scaling_value = echo_range_scaling.isel(ping_time=ping_time_index)
-        # Iterate through every channel
-        for channel_index in range(len(ds_Sv["channel"])):
-            # Grab vectors
-            depth_vector = ds_Sv["depth"].isel(
-                channel=channel_index, ping_time=ping_time_index
-            )
-            echo_range_vector = ds_Sv["echo_range"].isel(
-                channel=channel_index, ping_time=ping_time_index
-            )
-            # Check if depth vector is equal to echo range scaling value * echo range
-            assert np.all(
-                np.isclose(
-                    (depth_vector).data,
-                    (echo_range_scaling_value * echo_range_vector).data, 
-                    equal_nan=True
-                )
-            )
+    # Check if depth is equal to echo range scaling value * echo range
+    assert np.all(
+        np.isclose(
+            ds_Sv["depth"].data,
+            (echo_range_scaling * ds_Sv["echo_range"]).data, 
+            equal_nan=True
+        )
+    )
 
 
 @pytest.mark.integration
@@ -612,27 +584,17 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
     # Compute echo range scaling values
     echo_range_scaling = ek_use_beam_angles(ed["Sonar/Beam_group1"])
 
-    # Iterate through every channel
-    for channel_index in range(len(ds_Sv["channel"])):
-        # Grab echo range scaling value
-        echo_range_scaling_value = echo_range_scaling.isel(channel=channel_index)
-        # Iterate through every ping time
-        for ping_time_index in range(len(ds_Sv["ping_time"])):
-            # Grab vectors
-            depth_vector = ds_Sv["depth"].isel(
-                channel=channel_index, ping_time=ping_time_index
-            )
-            echo_range_vector = ds_Sv["echo_range"].isel(
-                channel=channel_index, ping_time=ping_time_index
-            )
-            # Check if depth vector is equal to echo range scaling value * echo range
-            assert np.all(
-                np.isclose(
-                    (depth_vector).data,
-                    (echo_range_scaling_value * echo_range_vector).data, 
-                    equal_nan=True
-                )
-            )
+    # Compute transducer depth
+    echo_range_scaling = ek_use_platform_angles(ed["Platform"], ds_Sv["ping_time"])
+
+    # Check if depth is equal to echo range scaling value * echo range
+    assert np.all(
+        np.isclose(
+            ds_Sv["depth"].data,
+            (echo_range_scaling * ds_Sv["echo_range"]).data, 
+            equal_nan=True
+        )
+    )
 
 
 @pytest.mark.integration
