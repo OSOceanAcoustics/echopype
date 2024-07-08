@@ -460,10 +460,10 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     ed["Platform"]["transducer_offset_z"] = ed["Platform"]["transducer_offset_z"].fillna(0)
 
     # Compute `depth` using platform vertical offset values
-    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_platform_vertical_offsets=True)
+    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_platform_vertical_offsets=True)
 
     # Check history attribute
-    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
         ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Vertical Offsets."
@@ -474,13 +474,13 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     
     # Check if depth value is equal to corresponding `echo_range` value + transducer depth value
     assert np.allclose(
-        ds_Sv["depth"].data,
+        ds_Sv_with_depth["depth"].data,
         (ds_Sv["echo_range"] + transducer_depth).data,
         rtol=1e-10,
         atol=1e-10
     )
 
-@pytest.mark.test
+
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
@@ -515,10 +515,10 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
     ed["Platform"]["roll"] = ed["Platform"]["roll"].fillna(0)
 
     # Compute `depth` using platform angle values
-    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
+    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
 
     # Check history attribute
-    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
         ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Angles."
@@ -529,7 +529,7 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
 
     # Check if depth is equal to echo range scaling value * echo range
     assert np.allclose(
-        ds_Sv["depth"].data,
+        ds_Sv_with_depth["depth"].data,
         (echo_range_scaling * ds_Sv["echo_range"]).transpose("channel", "ping_time", "range_sample").data, 
         equal_nan=True
     )
@@ -570,10 +570,10 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
     ed["Sonar/Beam_group1"]["beam_direction_z"] = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1)
 
     # Compute `depth` using beam angle values
-    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
 
     # Check history attribute
-    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
         ". depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
@@ -584,7 +584,7 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
 
     # Check if depth is equal to echo range scaling value * echo range
     assert np.allclose(
-        ds_Sv["depth"].data,
+        ds_Sv_with_depth["depth"].data,
         (echo_range_scaling * ds_Sv["echo_range"]).transpose("channel", "ping_time", "range_sample").data, 
         equal_nan=True
     )

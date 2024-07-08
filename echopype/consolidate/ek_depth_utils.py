@@ -76,8 +76,17 @@ def ek_use_platform_angles(platform_ds: xr.Dataset, ping_time_da: xr.DataArray) 
     yaw_rot_pitch_roll = R.from_euler("ZYX", yaw_pitch_roll_euler_angles_stack, degrees=True)
     echo_range_scaling = yaw_rot_pitch_roll.as_matrix()[:, -1, -1]
     echo_range_scaling = xr.DataArray(
-        echo_range_scaling, dims="ping_time", coords={"ping_time": ping_time_da}
+        echo_range_scaling, dims="time2", coords={"time2": platform_ds["time2"]}
     )
+
+    # If `time2` does not differ from `ping_time_da`, we rename `time2` to 'ping_time',
+    # else interpolate `echo_range_scaling`'s `time2` dimension to `ping_time`.
+    if not ping_time_da.equals(echo_range_scaling["time2"].rename({"time2": "ping_time"})):
+        echo_range_scaling = echo_range_scaling.interp(
+            {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
+        ).drop_vars("time2")
+    else:
+        echo_range_scaling = echo_range_scaling.rename({"time2": "ping_time"})
 
     return echo_range_scaling
 
