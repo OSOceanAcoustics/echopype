@@ -473,14 +473,14 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     transducer_depth = ek_use_platform_vertical_offsets(ed["Platform"], ds_Sv["ping_time"])
     
     # Check if depth value is equal to corresponding `echo_range` value + transducer depth value
-    assert np.isclose(
-        ds_Sv["depth"],
-        ds_Sv["echo_range"].data + transducer_depth,
+    assert np.allclose(
+        ds_Sv["depth"].data,
+        (ds_Sv["echo_range"] + transducer_depth).data,
         rtol=1e-10,
         atol=1e-10
     )
 
-
+@pytest.mark.test
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
@@ -528,12 +528,10 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
     echo_range_scaling = ek_use_platform_angles(ed["Platform"], ds_Sv["ping_time"])
 
     # Check if depth is equal to echo range scaling value * echo range
-    assert np.all(
-        np.isclose(
-            ds_Sv["depth"].data,
-            (echo_range_scaling * ds_Sv["echo_range"]).data, 
-            equal_nan=True
-        )
+    assert np.allclose(
+        ds_Sv["depth"].data,
+        (echo_range_scaling * ds_Sv["echo_range"]).transpose("channel", "ping_time", "range_sample").data, 
+        equal_nan=True
     )
 
 
@@ -584,16 +582,11 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
     # Compute echo range scaling values
     echo_range_scaling = ek_use_beam_angles(ed["Sonar/Beam_group1"])
 
-    # Compute transducer depth
-    echo_range_scaling = ek_use_platform_angles(ed["Platform"], ds_Sv["ping_time"])
-
     # Check if depth is equal to echo range scaling value * echo range
-    assert np.all(
-        np.isclose(
-            ds_Sv["depth"].data,
-            (echo_range_scaling * ds_Sv["echo_range"]).data, 
-            equal_nan=True
-        )
+    assert np.allclose(
+        ds_Sv["depth"].data,
+        (echo_range_scaling * ds_Sv["echo_range"]).transpose("channel", "ping_time", "range_sample").data, 
+        equal_nan=True
     )
 
 
