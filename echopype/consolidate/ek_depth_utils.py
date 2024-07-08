@@ -26,6 +26,27 @@ def _check_and_log_nans(
             )
 
 
+def _var_time2_to_ping_time(var_with_time2, ping_time_da):
+    """
+    If `time2` does not differ from `var`, we rename `time2` to 'ping_time',
+    else interpolate `transducer_depth`'s `time2` dimension to `ping_time`.
+
+    Useful for handling EK60 and EK80 platform data:
+
+    EK80 will have platform variables with time2 dimension that does not match
+    Beam group ping time values, while EK60 will have time2 dimension that
+    matches Beam group ping time values.
+    """
+    if not ping_time_da.equals(var_with_time2["time2"].rename({"time2": "ping_time"})):
+        var_with_ping_time = var_with_time2.interp(
+            {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
+        ).drop_vars("time2")
+    else:
+        var_with_ping_time = var_with_time2.rename({"time2": "ping_time"})
+
+    return var_with_ping_time
+
+
 def ek_use_platform_vertical_offsets(
     platform_ds: xr.Dataset,
     ping_time_da: xr.DataArray,
@@ -47,16 +68,7 @@ def ek_use_platform_vertical_offsets(
     # Compute z translation for transducer position vs water level
     transducer_depth = transducer_offset_z - (water_level + vertical_offset)
 
-    # If `time2` does not differ from `ping_time_da`, we rename `time2` to 'ping_time',
-    # else interpolate `transducer_depth`'s `time2` dimension to `ping_time`.
-    if not ping_time_da.equals(transducer_depth["time2"].rename({"time2": "ping_time"})):
-        transducer_depth = transducer_depth.interp(
-            {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
-        ).drop_vars("time2")
-    else:
-        transducer_depth = transducer_depth.rename({"time2": "ping_time"})
-
-    return transducer_depth
+    return _var_time2_to_ping_time(transducer_depth, ping_time_da)
 
 
 def ek_use_platform_angles(platform_ds: xr.Dataset, ping_time_da: xr.DataArray) -> xr.DataArray:
@@ -79,16 +91,7 @@ def ek_use_platform_angles(platform_ds: xr.Dataset, ping_time_da: xr.DataArray) 
         echo_range_scaling, dims="time2", coords={"time2": platform_ds["time2"]}
     )
 
-    # If `time2` does not differ from `ping_time_da`, we rename `time2` to 'ping_time',
-    # else interpolate `echo_range_scaling`'s `time2` dimension to `ping_time`.
-    if not ping_time_da.equals(echo_range_scaling["time2"].rename({"time2": "ping_time"})):
-        echo_range_scaling = echo_range_scaling.interp(
-            {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
-        ).drop_vars("time2")
-    else:
-        echo_range_scaling = echo_range_scaling.rename({"time2": "ping_time"})
-
-    return echo_range_scaling
+    return _var_time2_to_ping_time(echo_range_scaling, ping_time_da)
 
 
 def ek_use_beam_angles(
