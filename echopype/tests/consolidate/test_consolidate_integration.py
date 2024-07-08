@@ -152,35 +152,71 @@ def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
 
 
 @pytest.mark.unit
+def test_ek_use_platform_vertical_offsets_output():
+    """
+    Test `use_platform_vertical_offsets` outputs.
+    """
+    ping_time_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=5, freq="4h"), dims=("ping_time"))
+    time2_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=4, freq="5h"), dims=("time2"))
+    platform_ds = xr.Dataset(
+        {
+            "water_level": xr.DataArray(
+                [1.5, 0.5, 0.0, 1.0],
+                dims=("time2")
+            ),
+            "vertical_offset": xr.DataArray(
+                [1.0, 0.0, 0.0, 1.0],
+                dims=("time2")
+            ),
+            "transducer_offset_z": xr.DataArray(
+                [3.0, 1.5, 0.0, 11.15],
+                dims=("time2")
+            ),
+        },
+        coords={"time2": time2_da}
+    )
+    transducer_depth = ep.consolidate.ek_depth_utils.ek_use_platform_vertical_offsets(
+        platform_ds,
+        ping_time_da
+    )
+
+    # Check transducer depth values
+    assert np.allclose(transducer_depth.values, np.array([0.5, 1.0, 0.0, 0.0, 9.15]))
+
+
+@pytest.mark.unit
 def test_ek_use_platform_angles_output():
     """
-    Test `use_platform_angle` outputs for 2 times when the boat is completely sideways
+    Test `use_platform_angles` outputs for 2 times when the boat is completely sideways
     and 1 time when the boat has no sideways component (completely straight on z-axis).
     """
     # Create a Dataset with ping-time-specific pitch and roll arc degrees
     # (with possible range -90 deg to 90 deg).
-    # In ping time 1 and 2, the platform is completely sideways so the echo range scaling
+    # During the 1st and 2nd time2, the platform is completely sideways so the echo range scaling
     # should be 0 (i.e zeros out the entire depth).
-    # In ping time 3, the platform is completely vertical so the echo range scaling should
+    # During the 3rd time2, the platform is completely vertical so the echo range scaling should
     # be 1 (i.e no change).
-    # In ping time 4, the platform is tilted by 45 deg so the echo range scaling should
+    # During the 4th time2, the platform is tilted by 45 deg so the echo range scaling should
     # be 1/sqrt(2).
-    ping_time_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=4), dims=("ping_time"))
+    ping_time_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=5, freq="4h"), dims=("ping_time"))
+    time2_da = xr.DataArray(pd.date_range(start="2024-07-04", periods=4, freq="5h"), dims=("time2"))
     platform_ds = xr.Dataset(
         {
             "pitch": xr.DataArray(
                 [-90, 0, 0, -45],
-                dims=("ping_time")
+                dims=("time2")
             ),
             "roll": xr.DataArray(
                 [0, 90, 0, 0],
-                dims=("ping_time")
+                dims=("time2")
             ),
         },
-        coords={"ping_time": ping_time_da}
+        coords={"time2": time2_da}
     )
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_platform_angles(platform_ds, ping_time_da)
-    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0, 1/np.sqrt(2)]))
+
+    # The two 1.0s here are from the interpolation
+    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0, 1.0, 1/np.sqrt(2)]))
 
 
 @pytest.mark.unit
