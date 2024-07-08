@@ -39,7 +39,11 @@ def _var_time2_to_ping_time(var_with_time2, ping_time_da):
     """
     if not ping_time_da.equals(var_with_time2["time2"].rename({"time2": "ping_time"})):
         var_with_ping_time = var_with_time2.interp(
-            {"time2": ping_time_da}, method="nearest", kwargs={"fill_value": "extrapolate"}
+            {"time2": ping_time_da},
+            method="nearest",
+            # More details for `fill_value` and `extrapolate` can be found here:
+            # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html # noqa
+            kwargs={"fill_value": "extrapolate"},
         ).drop_vars("time2")
     else:
         var_with_ping_time = var_with_time2.rename({"time2": "ping_time"})
