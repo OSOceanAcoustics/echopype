@@ -323,7 +323,7 @@ def test_transient_noise_mask_values(chunk, func):
                 if not np.isnan(Sv_value) and not np.isnan(pooled_value):
                     assert Sv_value - pooled_value <= transient_noise_threshold
 
-@pytest.mark.test
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("chunk", "func"),
@@ -336,8 +336,10 @@ def test_transient_noise_mask_values(chunk, func):
 )
 def test_index_binning_pool_Sv_values(chunk, func):
     """
-    Manually check if the index binning pooled Sv for transient noise masking contains 
-    the correct nan boundary and the correct bin aggregate values.
+    Manually check if the index binning pooled Sv for transient noise masking does the
+    correct reflection computation. This is tested using `np.pad` to extend the Sv boundary
+    via reflecting around the existing Sv edge values, and doing the windowing aggregation
+    based off of this extended Sv.
     """
     # Open raw, calibrate, and add depth
     ed = ep.open_raw("echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
@@ -369,60 +371,70 @@ def test_index_binning_pool_Sv_values(chunk, func):
     # Iterate through channels
     for channel_index in range(len(ds_Sv["channel"])):
         # Grab single channel Sv
-        chan_ds_Sv = ds_Sv.isel(channel=channel_index)
+        chan_Sv = ds_Sv.isel(channel=channel_index)
+        chan_pooled_Sv = pooled_Sv.isel(channel=channel_index)
 
         # Compute number of range sample indices that are needed to encapsulate the `depth_bin`
         # value per channel.
         num_range_sample_indices = np.ceil(
-            depth_bin / np.nanmean(np.diff(chan_ds_Sv["depth"], axis=1), axis=(0,1))
+            depth_bin / np.nanmean(np.diff(chan_Sv["depth"], axis=1), axis=(0,1))
         ).astype(int)
 
-        # Compute min and max values
-        range_sample_min = ds_Sv["range_sample"].min()
-        range_sample_max = ds_Sv["range_sample"].max()
-        ping_time_index_min = 0
-        ping_time_index_max = len(ds_Sv["ping_time"])
+        # Remove values close to top
+        min_range_sample = (chan_Sv[range_var] <= exclude_above).argmin().values
+        chan_Sv = chan_Sv.isel(range_sample=slice(min_range_sample, None))
+        chan_pooled_Sv = chan_pooled_Sv.isel(range_sample=slice(min_range_sample, None))
 
-        # Create ping time indices array
-        ping_time_indices = xr.DataArray(
-            np.arange(len(chan_ds_Sv["ping_time"]), dtype=int),
-            dims=["ping_time"],
-            coords=[ds_Sv["ping_time"]],
-            name="ping_time_indices",
+        # Pad `chan_ds_Sv` using symmetric (equivalent to Dask Generic Filter reflect)
+        padded_chan_Sv = chan_Sv.pad(
+            pad_width={
+                "ping_time": (
+                    num_side_pings,
+                    num_side_pings
+                ),
+                "range_sample": (
+                    num_range_sample_indices,
+                    num_range_sample_indices
+                )
+            },
+            mode="symmetric"
         )
 
         # Check correct binning and aggregation values
-        for ping_time_index in range(len(chan_ds_Sv["ping_time"])):
-            for range_sample_index in range(len(chan_ds_Sv["range_sample"])):
+        for ping_time_index in range(
+            num_side_pings,
+            len(padded_chan_Sv["ping_time"]) - num_side_pings
+        ):
+            for range_sample_index in range(
+                num_range_sample_indices,
+                len(padded_chan_Sv["range_sample"]) - num_range_sample_indices
+            ): 
                 # Grab pooled value
-                pooled_value = pooled_Sv.isel(
-                    channel=channel_index,
-                    ping_time=ping_time_index,
-                    range_sample=range_sample_index
+                pooled_value = chan_pooled_Sv.isel(
+                    ping_time=ping_time_index - num_side_pings,
+                    range_sample=range_sample_index - num_range_sample_indices
                 ).data
-                if not np.isnan(pooled_value):
-                    # Check that manually computed pool value matches Dask-Image's
-                    # generic filter output
-                    assert np.isclose(
-                        pooled_value,
-                        _lin2log(
-                            _log2lin(
-                                ds_Sv["Sv"].isel(
-                                    channel=channel_index,
-                                    ping_time=slice(
-                                        ping_time_index - num_side_pings,
-                                        ping_time_index + 1 + num_side_pings
-                                    ),
-                                    range_sample=slice(
-                                        range_sample_index - num_range_sample_indices,
-                                        range_sample_index + 1 + num_range_sample_indices
-                                    )
+                # Check that manually computed pool value matches Dask-Image's
+                # generic filter output
+                assert np.allclose(
+                    pooled_value,
+                    _lin2log(
+                        _log2lin(
+                            padded_chan_Sv["Sv"].isel(
+                                ping_time=slice(
+                                    ping_time_index - num_side_pings,
+                                    ping_time_index + num_side_pings + 1
+                                ),
+                                range_sample=slice(
+                                    range_sample_index - num_range_sample_indices,
+                                    range_sample_index + num_range_sample_indices + 1
                                 )
-                            ).pipe(func)
-                        ),
-                        rtol=1e-10,
-                        atol=1e-10,
-                    )
+                            )
+                        ).pipe(func)
+                    ),
+                    rtol=1e-10,
+                    atol=1e-10,
+                )
 
 
 @pytest.mark.integration

@@ -168,6 +168,10 @@ def index_binning_pool_Sv(
             ).compute()
         )
 
+        # Expand `chan_pooled_Sv` to original Sv dimensions, effectively NaN'ing values close
+        # to the surface.
+        chan_pooled_Sv = chan_pooled_Sv.reindex_like(ds_Sv["Sv"].isel(channel=channel_index))
+
         # Place in pooled Sv list
         pooled_Sv_list.append(chan_pooled_Sv)
 
