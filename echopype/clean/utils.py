@@ -164,18 +164,9 @@ def index_binning_pool_Sv(
                 chan_Sv.pipe(_log2lin).data,
                 function=func,
                 size=pooling_size,
+                mode="reflect",
             ).compute()
         )
-
-        # Remove invalid pooled Sv values that are too close to the edge of the echogram
-        chan_pooled_Sv = chan_pooled_Sv.isel(
-            ping_time=slice(num_side_pings, -num_side_pings),
-            range_sample=slice(chan_num_range_sample_indices, -chan_num_range_sample_indices),
-        )
-
-        # Expand `chan_pooled_Sv` to original Sv dimensions, turning the previously
-        # mentioned invalid values into `NaNs`
-        chan_pooled_Sv = chan_pooled_Sv.reindex_like(ds_Sv["Sv"].isel(channel=channel_index))
 
         # Place in pooled Sv list
         pooled_Sv_list.append(chan_pooled_Sv)

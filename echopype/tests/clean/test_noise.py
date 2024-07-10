@@ -323,7 +323,7 @@ def test_transient_noise_mask_values(chunk, func):
                 if not np.isnan(Sv_value) and not np.isnan(pooled_value):
                     assert Sv_value - pooled_value <= transient_noise_threshold
 
-
+@pytest.mark.test
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("chunk", "func"),
@@ -390,21 +390,6 @@ def test_index_binning_pool_Sv_values(chunk, func):
             coords=[ds_Sv["ping_time"]],
             name="ping_time_indices",
         )
-
-        # Check appropriate NaN boundaries
-        within_mask = (
-            (chan_ds_Sv["range_sample"] - num_range_sample_indices >= range_sample_min) &
-            (chan_ds_Sv["range_sample"] + num_range_sample_indices <= range_sample_max) &
-            (chan_ds_Sv["depth"] -depth_bin >= exclude_above) &
-            (ping_time_indices - num_side_pings >= ping_time_index_min) &
-            (ping_time_indices + num_side_pings <= ping_time_index_max)
-        )
-        unique_pool_boundary_values = np.unique(
-            pooled_Sv.where(~within_mask)
-        )
-
-        # Check that NaN is the only pool boundary unique value
-        assert np.isclose(unique_pool_boundary_values, np.array([np.nan]), equal_nan=True)
 
         # Check correct binning and aggregation values
         for ping_time_index in range(len(chan_ds_Sv["ping_time"])):
