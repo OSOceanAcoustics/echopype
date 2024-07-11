@@ -639,13 +639,15 @@ class ParseEK(ParseBase):
             # Create output array from mask
             out_array = np.full(mask.shape, np.nan)
 
+            # Concatenate short pings
+            concat_short_pings = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
+
             # Take care of problem of np.nan being implicitly "real"
-            arr_dtype = data_list[0].dtype
-            if np.issubdtype(arr_dtype, np.complex_):
-                out_array = out_array.astype(arr_dtype)
+            if concat_short_pings.dtype == np.complex64:
+                out_array = out_array.astype(np.complex64)
 
             # Fill in values
-            out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
+            out_array[mask] = concat_short_pings
         else:
             out_array = np.array(data_list)
         return out_array
