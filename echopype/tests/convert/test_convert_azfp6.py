@@ -72,8 +72,7 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     # Test vendor group
     # Test temperature
     assert np.array_equal(
-        #np.array([d[4] for d in ds_matlab['Data']['Ancillary'][0.0].T]).squeeze(),
-        ds_matlab['Data']['Ancillary'][0,0][4],
+        np.array([d[4] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
         echodata["Vendor_specific"].ancillary.isel(ancillary_len=4),
     )
     assert np.allclose(
@@ -89,13 +88,11 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     
     # tilt x-y
     assert np.array_equal(
-        #np.array([d[0] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        ds_matlab['Data']['Ancillary'][0,0][0],
+        np.array([d[0] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
         echodata["Vendor_specific"].tilt_x_count,
     )
     assert np.array_equal(
-        #np.array([d[1] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
-        ds_matlab['Data']['Ancillary'][0,0][1],
+        np.array([d[1] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
         echodata["Vendor_specific"].tilt_y_count,
     )
     
@@ -163,7 +160,8 @@ def test_convert_azfp_02a_gps_lat_long(azfp_path):
     )
     
     assert np.array_equal(
-        ds_matlab['Data']['GPS_LAT_LONG'][0,0],
+        #ds_matlab['Data']['GPS_LAT_LONG'][0,0],
+        np.array([[d[0],d[1]] for d in ds_matlab['Data']['GPS_LAT_LONG'][0]]).squeeze().T,
         np.stack([echodata["Platform"].latitude, echodata["Platform"].longitude])
     )
     
