@@ -4,6 +4,7 @@ import numpy as np
 
 from echopype import open_raw
 from echopype.convert.utils.ek_raw_io import RawSimradFile, SimradEOF
+from echopype.convert.parse_base import ParseEK
 
 
 def expected_array_shape(file, datagram_type, datagram_item):
@@ -150,4 +151,60 @@ def test_convert_ek_with_idx_file(file, sonar_model):
             + "dataset's `time3` dimension. "
             + "This is different from longitude from the NMEA datagram.",
         }
+    )
+
+
+@pytest.mark.unit
+def test_pad_short_complex_pings():
+    """
+    Test padding of short complex pings.
+    """
+    # Create empty parser
+    empty_parser = ParseEK(None, None, None, None, None)
+
+    # Create ping list with sizes 3, 2, 1 samples per ping
+    data_list = [
+        np.array(
+            [
+                1.0 + 2.5j,
+                7.3 - 3.2j,
+                3.2 - 9.1j,
+            ],
+            dtype=np.complex64
+        ),
+        np.array(
+            [
+                1.8 - 4.1j,
+                1.2 - 8.9j,
+            ],
+            dtype=np.complex64
+        ),
+        np.array(
+            [
+                6.1 - 4.8j,
+            ],
+            dtype=np.complex64
+        ),
+    ]
+
+    # Pad shorter pings
+    output = empty_parser.pad_shorter_ping(data_list)
+
+    # Set expected output
+    expected_output = np.array(
+        [
+            [1. +2.5j, 7.3-3.2j, 3.2-9.1j],
+            [1.8-4.1j, 1.2-8.9j, np.nan+0.j ],
+            [6.1-4.8j, np.nan+0.j , np.nan+0.j ]
+        ],
+        dtype=np.complex64
+    )
+    # Check dtype
+    assert output.dtype == np.complex64
+
+    # Check output against expected
+    assert np.allclose(
+        output,
+        expected_output,
+        equal_nan=True
     )
