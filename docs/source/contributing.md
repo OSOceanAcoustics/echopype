@@ -1,57 +1,36 @@
-Contributing to echopype
+# Contributing to echopype
 ========================
 
-We welcome your contributions, large or small!
+
+:::{note}
+We welcome your contributions, large or small! 
+- Contributions to both code and documentation via Pull Requests are highly appreciated
+- Bug reports, feature requests, and questions via Issues are also welcome
+:::
 
 
-Contributing with Git and GitHub
---------------------------------
+## Contributing with Git and GitHub
 
-Please submit questions or report problems via GitHub issues. If you're new to GitHub,
-see these tips for submitting issues:
+### Bug reports, feature requests, questions
+Please ask questions, report bugs, or request new features via GitHub issues.
+If you're new to GitHub, checking out these tips for submitting issues:
 `"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
-For echopype development we use the **gitflow workflow** with forking. All development
-changes (except for documentation) are merged into the ``dev`` development branch.
-First create your own fork of the source GitHub repository
-`https://github.com/OSOceanAcoustics/echopype <https://github.com/OSOceanAcoustics/echopype/fork>`_
-(``upstream``), then clone your fork; your fork will be the ``origin`` remote. See
-`this excellent tutorial <https://www.dataschool.io/how-to-contribute-on-github/>`_ for
-guidance on forking and opening pull requests (PRs), but replace references to the ``main``
-branch with the ``dev`` development branch. See
-`this description of the gitflow workflow <https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow>`_.
-This diagram depicts the complete workflow we use in the source GitHub repository:
+### Contributions to code and documentation
+We use the fork-branch-pull request (PR) workflow to add new code into Echopype. 
+If you are new to this workflow, check out this [tutorial](https://medium.com/swlh/forks-and-pull-requests-how-to-contribute-to-github-repos-8843fac34ce8).
 
-.. mermaid::
+We have recently moved away from Gitflow development to [trunk-based development](https://www.atlassian.com/continuous-delivery/continuous-integration/trunk-based-development) to streamline the process and reduce repo management overhead.
+The main thing to keep in mind is to set the PR target to the `main` branch in the `upstream` repo (the one sitting under the OSOceanAcoustics GitHub organization).
+We will no longer use a `dev` branch.
 
-    graph LR
-        classDef patch fill:#f2ece4
-        main --> stable
-        main --> dev
-        p1([doc patch]):::patch -.-> stable
-        p2([code patch]):::patch -.-> dev
-        stable --> |docs merge| rel[release/0.x.y]
-        dev --> |dev merge| rel
-        rel --> main
-
-- ``doc patch``: Updates to the documentation that refer to the current ``echopype``
-  release can be pushed out immediately to the
-  `echopype documentation site <https://echopype.readthedocs.io>`_
-  by contributing patches (PRs) to the ``stable`` branch. See `Documentation development`_
-  below for more details.
-- ``code patch``: Code development is carried out as patches (PRs) to the ``dev``
-  branch; changes in the documentation corresponding to changes in the code can be
-  carried out in this branch as well.
-- New releases are prepared in a new release branch that merges changes in ``dev`` and ``stable``.
-
-To maintain a clean and readable commit history, use "Merge pull request > Squash and merge"
-when merging an individual PR to `dev` or a documentation-only PR to `stable`. This will
-highlight the specific feature(s) contributed by the PR. When merging an ``echopype``
-release PR to `main`, use "Merge pull request > Create a merge commit" in order to
-retain all the squashed PR commits in the commit history.
+We encourage all code contributions to be accompanied by tests and documentations when appropriate.
+We may ask for these when reviewing the PRs.
+If you have added new tests but the continuous integration (CI) workflows is not triggered to run, ping @leewujung to get them started.
 
 
-Installation for echopype development
+
+## Installation for echopype development
 -------------------------------------
 
 To access and test the latest, unreleased development version of echopype,
