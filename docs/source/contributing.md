@@ -21,7 +21,7 @@ We use the fork-branch-pull request (PR) workflow to add new code into Echopype.
 If you are new to this workflow, check out this [tutorial](https://medium.com/swlh/forks-and-pull-requests-how-to-contribute-to-github-repos-8843fac34ce8).
 
 We have recently moved away from Gitflow development to [trunk-based development](https://www.atlassian.com/continuous-delivery/continuous-integration/trunk-based-development) to streamline the process and reduce repo management overhead.
-The main thing to keep in mind is to set the PR target to the `main` branch in the `upstream` repo (the one sitting under the OSOceanAcoustics GitHub organization).
+The main thing to keep in mind is to set the PR target to the `main` branch in the `upstream` repository (the one sitting under the OSOceanAcoustics GitHub organization).
 We will no longer use a `dev` branch.
 
 We encourage all code contributions to be accompanied by tests and documentations when appropriate.
@@ -33,113 +33,108 @@ If you have added new tests but the continuous integration (CI) workflows is not
 ## Installation for echopype development
 -------------------------------------
 
-To access and test the latest, unreleased development version of echopype,
-clone the ``main`` branch from the source repository:
+To create an environment for developing Echopype, we recommend the following steps:
 
-.. code-block:: bash
+1. Fork the Echopype repository following the guide above, clone your fork, then in `git remote` set your fork as the `origin` and the OSOceanAcoustics repository as `upstream`
+    ```shell
+    # Clone your fork
+    git clone https://github.com/YOUR_GITHUB_USERNAME/echopype.git
 
-    git clone https://github.com/OSOceanAcoustics/echopype.git
-
-To set up your local environment to contribute to echopype,
-please follow the git forking workflow as described above.
-After forking the source repository, clone your fork,
-then set the source repository as the ``upstream`` git remote:
-
-.. code-block:: bash
-
-    git clone https://github.com/myusername/echopype.git
+    # Go into the cloned repo folder
     cd echopype
+
+    # Add the OSOceanAcoustics repository as upstream
     git remote add upstream https://github.com/OSOceanAcoustics/echopype.git
+    ```
 
-Below shows the steps to create a `conda <https://docs.conda.io>`_
-environment for echopype development
-(replace the Python version with your preferred version).
-
-.. attention::
-    We recommend using the ``libmamba`` solver instead of the classic solver,
-    since the ``conda create`` and ``conda install`` step could take very long or fail.
-    See instructions `here <https://conda.github.io/conda-libmamba-solver/getting-started/>`_
-    for installation and usage.
-
-
-.. code-block:: bash
-
-    # create a conda environment using the supplied requirements files
-    # note the last one docs/requirements.txt is only required for building docs
+2. Create a conda environment using `mamba`, and follow the steps below:
+    ```shell
+    # Create a conda environment using the supplied requirements files
+    # Note the last one docs/requirements.txt is only required for building docs
     conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
 
-    # switch to the newly built environment
+    # Switch to the newly built environment
     conda activate echopype
 
-    # ipykernel is recommended, in order to use with JupyterLab and IPython
-    # to aid with development. We recommend you install JupyterLab separately
+    # ipykernel is recommended, in order to use with JupyterLab and IPython for development
+    # We recommend you install JupyterLab separately
     conda install -c conda-forge ipykernel
 
     # install echopype in editable mode (setuptools "develop mode")
     # plot is an extra set of requirements that can be used for plotting.
     # the command will install all the dependencies along with plotting dependencies.
     pip install -e ".[plot]"
+    ```
 
-See the :doc:`installation` page to simply install the latest echopype release from conda or PyPI.
+:::{note}
+It's common to encounter the situation that installing packages using Conda is slow or fails,
+because Conda is unable to resolve dependencies.
+We suggest using Mamba to get around this.
+See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
+:::
 
 
-Tests and test infrastructure
------------------------------
 
-Test data files
-~~~~~~~~~~~~~~~
+## Tests and test infrastructure
 
-Test echosounder data files are managed in a private Google Drive folder and
-made available via the `cormorack/http <https://hub.docker.com/r/cormorack/http>`_
-Docker image on Docker hub; the image is rebuilt daily when new test data are added
-on Google Drive. See the `Running the tests`_ section below for details.
+### Test data files
 
-Running the tests
-~~~~~~~~~~~~~~~~~
+Currently, test data are stored in a private Google Drive folder and
+made available via the [`cormorack/http`](https://hub.docker.com/r/cormorack/http)
+Docker image on Docker hub.
+The image is rebuilt daily when new test data are added.
+If you tests require adding new test data, ping @leewujung or @ctuguinay
+to get them added to the the Google Drive.
 
-To run the echopype unit tests found in ``echopype/tests``,
-`Docker <https://docs.docker.com/get-docker/>`_
-will need to be installed if not already present
-(`docker-compose <https://docs.docker.com/compose/>`_ is also used,
-but it's installed in the conda environment for echopype development). Then:
+In the near future we plan to migrate all test data to GitHub Release Assets,
+to keep test data versioned and directly assocaited with the repo.
 
-.. code-block:: bash
 
-    # Install and/or deploy the echopype docker containers for testing.
-    # Test data files will be downloaded
-    python .ci_helpers/docker/setup-services.py --deploy
+### Running the tests
 
-    # Run all the tests. But first make sure the
-    # echopype development conda environment is activated
-    python .ci_helpers/run-test.py --local --pytest-args="-vv"
+To run the echopype unit tests found in `echopype/tests`, 
+[`Docker`](https://docs.docker.com/get-docker/) needs to be installed. 
+[`docker-compose`](https://docs.docker.com/compose/) is also needed, 
+but it should already be installed in the development environment created above.
 
-    # When done, "tear down" the docker containers
-    python .ci_helpers/docker/setup-services.py --tear-down
+To run the tests:
+```shell
+# Install and/or deploy the echopype docker containers for testing.
+# Test data files will be downloaded
+python .ci_helpers/docker/setup-services.py --deploy
 
-The tests include reading and writing from locally set up (via docker) http
-and `S3 object-storage <https://en.wikipedia.org/wiki/Amazon_S3>`_ sources,
-the latter via `minio <https://minio.io>`_.
+# Run all the tests. But first make sure the
+# echopype development conda environment is activated
+python .ci_helpers/run-test.py --local --pytest-args="-vv"
 
-`.ci_helpers/run-test.py <https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py>`_
-will execute all tests. The entire test suite can be a bit slow, taking up to 40 minutes
-or more. If your changes impact only some of the subpackages (``convert``, ``calibrate``,
-``preprocess``, etc), you can run ``run-test.py`` with only a subset of tests by passing
-as an argument a comma-separated list of the modules that have changed or also run only particular test
-files by passing a comma-separated list of test files that you want to run. For example:
+# When done, "tear down" the docker containers
+python .ci_helpers/docker/setup-services.py --tear-down
+```
 
-.. code-block:: bash
+The tests include reading and writing from locally set up (via docker)
+http and [S3 object-storage](https://en.wikipedia.org/wiki/Amazon_S3) sources,
+the latter via [minio](https://minio.io).
 
-    python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/preprocess/noise_est.py
+[`.ci_helpers/run-test.py`](https://github.com/OSOceanAcoustics/echopype/blob/main/.ci_helpers/run-test.py)
+will execute all tests.
+The entire test suite can take a few minutes to run.
+You can use `run-test.py` to run only tests for specific subpackages
+(`convert`, `calibrate`, etc) by passing a comma-separated list:
+```shell
+# Run only tests associated with the calibrate and mask subpackages
+python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/mask/api.py
+```
+or specific test files by passing a comma-separated list:
+```shell
+# Run only tests in the test_convert_azfp.py and test_noise.py files
+python .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
+```
 
-will run only tests associated with the ``calibrate`` and ``preprocess`` subpackages.
+For `run-test.py` usage information, use the ``-h`` argument:
+```shell
+`python .ci_helpers/run-test.py -h`
+```
 
-.. code-block:: bash
-
-    python .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
-
-will run only the tests in the ``test_convert_azfp.py`` and ``test_noise.py`` files.
-For ``run-test.py`` usage information, use the ``-h`` argument:
-``python .ci_helpers/run-test.py -h``
 
 pre-commit hooks
 ~~~~~~~~~~~~~~~~
@@ -156,8 +151,8 @@ during ``git commit`` and will give you options as needed before committing your
 You can also run ``pre-commit`` before actually doing ``git commit``, as you edit the code,
 by running ``pre-commit run --all-files``. See the `pre-commit usage documentation <https://pre-commit.com/#usage>`_ for details.
 
-Continuous integration GitHub Actions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+### Continuous integration GitHub Actions
+
 
 echopype makes extensive use of GitHub Actions for continuous integration (CI)
 of unit tests and other code quality controls. Every pull request (PR) triggers the CI.
