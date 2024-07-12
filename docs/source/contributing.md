@@ -136,23 +136,29 @@ For `run-test.py` usage information, use the ``-h`` argument:
 ```
 
 
-pre-commit hooks
-~~~~~~~~~~~~~~~~
 
-The echopype development conda environment includes `pre-commit <https://pre-commit.com>`_,
+## pre-commit hooks
+
+The echopype development conda environment includes [pre-commit](https://pre-commit.com),
 and useful pre-commit "hooks" have been configured in the
-`.pre-commit-config.yaml file <https://github.com/OSOceanAcoustics/echopype/blob/main/.pre-commit-config.yaml>`_.
-Current hooks include file formatting (linting) checks (trailing spaces, trailing lines,
-JSON and YAML format checks, etc) and Python style autoformatters (PEP8 / flake8, ``black`` and ``isort``).
+[.pre-commit-config.yaml file](https://github.com/OSOceanAcoustics/echopype/blob/main/.pre-commit-config.yaml).
+Current hooks include file formatting (linting) checks
+(trailing spaces, trailing lines, JSON and YAML format checks, etc)
+and Python style autoformatters (PEP8 / flake8, `black` and `isort`).
 
-To run pre-commit hooks locally, run ``pre-commit install`` before running the
-docker setup-service deploy statement described above. The hooks will run automatically
-during ``git commit`` and will give you options as needed before committing your changes.
-You can also run ``pre-commit`` before actually doing ``git commit``, as you edit the code,
-by running ``pre-commit run --all-files``. See the `pre-commit usage documentation <https://pre-commit.com/#usage>`_ for details.
+To run pre-commit hooks locally, run `pre-commit install` before running the
+docker setup-service deploy statement described above.
+The hooks will run automatically during `git commit` and will give you
+options as needed before committing your changes.
+You can also run `pre-commit` before actually doing `git commit` as you edit the code,
+by running `pre-commit run --all-files`.
+See the [pre-commit usage documentation](https://pre-commit.com/#usage) for details.
 
-### Continuous integration GitHub Actions
 
+
+<!-- 
+OLD CONTENT WHEN WE USED A DEV BRANCH
+CURRENT CI RUNS ENTIRE TEST SUITE FOR PR TO MAIN
 
 echopype makes extensive use of GitHub Actions for continuous integration (CI)
 of unit tests and other code quality controls. Every pull request (PR) triggers the CI.
@@ -168,7 +174,7 @@ Under special circumstances, when the submitted changes have a
 very limited scope (such as contributions to the documentation)
 or you know exactly what you're doing
 (you're a seasoned echopype contributor), the CI can be skipped.
-This is done by adding the string "[skip ci]" to the PR title.
+This is done by adding the string "[skip ci]" to the PR title. -->
 
 
 Documentation development
