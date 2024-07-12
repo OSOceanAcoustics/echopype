@@ -43,7 +43,7 @@ def mask_transient_noise(
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    func: str, default "nanmean"
+    func: str, default "nanmedian"
         Pooling function used in the pooled Sv aggregation.
     depth_bin : str, default "10m"
         Pooling bin size vertically along the vertical range variable (`range_var`).
@@ -55,7 +55,7 @@ def mask_transient_noise(
         Transient noise threshold value (dB) for the pooling comparison.
     range_var : str, default "depth"
         Vertical Range Variable. Can be either `depth` or `echo_range`.
-    use_index_binning : bool, default "False"
+    use_index_binning : bool, default False
         Speeds up aggregations by assuming depth is uniform and binning based
         on `range_sample` indices instead of `depth` values.
     chunk_dict : dict, default {}
@@ -134,10 +134,11 @@ def mask_transient_noise(
         func = np.nanmean
     elif func == "nanmedian":
         # Warn when `func=nanmedian` since the sorting overhead makes it incredibly slow compared to
-        # `nanmean`.
+        # other non-sorting aggregations like `nanmean`.
         logger.warning(
-            "Consider using `func=nanmean`. `func=nanmedian` is an incredibly slow operation due "
-            "to the overhead sorting."
+            "`func=nanmedian` is an incredibly slow operation due to the overhead sorting. "
+            "In the future, Echopype will include the Fielding Transient Noise Filter "
+            "described here: https://github.com/OSOceanAcoustics/echopype/issues/1352"
         )
         func = np.nanmedian
 
@@ -278,13 +279,13 @@ def mask_attenuated_signal(
     ----------
     ds_Sv : xarray.Dataset
         Calibrated Sv data with depth data variable.
-    upper_limit_sl : str, default `400m`
+    upper_limit_sl : str, default "400m"
         Upper limit of deep scattering layer line (m).
-    lower_limit_sl : str, default `500m`
+    lower_limit_sl : str, default "500m"
         Lower limit of deep scattering layer line (m).
-    num_side_pings : int, default `15`
+    num_side_pings : int, default 15
         Number of preceding & subsequent pings defining the block.
-    attenuation_signal_threshold : str, default `8.0dB`
+    attenuation_signal_threshold : str, default "8.0dB"
         Attenuation signal threshold value (dB) for the ping-block comparison.
     range_var : str, default "depth"
         Vertical Axis Range Variable. Can be either `depth` or `echo_range`.
@@ -370,7 +371,7 @@ def estimate_background_noise(
         Number of pings to obtain noise estimates
     range_sample_num : int
         Number of samples along the ``range_sample`` dimension to obtain noise estimates.
-    background_noise_max : str, default `None`
+    background_noise_max : str, default None
         The upper limit (dB) for background noise expected under the operating conditions.
 
     Returns
@@ -447,9 +448,9 @@ def remove_background_noise(
         Number of pings to obtain noise estimates.
     range_sample_num : int
         Number of samples along the ``range_sample`` dimension to obtain noise estimates.
-    background_noise_max : str, default `None`
+    background_noise_max : str, default None
         The upper limit for background noise expected under the operating conditions.
-    SNR_threshold : str, default `3.0dB`
+    SNR_threshold : str, default "3.0dB"
         Acceptable signal-to-noise ratio, default to 3 dB.
 
     Returns
