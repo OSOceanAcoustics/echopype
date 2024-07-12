@@ -217,5 +217,5 @@ When a PR is created, the CI will run through all tests, basic spelling and form
 You can check the test results in a section at the bottom of the PR like below:
 ![ci_runs](https://user-images.githubusercontent.com/15334215/165646718-ebfd4041-b110-4b54-a5b9-54a7a08bc982.png)
 
-To see the newly built documentation, clikc  "Details" in the
-"docs/readthedocs.org:echopype" entry shown above.
+To see the newly built documentation, click  "Details" to the right of the
+`docs/readthedocs.org:echopype` entry shown above.
