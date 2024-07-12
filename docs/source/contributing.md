@@ -2,7 +2,7 @@
 
 
 :::{note}
-We welcome your contributions, large or small! 
+We welcome your contributions, large or small!
 - Contributions to both code and documentation via Pull Requests are highly appreciated
 - Bug reports, feature requests, and questions via Issues are also welcome
 :::
@@ -17,7 +17,7 @@ If you're new to GitHub, checking out these tips for submitting issues:
 `"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
 
 ### Contributions to code and documentation
-We use the fork-branch-pull request (PR) workflow to add new code into Echopype. 
+We use the fork-branch-pull request (PR) workflow to add new code into Echopype.
 If you are new to this workflow, check out this [tutorial](https://medium.com/swlh/forks-and-pull-requests-how-to-contribute-to-github-repos-8843fac34ce8).
 
 We have recently moved away from Gitflow development to [trunk-based development](https://www.atlassian.com/continuous-delivery/continuous-integration/trunk-based-development) to streamline the process and reduce repo management overhead.
@@ -86,14 +86,14 @@ If you tests require adding new test data, ping @leewujung or @ctuguinay
 to get them added to the the Google Drive.
 
 In the near future we plan to migrate all test data to GitHub Release Assets,
-to keep test data versioned and directly assocaited with the repo.
+to keep test data versioned and directly associated with the repo.
 
 
 ### Running the tests
 
-To run the echopype unit tests found in `echopype/tests`, 
-[`Docker`](https://docs.docker.com/get-docker/) needs to be installed. 
-[`docker-compose`](https://docs.docker.com/compose/) is also needed, 
+To run the echopype unit tests found in `echopype/tests`,
+[`Docker`](https://docs.docker.com/get-docker/) needs to be installed.
+[`docker-compose`](https://docs.docker.com/compose/) is also needed,
 but it should already be installed in the development environment created above.
 
 To run the tests:
@@ -155,7 +155,7 @@ See the [pre-commit usage documentation](https://pre-commit.com/#usage) for deta
 
 
 
-<!-- 
+<!--
 OLD CONTENT WHEN WE USED A DEV BRANCH
 CURRENT CI RUNS ENTIRE TEST SUITE FOR PR TO MAIN
 
@@ -215,9 +215,9 @@ ReadTheDocs defaults to having the `stable` version tracking the most recent rel
 
 ## GitHub Actions for continuous integration (CI)
 When a PR is created, the CI will run through all tests, basic spelling and formatting checks
-(via pre-commit), and build the documentation. 
+(via pre-commit), and build the documentation.
 You can check the test results in a section at the bottom of the PR like below:
 ![ci_runs](https://user-images.githubusercontent.com/15334215/165646718-ebfd4041-b110-4b54-a5b9-54a7a08bc982.png)
 
-To see the newly built documention, clikc  "Details" in the
+To see the newly built documentation, clikc  "Details" in the
 "docs/readthedocs.org:echopype" entry shown above.
