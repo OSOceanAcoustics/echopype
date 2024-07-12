@@ -137,7 +137,7 @@ def mask_transient_noise(
         # other non-sorting aggregations like `nanmean`.
         logger.warning(
             "`func=nanmedian` is an incredibly slow operation due to the overhead sorting. "
-            "In the future, Echopype will include the Fielding Transient Noise Filter "
+            "We plan to add the Fielding Transient Noise Filter in the future"
             "described here: https://github.com/OSOceanAcoustics/echopype/issues/1352"
         )
         func = np.nanmedian
