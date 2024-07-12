@@ -25,7 +25,7 @@ We will no longer use a `dev` branch.
 
 We encourage all code contributions to be accompanied by tests and documentations when appropriate.
 We may ask for these when reviewing the PRs.
-If you have added new tests but the GitHub Actions (see [](#github-actions-for-continuous-integration-ci) below) needs approval to run, ping the maintainers (@leewujung, @ctuguinay) to get them started.
+If you have added new tests but the [GitHub Actions for continuous integration](#github-actions-for-continuous-integration-ci) need approval to run, ping the maintainers (@leewujung, @ctuguinay) to get them started.
 
 
 
@@ -208,7 +208,6 @@ For some quick orientation of where things are:
 ### Versions
 
 ReadTheDocs defaults to having the `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
-
 
 
 
