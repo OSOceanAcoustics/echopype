@@ -9,12 +9,11 @@ We welcome your contributions, large or small!
 
 
 
-## Contributing with Git and GitHub
+## Contributing on GitHub
 
 ### Bug reports, feature requests, questions
 Please ask questions, report bugs, or request new features via GitHub issues.
-If you're new to GitHub, checking out these tips for submitting issues:
-`"Creating issues on GitHub" <https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f>`_.
+If you're new to GitHub, checking out these tips for [creating issues on GitHub](https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f).
 
 ### Contributions to code and documentation
 We use the fork-branch-pull request (PR) workflow to add new code into Echopype.
@@ -26,15 +25,15 @@ We will no longer use a `dev` branch.
 
 We encourage all code contributions to be accompanied by tests and documentations when appropriate.
 We may ask for these when reviewing the PRs.
-If you have added new tests but the continuous integration (CI) workflows is not triggered to run, ping @leewujung to get them started.
+If you have added new tests but the GitHub Actions (see [](#github-actions-for-continuous-integration-ci) below) needs approval to run, ping the maintainers (@leewujung, @ctuguinay) to get them started.
 
 
 
-## Installation for echopype development
+## Development environment
 
 To create an environment for developing Echopype, we recommend the following steps:
 
-1. Fork the Echopype repository following the guide above, clone your fork, then in `git remote` set your fork as the `origin` and the OSOceanAcoustics repository as `upstream`
+1. Fork the Echopype repository following the guide above, clone your fork, then in `git remote` set your fork as the `origin` and the OSOceanAcoustics repository as `upstream`:
     ```shell
     # Clone your fork
     git clone https://github.com/YOUR_GITHUB_USERNAME/echopype.git
@@ -74,7 +73,7 @@ See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for install
 
 
 
-## Tests and test infrastructure
+## Testing infrastructure
 
 ### Test data files
 
@@ -82,7 +81,7 @@ Currently, test data are stored in a private Google Drive folder and
 made available via the [`cormorack/http`](https://hub.docker.com/r/cormorack/http)
 Docker image on Docker hub.
 The image is rebuilt daily when new test data are added.
-If you tests require adding new test data, ping @leewujung or @ctuguinay
+If you tests require adding new test data, ping the maintainers (@leewujung, @ctuguinay)
 to get them added to the the Google Drive.
 
 In the near future we plan to migrate all test data to GitHub Release Assets,
@@ -185,7 +184,7 @@ For inline strings documenting functions and objects ("docstrings"),
 we use the [numpydoc style](https://numpydoc.readthedocs.io/en/latest/format.html) (Numpy docstring format).
 
 
-### Jupter Book ReadTheDocs documentation
+### General setup
 
 Echopype documentation (https://echopype.readthedocs.io) is based on [Jupyter Book](https://jupyterbook.org/en/stable/intro.html),
 which are rendered under the hood with [Sphinx](https://www.sphinx-doc.org).
@@ -206,7 +205,7 @@ For some quick orientation of where things are:
 - The [table of contents](https://jupyterbook.org/en/stable/structure/toc.html) for the sidebar
   is in `docs/source/_toc.yml`
 
-### Documentation versions
+### Versions
 
 ReadTheDocs defaults to having the `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
 
