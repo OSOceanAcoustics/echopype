@@ -222,16 +222,4 @@ To see the newly built documention, clikc  "Details" in the
 
 ## Documentation versions
 
-`<https://echopype.readthedocs.io>`_ redirects to the documentation ``stable`` version,
-`<https://echopype.readthedocs.io/en/stable/>`_, which is built from the ``stable`` branch
-on the ``echopype`` GitHub repository. In addition, the ``latest`` version
-(`<https://echopype.readthedocs.io/en/latest/>`_) is built from the ``dev`` branch and
-therefore it reflects the bleeding edge development code (which may occasionally break
-the documentation build). Finally, each new echopype release is built as a new release version
-on ReadTheDocs. Merging pull requests into ``stable`` or ``dev`` or issuing a new
-tagged release will automatically result in a new ReadTheDocs build for the
-corresponding version.
-
-We also maintain a test version of the documentation at `<https://doc-test-echopype.readthedocs.io/>`_
-for viewing and debugging larger, more experimental changes, typically from a separate fork.
-This version is used to test one-off, major breaking changes.
+ReadTheDocs defaults to having the `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
