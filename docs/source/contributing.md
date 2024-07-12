@@ -1,5 +1,4 @@
 # Contributing to echopype
-========================
 
 
 :::{note}
@@ -7,6 +6,7 @@ We welcome your contributions, large or small!
 - Contributions to both code and documentation via Pull Requests are highly appreciated
 - Bug reports, feature requests, and questions via Issues are also welcome
 :::
+
 
 
 ## Contributing with Git and GitHub
@@ -31,7 +31,6 @@ If you have added new tests but the continuous integration (CI) workflows is not
 
 
 ## Installation for echopype development
--------------------------------------
 
 To create an environment for developing Echopype, we recommend the following steps:
 
@@ -207,19 +206,18 @@ For some quick orientation of where things are:
 - The [table of contents](https://jupyterbook.org/en/stable/structure/toc.html) for the sidebar
   is in `docs/source/_toc.yml`
 
+### Documentation versions
+
+ReadTheDocs defaults to having the `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
+
+
 
 
 ## GitHub Actions for continuous integration (CI)
 When a PR is created, the CI will run through all tests, basic spelling and formatting checks
 (via pre-commit), and build the documentation. 
-You can check the results in a section at the bottom of the PR like below:
+You can check the test results in a section at the bottom of the PR like below:
 ![ci_runs](https://user-images.githubusercontent.com/15334215/165646718-ebfd4041-b110-4b54-a5b9-54a7a08bc982.png)
 
 To see the newly built documention, clikc  "Details" in the
 "docs/readthedocs.org:echopype" entry shown above.
-
-
-
-## Documentation versions
-
-ReadTheDocs defaults to having the `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
