@@ -575,15 +575,14 @@ class ParseEK(ParseBase):
             elif new_datagram["type"].startswith("FIL"):
                 if "EC150" not in new_datagram["channel_id"]:
                     # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
-                    self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
-                        "coefficients"
-                    ]
+                    self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = (
+                        new_datagram["coefficients"]
+                    )
                     self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
                         "decimation_factor"
                     ]
                 # else:
                 #     print(f"{new_datagram['channel_id']} from FIL")
-
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):
