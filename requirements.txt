@@ -1,5 +1,6 @@
 bottleneck
 dask[array,distributed]
+dask_image
 jinja2
 netCDF4>1.6
 numpy<2
