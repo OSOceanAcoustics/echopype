@@ -498,8 +498,11 @@ class ParseEK(ParseBase):
                     self.environment["xml"] = new_datagram["xml"]
                     self.environment["timestamp"] = new_datagram["timestamp"]
                 elif new_datagram["subtype"] == "parameter":
-                    if not "EC150" in new_datagram["parameter"]["channel_id"]:
-                        # print(f"{new_datagram['parameter']['channel_id']} from XML-parameter -- NOT SKIPPING")
+                    if "EC150" not in new_datagram["parameter"]["channel_id"]:
+                        print(
+                            f"{new_datagram['parameter']['channel_id']} from XML-parameter "
+                            "-- NOT SKIPPING"
+                        )
                         current_parameters = new_datagram["parameter"]
                     # else:
                     #     print(f"{new_datagram['parameter']['channel_id']} from XML-parameter")
@@ -519,7 +522,7 @@ class ParseEK(ParseBase):
             #   - RAW3
             # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram["type"].startswith("RAW3"):
-                if not "EC150" in new_datagram["channel_id"]:
+                if "EC150" not in new_datagram["channel_id"]:
                     # print(f"{new_datagram['channel_id']} from RAW3 -- NOT SKIPPING")
                     curr_ch_id = new_datagram["channel_id"]
                     # Check if the proceeding Parameter XML does not
@@ -538,7 +541,7 @@ class ParseEK(ParseBase):
 
             # RAW4 datagrams store raw transmit pulse for a channel for EK80
             elif new_datagram["type"].startswith("RAW4"):
-                if not "EC150" in new_datagram["channel_id"]:
+                if "EC150" not in new_datagram["channel_id"]:
                     # print(f"{new_datagram['channel_id']} from RAW4 -- NOT SKIPPING")
                     curr_ch_id = new_datagram["channel_id"]
                     # Check if the proceeding Parameter XML does not
@@ -570,7 +573,7 @@ class ParseEK(ParseBase):
 
             # FIL datagrams contain filters for processing bascatter data for EK80
             elif new_datagram["type"].startswith("FIL"):
-                if not "EC150" in new_datagram["channel_id"]:
+                if "EC150" not in new_datagram["channel_id"]:
                     # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
                     self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
                         "coefficients"
