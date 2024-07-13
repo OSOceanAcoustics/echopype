@@ -349,13 +349,14 @@ class ParseEK(ParseBase):
                 self.config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
 
-            # Remove EC150 (ADCP) config datagrams
-            channel_id = list(self.config_datagram["configuration"].keys())
-            channel_id_rm = [ch for ch in channel_id if "EC150" in ch]
-            for ch in channel_id_rm:
-                _ = self.config_datagram["configuration"].pop(ch)
-
+            # Only EK80 files have configuration in self.config_datagram
             if "configuration" in self.config_datagram:
+                # Remove EC150 (ADCP) from config
+                channel_id = list(self.config_datagram["configuration"].keys())
+                channel_id_rm = [ch for ch in channel_id if "EC150" in ch]
+                for ch in channel_id_rm:
+                    _ = self.config_datagram["configuration"].pop(ch)
+
                 for v in self.config_datagram["configuration"].values():
                     if "pulse_duration" not in v and "pulse_length" in v:
                         # it seems like sometimes this field can appear with the name "pulse_length"
