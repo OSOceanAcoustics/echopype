@@ -500,13 +500,13 @@ class ParseEK(ParseBase):
                     self.environment["timestamp"] = new_datagram["timestamp"]
                 elif new_datagram["subtype"] == "parameter":
                     if "EC150" not in new_datagram["parameter"]["channel_id"]:
-                        print(
-                            f"{new_datagram['parameter']['channel_id']} from XML-parameter "
-                            "-- NOT SKIPPING"
-                        )
+                        #    print(
+                        #        f"{new_datagram['parameter']['channel_id']} from XML-parameter "
+                        #        "-- NOT SKIPPING"
+                        #    )
                         current_parameters = new_datagram["parameter"]
-                    # else:
-                    #     print(f"{new_datagram['parameter']['channel_id']} from XML-parameter")
+                # else:
+                #     print(f"{new_datagram['parameter']['channel_id']} from XML-parameter")
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
             elif new_datagram["type"].startswith("RAW0"):
