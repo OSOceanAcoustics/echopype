@@ -201,7 +201,7 @@ class ParseAZFP6(ParseBase):
         self.parameters["phase_number"] = [str(n + 1) for n in range(self.parameters["num_phases"])]
         # Gain was removed, for backward compatibility adding in a Gain=1 field
         for phase in range(self.parameters["num_phases"]):
-            self.parameters[f"gain_phase{phase+1}"] = [1] * self.parameters["num_freq"]
+            self.parameters[f"gain_phase{phase + 1}"] = [1] * self.parameters["num_freq"]
 
         # from pprint import pprint as pp
         # pp(self.parameters)
