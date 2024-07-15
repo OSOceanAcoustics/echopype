@@ -348,7 +348,15 @@ class ParseEK(ParseBase):
             self.config_datagram["timestamp"] = np.datetime64(
                 self.config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
+
+            # Only EK80 files have configuration in self.config_datagram
             if "configuration" in self.config_datagram:
+                # Remove EC150 (ADCP) from config
+                channel_id = list(self.config_datagram["configuration"].keys())
+                channel_id_rm = [ch for ch in channel_id if "EC150" in ch]
+                for ch in channel_id_rm:
+                    _ = self.config_datagram["configuration"].pop(ch)
+
                 for v in self.config_datagram["configuration"].values():
                     if "pulse_duration" not in v and "pulse_length" in v:
                         # it seems like sometimes this field can appear with the name "pulse_length"
@@ -476,6 +484,12 @@ class ParseEK(ParseBase):
                 new_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
 
+            # # For debugging EC150 datagrams
+            # if new_datagram["type"].startswith("XML") and "subtype" in new_datagram:
+            #     print(f"{new_datagram['type']} - {new_datagram['subtype']}")
+            # else:
+            #     print(new_datagram["type"])
+
             num_datagrams_parsed += 1
 
             # XML datagrams store environment or instrument parameters for EK80
@@ -485,7 +499,14 @@ class ParseEK(ParseBase):
                     self.environment["xml"] = new_datagram["xml"]
                     self.environment["timestamp"] = new_datagram["timestamp"]
                 elif new_datagram["subtype"] == "parameter":
-                    current_parameters = new_datagram["parameter"]
+                    if "EC150" not in new_datagram["parameter"]["channel_id"]:
+                        #    print(
+                        #        f"{new_datagram['parameter']['channel_id']} from XML-parameter "
+                        #        "-- NOT SKIPPING"
+                        #    )
+                        current_parameters = new_datagram["parameter"]
+                # else:
+                #     print(f"{new_datagram['parameter']['channel_id']} from XML-parameter")
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
             elif new_datagram["type"].startswith("RAW0"):
@@ -502,33 +523,41 @@ class ParseEK(ParseBase):
             #   - RAW3
             # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram["type"].startswith("RAW3"):
-                curr_ch_id = new_datagram["channel_id"]
-                # Check if the proceeding Parameter XML does not
-                # match with data in this RAW3 datagram
-                if current_parameters["channel_id"] != curr_ch_id:
-                    raise ValueError("Parameter ID does not match RAW")
+                if "EC150" not in new_datagram["channel_id"]:
+                    # print(f"{new_datagram['channel_id']} from RAW3 -- NOT SKIPPING")
+                    curr_ch_id = new_datagram["channel_id"]
+                    # Check if the proceeding Parameter XML does not
+                    # match with data in this RAW3 datagram
+                    if current_parameters["channel_id"] != curr_ch_id:
+                        raise ValueError("Parameter ID does not match RAW")
 
-                # Save channel-specific ping time
-                self.ping_time[curr_ch_id].append(new_datagram["timestamp"])
+                    # Save channel-specific ping time
+                    self.ping_time[curr_ch_id].append(new_datagram["timestamp"])
 
-                # Append ping by ping data
-                new_datagram.update(current_parameters)
-                self._append_channel_ping_data(new_datagram)
+                    # Append ping by ping data
+                    new_datagram.update(current_parameters)
+                    self._append_channel_ping_data(new_datagram)
+                # else:
+                #     print(f"{new_datagram['channel_id']} from RAW3")
 
             # RAW4 datagrams store raw transmit pulse for a channel for EK80
             elif new_datagram["type"].startswith("RAW4"):
-                curr_ch_id = new_datagram["channel_id"]
-                # Check if the proceeding Parameter XML does not
-                # match with data in this RAW4 datagram
-                if current_parameters["channel_id"] != curr_ch_id:
-                    raise ValueError("Parameter ID does not match RAW")
+                if "EC150" not in new_datagram["channel_id"]:
+                    # print(f"{new_datagram['channel_id']} from RAW4 -- NOT SKIPPING")
+                    curr_ch_id = new_datagram["channel_id"]
+                    # Check if the proceeding Parameter XML does not
+                    # match with data in this RAW4 datagram
+                    if current_parameters["channel_id"] != curr_ch_id:
+                        raise ValueError("Parameter ID does not match RAW")
 
-                # Ping time is identical to the immediately following RAW3 datagram
-                # so does not need to be stored separately
+                    # Ping time is identical to the immediately following RAW3 datagram
+                    # so does not need to be stored separately
 
-                # Append ping by ping data
-                new_datagram.update(current_parameters)
-                self._append_channel_ping_data(new_datagram, raw_type="transmit")
+                    # Append ping by ping data
+                    new_datagram.update(current_parameters)
+                    self._append_channel_ping_data(new_datagram, raw_type="transmit")
+                # else:
+                #     print(f"{new_datagram['channel_id']} from RAW4")
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram["type"].startswith("NME"):
@@ -545,12 +574,16 @@ class ParseEK(ParseBase):
 
             # FIL datagrams contain filters for processing bascatter data for EK80
             elif new_datagram["type"].startswith("FIL"):
-                self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
-                    "coefficients"
-                ]
-                self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
-                    "decimation_factor"
-                ]
+                if "EC150" not in new_datagram["channel_id"]:
+                    # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
+                    self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = (
+                        new_datagram["coefficients"]
+                    )
+                    self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
+                        "decimation_factor"
+                    ]
+                # else:
+                #     print(f"{new_datagram['channel_id']} from FIL")
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):
