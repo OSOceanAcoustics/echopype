@@ -709,7 +709,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             "EK60",
             "EK60",
             ("Winter2017-D20170115-T150122.raw", None),
-            {"lat_name": "latitudea", "lon_name": "longitude"},
+            {"lat_name": "latitude", "lon_name": "longitude"},
             None,
         ),
         (
