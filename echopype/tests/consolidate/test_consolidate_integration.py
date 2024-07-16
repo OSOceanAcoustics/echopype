@@ -817,12 +817,13 @@ def test_add_location(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs"),
+    ("raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs"),
     [
         (
             "echopype/test_data/ek80/D20170912-T234910.raw",
             "EK80",
             "NMEA",
+            False,
             "time1",
             {
                 "waveform_mode": "BB",
@@ -833,6 +834,7 @@ def test_add_location(
             "echopype/test_data/ek80/RL2407_ADCP-D20240709-T150437.raw",
             "EK80",
             "MRU1",
+            False,
             "time3",
             {
                 "waveform_mode": "CW",
@@ -843,6 +845,7 @@ def test_add_location(
             "echopype/test_data/ek80/idx_bot/Hake-D20230711-T181910.raw",
             "EK80",
             "IDX",
+            True,
             "time4",
             {
                 "waveform_mode": "CW",
@@ -852,14 +855,14 @@ def test_add_location(
     ],
 )
 def test_add_location_time_duplicates_value_error(
-    raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs,
+    raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs,
 ):   
     """Tests for duplicate time value error in ``add_location``.""" 
     # Open raw and compute the Sv dataset
-    if not datagram_type == "IDX":
-        ed = ep.open_raw(raw_path, sonar_model=sonar_model)
-    else:
+    if parse_idx:
         ed = ep.open_raw(raw_path, include_idx=True, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(raw_path, sonar_model=sonar_model)
     ds = ep.calibrate.compute_Sv(
         echodata=ed,
         **compute_Sv_kwargs,
@@ -882,54 +885,148 @@ def test_add_location_time_duplicates_value_error(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs"),
+    ("raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_error_message"),
     [
         (
             "echopype/test_data/ek80/D20170912-T234910.raw",
             "EK80",
             "NMEA",
-            "time1",
+            False,
             {
                 "waveform_mode": "BB",
                 "encode_mode": "complex"
-            }
+            },
+            "Coordinate variables not present or all nan.",
         ),
         (
             "echopype/test_data/ek80/RL2407_ADCP-D20240709-T150437.raw",
             "EK80",
             "MRU1",
-            "time3",
+            False,
             {
                 "waveform_mode": "CW",
                 "encode_mode": "complex"
-            }
+            },
+            "Coordinate variables not present or all nan.",
         ),
         (
             "echopype/test_data/ek80/idx_bot/Hake-D20230711-T181910.raw",
             "EK80",
             "IDX",
-            "time4",
+            True,
             {
                 "waveform_mode": "CW",
                 "encode_mode": "power"
-            }
+            },
+            "Coordinate variables not present or all nan. Consider setting datagram_type to any of ['NMEA'].",
         ),
     ],
 )
-def test_add_location_lat_lon_0_NaN_warnings(
-    raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs, caplog
+def test_add_location_lat_lon_missing_all_NaN_errors(
+    raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_error_message
 ):
-    """Tests for lat lon 0 and NaN value warnings in ``add_warning``."""
+    """Tests for lat lon missing or all NaN values errors."""
     # Open raw and compute the Sv dataset
-    if not datagram_type == "IDX":
-        ed = ep.open_raw(raw_path, sonar_model=sonar_model)
-    else:
+    if parse_idx:
         ed = ep.open_raw(raw_path, include_idx=True, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(raw_path, sonar_model=sonar_model)
     ds = ep.calibrate.compute_Sv(
         echodata=ed,
         **compute_Sv_kwargs,
     )
-    
+
+    # Set NaN to latitude and set None to longitude
+    if datagram_type in ["MRU1", "IDX"]:
+        ed["Platform"][f"latitude_{datagram_type.lower()}"].data = (
+            [np.nan] * len(ed["Platform"][f"latitude_{datagram_type.lower()}"])
+        )
+        ed["Platform"][f"longitude_{datagram_type.lower()}"] = None
+    else:
+        ed["Platform"]["latitude"].data = (
+            [np.nan] * len(ed["Platform"]["latitude"])
+        )
+        ed["Platform"]["longitude"] = None
+
+    # Check if the expected error is logged
+    with pytest.raises(ValueError) as exc_info:
+        # Run add location with duplicated time
+        ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
+
+    # Check expected error message is in the logs
+    assert expected_error_message == str(exc_info.value)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_warnings"),
+    [
+        (
+            "echopype/test_data/ek80/D20170912-T234910.raw",
+            "EK80",
+            "NMEA",
+            False,
+            {
+                "waveform_mode": "BB",
+                "encode_mode": "complex"
+            },
+            [
+                "Echodata Platform arrays contain zeros. Interpolation may be negatively impacted, " +
+                "consider handling these values before calling ``add_location``.",
+                "Echodata Platform arrays contain NaNs. Interpolation may be negatively impacted, " +
+                "consider handling these values before calling ``add_location``.",
+            ]
+        ),
+        (
+            "echopype/test_data/ek80/RL2407_ADCP-D20240709-T150437.raw",
+            "EK80",
+            "MRU1",
+            False,
+            {
+                "waveform_mode": "CW",
+                "encode_mode": "complex"
+            },
+            [
+                "Echodata Platform arrays contain zeros. Interpolation may be negatively impacted, " +
+                "consider handling these values before calling ``add_location``.",
+                "Echodata Platform arrays contain NaNs. Interpolation may be negatively impacted, " +
+                "consider handling these values before calling ``add_location``.",
+            ]
+        ),
+        (
+            "echopype/test_data/ek80/idx_bot/Hake-D20230711-T181910.raw",
+            "EK80",
+            "IDX",
+            True,
+            {
+                "waveform_mode": "CW",
+                "encode_mode": "power"
+            },
+            [
+                "Echodata Platform arrays contain zeros. Interpolation may be negatively impacted, " +
+                "consider handling these values before calling ``add_location``. " +
+                "Consider setting datagram_type to any of ['NMEA'].",
+                "Echodata Platform arrays contain NaNs. Interpolation may be negatively impacted, " +
+                "consider handling these values before calling ``add_location``. " +
+                "Consider setting datagram_type to any of ['NMEA'].",
+            ]
+        ),
+    ],
+)
+def test_add_location_lat_lon_0_NaN_warnings(
+    raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_warnings, caplog
+):
+    """Tests for lat lon 0 and NaN value warnings."""
+    # Open raw and compute the Sv dataset
+    if parse_idx:
+        ed = ep.open_raw(raw_path, include_idx=True, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(raw_path, sonar_model=sonar_model)
+    ds = ep.calibrate.compute_Sv(
+        echodata=ed,
+        **compute_Sv_kwargs,
+    )
+
     # Add NaN to latitude and 0 to longitude
     if datagram_type in ["MRU1", "IDX"]:
         ed["Platform"][f"latitude_{datagram_type.lower()}"][0] = np.nan
@@ -945,14 +1042,6 @@ def test_add_location_lat_lon_0_NaN_warnings(
     ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
     
     # Check if the expected warnings are logged
-    interp_msg = (
-        "Interpolation may be negatively impacted, "
-        "consider handling these values before calling ``add_location``."
-    )
-    expected_warnings = [
-        f"Latitude and/or longitude arrays contain NaNs. {interp_msg}",
-        f"Latitude and/or longitude arrays contain zeros. {interp_msg}"
-    ]
     for warning in expected_warnings:
         assert any(warning in record.message for record in caplog.records)
     

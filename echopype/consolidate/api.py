@@ -17,6 +17,12 @@ from .ek_depth_utils import (
     ek_use_platform_angles,
     ek_use_platform_vertical_offsets,
 )
+from .loc_utils import (
+    check_loc_time_dim_duplicates,
+    check_loc_vars_any_NaN_0,
+    check_loc_vars_present_all_NaN,
+    sel_interp,
+)
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
 logger = _init_logger(__name__)
@@ -230,7 +236,7 @@ def add_location(
         object holding the raw data
     datagram_type : Optional[str], default None
         The type of datagram used to select latitude and longitude.
-        Can only be used for EK sonar models and value can be either 'MRU1' or 'IDX'.
+        Can only be used for EK sonar models and value can be either 'NMEA', 'MRU1' or 'IDX'.
     nmea_sentence : Optional[str], default None
         NMEA sentence to select a subset of location data
 
@@ -238,31 +244,11 @@ def add_location(
     -------
     The input dataset with the location data added
     """
-
-    def sel_interp(var, time_dim_name):
-        # NMEA sentence selection
-        if nmea_sentence:
-            position_var = echodata["Platform"][var][
-                echodata["Platform"]["sentence_type"] == nmea_sentence
-            ]
-        else:
-            position_var = echodata["Platform"][var]
-
-        if len(position_var) == 1:
-            # Propagate single, fixed-location coordinate
-            return xr.DataArray(
-                data=position_var.values[0] * np.ones(len(ds["ping_time"]), dtype=np.float64),
-                dims=["ping_time"],
-                attrs=position_var.attrs,
-            )
-        else:
-            # Values may be nan if there are ping_time values outside the time_dim_name range
-            return position_var.interp(**{time_dim_name: ds["ping_time"]})
-
+    # Open dataset and echodata object
     ds = open_source(ds, "dataset", {})
     echodata = open_source(echodata, "echodata", {})
 
-    # Grab and check latitude and longitude names/variables
+    # Grab lat lon names
     if echodata.sonar_model.startswith("EK") and datagram_type in ["MRU1", "IDX"]:
         lat_name = f"latitude_{datagram_type.lower()}"
         lon_name = f"longitude_{datagram_type.lower()}"
@@ -270,38 +256,24 @@ def add_location(
         lat_name = "latitude"
         lon_name = "longitude"
 
-    for loc_name in [lat_name, lon_name]:
-        if loc_name not in echodata["Platform"] or echodata["Platform"][loc_name].isnull().all():
-            raise ValueError("Coordinate variables not present or all nan")
-    lat_var = echodata["Platform"][lat_name]
-    lon_var = echodata["Platform"][lon_name]
+    # Check if any latitude/longitude values are missing or are all NaN
+    check_loc_vars_present_all_NaN(echodata, lat_name, lon_name, datagram_type)
 
     # Check if any latitude/longitude value is NaN/0
-    contains_nan_lat_lon = np.isnan(lat_var.values).any() or np.isnan(lon_var.values).any()
-    contains_zero_lat_lon = (lat_var.values == 0).any() or (lon_var.values == 0).any()
-    interp_msg = (
-        "Interpolation may be negatively impacted, "
-        "consider handling these values before calling ``add_location``."
-    )
-    if contains_nan_lat_lon:
-        logger.warning(f"Latitude and/or longitude arrays contain NaNs. {interp_msg}")
-    if contains_zero_lat_lon:
-        logger.warning(f"Latitude and/or longitude arrays contain zeros. {interp_msg}")
+    check_loc_vars_any_NaN_0(echodata, lat_name, lon_name, datagram_type)
 
-    interp_ds = ds.copy()
-    time_dim_name = list(lon_var.dims)[0]
+    # Grab time dimension name
+    time_dim_name = list(echodata["Platform"][lon_name].dims)[0]
 
     # Check if there are duplicates in time_dim_name
-    if len(np.unique(echodata["Platform"][time_dim_name].data)) != len(
-        echodata["Platform"][time_dim_name].data
-    ):
-        raise ValueError(
-            f'The ``echodata["Platform"]["{time_dim_name}"]`` array contains duplicate values. '
-            "Downstream interpolation on the position variables requires unique time values."
-        )
+    check_loc_time_dim_duplicates(echodata, time_dim_name)
 
-    interp_ds["latitude"] = sel_interp(lat_name, time_dim_name)
-    interp_ds["longitude"] = sel_interp(lon_name, time_dim_name)
+    # Copy dataset
+    interp_ds = ds.copy()
+
+    # Interpolate location variables and place into `interp_ds`
+    interp_ds["latitude"] = sel_interp(ds, echodata, lat_name, time_dim_name, nmea_sentence)
+    interp_ds["longitude"] = sel_interp(ds, echodata, lon_name, time_dim_name, nmea_sentence)
 
     # Most attributes are attached automatically via interpolation
     # here we add the history
