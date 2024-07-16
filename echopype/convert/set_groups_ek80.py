@@ -334,12 +334,12 @@ class SetGroupsEK80(SetGroupsBase):
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         ds = xr.Dataset(
             {
-                "latitude_nmea": (
+                "latitude": (
                     ["time1"],
                     lat_nmea,
                     self._varattrs["platform_var_default"]["latitude"],
                 ),
-                "longitude_nmea": (
+                "longitude": (
                     ["time1"],
                     lon_nmea,
                     self._varattrs["platform_var_default"]["longitude"],

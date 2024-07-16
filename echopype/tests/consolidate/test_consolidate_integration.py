@@ -701,7 +701,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             "EK60",
             "EK60",
             ("ooi/CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw", None),
-            {"lat_name": "latitude_nmea", "lon_name": "longitude_nmea"},
+            {"lat_name": "latitude", "lon_name": "longitude"},
             None,
         ),
         (
@@ -709,7 +709,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             "EK60",
             "EK60",
             ("Winter2017-D20170115-T150122.raw", None),
-            {"lat_name": "latitude_nmea", "lon_name": "longitude_nmea"},
+            {"lat_name": "latitudea", "lon_name": "longitude"},
             None,
         ),
         (
@@ -931,8 +931,12 @@ def test_add_location_lat_lon_0_NaN_warnings(
     )
     
     # Add NaN to latitude and 0 to longitude
-    ed["Platform"][f"latitude_{datagram_type.lower()}"][0] = np.nan
-    ed["Platform"][f"longitude_{datagram_type.lower()}"][0] = 0
+    if datagram_type in ["MRU1", "IDX"]:
+        ed["Platform"][f"latitude_{datagram_type.lower()}"][0] = np.nan
+        ed["Platform"][f"longitude_{datagram_type.lower()}"][0] = 0
+    else:
+        ed["Platform"]["latitude"][0] = np.nan
+        ed["Platform"]["longitude"][0] = 0
 
     # Turn on logger verbosity
     ep.utils.log.verbose(override=False)

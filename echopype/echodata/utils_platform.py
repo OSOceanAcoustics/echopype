@@ -110,7 +110,6 @@ def get_mappings_expanded(logger, extra_platform_data, variable_mappings, platfo
     for lat_name, lon_name in [
         ("latitude", "longitude"),
         ("latitude_idx", "longitude_idx"),
-        ("latitude_nmea", "longitude_nmea"),
         ("latitude_mru1", "longitude_mru1"),
     ]:
         if lat_name in mappings_expanded or lon_name in mappings_expanded:

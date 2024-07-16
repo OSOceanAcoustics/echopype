@@ -210,7 +210,7 @@ def add_depth(
 def add_location(
     ds: Union[xr.Dataset, str, pathlib.Path],
     echodata: Union[EchoData, str, pathlib.Path],
-    datagram_type: str = "NMEA",
+    datagram_type: Optional[str] = None,
     nmea_sentence: Optional[str] = None,
 ):
     """
@@ -228,12 +228,11 @@ def add_location(
     echodata : EchoData or str or pathlib.Path
         An ``EchoData`` object or path to a file containing the ``EchoData``
         object holding the raw data
-    datagram_type : str, default 'NMEA'
+    datagram_type : Optional[str], default None
         The type of datagram used to select latitude and longitude.
-        Can only be used for EK sonar models.
-        Can be either NMEA, MRU1, IDX.
-    nmea_sentence
-        NMEA sentence to select a subset of location data (optional)
+        Can only be used for EK sonar models and value can be either 'MRU1' or 'IDX'.
+    nmea_sentence : Optional[str], default None
+        NMEA sentence to select a subset of location data
 
     Returns
     -------
@@ -264,7 +263,7 @@ def add_location(
     echodata = open_source(echodata, "echodata", {})
 
     # Grab and check latitude and longitude names/variables
-    if echodata.sonar_model.startswith("EK"):
+    if echodata.sonar_model.startswith("EK") and datagram_type in ["MRU1", "IDX"]:
         lat_name = f"latitude_{datagram_type.lower()}"
         lon_name = f"longitude_{datagram_type.lower()}"
     else:
