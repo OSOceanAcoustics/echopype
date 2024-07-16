@@ -62,7 +62,8 @@ class ParseEK(ParseBase):
         )  # Stores the channel ids for each data type (power, angle, complex)
 
         self.nmea = defaultdict(list)  # Dictionary to store NMEA data(timestamp and string)
-        self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
+        self.mru0 = defaultdict(list)  # Dictionary to store MRU0 data (heading, pitch, roll, heave)
+        self.mru1 = defaultdict(list)  # Dictionary to store MRU1 data (latitude, longitude)
         self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
         self.bot = defaultdict(list)  # Dictionary to store bottom depth values
@@ -564,13 +565,20 @@ class ParseEK(ParseBase):
                 self.nmea["timestamp"].append(new_datagram["timestamp"])
                 self.nmea["nmea_string"].append(new_datagram["nmea_string"])
 
-            # MRU datagrams contain motion data for each ping for EK80
-            elif new_datagram["type"].startswith("MRU"):
-                self.mru["heading"].append(new_datagram["heading"])
-                self.mru["pitch"].append(new_datagram["pitch"])
-                self.mru["roll"].append(new_datagram["roll"])
-                self.mru["heave"].append(new_datagram["heave"])
-                self.mru["timestamp"].append(new_datagram["timestamp"])
+            # Parse Older MRU datagrams contain motion data for each ping for EK80
+            elif new_datagram["type"].startswith("MRU0"):
+                self.mru0["heading"].append(new_datagram["heading"])
+                self.mru0["pitch"].append(new_datagram["pitch"])
+                self.mru0["roll"].append(new_datagram["roll"])
+                self.mru0["heave"].append(new_datagram["heave"])
+                self.mru0["timestamp"].append(new_datagram["timestamp"])
+
+            # Parse Newer MRU datagrams contain latitude data for each ping for EK80
+            elif new_datagram["type"].startswith("MRU1"):
+                # TODO: Process other motion fields in `new_datagram`
+                self.mru1["latitude"].append(new_datagram["latitude"])
+                self.mru1["longitude"].append(new_datagram["longitude"])
+                self.mru1["timestamp"].append(new_datagram["timestamp"])
 
             # FIL datagrams contain filters for processing bascatter data for EK80
             elif new_datagram["type"].startswith("FIL"):

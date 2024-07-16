@@ -802,42 +802,129 @@ def test_add_location(
 
 
 @pytest.mark.integration
-def test_add_location_time_duplicates_value_error(test_path):   
+@pytest.mark.parametrize(
+    ("raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs"),
+    [
+        (
+            "echopype/test_data/ek80/D20170912-T234910.raw",
+            "EK80",
+            "NMEA",
+            "time1",
+            {
+                "waveform_mode": "BB",
+                "encode_mode": "complex"
+            }
+        ),
+        (
+            "echopype/test_data/ek80/RL2407_ADCP-D20240709-T150437.raw",
+            "EK80",
+            "MRU1",
+            "time3",
+            {
+                "waveform_mode": "CW",
+                "encode_mode": "complex"
+            }
+        ),
+        (
+            "echopype/test_data/ek80/idx_bot/Hake-D20230711-T181910.raw",
+            "EK80",
+            "IDX",
+            "time4",
+            {
+                "waveform_mode": "CW",
+                "encode_mode": "power"
+            }
+        ),
+    ],
+)
+def test_add_location_time_duplicates_value_error(
+    raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs,
+):   
     """Tests for duplicate time value error in ``add_location``.""" 
     # Open raw and compute the Sv dataset
-    raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
-    ed = ep.open_raw(raw_path, sonar_model="EK60")
-    ds = ep.calibrate.compute_Sv(echodata=ed)
-    
-    # Add duplicates to time1
-    ed["Platform"]["time1"].data[0] = ed["Platform"]["time1"].data[1]
+    if not datagram_type == "IDX":
+        ed = ep.open_raw(raw_path, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(raw_path, include_idx=True, sonar_model=sonar_model)
+    ds = ep.calibrate.compute_Sv(
+        echodata=ed,
+        **compute_Sv_kwargs,
+    )
+
+    # Add duplicates to `time_dim`
+    ed["Platform"][time_dim_name].data[0] = ed["Platform"][time_dim_name].data[1]
     
     # Check if the expected error is logged
     with pytest.raises(ValueError) as exc_info:
         # Run add location with duplicated time
-        ep.consolidate.add_location(ds=ds, echodata=ed)
+        ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
 
     # Check if the specific error message is in the logs
-    assert 'The ``echodata["Platform"]["time1"]`` array contains duplicate values. Downstream interpolation on the position variables requires unique time values.' == str(exc_info.value)
+    assert (
+        f'The ``echodata["Platform"]["{time_dim_name}"]`` array contains duplicate values. '
+        "Downstream interpolation on the position variables requires unique time values."
+    ) == str(exc_info.value)
 
 
 @pytest.mark.integration
-def test_add_location_lat_lon_0_NaN_warnings(test_path, caplog):
+@pytest.mark.parametrize(
+    ("raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs"),
+    [
+        (
+            "echopype/test_data/ek80/D20170912-T234910.raw",
+            "EK80",
+            "NMEA",
+            "time1",
+            {
+                "waveform_mode": "BB",
+                "encode_mode": "complex"
+            }
+        ),
+        (
+            "echopype/test_data/ek80/RL2407_ADCP-D20240709-T150437.raw",
+            "EK80",
+            "MRU1",
+            "time3",
+            {
+                "waveform_mode": "CW",
+                "encode_mode": "complex"
+            }
+        ),
+        (
+            "echopype/test_data/ek80/idx_bot/Hake-D20230711-T181910.raw",
+            "EK80",
+            "IDX",
+            "time4",
+            {
+                "waveform_mode": "CW",
+                "encode_mode": "power"
+            }
+        ),
+    ],
+)
+def test_add_location_lat_lon_0_NaN_warnings(
+    raw_path, sonar_model, datagram_type, time_dim_name, compute_Sv_kwargs, caplog
+):
     """Tests for lat lon 0 and NaN value warnings in ``add_warning``."""
     # Open raw and compute the Sv dataset
-    raw_path = test_path["EK60"] / "Winter2017-D20170115-T150122.raw"
-    ed = ep.open_raw(raw_path, sonar_model="EK60")
-    ds = ep.calibrate.compute_Sv(echodata=ed)
+    if not datagram_type == "IDX":
+        ed = ep.open_raw(raw_path, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(raw_path, include_idx=True, sonar_model=sonar_model)
+    ds = ep.calibrate.compute_Sv(
+        echodata=ed,
+        **compute_Sv_kwargs,
+    )
     
     # Add NaN to latitude and 0 to longitude
-    ed["Platform"]["latitude"][0] = np.nan
-    ed["Platform"]["longitude"][0] = 0
+    ed["Platform"][f"latitude_{datagram_type.lower()}"][0] = np.nan
+    ed["Platform"][f"longitude_{datagram_type.lower()}"][0] = 0
 
     # Turn on logger verbosity
     ep.utils.log.verbose(override=False)
 
     # Run add location with 0 and NaN lat/lon values
-    ep.consolidate.add_location(ds=ds, echodata=ed)
+    ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
     
     # Check if the expected warnings are logged
     interp_msg = (

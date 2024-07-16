@@ -186,12 +186,12 @@ class SetGroupsEK60(SetGroupsBase):
 
         ds = xr.Dataset(
             {
-                "latitude": (
+                "latitude_nmea": (
                     ["time1"],
                     lat,
                     self._varattrs["platform_var_default"]["latitude"],
                 ),
-                "longitude": (
+                "longitude_nmea": (
                     ["time1"],
                     lon,
                     self._varattrs["platform_var_default"]["longitude"],

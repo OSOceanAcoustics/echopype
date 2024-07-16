@@ -209,7 +209,8 @@ def add_depth(
 @add_processing_level("L2A")
 def add_location(
     ds: Union[xr.Dataset, str, pathlib.Path],
-    echodata: Optional[Union[EchoData, str, pathlib.Path]],
+    echodata: Union[EchoData, str, pathlib.Path],
+    datagram_type: str = "NMEA",
     nmea_sentence: Optional[str] = None,
 ):
     """
@@ -227,6 +228,9 @@ def add_location(
     echodata : EchoData or str or pathlib.Path
         An ``EchoData`` object or path to a file containing the ``EchoData``
         object holding the raw data
+    datagram_type : str, default 'NMEA'
+        The type of datagram used to select latitude and longitude.
+        Can be either NMEA, MRU1, IDX.
     nmea_sentence
         NMEA sentence to select a subset of location data (optional)
 
@@ -258,17 +262,18 @@ def add_location(
     ds = open_source(ds, "dataset", {})
     echodata = open_source(echodata, "echodata", {})
 
-    if "longitude" not in echodata["Platform"] or echodata["Platform"]["longitude"].isnull().all():
-        raise ValueError("Coordinate variables not present or all nan")
+    # Grab and check latitude and longitude names/variables
+    lat_name = f"latitude_{datagram_type.lower()}"
+    lon_name = f"longitude_{datagram_type.lower()}"
+    for loc_name in [lat_name, lon_name]:
+        if loc_name not in echodata["Platform"] or echodata["Platform"][loc_name].isnull().all():
+            raise ValueError("Coordinate variables not present or all nan")
+    lat_var = echodata["Platform"][lat_name]
+    lon_var = echodata["Platform"][lon_name]
 
     # Check if any latitude/longitude value is NaN/0
-    contains_nan_lat_lon = (
-        np.isnan(echodata["Platform"]["latitude"].values).any()
-        or np.isnan(echodata["Platform"]["longitude"].values).any()
-    )
-    contains_zero_lat_lon = (echodata["Platform"]["latitude"].values == 0).any() or (
-        echodata["Platform"]["longitude"].values == 0
-    ).any()
+    contains_nan_lat_lon = np.isnan(lat_var.values).any() or np.isnan(lon_var.values).any()
+    contains_zero_lat_lon = (lat_var.values == 0).any() or (lon_var.values == 0).any()
     interp_msg = (
         "Interpolation may be negatively impacted, "
         "consider handling these values before calling ``add_location``."
@@ -279,7 +284,7 @@ def add_location(
         logger.warning(f"Latitude and/or longitude arrays contain zeros. {interp_msg}")
 
     interp_ds = ds.copy()
-    time_dim_name = list(echodata["Platform"]["longitude"].dims)[0]
+    time_dim_name = list(lon_var.dims)[0]
 
     # Check if there are duplicates in time_dim_name
     if len(np.unique(echodata["Platform"][time_dim_name].data)) != len(
@@ -290,14 +295,14 @@ def add_location(
             "Downstream interpolation on the position variables requires unique time values."
         )
 
-    interp_ds["latitude"] = sel_interp("latitude", time_dim_name)
-    interp_ds["longitude"] = sel_interp("longitude", time_dim_name)
+    interp_ds["latitude"] = sel_interp(lat_name, time_dim_name)
+    interp_ds["longitude"] = sel_interp(lon_name, time_dim_name)
 
     # Most attributes are attached automatically via interpolation
     # here we add the history
     history_attr = (
         f"{datetime.datetime.utcnow()} +00:00. "
-        "Interpolated or propagated from Platform latitude/longitude."  # noqa
+        f"Interpolated or propagated from Platform {lat_name}/{lon_name}."  # noqa
     )
     for da_name in POSITION_VARIABLES:
         interp_ds[da_name] = interp_ds[da_name].assign_attrs({"history": history_attr})

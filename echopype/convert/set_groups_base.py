@@ -380,7 +380,7 @@ class SetGroupsBase(abc.ABC):
         -------
         platform_ds : xr.Dataset
             `Platform` dataset with IDX data.
-            Contains new `time3` dimension to correspond with IDX timestamps that
+            Contains new `time4` dimension to correspond with IDX timestamps that
             align with `vessel_distance`, `idx_latitude`, and `idx_longitude`.
 
         Notes
@@ -397,52 +397,52 @@ class SetGroupsBase(abc.ABC):
         # TODO: Add attributes for `ping_number` and `file_offset`
         platform_ds = platform_ds.assign(
             {
-                "idx_ping_number": xr.DataArray(
+                "ping_number_idx": xr.DataArray(
                     np.array(self.parser_obj.idx["ping_number"]),
-                    dims=("time3"),
-                    coords={"time3": timestamp_array},
+                    dims=("time4"),
+                    coords={"time4": timestamp_array},
                 ),
-                "idx_file_offset": xr.DataArray(
+                "file_offset_idx": xr.DataArray(
                     np.array(self.parser_obj.idx["file_offset"]),
-                    dims=("time3"),
-                    coords={"time3": timestamp_array},
+                    dims=("time4"),
+                    coords={"time4": timestamp_array},
                 ),
-                "idx_vessel_distance": xr.DataArray(
+                "vessel_distance_idx": xr.DataArray(
                     np.array(self.parser_obj.idx["vessel_distance"]),
-                    dims=("time3"),
-                    coords={"time3": timestamp_array},
+                    dims=("time4"),
+                    coords={"time4": timestamp_array},
                     attrs={
                         "long_name": "Vessel distance in nautical miles (nmi) from start of "
                         + "recording.",
                         "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-                        + "dataset's `time3` dimension.",
+                        + "dataset's `time4` dimension.",
                     },
                 ),
-                "idx_latitude": xr.DataArray(
+                "latitude_idx": xr.DataArray(
                     np.array(self.parser_obj.idx["latitude"]),
-                    dims=("time3"),
-                    coords={"time3": timestamp_array},
+                    dims=("time4"),
+                    coords={"time4": timestamp_array},
                     attrs={
                         "long_name": "Index File Derived Platform Latitude",
                         "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-                        + "dataset's `time3` dimension. "
+                        + "dataset's `time4` dimension. "
                         + "This is different from latitude stored in the NMEA datagram.",
                     },
                 ),
-                "idx_longitude": xr.DataArray(
+                "longitude_idx": xr.DataArray(
                     np.array(self.parser_obj.idx["longitude"]),
-                    dims=("time3"),
-                    coords={"time3": timestamp_array},
+                    dims=("time4"),
+                    coords={"time4": timestamp_array},
                     attrs={
                         "long_name": "Index File Derived Platform Longitude",
                         "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-                        + "dataset's `time3` dimension. "
+                        + "dataset's `time4` dimension. "
                         + "This is different from longitude from the NMEA datagram.",
                     },
                 ),
             }
         )
-        platform_ds["time3"] = platform_ds["time3"].assign_attrs(
+        platform_ds["time4"] = platform_ds["time4"].assign_attrs(
             {
                 "axis": "T",
                 "long_name": "Timestamps from the IDX datagrams",
@@ -452,7 +452,9 @@ class SetGroupsBase(abc.ABC):
             }
         )
 
-        return platform_ds.transpose("channel", "time1", "time2", "time3")
+        return platform_ds.transpose(
+            "channel", "time1", "time2", "time3", "time4", missing_dims="ignore"
+        )
 
     def _add_seafloor_detection_data_to_vendor_ds(
         self,

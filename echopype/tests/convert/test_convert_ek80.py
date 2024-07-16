@@ -444,6 +444,7 @@ def test_convert_ek80_mru1(ek80_path):
     np.all(echodata["Platform"]["heading"].data == np.array(parser.mru["heading"]))
 
 
+@pytest.mark.unit
 def test_skip_ec150(ek80_path):
     """Make sure we skip EC150 datagrams correctly."""
     ek80_mru1_path = str(ek80_path.joinpath("RL2407_ADCP-D20240709-T150437.raw"))
@@ -455,3 +456,28 @@ def test_skip_ec150(ek80_path):
         echodata["Sonar/Beam_group1"].dims
         == {'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
     )
+
+
+@pytest.mark.unit
+def test_parse_mru0_mru1(ek80_path):
+    """Make sure we parse the MRU0 and MRU1 datagrams correctly from the SWFSC RAW file."""
+    ek80_mru1_path = str(ek80_path.joinpath("RL2407_ADCP-D20240709-T150437.raw"))
+    echodata = open_raw(raw_file=ek80_mru1_path, sonar_model='EK80')
+
+    # Check dimensions
+    assert (
+        echodata["Platform"].dims
+        == {'channel': 1, 'time1': 1, 'time2': 43, 'time3': 43}
+    )
+
+    # Check no NaN values in MRU data
+    mru_var_names = [
+        "latitude_mru1",
+        "longitude_mru1",
+        "pitch",
+        "roll",
+        "vertical_offset",
+        "heading",
+    ]
+    for mru_var_name in mru_var_names:
+        assert not np.any(np.isnan(echodata["Platform"][mru_var_name]))
