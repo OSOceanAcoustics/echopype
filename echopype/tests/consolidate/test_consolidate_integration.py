@@ -692,14 +692,16 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
     return list_of_mat_arrays
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
-    ["location_type", "sonar_model", "path_model", "raw_and_xml_paths", "extras"],
+    ["location_type", "sonar_model", "path_model", "raw_and_xml_paths", "lat_lon_name_dict", "extras"],
     [
         (
             "empty-location",
             "EK60",
             "EK60",
             ("ooi/CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw", None),
+            {"lat_name": "latitude_nmea", "lon_name": "longitude_nmea"},
             None,
         ),
         (
@@ -707,6 +709,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             "EK60",
             "EK60",
             ("Winter2017-D20170115-T150122.raw", None),
+            {"lat_name": "latitude_nmea", "lon_name": "longitude_nmea"},
             None,
         ),
         (
@@ -714,6 +717,7 @@ def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Pa
             "AZFP",
             "AZFP",
             ("17082117.01A", "17041823.XML"),
+            {"lat_name": "latitude", "lon_name": "longitude"},
             {'longitude': -60.0, 'latitude': 45.0, 'salinity': 27.9, 'pressure': 59},
         ),
     ],
@@ -723,6 +727,7 @@ def test_add_location(
         sonar_model,
         path_model,
         raw_and_xml_paths,
+        lat_lon_name_dict,
         extras,
         test_path
 ):
@@ -737,14 +742,20 @@ def test_add_location(
     if location_type == "fixed-location":
         point_ds = xr.Dataset(
             {
-                "latitude": (["time"], np.array([float(extras['latitude'])])),
-                "longitude": (["time"], np.array([float(extras['longitude'])])),
+                lat_lon_name_dict["lat_name"]: (["time"], np.array([float(extras['latitude'])])),
+                lat_lon_name_dict["lon_name"]: (["time"], np.array([float(extras['longitude'])])),
             },
             coords={
                 "time": (["time"], np.array([ed["Sonar/Beam_group1"]["ping_time"].values.min()]))
             },
         )
-        ed.update_platform(point_ds, variable_mappings={"latitude": "latitude", "longitude": "longitude"})
+        ed.update_platform(
+            point_ds,
+            variable_mappings={
+                lat_lon_name_dict["lat_name"]: lat_lon_name_dict["lat_name"],
+                lat_lon_name_dict["lon_name"]: lat_lon_name_dict["lon_name"]
+            }
+        )
 
     env_params = None
     # AZFP data require external salinity and pressure
@@ -771,20 +782,23 @@ def test_add_location(
             assert "time1" not in ds_test
 
             # lat & lon have a single dimension: 'ping_time'
-            assert len(ds_test["longitude"].dims) == 1 and ds_test["longitude"].dims[0] == "ping_time" # noqa
             assert len(ds_test["latitude"].dims) == 1 and ds_test["latitude"].dims[0] == "ping_time" # noqa
+            assert len(ds_test["longitude"].dims) == 1 and ds_test["longitude"].dims[0] == "ping_time" # noqa
 
             # Check interpolated or broadcast values
             if location_type == "with-track-location":
-                for position in ["longitude", "latitude"]:
-                    position_var = ed["Platform"][position]
+                for ed_position, ds_position in [
+                    (lat_lon_name_dict["lat_name"], "latitude"),
+                    (lat_lon_name_dict["lon_name"], "longitude")
+                ]:
+                    position_var = ed["Platform"][ed_position]
                     if nmea_sentence:
                         position_var = position_var[ed["Platform"]["sentence_type"] == nmea_sentence]
                     position_interp = position_var.interp(time1=ds_test["ping_time"])
                     # interpolated values are identical
-                    assert np.allclose(ds_test[position].values, position_interp.values, equal_nan=True) # noqa
+                    assert np.allclose(ds_test[ds_position].values, position_interp.values, equal_nan=True) # noqa
             elif location_type == "fixed-location":
-                for position in ["longitude", "latitude"]:
+                for position in ["latitude", "longitude"]:
                     position_uniq = set(ds_test[position].values)
                     # contains a single repeated value equal to the value passed to update_platform
                     assert (
@@ -796,7 +810,7 @@ def test_add_location(
         _tests(ds_all, location_type)
 
         # the test for nmea_sentence="GGA" is limited to the with-track-location case
-        if location_type == "with-track-location":
+        if location_type == "with-track-location" and sonar_model.startswith("EK"):
             ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
             _tests(ds_sel, location_type, nmea_sentence="GGA")
 

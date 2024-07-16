@@ -431,6 +431,7 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
             assert f"{t}_{p}" not in vendor_spec_ds
 
 
+@pytest.mark.xfail(reason="Parsing MRU1 platform motion data is not yet implemented.")
 def test_convert_ek80_mru1(ek80_path):
     """Make sure we can convert EK80 file with MRU1 datagram."""
     ek80_mru1_path = str(ek80_path.joinpath('20231016_Cal_-D20231016-T220322.raw'))
@@ -438,10 +439,10 @@ def test_convert_ek80_mru1(ek80_path):
     parser = ParseEK80(str(ek80_mru1_path))
     parser.parse_raw()
 
-    np.all(echodata["Platform"]["pitch"].data == np.array(parser.mru["pitch"]))
-    np.all(echodata["Platform"]["roll"].data == np.array(parser.mru["roll"]))
-    np.all(echodata["Platform"]["vertical_offset"].data == np.array(parser.mru["heave"]))
-    np.all(echodata["Platform"]["heading"].data == np.array(parser.mru["heading"]))
+    np.all(echodata["Platform"]["pitch"].data == np.array(parser.mru1["pitch"]))
+    np.all(echodata["Platform"]["roll"].data == np.array(parser.mru1["roll"]))
+    np.all(echodata["Platform"]["vertical_offset"].data == np.array(parser.mru1["heave"]))
+    np.all(echodata["Platform"]["heading"].data == np.array(parser.mru1["heading"]))
 
 
 @pytest.mark.unit

@@ -472,6 +472,7 @@ def test_nan_range_entries(range_check_files):
     assert xr.Dataset.equals(nan_locs_backscatter_r, nan_locs_Sv_range)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ["ext_type", "sonar_model", "variable_mappings", "path_model", "raw_path", "platform_data"],
     [
@@ -479,7 +480,7 @@ def test_nan_range_entries(range_check_files):
             "external-trajectory",
             "EK80",
             # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
-            {"pitch": "PITCH", "roll": "ROLL", "longitude": "longitude", "latitude": "latitude"},
+            {"pitch": "PITCH", "roll": "ROLL", "longitude_nmea": "longitude", "latitude_nmea": "latitude"},
             "EK80",
             (
                     "saildrone",
@@ -494,7 +495,7 @@ def test_nan_range_entries(range_check_files):
             "fixed-location",
             "EK60",
             # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
-            {"longitude": "longitude", "latitude": "latitude"},
+            {"longitude_nmea": "longitude_nmea", "latitude_nmea": "latitude_nmea"},
             "EK60",
             (
                     "ooi",
@@ -530,8 +531,8 @@ def test_update_platform(
         extra_platform_data_file_name = None
         extra_platform_data = xr.Dataset(
             {
-                "longitude": (["time"], np.array([float(platform_data[0])])),
-                "latitude": (["time"], np.array([float(platform_data[1])])),
+                "longitude_nmea": (["time"], np.array([float(platform_data[0])])),
+                "latitude_nmea": (["time"], np.array([float(platform_data[1])])),
             },
             coords={
                 "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]))
@@ -575,6 +576,7 @@ def test_update_platform(
     )
 
 
+@pytest.mark.integration
 def test_update_platform_multidim(test_path):
     raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
     ed = echopype.open_raw(raw_file, sonar_model="EK60")
@@ -600,8 +602,8 @@ def test_update_platform_multidim(test_path):
     platform_preexisting_dims = ed["Platform"].dims
 
     variable_mappings = {
-        "longitude": "lon",
-        "latitude": "lat",
+        "longitude_nmea": "lon",
+        "latitude_nmea": "lat",
         "pitch": "pitch",
         "water_level": "waterlevel"
     }
@@ -617,25 +619,26 @@ def test_update_platform_multidim(test_path):
     assert "time4" in ed["Platform"].dims
 
     # Dimension assignment
-    assert ed["Platform"]["longitude"].dims[0] == ed["Platform"]["latitude"].dims[0]
-    assert ed["Platform"]["pitch"].dims[0] != ed["Platform"]["longitude"].dims[0]
-    assert ed["Platform"]["longitude"].dims[0] not in platform_preexisting_dims
+    assert ed["Platform"]["longitude_nmea"].dims[0] == ed["Platform"]["latitude_nmea"].dims[0]
+    assert ed["Platform"]["pitch"].dims[0] != ed["Platform"]["longitude_nmea"].dims[0]
+    assert ed["Platform"]["longitude_nmea"].dims[0] not in platform_preexisting_dims
     assert ed["Platform"]["pitch"].dims[0] not in platform_preexisting_dims
     # scalar variable
     assert len(ed["Platform"]["water_level"].dims) == 0
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ["variable_mappings"],
     [
         pytest.param(
             # lat and lon both exist, but aligned on different time dimension: should fail
-            {"longitude": "lon", "latitude": "lat"},
+            {"longitude_nmea": "lon", "latitude_nmea": "lat"},
             marks=pytest.mark.xfail(strict=True, reason="Fail since lat and lon not on the same time dimension")
         ),
         pytest.param(
             # only lon exists: should fail
-            {"longitude": "lon"},
+            {"longitude_nmea": "lon"},
             marks=pytest.mark.xfail(strict=True, reason="Fail since only lon exists without lat")
         ),
     ],
@@ -692,6 +695,8 @@ def test_update_platform_no_update(test_path):
 
     ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
 
+
+@pytest.mark.integration
 def test_update_platform_latlon_notimestamp(test_path):
     raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
     ed = echopype.open_raw(raw_file, sonar_model="EK60")
@@ -706,7 +711,7 @@ def test_update_platform_latlon_notimestamp(test_path):
     platform_preexisting_dims = ed["Platform"].dims
 
     # variable names in mappings different from actual external dataset
-    variable_mappings = {"longitude": "lon", "latitude": "lat"}
+    variable_mappings = {"longitude_nmea": "lon", "latitude_nmea": "lat"}
 
     ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
 
@@ -718,10 +723,10 @@ def test_update_platform_latlon_notimestamp(test_path):
     assert len(ed["Platform"].dims) == len(platform_preexisting_dims)
 
     # Dimension assignment
-    assert ed["Platform"]["longitude"].dims[0] == ed["Platform"]["latitude"].dims[0]
-    assert ed["Platform"]["longitude"].dims[0] in platform_preexisting_dims
-    assert ed["Platform"]["latitude"].dims[0] in platform_preexisting_dims
-    assert ed['Platform']['longitude'].coords['time1'].values[0] == ed['Sonar/Beam_group1'].ping_time.data[0]
+    assert ed["Platform"]["longitude_nmea"].dims[0] == ed["Platform"]["latitude_nmea"].dims[0]
+    assert ed["Platform"]["longitude_nmea"].dims[0] in platform_preexisting_dims
+    assert ed["Platform"]["latitude_nmea"].dims[0] in platform_preexisting_dims
+    assert ed['Platform']['longitude_nmea'].coords['time1'].values[0] == ed['Sonar/Beam_group1'].ping_time.data[0]
 
 
 @pytest.mark.unit

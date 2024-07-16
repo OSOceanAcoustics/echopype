@@ -230,6 +230,7 @@ def add_location(
         object holding the raw data
     datagram_type : str, default 'NMEA'
         The type of datagram used to select latitude and longitude.
+        Can only be used for EK sonar models.
         Can be either NMEA, MRU1, IDX.
     nmea_sentence
         NMEA sentence to select a subset of location data (optional)
@@ -263,8 +264,13 @@ def add_location(
     echodata = open_source(echodata, "echodata", {})
 
     # Grab and check latitude and longitude names/variables
-    lat_name = f"latitude_{datagram_type.lower()}"
-    lon_name = f"longitude_{datagram_type.lower()}"
+    if echodata.sonar_model.startswith("EK"):
+        lat_name = f"latitude_{datagram_type.lower()}"
+        lon_name = f"longitude_{datagram_type.lower()}"
+    else:
+        lat_name = "latitude"
+        lon_name = "longitude"
+
     for loc_name in [lat_name, lon_name]:
         if loc_name not in echodata["Platform"] or echodata["Platform"][loc_name].isnull().all():
             raise ValueError("Coordinate variables not present or all nan")
