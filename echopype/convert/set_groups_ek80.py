@@ -488,10 +488,10 @@ class SetGroupsEK80(SetGroupsBase):
                     {
                         "axis": "T",
                         "long_name": "Timestamps for platform motion and orientation data "
-                        "specific to the Kongsberg Maritime Binary Datagram",
+                        "from the Kongsberg Maritime Binary Datagram",
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
-                        "orientation data specific to the Kongsberg Maritime Binary Datagram.",
+                        "orientation data from the Kongsberg Maritime Binary Datagram.",
                     },
                 ),
             },
