@@ -235,10 +235,15 @@ def add_location(
         An ``EchoData`` object or path to a file containing the ``EchoData``
         object holding the raw data
     datagram_type : Optional[str], default None
-        The type of datagram used to select latitude and longitude.
-        Can only be used for EK sonar models and value can be either 'NMEA', 'MRU1' or 'IDX'.
+        Datagram type to use for latitude and longitude.
+        If `None` (default), latitude and longitude derived
+        from NMEA datagrams will be used.
+        Cam be `"MRU1"` or `"IDX"`.
+        Can only be used for data for EK sonar models.
     nmea_sentence : Optional[str], default None
-        NMEA sentence to select a subset of location data
+        NMEA sentence to select a subset of location data.
+        Only applied if latitude and longitude derived from
+        NMEA datagram are used (default).
 
     Returns
     -------
