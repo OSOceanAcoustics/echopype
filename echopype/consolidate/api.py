@@ -238,7 +238,7 @@ def add_location(
         Datagram type to use for latitude and longitude.
         If `None` (default), latitude and longitude derived
         from NMEA datagrams will be used.
-        Cam be `"MRU1"` or `"IDX"`.
+        Can be `"MRU1"` or `"IDX"`.
         Can only be used for data for EK sonar models.
     nmea_sentence : Optional[str], default None
         NMEA sentence to select a subset of location data.
@@ -257,6 +257,8 @@ def add_location(
     if echodata.sonar_model.startswith("EK") and datagram_type in ["MRU1", "IDX"]:
         lat_name = f"latitude_{datagram_type.lower()}"
         lon_name = f"longitude_{datagram_type.lower()}"
+    elif not echodata.sonar_model.startswith("EK") and datagram_type:
+        raise ValueError("Sonar Model must be EK in order to specify datagram_type.")
     else:
         lat_name = "latitude"
         lon_name = "longitude"
@@ -277,8 +279,12 @@ def add_location(
     interp_ds = ds.copy()
 
     # Interpolate location variables and place into `interp_ds`
-    interp_ds["latitude"] = sel_interp(ds, echodata, lat_name, time_dim_name, nmea_sentence)
-    interp_ds["longitude"] = sel_interp(ds, echodata, lon_name, time_dim_name, nmea_sentence)
+    interp_ds["latitude"] = sel_interp(
+        ds, echodata, datagram_type, lat_name, time_dim_name, nmea_sentence
+    )
+    interp_ds["longitude"] = sel_interp(
+        ds, echodata, datagram_type, lon_name, time_dim_name, nmea_sentence
+    )
 
     # Most attributes are attached automatically via interpolation
     # here we add the history

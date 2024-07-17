@@ -11,9 +11,8 @@ def check_loc_vars_present_all_NaN(
     echodata: EchoData, lat_name: str, lon_name: str, datagram_type: str
 ):
     """
-    Checks if any of the location variables missing or are all NaN. Recommends using another
-    datagram_type if the corresponding lat/lon variables are not missing and not not all
-    NaN.
+    Checks if any of the location variables are missing or are all NaN. Recommends using another
+    datagram_type if the corresponding lat/lon variables are not missing and are not all NaN.
     """
     # Grab variables from EchoData object
     lat_var = echodata["Platform"][lat_name]
@@ -147,17 +146,36 @@ def check_loc_time_dim_duplicates(echodata: EchoData, time_dim_name: str) -> Non
 
 
 def sel_interp(
-    ds: xr.Dataset, echodata: EchoData, loc_name: str, time_dim_name: str, nmea_sentence: str
+    ds: xr.Dataset,
+    echodata: EchoData,
+    datagram_type: str,
+    loc_name: str,
+    time_dim_name: str,
+    nmea_sentence: str,
 ) -> xr.DataArray:
     """
-    If NMEA sentence is not NaN, selects subset of position variable that is within NMEA sentence,
-    and interpolates position variable to match the ping_time dimension of the input dataset.
+    Selection and interpolation for a location variable.
+
+    The selection logic is as follows, with 4 possible scenarios:
+
+    1) If datagram_type == NMEA is used and NMEA sentence is NaN, then do nothing.
+    2) If datagram_type == NMEA is used and NMEA sentence is not NaN, then do the selection.
+    3) If datagram_type != NMEA and NMEA sentence is NaN, then do nothing.
+    4) If datagram_type != NMEA and NMEA sentence is not NaN, then raise ValueError since NMEA
+    sentence selection can only be used on location variables from the NMEA datagram.
+
+    After selection logic, the location variable is then interpolated time-wise to match
+    that of the input dataset's time dimension.
     """
-    # NMEA sentence selection
-    if nmea_sentence:
+    # NMEA sentence selection if datagram_type is None (NMEA corresponds to None)
+    if nmea_sentence and datagram_type is None:
         position_var = echodata["Platform"][loc_name][
             echodata["Platform"]["sentence_type"] == nmea_sentence
         ]
+    elif nmea_sentence and datagram_type is not None:
+        raise ValueError(
+            "If datagram_type is not `None`, then `nmea_sentence` cannot be specified."
+        )
     else:
         position_var = echodata["Platform"][loc_name]
 
