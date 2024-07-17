@@ -573,7 +573,7 @@ class ParseEK(ParseBase):
                 self.mru0["heave"].append(new_datagram["heave"])
                 self.mru0["timestamp"].append(new_datagram["timestamp"])
 
-            # Parse Newer MRU datagrams contain latitude data for each ping for EK80
+            # MRU1 datagrams contain latitude/longitude data for each ping for EK80
             elif new_datagram["type"].startswith("MRU1"):
                 # TODO: Process other motion fields in `new_datagram`
                 self.mru1["latitude"].append(new_datagram["latitude"])
