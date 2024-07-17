@@ -565,7 +565,7 @@ class ParseEK(ParseBase):
                 self.nmea["timestamp"].append(new_datagram["timestamp"])
                 self.nmea["nmea_string"].append(new_datagram["nmea_string"])
 
-            # Parse Older MRU datagrams contain motion data for each ping for EK80
+            # MRU0 datagrams contain motion data for each ping for EK80
             elif new_datagram["type"].startswith("MRU0"):
                 self.mru0["heading"].append(new_datagram["heading"])
                 self.mru0["pitch"].append(new_datagram["pitch"])
