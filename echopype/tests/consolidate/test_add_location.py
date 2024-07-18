@@ -141,7 +141,7 @@ def test_add_location(
         with pytest.raises(Exception) as exc:
             ep.consolidate.add_location(ds=ds, echodata=ed)
         assert exc.type is ValueError
-        assert "Coordinate variables not present or all nan" in str(exc.value)
+        assert "Coordinate variables are all NaN." in str(exc.value)
     else:
         def _tests(ds_test, location_type, nmea_sentence=None):
             # lat,lon & time1 existence
@@ -253,18 +253,19 @@ def test_add_location_time_duplicates_value_error(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_error_message"),
+    ("raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, error_type, expected_error_message"),
     [
         (
             "echopype/test_data/ek80/D20170912-T234910.raw",
             "EK80",
-            "NMEA",
+            None,
             False,
             {
                 "waveform_mode": "BB",
                 "encode_mode": "complex"
             },
-            "Coordinate variables not present or all nan.",
+            "missing",
+            "Coordinate variables not present.",
         ),
         (
             "echopype/test_data/ek80/RL2407_ADCP-D20240709-T150437.raw",
@@ -275,7 +276,8 @@ def test_add_location_time_duplicates_value_error(
                 "waveform_mode": "CW",
                 "encode_mode": "complex"
             },
-            "Coordinate variables not present or all nan.",
+            "all_nan",
+            "Coordinate variables are all NaN.",
         ),
         (
             "echopype/test_data/ek80/idx_bot/Hake-D20230711-T181910.raw",
@@ -286,12 +288,13 @@ def test_add_location_time_duplicates_value_error(
                 "waveform_mode": "CW",
                 "encode_mode": "power"
             },
-            "Coordinate variables not present or all nan. Consider setting datagram_type to any of ['NMEA'].",
+            "all_nan",
+            "Coordinate variables are all NaN. Consider setting datagram_type to any of [None].",
         ),
     ],
 )
 def test_add_location_lat_lon_missing_all_NaN_errors(
-    raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_error_message
+    raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, error_type, expected_error_message
 ):
     """Tests for lat lon missing or all NaN values errors."""
     # Open raw and compute the Sv dataset
@@ -304,17 +307,21 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
         **compute_Sv_kwargs,
     )
 
-    # Set NaN to latitude and set None to longitude
+    # Set NaN/None to Lat/Lon
     if datagram_type in ["MRU1", "IDX"]:
-        ed["Platform"][f"latitude_{datagram_type.lower()}"].data = (
-            [np.nan] * len(ed["Platform"][f"latitude_{datagram_type.lower()}"])
-        )
-        ed["Platform"][f"longitude_{datagram_type.lower()}"] = None
+        if error_type == "missing":
+            ed["Platform"] = ed["Platform"].drop_vars(f"longitude_{datagram_type.lower()}")
+        elif error_type == "all_nan":
+            ed["Platform"][f"latitude_{datagram_type.lower()}"].data = (
+                [np.nan] * len(ed["Platform"][f"latitude_{datagram_type.lower()}"])
+            )
     else:
-        ed["Platform"]["latitude"].data = (
-            [np.nan] * len(ed["Platform"]["latitude"])
-        )
-        ed["Platform"]["longitude"] = None
+        if error_type == "missing":
+            ed["Platform"] = ed["Platform"].drop_vars("longitude")
+        if error_type == "all_nan":
+            ed["Platform"]["latitude"].data = (
+                [np.nan] * len(ed["Platform"]["latitude"])
+            )
 
     # Check if the expected error is logged
     with pytest.raises(ValueError) as exc_info:
@@ -339,10 +346,16 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
                 "encode_mode": "complex"
             },
             [
-                "Echodata Platform arrays contain zeros. Interpolation may be negatively impacted, " +
-                "consider handling these values before calling ``add_location``.",
-                "Echodata Platform arrays contain NaNs. Interpolation may be negatively impacted, " +
-                "consider handling these values before calling ``add_location``.",
+                (
+                    "Coordinate variables contain NaN(s). "
+                    "Interpolation may be negatively impacted, "
+                    "consider handling these values before calling ``add_location``."
+                ),
+                (
+                    "Coordinate variables contain zero(s). "
+                    "Interpolation may be negatively impacted, "
+                    "consider handling these values before calling ``add_location``."
+                ),
             ]
         ),
         (
@@ -355,10 +368,16 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
                 "encode_mode": "complex"
             },
             [
-                "Echodata Platform arrays contain zeros. Interpolation may be negatively impacted, " +
-                "consider handling these values before calling ``add_location``.",
-                "Echodata Platform arrays contain NaNs. Interpolation may be negatively impacted, " +
-                "consider handling these values before calling ``add_location``.",
+                (
+                    "Coordinate variables contain NaN(s). "
+                    "Interpolation may be negatively impacted, "
+                    "consider handling these values before calling ``add_location``."
+                ),
+                (
+                    "Coordinate variables contain zero(s). "
+                    "Interpolation may be negatively impacted, "
+                    "consider handling these values before calling ``add_location``."
+                ),
             ]
         ),
         (
@@ -371,12 +390,18 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
                 "encode_mode": "power"
             },
             [
-                "Echodata Platform arrays contain zeros. Interpolation may be negatively impacted, " +
-                "consider handling these values before calling ``add_location``. " +
-                "Consider setting datagram_type to any of ['NMEA'].",
-                "Echodata Platform arrays contain NaNs. Interpolation may be negatively impacted, " +
-                "consider handling these values before calling ``add_location``. " +
-                "Consider setting datagram_type to any of ['NMEA'].",
+                (
+                    "Coordinate variables contain NaN(s). " +
+                    "Interpolation may be negatively impacted, " +
+                    "consider handling these values before calling ``add_location``. "
+                    "Consider setting datagram_type to any of [None]."
+                ),
+                (
+                    "Coordinate variables contain zero(s). "
+                    "Interpolation may be negatively impacted, "
+                    "consider handling these values before calling ``add_location``. "
+                    "Consider setting datagram_type to any of [None]."
+                )
             ]
         ),
     ],

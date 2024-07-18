@@ -17,12 +17,7 @@ from .ek_depth_utils import (
     ek_use_platform_angles,
     ek_use_platform_vertical_offsets,
 )
-from .loc_utils import (
-    check_loc_time_dim_duplicates,
-    check_loc_vars_any_NaN_0,
-    check_loc_vars_present_all_NaN,
-    sel_interp,
-)
+from .loc_utils import check_loc_time_dim_duplicates, check_loc_vars_validity, sel_interp
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
 logger = _init_logger(__name__)
@@ -263,11 +258,13 @@ def add_location(
         lat_name = "latitude"
         lon_name = "longitude"
 
-    # Check if any latitude/longitude values are missing or are all NaN
-    check_loc_vars_present_all_NaN(echodata, lat_name, lon_name, datagram_type)
+    # Check if any latitude/longitude values are missing or are all NaN. Will raise Error.
+    check_loc_vars_validity(echodata, lat_name, lon_name, datagram_type, "missing")
+    check_loc_vars_validity(echodata, lat_name, lon_name, datagram_type, "all_nan")
 
-    # Check if any latitude/longitude value is NaN/0
-    check_loc_vars_any_NaN_0(echodata, lat_name, lon_name, datagram_type)
+    # Check if any latitude/longitude value is NaN/0. Will log warning.
+    check_loc_vars_validity(echodata, lat_name, lon_name, datagram_type, "some_nan")
+    check_loc_vars_validity(echodata, lat_name, lon_name, datagram_type, "some_zero")
 
     # Grab time dimension name
     time_dim_name = list(echodata["Platform"][lon_name].dims)[0]
