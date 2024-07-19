@@ -287,7 +287,7 @@ def add_location(
     interp_ds["longitude"] = sel_interp(
         ds=ds,
         echodata=echodata,
-        loc_name=lat_name,
+        loc_name=lon_name,
         time_dim_name=time_dim_name,
         nmea_sentence=nmea_sentence,
         datagram_type=datagram_type,
