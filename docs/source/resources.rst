@@ -43,6 +43,9 @@ as well as the programming language in which it is written.
 - `Movies3D <https://forge.ifremer.fr/plugins/mediawiki/wiki/movies3d/index.php/Accueil>`_:
   reads and writes HAC files and is capable of joining EK60 and ME70 data
 
+- `Ping <https://github.com/themachinethatgoesping/themachinethatgoesping>`_:
+  a Python/C++ library that reads multibeam and echosounder data. Future plans include processing of these data
+
 - `PyEcholab <https://github.com/CI-CMG/pyEcholab>`_:
   an open-source Python package based solely on the NumPy library
 
