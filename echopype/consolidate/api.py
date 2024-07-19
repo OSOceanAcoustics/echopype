@@ -277,10 +277,20 @@ def add_location(
 
     # Interpolate location variables and place into `interp_ds`
     interp_ds["latitude"] = sel_interp(
-        ds, echodata, datagram_type, lat_name, time_dim_name, nmea_sentence
+        ds=ds,
+        echodata=echodata,
+        loc_name=lat_name,
+        time_dim_name=time_dim_name,
+        nmea_sentence=nmea_sentence,
+        datagram_type=datagram_type,
     )
     interp_ds["longitude"] = sel_interp(
-        ds, echodata, datagram_type, lon_name, time_dim_name, nmea_sentence
+        ds=ds,
+        echodata=echodata,
+        loc_name=lat_name,
+        time_dim_name=time_dim_name,
+        nmea_sentence=nmea_sentence,
+        datagram_type=datagram_type,
     )
 
     # Most attributes are attached automatically via interpolation

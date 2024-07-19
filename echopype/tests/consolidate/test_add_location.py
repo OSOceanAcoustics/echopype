@@ -190,7 +190,7 @@ def test_add_location(
         (
             "echopype/test_data/ek80/D20170912-T234910.raw",
             "EK80",
-            "NMEA",
+            None,
             False,
             "time1",
             {
