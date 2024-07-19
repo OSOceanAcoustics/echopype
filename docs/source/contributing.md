@@ -69,7 +69,7 @@ It's common to encounter the situation that installing packages using Conda is s
 because Conda is unable to resolve dependencies.
 We suggest using Mamba to get around this.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
-One can replace `conda` with `mamba` in the above commands when creating the environment and installing additiona packages.
+One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
 :::
 
 
