@@ -119,10 +119,10 @@ def check_loc_time_dim_duplicates(echodata: EchoData, time_dim_name: str) -> Non
 def sel_interp(
     ds: xr.Dataset,
     echodata: EchoData,
-    datagram_type: str,
     loc_name: str,
     time_dim_name: str,
-    nmea_sentence: str,
+    nmea_sentence: Union[str, None] = None,
+    datagram_type: Union[str, None] = None,
 ) -> xr.DataArray:
     """
     Selection and interpolation for a location variable.
