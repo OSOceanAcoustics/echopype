@@ -129,7 +129,7 @@ def sel_interp(
 
     The selection logic is as follows, with 4 possible scenarios:
     Note here datagram_type = None is equivalent to datagram_type = NMEA
-    
+
     1) If datagram_type is None and nmea_sentence is None, then do nothing.
     2) If datagram_type is None and nmea_sentence is not None, then do the selection.
     3) If datagram_type is not None and nmea_sentence is None, then do nothing.
