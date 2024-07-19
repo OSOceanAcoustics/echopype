@@ -82,7 +82,7 @@ Currently, test data are stored in a private Google Drive folder and
 made available via the [`cormorack/http`](https://hub.docker.com/r/cormorack/http)
 Docker image on Docker hub.
 The image is rebuilt daily when new test data are added.
-If you tests require adding new test data, ping the maintainers (@leewujung, @ctuguinay)
+If your tests require adding new test data, ping the maintainers (@leewujung, @ctuguinay)
 to get them added to the the Google Drive.
 
 In the near future we plan to migrate all test data to GitHub Release Assets,
