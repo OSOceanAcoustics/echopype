@@ -28,11 +28,14 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
 ):
+    # Make waveform_mode "FM" equivalent to "BB"
+    waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
+
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
-        check_input_args_combination(waveform_mode, encode_mode)
+        check_input_args_combination(waveform_mode=waveform_mode, encode_mode=encode_mode)
     elif echodata.sonar_model in ("EK60", "AZFP"):
         if waveform_mode is not None and waveform_mode != "CW":
             logger.warning(
@@ -157,14 +160,14 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         Passing in calibration parameters for other echosounders
         are not currently supported.
 
-    waveform_mode : {"CW", "BB"}, optional
+    waveform_mode : {"CW", "BB", "FM"}, optional
         Type of transmit waveform.
         Required only for data from the EK80 echosounder
         and not used with any other echosounder.
 
         - `"CW"` for narrowband transmission,
           returned echoes recorded either as complex or power/angle samples
-        - `"BB"` for broadband transmission,
+        - `"BB"` or `"FM"` for broadband transmission,
           returned echoes recorded as complex samples
 
     encode_mode : {"complex", "power"}, optional
@@ -185,7 +188,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     Notes
     -----
     The EK80 echosounder can be configured to transmit
-    either broadband (``waveform_mode="BB"``)
+    either broadband/frequency modulated (``waveform_mode="BB"`` or ``waveform_mode="FM"``)
     or narrowband (``waveform_mode="CW"``) signals.
     When transmitting in broadband mode, the returned echoes are
     encoded as complex samples (``encode_mode="complex"``).
@@ -246,14 +249,14 @@ def compute_TS(echodata: EchoData, **kwargs):
         Passing in calibration parameters for other echosounders
         are not currently supported.
 
-    waveform_mode : {"CW", "BB"}, optional
+    waveform_mode : {"CW", "BB", "FM"}, optional
         Type of transmit waveform.
         Required only for data from the EK80 echosounder
         and not used with any other echosounder.
 
         - `"CW"` for narrowband transmission,
           returned echoes recorded either as complex or power/angle samples
-        - `"BB"` for broadband transmission,
+        - `"BB"` or `"FM"` for broadband transmission,
           returned echoes recorded as complex samples
 
     encode_mode : {"complex", "power"}, optional
@@ -274,7 +277,7 @@ def compute_TS(echodata: EchoData, **kwargs):
     Notes
     -----
     The EK80 echosounder can be configured to transmit
-    either broadband (``waveform_mode="BB"``)
+    either broadband/frequency modulated (``waveform_mode="BB"`` or ``waveform_mode="FM"``)
     or narrowband (``waveform_mode="CW"``) signals.
     When transmitting in broadband mode, the returned echoes are
     encoded as complex samples (``encode_mode="complex"``).
