@@ -431,7 +431,7 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
             assert f"{t}_{p}" not in vendor_spec_ds
 
 
-@pytest.mark.xfail(reason="Parsing MRU1 platform motion data is not yet implemented.")
+@pytest.mark.xfail(reason="Setting MRU1 platform motion data to EchoData Platform group is not yet implemented.")
 def test_convert_ek80_mru1(ek80_path):
     """Make sure we can convert EK80 file with MRU1 datagram."""
     ek80_mru1_path = str(ek80_path.joinpath('20231016_Cal_-D20231016-T220322.raw'))
