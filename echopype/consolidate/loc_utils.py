@@ -128,12 +128,13 @@ def sel_interp(
     Selection and interpolation for a location variable.
 
     The selection logic is as follows, with 4 possible scenarios:
-
-    1) If datagram_type == NMEA is used and NMEA sentence is NaN, then do nothing.
-    2) If datagram_type == NMEA is used and NMEA sentence is not NaN, then do the selection.
-    3) If datagram_type != NMEA and NMEA sentence is NaN, then do nothing.
-    4) If datagram_type != NMEA and NMEA sentence is not NaN, then raise ValueError since NMEA
-    sentence selection can only be used on location variables from the NMEA datagram.
+    Note here datagram_type = None is equivalent to datagram_type = NMEA
+    
+    1) If datagram_type is None and nmea_sentence is None, then do nothing.
+    2) If datagram_type is None and nmea_sentence is not None, then do the selection.
+    3) If datagram_type is not None and nmea_sentence is None, then do nothing.
+    4) If datagram_type is not None and nmea_sentence is not None, then raise ValueError since NMEA
+       sentence selection can only be used on location variables from the NMEA datagram.
 
     After selection logic, the location variable is then interpolated time-wise to match
     that of the input dataset's time dimension.
