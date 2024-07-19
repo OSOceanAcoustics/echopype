@@ -429,7 +429,7 @@ class EchoData:
             # Set timestamp equal to the first ping time whenever either
             # latitude or longitude is updated without a time dimension
             ext_var = mappings_expanded[platform_var]["external_var"]
-            if platform_var == "latitude" or platform_var == "longitude":
+            if platform_var.startswith("latitude") or platform_var.startswith("longitude"):
                 platform[platform_var].data = np.array([extra_platform_data[ext_var].data])
                 platform[platform_var] = platform[platform_var].assign_coords(
                     **{

@@ -107,11 +107,11 @@ def test_convert_ek_with_idx_file(file, sonar_model):
 
     # Check data variable lengths
     assert (
-        len(platform["idx_ping_number"]) == \
-        len(platform["idx_file_offset"]) == \
-        len(platform["idx_vessel_distance"]) == \
-        len(platform["idx_latitude"]) == \
-        len(platform["idx_longitude"]) == \
+        len(platform["ping_number_idx"]) == \
+        len(platform["file_offset_idx"]) == \
+        len(platform["vessel_distance_idx"]) == \
+        len(platform["latitude_idx"]) == \
+        len(platform["longitude_idx"]) == \
         expected_array_shape(file, "idx", "ping_number")[0] == \
         expected_array_shape(file, "idx", "file_offset")[0] == \
         expected_array_shape(file, "idx", "distance")[0] == \
@@ -120,7 +120,7 @@ def test_convert_ek_with_idx_file(file, sonar_model):
     )
 
     # Check attributes (sanity check)
-    platform["time3"].attrs == (
+    platform["time4"].attrs == (
         {
             "axis": "T",
             "long_name": "Timestamps from IDX datagrams",
@@ -129,26 +129,26 @@ def test_convert_ek_with_idx_file(file, sonar_model):
             + "distance and latitude/longitude data.",
         }
     )
-    assert platform["idx_vessel_distance"].attrs == (
+    assert platform["vessel_distance_idx"].attrs == (
         {
             "long_name": "Vessel distance in nautical miles (nmi) from start of recording.",
             "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-            + "dataset's `time3` dimension.",
+            + "dataset's `time4` dimension.",
         }
     )
-    assert platform["idx_latitude"].attrs == (
+    assert platform["latitude_idx"].attrs == (
         {
             "long_name": "Index File Derived Platform Latitude",
             "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-            + "dataset's `time3` dimension. "
+            + "dataset's `time4` dimension. "
             + "This is different from latitude stored in the NMEA datagram.",
         }
     )
-    assert platform["idx_longitude"].attrs == (
+    assert platform["longitude_idx"].attrs == (
         {
             "long_name": "Index File Derived Platform Longitude",
             "comment": "Data from the IDX datagrams. Aligns time-wise with this "
-            + "dataset's `time3` dimension. "
+            + "dataset's `time4` dimension. "
             + "This is different from longitude from the NMEA datagram.",
         }
     )

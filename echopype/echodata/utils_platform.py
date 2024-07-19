@@ -107,19 +107,24 @@ def get_mappings_expanded(logger, extra_platform_data, variable_mappings, platfo
 
     # If longitude or latitude are requested, verify that both are present
     # and they share the same external time dimension
-    if "longitude" in mappings_expanded or "latitude" in mappings_expanded:
-        if "longitude" not in mappings_expanded or "latitude" not in mappings_expanded:
-            raise ValueError(
-                "Only one of latitude and longitude are specified. Please include both, or neither."  # noqa
-            )
-        if (
-            mappings_expanded["longitude"]["ext_time_dim_name"]
-            != mappings_expanded["latitude"]["ext_time_dim_name"]
-        ):
-            raise ValueError(
-                "The external latitude and longitude use different time dimensions. "
-                "They must share the same time dimension."
-            )
+    for lat_name, lon_name in [
+        ("latitude", "longitude"),
+        ("latitude_idx", "longitude_idx"),
+        ("latitude_mru1", "longitude_mru1"),
+    ]:
+        if lat_name in mappings_expanded or lon_name in mappings_expanded:
+            if lat_name not in mappings_expanded or lon_name not in mappings_expanded:
+                raise ValueError(
+                    f"Only one of {lat_name} and {lon_name} are specified. Please include both, or neither."  # noqa
+                )
+            if (
+                mappings_expanded[lat_name]["ext_time_dim_name"]
+                != mappings_expanded[lon_name]["ext_time_dim_name"]
+            ):
+                raise ValueError(
+                    "The external latitude and longitude use different time dimensions. "
+                    "They must share the same time dimension."
+                )
 
     # Generate warnings regarding variables that will be updated
     vars_not_handled = set(variable_mappings.keys()).difference(mappings_expanded.keys())

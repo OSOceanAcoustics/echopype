@@ -303,20 +303,47 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = np.nan
             logger.info("WARNING: The water_level_draft was not in the file. Value set to NaN.")
 
-        time1, msg_type, lat, lon = self._extract_NMEA_latlon()
-        time2 = self.parser_obj.mru.get("timestamp", None)
+        time1, msg_type, lat_nmea, lon_nmea = self._extract_NMEA_latlon()
+        time2 = self.parser_obj.mru0.get("timestamp", None)
         time2 = np.array(time2) if time2 is not None else [np.nan]
+        time3 = self.parser_obj.mru1.get("timestamp", None)
+        time3 = np.array(time3) if time3 is not None else [np.nan]
 
-        # Handle potential nan timestamp for time1 and time2
+        # Handle potential nan timestamp for time1, time2, and time3
         time1 = self._nan_timestamp_handler(time1)
         time2 = self._nan_timestamp_handler(time2)
+        time3 = self._nan_timestamp_handler(time3)
+
+        # Set MRU1 lat lon attributes
+        latitude_mru1_attrs = self._varattrs["platform_var_default"]["latitude"].copy()
+        latitude_mru1_attrs.update(
+            {
+                "comment": "Derived from the Simrad MRU1 Datagrams which are "
+                "a wrapper of the Kongsberg Maritime Binary Datagrams."
+            }
+        )
+        longitude_mru1_attrs = self._varattrs["platform_var_default"]["longitude"].copy()
+        longitude_mru1_attrs.update(
+            {
+                "comment": "Derived from the Simrad MRU1 Datagrams which are "
+                "a wrapper of the Kongsberg Maritime Binary Datagrams."
+            }
+        ),
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         ds = xr.Dataset(
             {
-                "latitude": (["time1"], lat, self._varattrs["platform_var_default"]["latitude"]),
-                "longitude": (["time1"], lon, self._varattrs["platform_var_default"]["longitude"]),
+                "latitude": (
+                    ["time1"],
+                    lat_nmea,
+                    self._varattrs["platform_var_default"]["latitude"],
+                ),
+                "longitude": (
+                    ["time1"],
+                    lon_nmea,
+                    self._varattrs["platform_var_default"]["longitude"],
+                ),
                 "sentence_type": (
                     ["time1"],
                     msg_type,
@@ -324,17 +351,17 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "pitch": (
                     ["time2"],
-                    np.array(self.parser_obj.mru.get("pitch", [np.nan])),
+                    np.array(self.parser_obj.mru0.get("pitch", [np.nan])),
                     self._varattrs["platform_var_default"]["pitch"],
                 ),
                 "roll": (
                     ["time2"],
-                    np.array(self.parser_obj.mru.get("roll", [np.nan])),
+                    np.array(self.parser_obj.mru0.get("roll", [np.nan])),
                     self._varattrs["platform_var_default"]["roll"],
                 ),
                 "vertical_offset": (
                     ["time2"],
-                    np.array(self.parser_obj.mru.get("heave", [np.nan])),
+                    np.array(self.parser_obj.mru0.get("heave", [np.nan])),
                     self._varattrs["platform_var_default"]["vertical_offset"],
                 ),
                 "water_level": (
@@ -410,7 +437,7 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
                 "heading": (
                     ["time2"],
-                    np.array(self.parser_obj.mru.get("heading", [np.nan])),
+                    np.array(self.parser_obj.mru0.get("heading", [np.nan])),
                     {
                         "long_name": "Platform heading (true)",
                         "standard_name": "platform_orientation",
@@ -418,6 +445,16 @@ class SetGroupsEK80(SetGroupsBase):
                         "valid_min": 0.0,
                         "valid_max": 360.0,
                     },
+                ),
+                "latitude_mru1": (
+                    ["time3"],
+                    np.array(self.parser_obj.mru1.get("latitude", [np.nan])),
+                    latitude_mru1_attrs,
+                ),
+                "longitude_mru1": (
+                    ["time3"],
+                    np.array(self.parser_obj.mru1.get("longitude", [np.nan])),
+                    longitude_mru1_attrs,
                 ),
             },
             coords={
@@ -443,6 +480,18 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
                         "orientation data.",
+                    },
+                ),
+                "time3": (
+                    ["time3"],
+                    time3,
+                    {
+                        "axis": "T",
+                        "long_name": "Timestamps for platform motion and orientation data "
+                        "from the Kongsberg Maritime Binary Datagram",
+                        "standard_name": "time",
+                        "comment": "Time coordinate corresponding to platform motion and "
+                        "orientation data from the Kongsberg Maritime Binary Datagram.",
                     },
                 ),
             },

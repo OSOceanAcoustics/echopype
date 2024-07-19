@@ -502,24 +502,44 @@ class SimradMRUParser(_SimradDatagramParser):
         pitch:        float
         heading:      float
 
-        type:         string == 'MRU1'
-        low_date:     long uint representing LSBytes of 64bit NT date
-        high_date:    long uint representing MSBytes of 64bit NT date
-        timestamp:    datetime.datetime object of NT date, assumed to be UTC
-        heave:        float
-        roll :        float
-        pitch:        float
-        heading:      float
-        length:       long uint
+    Version 1 contains (from https://www3.mbari.org/products/mbsystem/formatdoc/KongsbergKmall/EMdgmFormat_RevH/html/kmBinary.html): # noqa
+
+    Status word See 1)  uint32  4U
+    Latitude    deg double  8F
+    Longitude   deg double  8F
+    Ellipsoid height    m   float   4F
+    Roll    deg float   4F
+    Pitch   deg float   4F
+    Heading deg float   4F
+    Heave   m   float   4F
+    Roll rate   deg/s   float   4F
+    Pitch rate  deg/s   float   4F
+    Yaw rate    deg/s   float   4F
+    North velocity  m/s float   4F
+    East velocity   m/s float   4F
+    Down velocity   m/s float   4F
+    Latitude error  m   float   4F
+    Longitude error m   float   4F
+    Height error    m   float   4F
+    Roll error  deg float   4F
+    Pitch error deg float   4F
+    Heading error   deg float   4F
+    Heave error m   float   4F
+    North acceleration  m/s2    float   4F
+    East acceleration   m/s2    float   4F
+    Down acceleration   m/s2    float   4F
+    Delayed heave:  -   -   -
+    UTC seconds s   uint32  4U
+    UTC nanoseconds ns  uint32  4U
+    Delayed heave   m   float   4F
 
     The following methods are defined:
 
-        from_string(str):    parse a raw ER60 NMEA datagram
+        from_string(str):   parse a raw EK80 MRU datagram
                             (with leading/trailing datagram size stripped)
 
-        to_string():         Returns the datagram as a raw string
-                             (including leading/trailing size fields)
-                             ready for writing to disk
+        to_string():        Returns the datagram as a raw string (including
+                            leading/trailing size fields) ready for writing to disk
     """
 
     def __init__(self):
@@ -537,11 +557,35 @@ class SimradMRUParser(_SimradDatagramParser):
                 ("type", "4s"),
                 ("low_date", "L"),
                 ("high_date", "L"),
-                ("heave", "f"),
+                ("start_id", "4s"),  # KMB#
+                ("status_word", "L"),
+                ("dummy", "12s"),
+                ("latitude", "d"),
+                ("longitude", "d"),
+                ("ellipsoid_height", "f"),
                 ("roll", "f"),
                 ("pitch", "f"),
                 ("heading", "f"),
-                ("length", "L"),
+                ("heave", "f"),
+                ("roll_rate", "f"),
+                ("pitch_rate", "f"),
+                ("yaw_rate", "f"),
+                ("velocity_north", "f"),
+                ("velocity_east", "f"),
+                ("velocity_down", "f"),
+                ("latitude_error", "f"),
+                ("longitude_error", "f"),
+                ("height_error", "f"),
+                ("roll_error", "f"),
+                ("pitch_error", "f"),
+                ("heading_error", "f"),
+                ("heave_error", "f"),
+                ("accel_north", "f"),
+                ("accel_east", "f"),
+                ("accel_down", "f"),
+                ("heave_delay_secs", "L"),
+                ("heave_delay_usecs", "L"),
+                ("heave_delay_m", "f"),
             ],
         }
 
@@ -565,37 +609,29 @@ class SimradMRUParser(_SimradDatagramParser):
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
             if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
+                #  first try to decode as utf-8 but fall back to latin_1 if that fails
+                try:
+                    data[field] = data[field].decode("utf-8")
+                except:
+                    data[field] = data[field].decode("latin_1")
 
         data["timestamp"] = nt_to_unix((data["low_date"], data["high_date"]))
+        data["timestamp"] = data["timestamp"].replace(tzinfo=None)
         data["bytes_read"] = bytes_read
 
         return data
 
     def _pack_contents(self, data, version):
+
         datagram_fmt = self.header_fmt(version)
         datagram_contents = []
 
         if version == 0:
+
             for field in self.header_fields(version):
+                if isinstance(data[field], str):
+                    data[field] = data[field].encode("latin_1")
                 datagram_contents.append(data[field])
-
-            if data["nmea_string"][-1] != "\x00":
-                tmp_string = data["nmea_string"] + "\x00"
-            else:
-                tmp_string = data["nmea_string"]
-
-            # Pad with more nulls to 4-byte word boundary if necessary
-            if len(tmp_string) % 4:
-                tmp_string += "\x00" * (4 - (len(tmp_string) % 4))
-
-            datagram_fmt += "%ds" % (len(tmp_string))
-
-            # Convert to python string if needed
-            if isinstance(tmp_string, str):
-                tmp_string = tmp_string.encode("ascii", errors="replace")
-
-            datagram_contents.append(tmp_string)
 
         return struct.pack(datagram_fmt, *datagram_contents)
 

@@ -18,7 +18,7 @@ from .echodata import EchoData
 
 logger = _init_logger(__name__)
 
-POSSIBLE_TIME_DIMS = {"time1", "time2", "time3", "ping_time"}
+POSSIBLE_TIME_DIMS = {"time1", "time2", "time3", "time4", "ping_time"}
 APPEND_DIMS = {"filenames"}.union(POSSIBLE_TIME_DIMS)
 DATE_CREATED_ATTR = "date_created"
 CONVERSION_TIME_ATTR = "conversion_time"
