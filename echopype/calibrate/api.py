@@ -28,13 +28,14 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
 ):
+    # Make waveform_mode "FM" equivalent to "BB"
+    waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
+
     # Check on waveform_mode and encode_mode inputs
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
-        check_input_args_combination(
-            waveform_mode="BB" if waveform_mode == "FM" else waveform_mode, encode_mode=encode_mode
-        )
+        check_input_args_combination(waveform_mode=waveform_mode, encode_mode=encode_mode)
     elif echodata.sonar_model in ("EK60", "AZFP"):
         if waveform_mode is not None and waveform_mode != "CW":
             logger.warning(
@@ -53,7 +54,7 @@ def _compute_cal(
         env_params=env_params,
         cal_params=cal_params,
         ecs_file=ecs_file,
-        waveform_mode="BB" if waveform_mode == "FM" else waveform_mode,
+        waveform_mode=waveform_mode,
         encode_mode=encode_mode,
     )
 
