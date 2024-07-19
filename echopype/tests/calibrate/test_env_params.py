@@ -1,7 +1,9 @@
 import pytest
 
+import dask.array
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 import echopype as ep
 from echopype.calibrate.env_params import (
@@ -15,17 +17,17 @@ from echopype.calibrate.env_params import (
 
 @pytest.fixture
 def azfp_path(test_path):
-    return test_path['AZFP']
+    return test_path["AZFP"]
 
 
 @pytest.fixture
 def ek60_path(test_path):
-    return test_path['EK60']
+    return test_path["EK60"]
 
 
 @pytest.fixture
 def ek80_cal_path(test_path):
-    return test_path['EK80_CAL']
+    return test_path["EK80_CAL"]
 
 
 def test_harmonize_env_param_time():
@@ -35,39 +37,113 @@ def test_harmonize_env_param_time():
 
     # time1 length=1, should return length=1 numpy array
     p = xr.DataArray(
-        data=[1],
-        coords={
-            "time1": np.array(["2017-06-20T01:00:00"], dtype="datetime64[ns]")
-        },
-        dims=["time1"]
+        data=[2],
+        coords={"time1": np.array(["2017-06-20T01:00:00"], dtype="datetime64[ns]")},
+        dims=["time1"],
     )
-    assert harmonize_env_param_time(p=p) == 1
+    assert harmonize_env_param_time(p=p) == 2
 
-    # time1 length>1, interpolate to tareget ping_time
+    # time1 length>1
     p = xr.DataArray(
-        data=np.array([0, 1]),
+        data=np.array([0, 1, 2]),
         coords={
-            "time1": np.arange("2017-06-20T01:00:00", "2017-06-20T01:00:31", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+            "time1": np.arange(
+                "2017-06-20T01:00:00",
+                "2017-06-20T01:01:30",
+                np.timedelta64(30, "s"),
+                dtype="datetime64[ns]",
+            )
         },
-        dims=["time1"]
+        dims=["time1"],
     )
+    # Ensure that ping_time cannot be None when time1 length > 1
+    with pytest.raises(ValueError):
+        harmonize_env_param_time(p=p, ping_time=None)
+
     # ping_time target is identical to time1
     ping_time_target = p["time1"].rename({"time1": "ping_time"})
     p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target)
     assert (p_new["ping_time"] == ping_time_target).all()
     assert (p_new.data == p.data).all()
+
     # ping_time target requires actual interpolation
+    ping_time_target = xr.DataArray(
+        data=[1, 2],
+        coords={
+            "ping_time": np.array(
+                ["2017-06-20T01:00:15", "2017-06-20T01:00:30"], dtype="datetime64[ns]"
+            )
+        },
+        dims=["ping_time"],
+    )
+
     ping_time_target = xr.DataArray(
         data=[1],
         coords={
-            "ping_time": np.array(["2017-06-20T01:00:15"], dtype="datetime64[ns]")
+            "ping_time": np.array(
+                [
+                    "2017-06-20T01:00:15",
+                ],
+                dtype="datetime64[ns]",
+            )
         },
-        dims=["ping_time"]
+        dims=["ping_time"],
     )
+
     p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target["ping_time"])
-    assert p_new["ping_time"] == ping_time_target["ping_time"]
+    assert (p_new["ping_time"] == ping_time_target["ping_time"]).all()
     assert p_new.data == 0.5
 
+    # create a larger p with dask arrays under the hood
+    time1 = np.arange(
+        "2017-06-20T01:00:00",
+        "2017-06-22T01:00:31",
+        np.timedelta64(30, "s"),
+        dtype="datetime64[ns]",
+    )
+    p = xr.DataArray(
+        data=np.arange(len(time1)),
+        coords={"time1": time1},
+        dims=["time1"],
+    ).chunk({"time1": 1000})
+
+    # ping_time target is identical to time1
+    ping_time_target = p["time1"].rename({"time1": "ping_time"})
+    p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target)
+    assert (p_new["ping_time"] == ping_time_target).all()
+    assert isinstance(p_new.data, dask.array.Array)
+    # np.array_equal() computes dask array under the hood
+    assert np.array_equal(p_new.data, p.data)
+
+    # ping_time target requires actual interpolation
+    ping_time_target = xr.DataArray(
+        data=[1, 2],
+        coords={
+            "ping_time": np.array(
+                ["2017-06-20T01:00:15", "2017-06-21T01:00:15"], dtype="datetime64[ns]"
+            )
+        },
+        dims=["ping_time"],
+    )
+
+    p_new = harmonize_env_param_time(p=p, ping_time=ping_time_target["ping_time"])
+    assert np.array_equal(p_new["ping_time"], ping_time_target["ping_time"])
+
+    assert isinstance(p_new.data, dask.array.Array)
+    # .all computes dask array under the hood
+    assert (p_new.data == [0.5, 2880.5]).all()
+
+@pytest.mark.unit
+def test_harmonize_env_param_time_only_one_non_NaN_along_time1():
+    # Create data array with time1 dimension with only 1 non-NaN value
+    data = np.array([1, np.nan, np.nan])
+    time = pd.date_range(start='2024-01-01', periods=3, freq='D')
+    da = xr.DataArray(data, dims='time1', coords={'time1': time})
+
+    # Check that output da has only 1 value and no dimension
+    output_da = harmonize_env_param_time(da, None)
+    assert output_da == 1, "Output data array should just be 1"
+    assert 'time1' not in output_da.dims, "```harmonize_env_param_time``` should have dropped 'time1' dimension"
 
 @pytest.mark.parametrize(
     ("user_dict", "channel", "out_dict"),
@@ -77,39 +153,59 @@ def test_harmonize_env_param_time():
         (
             {"temperature": 10, "salinity": 20},
             ["chA", "chB"],
-            dict(
-                dict.fromkeys(ENV_PARAMS), **{"temperature": 10, "salinity": 20}
-            )
+            dict(dict.fromkeys(ENV_PARAMS), **{"temperature": 10, "salinity": 20}),
         ),
         # dict has xr.DataArray, channel a list with matching values with those in dict
         (
-            {"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})},
+            {
+                "temperature": 10,
+                "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]}),
+            },
             ["chA", "chB"],
             dict(
                 dict.fromkeys(ENV_PARAMS),
-                **{"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})}
-            )
+                **{
+                    "temperature": 10,
+                    "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]}),
+                }
+            ),
         ),
         # dict has xr.DataArray, channel a list with non-matching values with those in dict: XFAIL
         pytest.param(
-            {"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})},
-            ["chA", "chC"], None,
-            marks=pytest.mark.xfail(strict=True, reason="channel coordinate in param xr.DataArray mismatches that in the channel list"),
+            {
+                "temperature": 10,
+                "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]}),
+            },
+            ["chA", "chC"],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="channel coordinate in param xr.DataArray mismatches that in the channel list",
+            ),
         ),
         # dict has xr.DataArray, channel a xr.DataArray
         (
-            {"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})},
+            {
+                "temperature": 10,
+                "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]}),
+            },
             xr.DataArray(["chA", "chB"], coords={"channel": ["chA", "chB"]}),
             dict(
                 dict.fromkeys(ENV_PARAMS),
-                **{"temperature": 10, "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]})}
-            )
+                **{
+                    "temperature": 10,
+                    "sound_absorption": xr.DataArray([10, 20], coords={"channel": ["chA", "chB"]}),
+                }
+            ),
         ),
         # dict has sound_absorption as a scalar: XFAIL
         pytest.param(
             {"temperature": 10, "sound_absorption": 0.02},
-            ["chA", "chB"], None,
-            marks=pytest.mark.xfail(strict=True, reason="sound_absorption should be a list or an xr.DataArray"),
+            ["chA", "chB"],
+            None,
+            marks=pytest.mark.xfail(
+                strict=True, reason="sound_absorption should be a list or an xr.DataArray"
+            ),
         ),
     ],
     ids=[
@@ -117,8 +213,8 @@ def test_harmonize_env_param_time():
         "in_da_channel_list_out_da",
         "in_da_channel_list_mismatch",
         "in_da_channel_da",
-        "in_absorption_scalae"
-    ]
+        "in_absorption_scalae",
+    ],
 )
 def test_sanitize_user_env_dict(user_dict, channel, out_dict):
     """
@@ -139,25 +235,27 @@ def test_sanitize_user_env_dict(user_dict, channel, out_dict):
         # pH should not exist in the output Sv dataset, formula sources should both be AZFP
         (
             {"temperature": 10, "salinity": 20, "pressure": 100, "pH": 8.1},
-            dict(
-                dict.fromkeys(ENV_PARAMS), **{"temperature": 10, "salinity": 20, "pressure": 100}
-            )
+            dict(dict.fromkeys(ENV_PARAMS), **{"temperature": 10, "salinity": 20, "pressure": 100}),
         ),
         # not including salinity or pressure: XFAIL
         pytest.param(
-            {"temperature": 10, "pressure": 100, "pH": 8.1}, None,
-            marks=pytest.mark.xfail(strict=True, reason="Fail since cal_channel_id in input param does not match channel of data"),
+            {"temperature": 10, "pressure": 100, "pH": 8.1},
+            None,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="Fail since cal_channel_id in input param does not match channel of data",
+            ),
         ),
     ],
     ids=[
         "default",
         "no_salinity",
-    ]
+    ],
 )
 def test_get_env_params_AZFP(azfp_path, env_ext, out_dict):
-    azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
-    azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
-    ed = ep.open_raw(azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path)
+    azfp_01a_path = str(azfp_path.joinpath("17082117.01A"))
+    azfp_xml_path = str(azfp_path.joinpath("17041823.XML"))
+    ed = ep.open_raw(azfp_01a_path, sonar_model="AZFP", xml_path=azfp_xml_path)
 
     env_dict = get_env_params_AZFP(echodata=ed, user_dict=env_ext)
 
@@ -168,7 +266,7 @@ def test_get_env_params_AZFP(azfp_path, env_ext, out_dict):
                 temperature=env_dict["temperature"],
                 salinity=env_dict["salinity"],
                 pressure=env_dict["pressure"],
-                formula_source="AZFP"
+                formula_source="AZFP",
             ),
             "sound_absorption": ep.utils.uwa.calc_absorption(
                 frequency=ed["Sonar/Beam_group1"]["frequency_nominal"],
@@ -199,21 +297,33 @@ def test_get_env_params_AZFP(azfp_path, env_ext, out_dict):
         # T, S, P, pH all exist so will trigger calculation, check default formula sources
         (
             {"temperature": 10, "salinity": 30, "pressure": 100, "pH": 8.1},
-            "Mackenzie", "FG",
+            "Mackenzie",
+            "FG",
         ),
         # T, S, P, pH all exist, will calculate; has absorption formula passed in, check using the correct formula
         (
-            {"temperature": 10, "salinity": 30, "pressure": 100, "pH": 8.1, "formula_absorption": "AM"},
-            "Mackenzie", "AM",
+            {
+                "temperature": 10,
+                "salinity": 30,
+                "pressure": 100,
+                "pH": 8.1,
+                "formula_absorption": "AM",
+            },
+            "Mackenzie",
+            "AM",
         ),
     ],
     ids=[
         "calc_no_formula",
         "calc_with_formula",
-    ]
+    ],
 )
-def test_get_env_params_EK60_calculate(ek60_path, env_ext, ref_formula_sound_speed, ref_formula_absorption):
-    ed = ep.open_raw(ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", sonar_model="EK60")
+def test_get_env_params_EK60_calculate(
+    ek60_path, env_ext, ref_formula_sound_speed, ref_formula_absorption
+):
+    ed = ep.open_raw(
+        ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", sonar_model="EK60"
+    )
 
     env_dict = get_env_params_EK(
         sonar_type="EK60",
@@ -257,7 +367,9 @@ def test_get_env_params_EK60_from_data(ek60_path):
     """
     If one of T, S, P, pH does not exist, use values from data file
     """
-    ed = ep.open_raw(ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", sonar_model="EK60")
+    ed = ep.open_raw(
+        ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", sonar_model="EK60"
+    )
 
     env_dict = get_env_params_EK(
         sonar_type="EK60",
@@ -288,20 +400,30 @@ def test_get_env_params_EK60_from_data(ek60_path):
         # T, S, P, pH all exist, check default formula sources
         (
             {"temperature": 10, "salinity": 30, "pressure": 100, "pH": 8.1},
-            "Mackenzie", "FG",
+            "Mackenzie",
+            "FG",
         ),
         # T, S, P, pH all exist; has absorption formula passed in, check using the correct formula
         (
-            {"temperature": 10, "salinity": 30, "pressure": 100, "pH": 8.1, "formula_absorption": "AM"},
-            "Mackenzie", "AM",
+            {
+                "temperature": 10,
+                "salinity": 30,
+                "pressure": 100,
+                "pH": 8.1,
+                "formula_absorption": "AM",
+            },
+            "Mackenzie",
+            "AM",
         ),
     ],
     ids=[
         "calc_no_formula",
         "calc_with_formula",
-    ]
+    ],
 )
-def test_get_env_params_EK80_calculate(ek80_cal_path, env_ext, ref_formula_sound_speed, ref_formula_absorption):
+def test_get_env_params_EK80_calculate(
+    ek80_cal_path, env_ext, ref_formula_sound_speed, ref_formula_absorption
+):
     ed = ep.open_raw(ek80_cal_path / "2018115-D20181213-T094600.raw", sonar_model="EK80")
 
     env_dict = get_env_params_EK(
@@ -349,21 +471,25 @@ def test_get_env_params_EK80_calculate(ek80_cal_path, env_ext, ref_formula_sound
         # check default formula sources
         (
             {"temperature": 10},
-            "Mackenzie", "FG",
+            "Mackenzie",
+            "FG",
         ),
         # Only T exists, so use S, P, pH from data;
         # has absorption formula passed in, check using the correct formula
         (
             {"temperature": 10, "formula_absorption": "AM"},
-            "Mackenzie", "AM",
+            "Mackenzie",
+            "AM",
         ),
     ],
     ids=[
         "calc_no_formula",
         "calc_with_formula",
-    ]
+    ],
 )
-def test_get_env_params_EK80_from_data(ek80_cal_path, env_ext, ref_formula_sound_speed, ref_formula_absorption):
+def test_get_env_params_EK80_from_data(
+    ek80_cal_path, env_ext, ref_formula_sound_speed, ref_formula_absorption
+):
     ed = ep.open_raw(ek80_cal_path / "2018115-D20181213-T094600.raw", sonar_model="EK80")
 
     env_dict = get_env_params_EK(

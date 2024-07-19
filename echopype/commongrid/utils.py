@@ -20,6 +20,7 @@ def compute_raw_MVBS(
     ping_interval: Union[pd.IntervalIndex, np.ndarray],
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method="map-reduce",
+    skipna=True,
     **flox_kwargs,
 ):
     """
@@ -45,6 +46,9 @@ def compute_raw_MVBS(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    skipna: bool, default True
+        If true, the mean operation skips NaN values.
+        Else, the mean operation includes NaN values.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -65,6 +69,8 @@ def compute_raw_MVBS(
         x_var=x_var,
         range_var=range_var,
         method=method,
+        func="nanmean" if skipna else "mean",
+        skipna=skipna,
         **flox_kwargs,
     )
 
@@ -80,6 +86,7 @@ def compute_raw_NASC(
     range_interval: Union[pd.IntervalIndex, np.ndarray],
     dist_interval: Union[pd.IntervalIndex, np.ndarray],
     method="map-reduce",
+    skipna=True,
     **flox_kwargs,
 ):
     """
@@ -100,6 +107,9 @@ def compute_raw_NASC(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    skipna: bool, default True
+        If true, the mean operation skips NaN values.
+        Else, the mean operation includes NaN values.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -126,6 +136,8 @@ def compute_raw_NASC(
         x_var=x_var,
         range_var=range_var,
         method=method,
+        func="nanmean" if skipna else "mean",
+        skipna=skipna,
         **flox_kwargs,
     )
 
@@ -136,6 +148,7 @@ def compute_raw_NASC(
         ds_Sv["ping_time"],
         ds_Sv[x_var],
         func="nanmean",
+        skipna=True,
         expected_groups=(dist_interval),
         isbin=True,
         method=method,
@@ -154,7 +167,8 @@ def compute_raw_NASC(
     h_mean_denom = xarray_reduce(
         da_denom,
         ds_Sv[x_var],
-        func="sum",
+        func="nansum",
+        skipna=True,
         expected_groups=(dist_interval),
         isbin=[True],
         method=method,
@@ -165,7 +179,8 @@ def compute_raw_NASC(
         ds_Sv["channel"],
         ds_Sv[x_var],
         ds_Sv[range_var].isel(**{range_dim: slice(0, -1)}),
-        func="sum",
+        func="nansum",
+        skipna=True,
         expected_groups=(None, dist_interval, range_interval),
         isbin=[False, True, True],
         method=method,
@@ -480,6 +495,8 @@ def _groupby_x_along_channels(
     x_var: Literal["ping_time", "distance_nmi"] = "ping_time",
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
+    func: str = "nanmean",
+    skipna: bool = True,
     **flox_kwargs,
 ) -> xr.Dataset:
     """
@@ -517,6 +534,15 @@ def _groupby_x_along_channels(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    func: str, default 'nanmean'
+        The aggregation function used for reducing the data array.
+        By default, 'nanmean' is used. Other options can be found in the flox `documentation
+        <https://flox.readthedocs.io/en/latest/generated/flox.xarray.xarray_reduce.html>`_.
+    skipna: bool, default True
+        If true, aggregation function skips NaN values.
+        Else, aggregation function includes NaN values.
+        Note that if ``func`` is set to 'mean' and ``skipna`` is set to True, then aggregation
+        will have the same behavior as if func is set to 'nanmean'.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -540,6 +566,22 @@ def _groupby_x_along_channels(
     # average should be done in linear domain
     sv = ds_Sv["Sv"].pipe(_log2lin)
 
+    # Check for any NaNs in the coordinate arrays:
+    named_arrays = {
+        x_var: ds_Sv[x_var].data,
+        range_var: ds_Sv[range_var].data,
+    }
+    aggregation_msg = (
+        "Aggregation may be negatively impacted since Flox will not aggregate any "
+        "```Sv``` values that have corresponding NaN coordinate values. Consider handling "
+        "these values before calling your intended commongrid function."
+    )
+    for array_name, array in named_arrays.items():
+        if np.isnan(array).any():
+            logging.warning(
+                f"The ```{array_name}``` coordinate array contain NaNs. {aggregation_msg}"
+            )
+
     # reduce along ping_time or distance_nmi
     # and echo_range or depth
     # by binning and averaging
@@ -548,10 +590,11 @@ def _groupby_x_along_channels(
         ds_Sv["channel"],
         ds_Sv[x_var],
         ds_Sv[range_var],
-        func="nanmean",
         expected_groups=(None, x_interval, range_interval),
         isbin=[False, True, True],
         method=method,
+        func=func,
+        skipna=skipna,
         **flox_kwargs,
     )
     return sv_mean

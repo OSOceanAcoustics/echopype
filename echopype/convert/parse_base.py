@@ -43,14 +43,15 @@ class ParseBase:
 class ParseEK(ParseBase):
     """Class for converting data from Simrad echosounders."""
 
-    def __init__(self, file, storage_options, sonar_model):
+    def __init__(self, file, bot_file, idx_file, storage_options, sonar_model):
         super().__init__(file, storage_options, sonar_model)
-
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
         self.timestamp_pattern = FILENAME_DATETIME_EK60
 
         # Class attributes
+        self.bot_file = bot_file
+        self.idx_file = idx_file
         self.config_datagram = None
         self.ping_data_dict = defaultdict(lambda: defaultdict(list))  # ping data
         self.ping_data_dict_tx = defaultdict(lambda: defaultdict(list))  # transmit ping data
@@ -64,6 +65,8 @@ class ParseEK(ParseBase):
         self.mru = defaultdict(list)  # Dictionary to store MRU data (heading, pitch, roll, heave)
         self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
         self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
+        self.bot = defaultdict(list)  # Dictionary to store bottom depth values
+        self.idx = defaultdict(list)  # Dictionary to store index file values
 
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
@@ -345,7 +348,15 @@ class ParseEK(ParseBase):
             self.config_datagram["timestamp"] = np.datetime64(
                 self.config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
+
+            # Only EK80 files have configuration in self.config_datagram
             if "configuration" in self.config_datagram:
+                # Remove EC150 (ADCP) from config
+                channel_id = list(self.config_datagram["configuration"].keys())
+                channel_id_rm = [ch for ch in channel_id if "EC150" in ch]
+                for ch in channel_id_rm:
+                    _ = self.config_datagram["configuration"].pop(ch)
+
                 for v in self.config_datagram["configuration"].values():
                     if "pulse_duration" not in v and "pulse_length" in v:
                         # it seems like sometimes this field can appear with the name "pulse_length"
@@ -367,6 +378,18 @@ class ParseEK(ParseBase):
 
             # Read the rest of datagrams
             self._read_datagrams(fid)
+
+        # Read bottom datagrams if `self.bot_file`` is not empty
+        if self.bot_file != "":
+            bot_datagrams = RawSimradFile(self.bot_file, "r", storage_options=self.storage_options)
+            bot_datagrams.read(1)  # Read everything after the `.CON` config datagram
+            self._read_datagrams(bot_datagrams)
+
+        # Read index datagrams if `self.idx_file`` is not empty
+        if self.idx_file != "":
+            idx_datagrams = RawSimradFile(self.idx_file, "r", storage_options=self.storage_options)
+            idx_datagrams.read(1)  # Read everything after the `.CON` config datagram
+            self._read_datagrams(idx_datagrams)
 
         # Convert ping time to 1D numpy array, stored in dict indexed by channel,
         #  this will help merge data from all channels into a cube
@@ -461,6 +484,12 @@ class ParseEK(ParseBase):
                 new_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
 
+            # # For debugging EC150 datagrams
+            # if new_datagram["type"].startswith("XML") and "subtype" in new_datagram:
+            #     print(f"{new_datagram['type']} - {new_datagram['subtype']}")
+            # else:
+            #     print(new_datagram["type"])
+
             num_datagrams_parsed += 1
 
             # XML datagrams store environment or instrument parameters for EK80
@@ -470,7 +499,14 @@ class ParseEK(ParseBase):
                     self.environment["xml"] = new_datagram["xml"]
                     self.environment["timestamp"] = new_datagram["timestamp"]
                 elif new_datagram["subtype"] == "parameter":
-                    current_parameters = new_datagram["parameter"]
+                    if "EC150" not in new_datagram["parameter"]["channel_id"]:
+                        #    print(
+                        #        f"{new_datagram['parameter']['channel_id']} from XML-parameter "
+                        #        "-- NOT SKIPPING"
+                        #    )
+                        current_parameters = new_datagram["parameter"]
+                # else:
+                #     print(f"{new_datagram['parameter']['channel_id']} from XML-parameter")
 
             # RAW0 datagrams store raw acoustic data for a channel for EK60
             elif new_datagram["type"].startswith("RAW0"):
@@ -487,33 +523,41 @@ class ParseEK(ParseBase):
             #   - RAW3
             # RAW3 datagrams store raw acoustic data for a channel for EK80
             elif new_datagram["type"].startswith("RAW3"):
-                curr_ch_id = new_datagram["channel_id"]
-                # Check if the proceeding Parameter XML does not
-                # match with data in this RAW3 datagram
-                if current_parameters["channel_id"] != curr_ch_id:
-                    raise ValueError("Parameter ID does not match RAW")
+                if "EC150" not in new_datagram["channel_id"]:
+                    # print(f"{new_datagram['channel_id']} from RAW3 -- NOT SKIPPING")
+                    curr_ch_id = new_datagram["channel_id"]
+                    # Check if the proceeding Parameter XML does not
+                    # match with data in this RAW3 datagram
+                    if current_parameters["channel_id"] != curr_ch_id:
+                        raise ValueError("Parameter ID does not match RAW")
 
-                # Save channel-specific ping time
-                self.ping_time[curr_ch_id].append(new_datagram["timestamp"])
+                    # Save channel-specific ping time
+                    self.ping_time[curr_ch_id].append(new_datagram["timestamp"])
 
-                # Append ping by ping data
-                new_datagram.update(current_parameters)
-                self._append_channel_ping_data(new_datagram)
+                    # Append ping by ping data
+                    new_datagram.update(current_parameters)
+                    self._append_channel_ping_data(new_datagram)
+                # else:
+                #     print(f"{new_datagram['channel_id']} from RAW3")
 
             # RAW4 datagrams store raw transmit pulse for a channel for EK80
             elif new_datagram["type"].startswith("RAW4"):
-                curr_ch_id = new_datagram["channel_id"]
-                # Check if the proceeding Parameter XML does not
-                # match with data in this RAW4 datagram
-                if current_parameters["channel_id"] != curr_ch_id:
-                    raise ValueError("Parameter ID does not match RAW")
+                if "EC150" not in new_datagram["channel_id"]:
+                    # print(f"{new_datagram['channel_id']} from RAW4 -- NOT SKIPPING")
+                    curr_ch_id = new_datagram["channel_id"]
+                    # Check if the proceeding Parameter XML does not
+                    # match with data in this RAW4 datagram
+                    if current_parameters["channel_id"] != curr_ch_id:
+                        raise ValueError("Parameter ID does not match RAW")
 
-                # Ping time is identical to the immediately following RAW3 datagram
-                # so does not need to be stored separately
+                    # Ping time is identical to the immediately following RAW3 datagram
+                    # so does not need to be stored separately
 
-                # Append ping by ping data
-                new_datagram.update(current_parameters)
-                self._append_channel_ping_data(new_datagram, raw_type="transmit")
+                    # Append ping by ping data
+                    new_datagram.update(current_parameters)
+                    self._append_channel_ping_data(new_datagram, raw_type="transmit")
+                # else:
+                #     print(f"{new_datagram['channel_id']} from RAW4")
 
             # NME datagrams store ancillary data as NMEA-0817 style ASCII data.
             elif new_datagram["type"].startswith("NME"):
@@ -530,12 +574,16 @@ class ParseEK(ParseBase):
 
             # FIL datagrams contain filters for processing bascatter data for EK80
             elif new_datagram["type"].startswith("FIL"):
-                self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
-                    "coefficients"
-                ]
-                self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
-                    "decimation_factor"
-                ]
+                if "EC150" not in new_datagram["channel_id"]:
+                    # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
+                    self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = (
+                        new_datagram["coefficients"]
+                    )
+                    self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
+                        "decimation_factor"
+                    ]
+                # else:
+                #     print(f"{new_datagram['channel_id']} from FIL")
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):
@@ -543,7 +591,17 @@ class ParseEK(ParseBase):
 
             # BOT datagrams contain sounder detected bottom depths from .bot files
             elif new_datagram["type"].startswith("BOT"):
-                logger.info("BOT datagram encountered.")
+                self.bot["depth"].append(new_datagram["depth"])
+                self.bot["timestamp"].append(new_datagram["timestamp"])
+
+            # IDX datagrams contain lat/lon and vessel distance from .idx files
+            elif new_datagram["type"].startswith("IDX"):
+                self.idx["ping_number"].append(new_datagram["ping_number"])
+                self.idx["file_offset"].append(new_datagram["file_offset"])
+                self.idx["vessel_distance"].append(new_datagram["distance"])
+                self.idx["latitude"].append(new_datagram["latitude"])
+                self.idx["longitude"].append(new_datagram["longitude"])
+                self.idx["timestamp"].append(new_datagram["timestamp"])
 
             # DEP datagrams contain sounder detected bottom depths from .out files
             # as well as reflectivity data
@@ -614,13 +672,15 @@ class ParseEK(ParseBase):
             # Create output array from mask
             out_array = np.full(mask.shape, np.nan)
 
+            # Concatenate short pings
+            concat_short_pings = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
+
             # Take care of problem of np.nan being implicitly "real"
-            arr_dtype = data_list[0].dtype
-            if np.issubdtype(arr_dtype, np.complex_):
-                out_array = out_array.astype(arr_dtype)
+            if concat_short_pings.dtype == np.complex64:
+                out_array = out_array.astype(np.complex64)
 
             # Fill in values
-            out_array[mask] = np.concatenate(data_list).reshape(-1)  # reshape in case data > 1D
+            out_array[mask] = concat_short_pings
         else:
             out_array = np.array(data_list)
         return out_array

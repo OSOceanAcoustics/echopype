@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from flox.xarray import xarray_reduce
+import xarray as xr
 import echopype as ep
 from echopype.consolidate import add_location, add_depth
 from echopype.commongrid.utils import (
@@ -438,7 +439,7 @@ def test_compute_NASC_values(request, er_type):
         ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
         expected_nasc = request.getfixturevalue("mock_nasc_array_irregular")
 
-    ds_NASC = ep.commongrid.compute_NASC(ds_Sv, range_bin=range_bin, dist_bin=dist_bin)
+    ds_NASC = ep.commongrid.compute_NASC(ds_Sv, range_bin=range_bin, dist_bin=dist_bin, skipna=True)
 
     assert ds_NASC.NASC.shape == expected_nasc.shape
     # Floating digits need to check with all close not equal
@@ -446,3 +447,90 @@ def test_compute_NASC_values(request, er_type):
     assert np.allclose(
         ds_NASC.NASC.values, expected_nasc.values, atol=1e-10, rtol=1e-10, equal_nan=True
     )
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("operation","skipna", "range_var"),
+    [
+        ("MVBS", True, "depth"),
+        ("MVBS", False, "depth"),
+        ("MVBS", True, "echo_range"),
+        ("MVBS", False, "echo_range"),
+        # NASC `range_var` always defaults to `depth` so we set this as `None``.
+        ("NASC", True, None),
+        ("NASC", False, None),
+    ],
+)
+def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
+    request,
+    operation,
+    skipna,
+    range_var,
+    caplog,
+):
+    # Create subset dataset with 2 channels, 2 ping times, and 20 range samples:
+
+    # Get fixture for irregular Sv
+    ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
+    # Already has 2 channels and 20 range samples, so subset for only ping time
+    subset_ds_Sv = ds_Sv.isel(ping_time=slice(0,2))
+
+    # Compute MVBS / Compute NASC
+    if operation == "MVBS":
+        if range_var == "echo_range":
+            # Turn on logger verbosity
+            ep.utils.log.verbose(override=False)
+
+        da = ep.commongrid.compute_MVBS(
+            subset_ds_Sv,
+            range_var=range_var,
+            range_bin="2m",
+            skipna=skipna
+        )["Sv"]
+
+        if range_var == "echo_range":
+            # Check for appropriate warning
+            aggregation_msg = (
+                "Aggregation may be negatively impacted since Flox will not aggregate any "
+                "```Sv``` values that have corresponding NaN coordinate values. Consider handling "
+                "these values before calling your intended commongrid function."
+            )
+            expected_warning = f"The ```echo_range``` coordinate array contain NaNs. {aggregation_msg}"
+            assert any(expected_warning in record.message for record in caplog.records)
+
+            # Turn off logger verbosity
+            ep.utils.log.verbose(override=True)
+    else:
+        da = ep.commongrid.compute_NASC(subset_ds_Sv, range_bin="2m", skipna=skipna)["NASC"]
+
+    # Create NaN Mask: True if NaN, False if Not
+    da_nan_mask = np.isnan(da.data)
+
+    # Check for appropriate NaN/non-NaN values:
+
+    if range_var == "echo_range":
+        # Note that ALL `Sv` values that are `NaN` have corresponding `echo_range`
+        # values that are also ALL `NaN``. Flox does not bin any values that have `NaN`
+        # coordinates, and so none of the values that are aggregated into the 5 bins
+        # have any `NaNs` that are aggregated into them.
+        expected_values = [
+            [[False, False, False, False, False]],
+            [[False, False, False, False, False]]
+        ]
+        assert np.array_equal(da_nan_mask, np.array(expected_values))
+    else:
+        # Note that the first value along the depth dimension is always NaN due to the minimum
+        # depth value in the Sv dataset being 2.5 (2.5m from the added offset), since both MVBS and
+        # NASC outputs start at depth=0 and so the first depth bin (0m-2m) doesn't contain anything.
+        if skipna:
+            expected_values = [
+                [[True, False, False, False, False, False]],
+                [[True, False, False, False, False, False]]
+            ]
+            assert np.array_equal(da_nan_mask, np.array(expected_values))
+        else:
+            expected_values = [
+                [[True, True, True, False, False, True]],
+                [[True, False, False, True, True, True]]
+            ]
+            assert np.array_equal(da_nan_mask, np.array(expected_values))

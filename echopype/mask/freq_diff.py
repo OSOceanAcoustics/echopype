@@ -43,8 +43,8 @@ def _parse_freq_diff_eq(
     elif (freqABEq is not None) and (chanABEq is not None):
         raise ValueError("Only one of freqAB or chanAB should be given, but not both!")
     elif freqABEq is not None:
-        freqAPattern = r"(?P<freqA>\d*\.\d+)\s*(?P<unitA>\w?)Hz"
-        freqBPattern = r"(?P<freqB>\d*\.\d+)\s*(?P<unitB>\w?)Hz"
+        freqAPattern = r"(?P<freqA>\d*\.?\d+)\s*(?P<unitA>\w?)Hz"
+        freqBPattern = r"(?P<freqB>\d*\.?\d+)\s*(?P<unitB>\w?)Hz"
         operatorPattern = r"\s*(?P<cmp>\S*?)\s*"
         rhsPattern = r"(?P<db>\d*\.?\d+)\s*dB"
         diffMatcher = re.compile(
@@ -135,7 +135,6 @@ def _check_freq_diff_source_Sv(
     # make sure that the frequency_nominal values are not repeated in source_Sv and
     # elements of freqAB are in frequency_nominal
     if freqAB is not None:
-        print(source_Sv.frequency_nominal.values)
         if len(set(source_Sv.frequency_nominal.values)) < source_Sv.frequency_nominal.size:
             raise ValueError(
                 "The provided source_Sv contains repeated "

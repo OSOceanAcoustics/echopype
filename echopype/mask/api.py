@@ -3,6 +3,8 @@ import operator as op
 import pathlib
 from typing import List, Optional, Union
 
+import dask
+import dask.array
 import numpy as np
 import xarray as xr
 
@@ -20,20 +22,35 @@ str2ops = {
 }
 
 
-def _validate_source_ds(source_ds, storage_options_ds):
+def _check_mask_dim_alignment(source_ds, mask, var_name):
     """
-    Validate the input ``source_ds`` and the associated ``storage_options_mask``.
+    Check that mask aligns with source_ds.
     """
-    # Validate the source_ds type or path (if it is provided)
-    source_ds, file_type = validate_source(source_ds, storage_options_ds)
+    # Grab dimensions of mask
+    if isinstance(mask, list):
+        mask_dims = set()
+        for mask_indiv in mask:
+            for dim in mask_indiv.dims:
+                mask_dims.add(dim)
+    else:
+        mask_dims = set(mask.dims)
 
-    if isinstance(source_ds, str):
-        # open up Dataset using source_ds path
-        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
+    # Grab dimensions of the target variable in source ds
+    target_variable_dims = set(source_ds[var_name].dims)
 
-    # Check source_ds coordinates
-    if "ping_time" not in source_ds or "range_sample" not in source_ds:
-        raise ValueError("'source_ds' must have coordinates 'ping_time' and 'range_sample'!")
+    # Raise ValueError if the mask has channel dim but the target variable doesn't
+    if "channel" in mask_dims and "channel" not in target_variable_dims:
+        raise ValueError("'channel' is a dimension in mask but not a dimension in source.")
+
+    # If non-channel dimensions don't align raise ValueError
+    mask_dims.discard("channel")
+    target_variable_dims.discard("channel")
+    if mask_dims != target_variable_dims:
+        raise ValueError(
+            f"The dimensions of mask: ({mask_dims}) do not match "
+            f"the dimensions of source ({target_variable_dims}) "
+            "when not considering 'channel'."
+        )
 
     return source_ds
 
@@ -103,10 +120,31 @@ def _validate_and_collect_mask_input(
             # the coordinate sequence matters, so fix the tuple form
             allowed_dims = [
                 ("ping_time", "range_sample"),
+                ("ping_time", "depth"),
+                ("ping_time", "echo_range"),
                 ("channel", "ping_time", "range_sample"),
+                ("channel", "ping_time", "depth"),
+                ("channel", "ping_time", "echo_range"),
             ]
             if mask[mask_ind].dims not in allowed_dims:
-                raise ValueError("All masks must have dimensions ('ping_time', 'range_sample')!")
+                raise ValueError(
+                    "Masks must have one of the following dimensions: "
+                    "('ping_time', 'range_sample'), "
+                    "('ping_time', 'depth'), "
+                    "('ping_time', 'echo_range'), "
+                    "('channel', 'ping_time', 'range_sample'), "
+                    "('channel', 'ping_time', 'depth')"
+                    "('channel', 'ping_time', 'echo_range')"
+                )
+
+        # Check for the channel dimension consistency
+        channel_dim_shapes = set()
+        for mask_indiv in mask:
+            if "channel" in mask_indiv.dims:
+                for mask_chan_ind in range(len(mask_indiv["channel"])):
+                    channel_dim_shapes.add(mask_indiv.isel(channel=mask_chan_ind).shape)
+        if len(channel_dim_shapes) > 1:
+            raise ValueError("All masks must have the same shape in the 'channel' dimension.")
 
     else:
         if not isinstance(storage_options_mask, dict):
@@ -126,7 +164,7 @@ def _validate_and_collect_mask_input(
 
 
 def _check_var_name_fill_value(
-    source_ds: xr.Dataset, var_name: str, fill_value: Union[int, float, np.ndarray, xr.DataArray]
+    source_ds: xr.Dataset, var_name: str, fill_value: Union[int, float, xr.DataArray]
 ) -> Union[int, float, np.ndarray, xr.DataArray]:
     """
     Ensures that the inputs ``var_name`` and ``fill_value`` for the function
@@ -138,12 +176,12 @@ def _check_var_name_fill_value(
         A Dataset that contains the variable ``var_name``
     var_name: str
         The variable name in ``source_ds`` that the mask should be applied to
-    fill_value: int or float or np.ndarray or xr.DataArray
+    fill_value: int, float, or xr.DataArray
         Specifies the value(s) at false indices
 
     Returns
     -------
-    fill_value: int or float or np.ndarray or xr.DataArray
+    fill_value: int, float, or xr.DataArray
         fill_value with sanitized dimensions
 
     Raises
@@ -165,17 +203,12 @@ def _check_var_name_fill_value(
         raise ValueError("The Dataset source_ds does not contain the variable var_name!")
 
     # check the type of fill_value
-    if not isinstance(fill_value, (int, float, np.ndarray, xr.DataArray)):
-        raise TypeError(
-            "The input fill_value must be of type int or " "float or np.ndarray or xr.DataArray!"
-        )
+    if not isinstance(fill_value, (int, float, xr.DataArray)):
+        raise TypeError("The input fill_value must be of type int, float, or xr.DataArray!")
 
     # make sure that fill_values is the same shape as var_name
-    if isinstance(fill_value, (np.ndarray, xr.DataArray)):
-        if isinstance(fill_value, xr.DataArray):
-            fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
-        elif isinstance(fill_value, np.ndarray):
-            fill_value = fill_value.squeeze()  # squeeze out length=1 channel dimension
+    if isinstance(fill_value, xr.DataArray):
+        fill_value = fill_value.data.squeeze()  # squeeze out length=1 channel dimension
 
         source_ds_shape = (
             source_ds[var_name].isel(channel=0).shape
@@ -246,7 +279,7 @@ def apply_mask(
     source_ds: Union[xr.Dataset, str, pathlib.Path],
     mask: Union[xr.DataArray, str, pathlib.Path, List[Union[xr.DataArray, str, pathlib.Path]]],
     var_name: str = "Sv",
-    fill_value: Union[int, float, np.ndarray, xr.DataArray] = np.nan,
+    fill_value: Union[int, float, xr.DataArray] = np.nan,
     storage_options_ds: dict = {},
     storage_options_mask: Union[dict, List[dict]] = {},
 ) -> xr.Dataset:
@@ -254,29 +287,45 @@ def apply_mask(
     Applies the provided mask(s) to the Sv variable ``var_name``
     in the provided Dataset ``source_ds``.
 
+    The code allows for these 3 cases of `source_ds` and `mask` dimensions:
+
+    1) No channel in both `source_ds` and `mask`,
+    but they have matching `ping_time` and
+    `depth` (or `range_sample`) dimensions.
+    2) `source_ds` and `mask` both have matching `channel`,
+    `ping_time`, and `depth` (or `range_sample`) dimensions.
+    3) `source_ds` has the channel dimension and `mask` doesn't,
+    but they have matching
+    `ping_time` and `depth` (or `range_sample`) dimensions.
+
+    If a user only wants to apply masks to a subset of the channels in `source_ds`,
+    they could put 1s to allow all data entries in the other channels.
+
     Parameters
     ----------
     source_ds: xr.Dataset, str, or pathlib.Path
         Points to a Dataset that contains the variable the mask should be applied to
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
         The mask(s) to be applied.
-        Can be a single input or list that corresponds to a DataArray or a path.
-        Each entry in the list must have dimensions ``('ping_time', 'range_sample')``.
-        Multi-channel masks are not currently supported.
+        Can be a individual input or a list that corresponds to a DataArray or a path.
+        Each individual input or entry in the list must contain dimensions
+        ``('ping_time', 'range_sample')`` or dimensions ``('ping_time', 'depth')``.
+        The mask can also contain the dimension ``channel``.
         If a path is provided this should point to a zarr or netcdf file with only
         one data variable in it.
         If the input ``mask`` is a list, a logical AND will be used to produce the final
         mask that will be applied to ``var_name``.
     var_name: str, default="Sv"
         The Sv variable name in ``source_ds`` that the mask should be applied to.
-        This variable needs to have coordinates ``ping_time`` and ``range_sample``,
-        and can optionally also have coordinate ``channel``.
+        This variable needs to have coordinates ``('ping_time', 'range_sample')`` or
+        coordinates ``('ping_time', 'depth')``, and can optionally also have coordinate
+        ``channel``.
         In the case of a multi-channel Sv data variable, the ``mask`` will be broadcast
         to all channels.
-    fill_value: int, float, np.ndarray, or xr.DataArray, default=np.nan
+    fill_value: int, float, or xr.DataArray, default=np.nan
         Value(s) at masked indices.
-        If ``fill_value`` is of type ``np.ndarray`` or ``xr.DataArray``,
-        it must have the same shape as each entry of ``mask``.
+        If ``fill_value`` is of type ``xr.DataArray`` it must have the same shape as each
+        entry of ``mask``.
     storage_options_ds: dict, default={}
         Any additional parameters for the storage backend, corresponding to the
         path provided for ``source_ds``
@@ -291,55 +340,67 @@ def apply_mask(
     xr.Dataset
         A Dataset with the same format of ``source_ds`` with the mask(s) applied to ``var_name``
     """
+    # Validate the source_ds type or path (if it is provided)
+    source_ds, file_type = validate_source(source_ds, storage_options_ds)
 
-    # Validate the source_ds
-    source_ds = _validate_source_ds(source_ds, storage_options_ds)
+    if isinstance(source_ds, str):
+        # open up Dataset using source_ds path
+        source_ds = xr.open_dataset(source_ds, engine=file_type, chunks={}, **storage_options_ds)
 
     # Validate and form the mask input to be used downstream
     mask = _validate_and_collect_mask_input(mask, storage_options_mask)
+
+    # Validate the source_ds and make sure it aligns with the mask input
+    source_ds = _check_mask_dim_alignment(source_ds, mask, var_name)
 
     # Check var_name and sanitize fill_value dimensions if an array
     fill_value = _check_var_name_fill_value(source_ds, var_name, fill_value)
 
     # Obtain final mask to be applied to var_name
     if isinstance(mask, list):
-        # perform a logical AND element-wise operation across the masks
-        final_mask = np.logical_and.reduce(mask)
+        # Broadcast all input masks together before combining them
+        broadcasted_masks = xr.broadcast(*mask)
+
+        # Perform a logical AND element-wise operation across the masks
+        final_mask = np.logical_and.reduce(broadcasted_masks)
 
         # xr.where has issues with attrs when final_mask is an array, so we make it a DataArray
-        final_mask = xr.DataArray(final_mask, coords=mask[0].coords)
+        final_mask = xr.DataArray(final_mask, coords=broadcasted_masks[0].coords)
     else:
         final_mask = mask
 
-    # Sanity check: final_mask should be of the same shape as source_ds[var_name]
-    #               along the ping_time and range_sample dimensions
-    def get_ch_shape(da):
-        return da.isel(channel=0).shape if "channel" in da.dims else da.shape
-
-    # Below operate on the actual data array to be masked
+    # Operate on the actual data array to be masked
     source_da = source_ds[var_name]
 
-    source_da_shape = get_ch_shape(source_da)
-    final_mask_shape = get_ch_shape(final_mask)
-
-    if final_mask_shape != source_da_shape:
+    # The final_mask should be of the same shape as source_ds[var_name]
+    # along the ping_time and range_sample dimensions.
+    source_da_chan_shape = (
+        source_da.isel(channel=0).shape if "channel" in source_da.dims else source_da.shape
+    )
+    final_mask_chan_shape = (
+        final_mask.isel(channel=0).shape if "channel" in final_mask.dims else final_mask.shape
+    )
+    if final_mask_chan_shape != source_da_chan_shape:
         raise ValueError(
             f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
-            "along the ping_time and range_sample dimensions!"
+            "along the ping_time, and range_sample dimensions!"
         )
-
-    # final_mask is always an xr.DataArray with at most length=1 channel dimension
-    if "channel" in final_mask.dims:
-        final_mask = final_mask.isel(channel=0)
-
-    # Make sure fill_value and final_mask are expanded in dimensions
-    if "channel" in source_da.dims:
-        if isinstance(fill_value, np.ndarray):
-            fill_value = np.array([fill_value] * source_da["channel"].size)
-        final_mask = np.array([final_mask.data] * source_da["channel"].size)
+    # If final_mask has dim channel then source_da must have dim channel
+    if "channel" in final_mask.dims and "channel" not in source_da.dims:
+        raise ValueError(
+            "The final constructed mask has the channel dimension, "
+            f"so source_ds[{var_name}] must also have the channel dimension."
+        )
+    # If final_mask and source_da both have channel dimension, then they must
+    # have the same number of channels.
+    elif "channel" in final_mask.dims and "channel" in source_da.dims:
+        if len(final_mask["channel"]) != len(source_da["channel"]):
+            raise ValueError(
+                f"If both the final constructed mask and source_ds[{var_name}] "
+                "have the channel dimension, that dimension should match between the two."
+            )
 
     # Apply the mask to var_name
-    # Somehow keep_attrs=True errors out here, so will attach later
     var_name_masked = xr.where(final_mask, x=source_da, y=fill_value)
 
     # Obtain a shallow copy of source_ds
@@ -354,12 +415,14 @@ def apply_mask(
         _variable_prov_attrs(output_ds[var_name], mask)
     )
 
+    # Use the original dimension order
+    output_ds[var_name] = output_ds[var_name].transpose(*source_da.dims)
+
+    # Attribute handling
     process_type = "mask"
     prov_dict = echopype_prov_attrs(process_type=process_type)
     prov_dict[f"{process_type}_function"] = "mask.apply_mask"
-
     output_ds = output_ds.assign_attrs(prov_dict)
-
     output_ds = insert_input_processing_level(output_ds, input_ds=source_ds)
 
     return output_ds
@@ -449,8 +512,8 @@ def frequency_differencing(
     >>> Sv_ds = xr.Dataset(data_vars={"Sv": Sv_da, "frequency_nominal": freq_nom})
     ...
     >>> # compute frequency-differencing mask using channel names
-    >>> echopype.mask.frequency_differencing(source_Sv=mock_Sv_ds, storage_options={},
-    ...                                      freqABEq=None, chanABEq = '"chan1" - "chan2">=10.0')
+    >>> echopype.mask.frequency_differencing(source_Sv=Sv_ds, storage_options={},
+    ...                                      freqABEq=None, chanABEq = '"chan1" - "chan2">=10.0dB')
     <xarray.DataArray 'mask' (ping_time: 5, range_sample: 5)>
     array([[False, False, False, False, False],
            [False, False, False, False, False],
@@ -491,23 +554,80 @@ def frequency_differencing(
         chanA = chanAB[0]
         chanB = chanAB[1]
 
-    # get the left-hand side of condition
-    lhs = source_Sv["Sv"].sel(channel=chanA) - source_Sv["Sv"].sel(channel=chanB)
+    def _get_lhs(
+        Sv_block: np.ndarray, chanA_idx: int, chanB_idx: int, chan_dim_idx: int = 0
+    ) -> np.ndarray:
+        """Get left-hand side of condition"""
 
-    # create mask using operator lookup table
-    da = xr.where(str2ops[operator](lhs, diff), True, False)
+        def _sel_channel(chan_idx):
+            return tuple(
+                [chan_idx if i == chan_dim_idx else slice(None) for i in range(Sv_block.ndim)]
+            )
+
+        # get the left-hand side of condition (lhs)
+        return Sv_block[_sel_channel(chanA_idx)] - Sv_block[_sel_channel(chanB_idx)]
+
+    def _create_mask(lhs: np.ndarray, diff: float) -> np.ndarray:
+        """Create mask using operator lookup table"""
+        return xr.where(str2ops[operator](lhs, diff), True, False)
+
+    # Get the Sv data array
+    Sv_data_array = source_Sv["Sv"]
+
+    # Determine channel index based on names
+    channels = list(source_Sv["channel"].to_numpy())
+    chanA_idx = channels.index(chanA)
+    chanB_idx = channels.index(chanB)
+    # Get the channel dimension index for filtering
+    chan_dim_idx = Sv_data_array.dims.index("channel")
+
+    # If Sv data is not dask array
+    if not isinstance(Sv_data_array.variable._data, dask.array.Array):
+        # get the left-hand side of condition
+        lhs = _get_lhs(Sv_data_array, chanA_idx, chanB_idx, chan_dim_idx=chan_dim_idx)
+
+        # create mask using operator lookup table
+        da = _create_mask(lhs, diff)
+    # If Sv data is dask array
+    else:
+        # Get the final data array template
+        template = Sv_data_array.isel(channel=0).drop_vars("channel")
+
+        dask_array_data = Sv_data_array.data
+        # Perform block wise computation
+        dask_array_result = (
+            dask_array_data
+            # Compute the left-hand side of condition
+            # drop the first axis (channel) as it is dropped in the result
+            .map_blocks(
+                _get_lhs,
+                chanA_idx,
+                chanB_idx,
+                chan_dim_idx=chan_dim_idx,
+                dtype=dask_array_data.dtype,
+                drop_axis=0,
+            )
+            # create mask using operator lookup table
+            .map_blocks(_create_mask, diff)
+        )
+
+        # Create DataArray of the result
+        da = xr.DataArray(
+            data=dask_array_result,
+            coords=template.coords,
+        )
+
+    xr_dataarray_attrs = {
+        "mask_type": "frequency differencing",
+        "history": f"{datetime.datetime.utcnow()} +00:00. "
+        "Mask created by mask.frequency_differencing. "
+        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
+    }
 
     # assign a name to DataArray
     da.name = "mask"
 
     # assign provenance attributes
-    mask_attrs = {"mask_type": "frequency differencing"}
-    history_attr = (
-        f"{datetime.datetime.utcnow()} +00:00. "
-        "Mask created by mask.frequency_differencing. "
-        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}"
-    )
-
-    da = da.assign_attrs({**mask_attrs, **{"history": history_attr}})
+    da = da.assign_attrs(xr_dataarray_attrs)
 
     return da

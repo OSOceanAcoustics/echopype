@@ -13,6 +13,44 @@ from .parse_base import ParseBase
 
 FILENAME_DATETIME_AZFP = "\\w+.01A"
 
+# Common Sv_offset values for frequency > 38 kHz
+SV_OFFSET_HF = {
+    300: 1.1,
+    500: 0.8,
+    700: 0.5,
+    900: 0.3,
+    1000: 0.3,
+}
+SV_OFFSET_LF = {
+    500: 1.1,
+    1000: 0.7,
+}
+SV_OFFSET = {
+    38000.0: {**SV_OFFSET_LF},
+    67000.0: {
+        500: 1.1,
+        **SV_OFFSET_HF,
+    },
+    125000.0: {
+        150: 1.4,
+        250: 1.3,
+        **SV_OFFSET_HF,
+    },
+    200000.0: {
+        150: 1.4,
+        250: 1.3,
+        **SV_OFFSET_HF,
+    },
+    455000.0: {
+        250: 1.3,
+        **SV_OFFSET_HF,
+    },
+    769000.0: {
+        150: 1.4,
+        **SV_OFFSET_HF,
+    },
+}
+
 HEADER_FIELDS = (
     ("profile_flag", "u2"),
     ("profile_number", "u2"),
@@ -73,7 +111,14 @@ class ParseAZFP(ParseBase):
     HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
     FILE_TYPE = 64770
 
-    def __init__(self, file, file_meta, storage_options={}, dgram_zarr_vars={}, sonar_model="AZFP"):
+    def __init__(
+        self,
+        file,
+        file_meta,
+        storage_options={},
+        sonar_model="AZFP",
+        **kwargs,
+    ):
         super().__init__(file, storage_options, sonar_model)
         # Parent class attributes
         #  regex pattern used to grab datetime embedded in filename
@@ -311,6 +356,22 @@ class ParseAZFP(ParseBase):
             if isinstance(val, list):
                 self.parameters[key] = np.asarray(val)
 
+        # Get frequency values
+        freq_old = self.unpacked_data["frequency"]
+
+        # Obtain sorted frequency indices
+        self.freq_ind_sorted = freq_old.argsort()
+
+        # Obtain sorted frequencies
+        self.freq_sorted = freq_old[self.freq_ind_sorted] * 1000.0
+
+        # Build Sv offset
+        self.Sv_offset = np.zeros_like(self.freq_sorted)
+        for ind, ich in enumerate(self.freq_ind_sorted):
+            self.Sv_offset[ind] = self._calc_Sv_offset(
+                self.freq_sorted[ind], self.unpacked_data["pulse_len"][ich]
+            )
+
     def _print_status(self):
         """Prints message to console giving information about the raw file being parsed."""
         filename = os.path.basename(self.source_file)
@@ -480,22 +541,32 @@ class ParseAZFP(ParseBase):
         self.ping_time = ping_time
 
     @staticmethod
-    def _calc_Sv_offset(f, pulse_len):
-        """Calculate the compensation factor for Sv calculation."""
-        # TODO: this method seems should be in echopype.process
-        if f > 38000:
-            if pulse_len == 300:
-                return 1.1
-            elif pulse_len == 500:
-                return 0.8
-            elif pulse_len == 700:
-                return 0.5
-            elif pulse_len == 900:
-                return 0.3
-            elif pulse_len == 1000:
-                return 0.3
-        else:
-            if pulse_len == 500:
-                return 1.1
-            elif pulse_len == 1000:
-                return 0.7
+    def _calc_Sv_offset(freq, pulse_len):
+        """
+        Calculate the compensation factor for Sv calculation.
+
+        Parameters
+        ----------
+        freq : number
+            transmit frequency
+        pulse_len : number
+            pulse length
+        """
+        # Check if the specified freq is in the allowable Sv_offset dict
+        if freq not in SV_OFFSET.keys():
+            raise ValueError(
+                f"Frequency {freq} Hz is not in the Sv offset dictionary! "
+                "Please contact AZFP Environmental Sciences "
+                "and raise an issue in the echopype repository."
+            )
+
+        # Check if the specified freq-pulse length combination is in the allowable Sv_offset dict
+        if pulse_len not in SV_OFFSET[freq]:
+            raise ValueError(
+                f"Pulse length {pulse_len} us is not in the Sv offset dictionary "
+                f"for the {freq} Hz channel! "  # add freq info
+                "Please contact AZFP Environmental Sciences "
+                "and raise an issue in the echopype repository."
+            )
+
+        return SV_OFFSET[freq][pulse_len]

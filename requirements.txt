@@ -1,7 +1,9 @@
+bottleneck
 dask[array,distributed]
+dask-image
 jinja2
 netCDF4>1.6
-numpy
+numpy<2
 pynmea2
 pytz
 scipy

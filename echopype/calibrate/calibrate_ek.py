@@ -28,8 +28,6 @@ class CalibrateEK(CalibrateBase):
 
         self.ed_beam_group = None  # will be assigned in child class
 
-        self.ed_beam_group = None  # will be assigned in child class
-
     def compute_echo_range(self, chan_sel: xr.DataArray = None):
         """
         Compute echo range for EK echosounders.
@@ -322,7 +320,7 @@ class CalibrateEK80(CalibrateEK):
             # assume transmit_type identical for all pings in a channel
             first_ping_transmit_type = (
                 beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
-            )  # noqa
+            ).compute()  # noqa
             return {
                 # For BB: Keep only non-CW channels (LFM or FMD) based on transmit_type
                 "BB": first_ping_transmit_type.where(
@@ -473,6 +471,10 @@ class CalibrateEK80(CalibrateEK):
         ) ** 2
         B_theta_phi_m = 0.5 * 6.0206 * (fac_along + fac_athwart - 0.18 * fac_along * fac_athwart)
 
+        # Zero out NaNs that appear due to 1) multiplex ping patterns and 2) single beam transducer
+        # systems that don't contain angle offset information.
+        B_theta_phi_m = B_theta_phi_m.fillna(0)
+
         return B_theta_phi_m
 
     def _cal_complex_samples(self, cal_type: str) -> xr.Dataset:
@@ -540,9 +542,9 @@ class CalibrateEK80(CalibrateEK):
                 ping_time=beam["ping_time"],
             )
             # Use pulse_duration in place of tau_effective for GPT channels
-            # below assumesthat all transmit parameters are identical
+            # TODO: below assumes that all transmit parameters are identical
             # and needs to be changed when allowing transmit parameters to vary by ping
-            ch_GPT = vend["transceiver_type"] == "GPT"
+            ch_GPT = (vend["transceiver_type"] == "GPT").compute()
             tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
 
             # equivalent_beam_angle

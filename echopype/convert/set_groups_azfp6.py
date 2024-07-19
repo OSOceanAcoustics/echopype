@@ -8,170 +8,13 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_time_encodings
-from .set_groups_base import SetGroupsBase
+
+# from .set_groups_base import SetGroupsBase
+from .set_groups_azfp import SetGroupsAZFP
 
 
-class SetGroupsAZFP(SetGroupsBase):
-    """Class for saving groups to netcdf or zarr from AZFP data files."""
-
-    # The sets beam_only_names, ping_time_only_names, and
-    # beam_ping_time_names are used in set_groups_base and
-    # in converting from v0.5.x to v0.6.0. The values within
-    # these sets are applied to all Sonar/Beam_groupX groups.
-
-    # 2023-07-24:
-    #   PRs:
-    #     - https://github.com/OSOceanAcoustics/echopype/pull/1056
-    #     - https://github.com/OSOceanAcoustics/echopype/pull/1083
-    #   Most of the artificially added beam and ping_time dimensions at v0.6.0
-    #   were reverted at v0.8.0, due to concerns with efficiency and code clarity
-    #   (see https://github.com/OSOceanAcoustics/echopype/issues/684 and
-    #        https://github.com/OSOceanAcoustics/echopype/issues/978).
-    #   However, the mechanisms to expand these dimensions were preserved for
-    #   flexibility and potential later use.
-    #   Note such expansion is still applied on AZFP data for 2 variables (see below).
-
-    # Variables that need only the beam dimension added to them.
-    beam_only_names = set()
-
-    # Variables that need only the ping_time dimension added to them.
-    # These variables do not change with ping_time in typical AZFP use cases,
-    # but we keep them here for consistency with EK60/EK80 EchoData formats
-    ping_time_only_names = {
-        "sample_interval",
-        "transmit_duration_nominal",
-    }
-
-    # Variables that need beam and ping_time dimensions added to them.
-    beam_ping_time_names = set()
-
-    beamgroups_possible = [
-        {
-            "name": "Beam_group1",
-            "descr": "contains backscatter power (uncalibrated) and other beam or channel-specific data.",  # noqa
-        }
-    ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # obtain channel_ids
-        self.channel_ids_sorted = self._create_unique_channel_name()
-
-    def _create_unique_channel_name(self):
-        """
-        Creates a unique channel name for AZFP sensor
-        using the variable unpacked_data created by
-        the AZFP parser
-        """
-
-        serial_number = self.parser_obj.unpacked_data["serial_number"]
-        frequency_number = self.parser_obj.parameters["frequency_number_phase1"]
-
-        if serial_number.size == 1:
-            freq_sorted_in_kHz = self.parser_obj.freq_sorted / 1000.0
-            freq_in_kHz_as_str = freq_sorted_in_kHz.astype(int).astype(str)
-
-            # TODO: replace str(i+1) with Frequency Number from XML
-            channel_id = [
-                str(serial_number) + "-" + freq + "-" + frequency_number[i]
-                for i, freq in enumerate(freq_in_kHz_as_str)
-            ]
-
-            return channel_id
-        else:
-            raise NotImplementedError(
-                "Creating a channel name for more than"
-                + " one serial number has not been implemented."
-            )
-
-    def set_env(self) -> xr.Dataset:
-        """Set the Environment group."""
-
-        # Mandatory variables
-        ds = xr.Dataset(
-            {
-                "absorption_indicative": (
-                    ["channel"],
-                    [np.nan] * len(self.channel_ids_sorted),
-                    {
-                        "long_name": "Indicative acoustic absorption",
-                        "units": "dB/m",
-                        "valid_min": 0.0,
-                    },
-                ),
-                "sound_speed_indicative": (
-                    [],
-                    np.nan,
-                    {
-                        "long_name": "Indicative sound speed",
-                        "standard_name": "speed_of_sound_in_sea_water",
-                        "units": "m/s",
-                        "valid_min": 0.0,
-                    },
-                ),
-                "frequency_nominal": (
-                    ["channel"],
-                    self.parser_obj.freq_sorted,
-                    {
-                        "units": "Hz",
-                        "long_name": "Transducer frequency",
-                        "valid_min": 0.0,
-                        "standard_name": "sound_frequency",
-                    },
-                ),
-            },
-            coords={
-                "channel": (
-                    ["channel"],
-                    self.channel_ids_sorted,
-                    self._varattrs["beam_coord_default"]["channel"],
-                ),
-            },
-        )
-
-        # Additional variables, if present
-        temp_press = dict()
-        if not np.isnan(self.parser_obj.unpacked_data["temperature"]).all():
-            temp_press["temperature"] = (
-                ["time1"],
-                self.parser_obj.unpacked_data["temperature"],
-                {
-                    "long_name": "Water temperature",
-                    "standard_name": "sea_water_temperature",
-                    "units": "deg_C",
-                },
-            )
-        if not np.isnan(self.parser_obj.unpacked_data["pressure"]).all():
-            temp_press["pressure"] = (
-                ["time1"],
-                self.parser_obj.unpacked_data["pressure"],
-                {
-                    "long_name": "Sea water pressure",
-                    "standard_name": "sea_water_pressure_due_to_sea_water",
-                    "units": "dbar",
-                },
-            )
-
-        if len(temp_press) > 0:
-            ds_temp_press = xr.Dataset(
-                temp_press,
-                coords={
-                    "time1": (
-                        ["time1"],
-                        self.parser_obj.ping_time,
-                        {
-                            "axis": "T",
-                            "long_name": "Timestamp of each ping",
-                            "standard_name": "time",
-                            "comment": "Time coordinate corresponding to environmental variables.",
-                        },
-                    )
-                },
-            )
-            ds = xr.merge([ds, ds_temp_press], combine_attrs="override")
-
-        return set_time_encodings(ds)
+class SetGroupsAZFP6(SetGroupsAZFP):
+    """Class for saving groups to netcdf or zarr from AZFP6 data files."""
 
     def set_sonar(self) -> xr.Dataset:
         """Set the Sonar group."""
@@ -187,8 +30,8 @@ class SetGroupsAZFP(SetGroupsBase):
             "sonar_manufacturer": "ASL Environmental Sciences",
             "sonar_model": self.sonar_model,
             "sonar_serial_number": int(self.parser_obj.unpacked_data["serial_number"]),
-            "sonar_software_name": "AZFP",
-            "sonar_software_version": "based on AZFP Matlab version 1.4",
+            "sonar_software_name": "AZFP6",
+            "sonar_software_version": "alpha version based on 2.0.07 version",
             "sonar_type": "echosounder",
         }
         ds = ds.assign_attrs(sonar_attr_dict)
@@ -200,9 +43,6 @@ class SetGroupsAZFP(SetGroupsBase):
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
         unpacked_data = self.parser_obj.unpacked_data
 
-        # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
-        time1 = [np.nan]
-
         # If tilt_x and/or tilt_y are all nan, create single-value time2 dimension
         # and single-value (np.nan) tilt_x and tilt_y
         tilt_x = [np.nan] if np.isnan(unpacked_data["tilt_x"]).all() else unpacked_data["tilt_x"]
@@ -212,6 +52,23 @@ class SetGroupsAZFP(SetGroupsBase):
         else:
             time2 = self.parser_obj.ping_time
 
+        gps_latlon = np.array(unpacked_data["gps_lat_lon"])
+        lat = (
+            [np.nan]
+            if np.isnan(gps_latlon[:, 0]).all() or not np.any(gps_latlon[:, 0])
+            else gps_latlon[:, 0]
+        )
+        lon = (
+            [np.nan]
+            if np.isnan(gps_latlon[:, 1]).all() or not np.any(gps_latlon[:, 1])
+            else gps_latlon[:, 1]
+        )
+        # Create nan time coordinate for lat/lon (lat/lon do not exist in AZFP 01A data)
+        time1 = self.parser_obj._get_gps_time()
+        # If there is an issue with the GPS timestamps, use ping time?
+        # time1 = time2 if not np.any(time1) else time1
+        time1 = [np.nan] if len(lat) != len(time1) else time1
+
         # Handle potential nan timestamp for time1 and time2
         time1 = self._nan_timestamp_handler(time1)
         time2 = self._nan_timestamp_handler(time2)  # should not be nan; but add for completeness
@@ -220,12 +77,12 @@ class SetGroupsAZFP(SetGroupsBase):
             {
                 "latitude": (
                     ["time1"],
-                    [np.nan],
+                    lat,
                     self._varattrs["platform_var_default"]["latitude"],
                 ),
                 "longitude": (
                     ["time1"],
-                    [np.nan],
+                    lon,
                     self._varattrs["platform_var_default"]["longitude"],
                 ),
                 "pitch": (
@@ -313,7 +170,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     time1,
                     {
                         **self._varattrs["platform_coord_default"]["time1"],
-                        "comment": "Time coordinate corresponding to NMEA position data.",
+                        "comment": "Time coordinate corresponding to GPS position data.",
                     },
                 ),
                 "time2": (
@@ -344,7 +201,9 @@ class SetGroupsAZFP(SetGroupsBase):
         for ich in self.parser_obj.freq_ind_sorted:
             N.append(
                 np.array(
-                    [unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["year"]))]
+                    [
+                        unpacked_data["counts"][p][ich] for p in range(len(unpacked_data["date"]))
+                    ]  # year
                 )
             )
 
@@ -433,13 +292,13 @@ class SetGroupsAZFP(SetGroupsBase):
                         "valid_range": (0.0, 4 * np.pi),
                     },
                 ),
-                "gain_correction": (
-                    ["channel"],
-                    np.array(
-                        unpacked_data["gain"][self.parser_obj.freq_ind_sorted], dtype=np.float64
-                    ),
-                    {"long_name": "Gain correction", "units": "dB"},
-                ),
+                # "gain_correction": (
+                #    ["channel"],
+                #    np.array(
+                #        unpacked_data["gain"][self.parser_obj.freq_ind_sorted], dtype=np.float64
+                #    ),
+                #    {"long_name": "Gain correction", "units": "dB"},
+                # ),
                 "sample_interval": (
                     ["channel"],
                     sample_int,
@@ -544,7 +403,13 @@ class SetGroupsAZFP(SetGroupsBase):
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
         Sv_offset = self.parser_obj.Sv_offset
-        phase_params = ["burst_interval", "pings_per_burst", "average_burst_pings"]
+        phase_params = [
+            "burst_interval",
+            "pings_per_burst",
+            "average_burst_pings",
+            "base_time",
+            "ping_period_counts",
+        ]
         phase_freq_params = [
             "dig_rate",
             "range_samples",
@@ -553,18 +418,29 @@ class SetGroupsAZFP(SetGroupsBase):
             "gain",
             "storage_format",
         ]
+
         tdn = []
         for num in parameters["phase_number"]:
-            tdn.append(parameters[f"pulse_len_phase{num}"][self.parser_obj.freq_ind_sorted] / 1e6)
+            try:
+                tdn.append(
+                    parameters[f"pulse_len_phase{num}"][self.parser_obj.freq_ind_sorted] / 1e6
+                )
+            except:
+                tdn.append([np.nan] * len(self.parser_obj.freq_ind_sorted))
         tdn = np.array(tdn)
         for param in phase_freq_params:
             for num in parameters["phase_number"]:
-                parameters[param].append(
-                    parameters[f"{param}_phase{num}"][self.parser_obj.freq_ind_sorted]
-                )
+                try:
+                    parameters[param].append(
+                        parameters[f"{param}_phase{num}"][self.parser_obj.freq_ind_sorted]
+                    )
+                except:
+                    parameters[param].append([np.nan] * len(self.parser_obj.freq_ind_sorted))
+
         for param in phase_params:
             for num in parameters["phase_number"]:
-                parameters[param].append(parameters[f"{param}_phase{num}"])
+                p = parameters[f"{param}_phase{num}"]
+                parameters[param].append(np.nan if isinstance(p, list) else p)
         anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         ds = xr.Dataset(
@@ -619,7 +495,7 @@ class SetGroupsAZFP(SetGroupsBase):
                         "0=raw (2bytes)"
                     },
                 ),
-                "ping_status": (["ping_time"], unpacked_data["ping_status"]),
+                "ping_status": (["ping_time"], unpacked_data["acq_status"]),
                 "number_of_acquired_pings": (
                     ["ping_time"],
                     unpacked_data["num_acq_pings"],
@@ -632,7 +508,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     unpacked_data["data_error"],
                     {"long_name": "Error number if an error occurred"},
                 ),
-                "sensors_flag": (["ping_time"], unpacked_data["sensor_flag"]),
+                "sensors_flag": (["ping_time"], unpacked_data["sensor_status"]),
                 "ancillary": (
                     ["ping_time", "ancillary_len"],
                     unpacked_data["ancillary"],
@@ -640,7 +516,7 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "ad_channels": (
                     ["ping_time", "ad_len"],
-                    unpacked_data["ad"],
+                    anc[:, -2:],  # compatibility with <uls5
                     {"long_name": "AD channel 6 and 7"},
                 ),
                 "battery_main": (["ping_time"], unpacked_data["battery_main"]),
@@ -677,7 +553,7 @@ class SetGroupsAZFP(SetGroupsBase):
                     unpacked_data["avg_pings"],
                     {"long_name": "Flag indicating whether the pings average in time"},
                 ),
-                "spare_channel": ([], unpacked_data["spare_chan"], {"long_name": "Spare channel"}),
+                "spare_channel": ([], unpacked_data["custom"], {"long_name": "Spare channel"}),
                 "ping_period": (
                     [],
                     unpacked_data["ping_period"],
@@ -692,6 +568,16 @@ class SetGroupsAZFP(SetGroupsBase):
                     [],
                     unpacked_data["num_chan"],
                     {"long_name": "Number of channels (1, 2, 3, or 4)"},
+                ),
+                "base_time": (
+                    [],
+                    unpacked_data["base_time"],
+                    {"long_name": "Base time driving ping interval, min 0.2 sec and max 1.5 sec."},
+                ),
+                "ping_period_counts": (
+                    [],
+                    unpacked_data["ping_period_counts"],
+                    {"long_name": "Ping period counts. The number of BaseTimer counts."},
                 ),
                 # parameters with channel dimension from XML file
                 "XML_transmit_duration_nominal": (
@@ -848,9 +734,9 @@ class SetGroupsAZFP(SetGroupsBase):
                 ),
                 "ancillary_len": (
                     ["ancillary_len"],
-                    list(range(len(unpacked_data["ancillary"][0]))),
+                    list(range(anc.shape[-1])),
                 ),
-                "ad_len": (["ad_len"], list(range(len(unpacked_data["ad"][0])))),
+                "ad_len": (["ad_len"], list(range(anc[:, -2:].shape[-1]))),
                 "phase_number": (
                     ["phase_number"],
                     sorted([int(num) for num in parameters["phase_number"]]),

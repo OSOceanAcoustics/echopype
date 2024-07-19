@@ -7,7 +7,7 @@ import pynmea2
 import xarray as xr
 
 from ..echodata.convention import sonarnetcdf_1
-from ..utils.coding import COMPRESSION_SETTINGS, set_time_encodings
+from ..utils.coding import COMPRESSION_SETTINGS, DEFAULT_TIME_ENCODING, set_time_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
 NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
@@ -115,7 +115,7 @@ class SetGroupsBase(abc.ABC):
             # set time_val to earliest ping_time among all channels
             if self.sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
                 return [np.array([v[0] for v in self.parser_obj.ping_time.values()]).min()]
-            elif self.sonar_model == "AZFP":
+            elif self.sonar_model in ["AZFP", "AZFP6"]:
                 return [self.parser_obj.ping_time[0]]
             else:
                 return NotImplementedError(
@@ -128,11 +128,16 @@ class SetGroupsBase(abc.ABC):
         """Set the Platform/NMEA group."""
         # Save nan if nmea data is not encoded in the raw file
         if len(self.parser_obj.nmea["nmea_string"]) != 0:
-            # Convert np.datetime64 numbers to seconds since 1900-01-01 00:00:00Z
+            # Convert np.datetime64 numbers to nanoseconds since 1970-01-01 00:00:00Z
             # due to xarray.to_netcdf() error on encoding np.datetime64 objects directly
-            time = (
-                self.parser_obj.nmea["timestamp"] - np.datetime64("1900-01-01T00:00:00")
-            ) / np.timedelta64(1, "s")
+            # print(np.array(self.parser_obj.nmea["timestamp"])[idx_loc].shape)
+            time, _, _ = xr.coding.times.encode_cf_datetime(
+                self.parser_obj.nmea["timestamp"],
+                **{
+                    "units": DEFAULT_TIME_ENCODING["units"],
+                    "calendar": DEFAULT_TIME_ENCODING["calendar"],
+                },
+            )
             raw_nmea = self.parser_obj.nmea["nmea_string"]
         else:
             time = [np.nan]
@@ -215,15 +220,16 @@ class SetGroupsBase(abc.ABC):
             if nmea_msg
             else [np.nan]
         )
-        time1 = (
-            (
-                np.array(self.parser_obj.nmea["timestamp"])[idx_loc]
-                - np.datetime64("1900-01-01T00:00:00")
+        if nmea_msg:
+            time1, _, _ = xr.coding.times.encode_cf_datetime(
+                np.array(self.parser_obj.nmea["timestamp"])[idx_loc],
+                **{
+                    "units": DEFAULT_TIME_ENCODING["units"],
+                    "calendar": DEFAULT_TIME_ENCODING["calendar"],
+                },
             )
-            / np.timedelta64(1, "s")
-            if nmea_msg
-            else [np.nan]
-        )
+        else:
+            time1 = [np.nan]
 
         return time1, msg_type, lat, lon
 
@@ -356,3 +362,149 @@ class SetGroupsBase(abc.ABC):
 
         self._add_ping_time_dim(ds, beam_ping_time_names, ping_time_only_names)
         self._add_beam_dim(ds, beam_only_names, beam_ping_time_names)
+
+    def _add_index_data_to_platform_ds(
+        self,
+        platform_ds: xr.Dataset,
+    ) -> xr.Dataset:
+        """
+        Append index data from IDX file to the `Platform` dataset.
+        Index file data contains latitude, longitude, and vessel distance traveled.
+
+        Parameters
+        ----------
+        platform_ds : xr.Dataset
+            `Platform` dataset without IDX data.
+
+        Returns
+        -------
+        platform_ds : xr.Dataset
+            `Platform` dataset with IDX data.
+            Contains new `time3` dimension to correspond with IDX timestamps that
+            align with `vessel_distance`, `idx_latitude`, and `idx_longitude`.
+
+        Notes
+        -----
+        This function is only called for EK60/EK80 conversion.
+        """
+        timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
+            np.array(self.parser_obj.idx["timestamp"]),
+            **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            },
+        )
+        # TODO: Add attributes for `ping_number` and `file_offset`
+        platform_ds = platform_ds.assign(
+            {
+                "idx_ping_number": xr.DataArray(
+                    np.array(self.parser_obj.idx["ping_number"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                ),
+                "idx_file_offset": xr.DataArray(
+                    np.array(self.parser_obj.idx["file_offset"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                ),
+                "idx_vessel_distance": xr.DataArray(
+                    np.array(self.parser_obj.idx["vessel_distance"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Vessel distance in nautical miles (nmi) from start of "
+                        + "recording.",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension.",
+                    },
+                ),
+                "idx_latitude": xr.DataArray(
+                    np.array(self.parser_obj.idx["latitude"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Index File Derived Platform Latitude",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension. "
+                        + "This is different from latitude stored in the NMEA datagram.",
+                    },
+                ),
+                "idx_longitude": xr.DataArray(
+                    np.array(self.parser_obj.idx["longitude"]),
+                    dims=("time3"),
+                    coords={"time3": timestamp_array},
+                    attrs={
+                        "long_name": "Index File Derived Platform Longitude",
+                        "comment": "Data from the IDX datagrams. Aligns time-wise with this "
+                        + "dataset's `time3` dimension. "
+                        + "This is different from longitude from the NMEA datagram.",
+                    },
+                ),
+            }
+        )
+        platform_ds["time3"] = platform_ds["time3"].assign_attrs(
+            {
+                "axis": "T",
+                "long_name": "Timestamps from the IDX datagrams",
+                "standard_name": "time",
+                "comment": "Time coordinate corresponding to index file vessel "
+                + "distance and latitude/longitude data.",
+            }
+        )
+
+        return platform_ds.transpose("channel", "time1", "time2", "time3")
+
+    def _add_seafloor_detection_data_to_vendor_ds(
+        self,
+        vendor_ds: xr.Dataset,
+    ) -> xr.Dataset:
+        """
+        Append seafloor detection data from `.BOT` file to the `Vendor_specific` dataset.
+
+        Parameters
+        ----------
+        vendor_ds : xr.Dataset
+            `Vendor_specific` dataset without `.BOT` data.
+
+        Returns
+        -------
+        vendor_ds : xr.Dataset
+            `Vendor_specific` dataset with `.BOT` data.
+            Contains new `ping_time` dimension to correspond with `detected_seafloor_depth`.
+            Note that `detected_seafloor_depth` values corresponding to the same `ping_time`
+            may have differing values along `channel`.
+
+        Notes
+        -----
+        This function is only called for EK60/EK80 conversion.
+        """
+        timestamp_array, _, _ = xr.coding.times.encode_cf_datetime(
+            np.array(self.parser_obj.bot["timestamp"]),
+            **{
+                "units": DEFAULT_TIME_ENCODING["units"],
+                "calendar": DEFAULT_TIME_ENCODING["calendar"],
+            },
+        )
+        vendor_ds = vendor_ds.assign(
+            {
+                "detected_seafloor_depth": xr.DataArray(
+                    np.array(self.parser_obj.bot["depth"]).T,
+                    dims=("channel", "ping_time"),
+                    coords={"ping_time": timestamp_array},
+                    attrs={
+                        "long_name": "Echosounder detected seafloor depth from the BOT datagrams."
+                    },
+                )
+            }
+        )
+        vendor_ds["ping_time"] = vendor_ds["ping_time"].assign_attrs(
+            {
+                "long_name": "Timestamps from the BOT datagrams",
+                "standard_name": "time",
+                "axis": "T",
+                "comment": "Time coordinate corresponding to seafloor detection data.",
+            }
+        )
+        vendor_ds = set_time_encodings(vendor_ds)
+
+        return vendor_ds

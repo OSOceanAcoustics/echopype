@@ -162,6 +162,7 @@ def mock_Sv_dataset_irregular(
     # Sprinkle nans around echo_range
     for pos in mock_nan_ilocs:
         ds_Sv["echo_range"][pos] = np.nan
+        ds_Sv["Sv"][pos] = np.nan
     return ds_Sv
 
 
@@ -201,7 +202,7 @@ def mock_nasc_array_regular(mock_Sv_dataset_regular, mock_parameters):
     dist_bin = 0.5
     range_bin = 2
     channel_len = mock_parameters["channel_len"]
-    expected_nasc_val = _get_expected_nasc_val(ds_Sv, dist_bin, range_bin, channel_len)
+    expected_nasc_val = _get_expected_nasc_val_nanmean(ds_Sv, dist_bin, range_bin, channel_len)
 
     return expected_nasc_val
 
@@ -237,7 +238,7 @@ def mock_nasc_array_irregular(mock_Sv_dataset_irregular, mock_parameters):
     dist_bin = 0.5
     range_bin = 2
     channel_len = mock_parameters["channel_len"]
-    expected_nasc_val = _get_expected_nasc_val(ds_Sv, dist_bin, range_bin, channel_len)
+    expected_nasc_val = _get_expected_nasc_val_nanmean(ds_Sv, dist_bin, range_bin, channel_len)
 
     return expected_nasc_val
 
@@ -463,12 +464,12 @@ def mock_Sv_dataset_NASC(mock_parameters, random_number_generator):
 
 
 # Helper functions to generate mock Sv and MVBS dataset
-def _get_expected_nasc_val(
+def _get_expected_nasc_val_nanmean(
     ds_Sv: xr.Dataset, dist_bin: str, range_bin: float, channel_len: int = 2
 ) -> np.ndarray:
     """
     Helper functions to generate expected NASC outputs from mock Sv dataset
-    by brute-force looping and compute the mean
+    by brute-force looping and compute the nanmean
 
     Parameters
     ----------
@@ -500,7 +501,7 @@ def _get_expected_nasc_val(
     sv = ds_Sv["Sv"].pipe(ep.utils.compute._log2lin)
 
     # Compute sv mean
-    sv_mean = _brute_mean_reduce_3d(
+    sv_mean = _brute_nanmean_reduce_3d(
         sv, ds_Sv, "depth", "distance_nmi", channel_len, dist_interval, range_interval
     )
 
@@ -544,7 +545,7 @@ def _get_expected_nasc_val(
     return sv_mean * h_mean * 4 * np.pi * 1852**2
 
 
-def _brute_mean_reduce_3d(
+def _brute_nanmean_reduce_3d(
     sv: xr.DataArray,
     ds_Sv: xr.Dataset,
     range_var: Literal["echo_range", "depth"],
@@ -610,7 +611,7 @@ def _brute_mean_reduce_3d(
                 if 0 in sv_tmp.shape:
                     mean_vals[ch_idx, x_idx, r_idx] = np.nan
                 else:
-                    mean_vals[ch_idx, x_idx, r_idx] = np.mean(sv_tmp)
+                    mean_vals[ch_idx, x_idx, r_idx] = np.nanmean(sv_tmp)
     return mean_vals
 
 

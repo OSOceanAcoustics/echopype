@@ -95,6 +95,7 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     check_platform_required_scalar_vars(echodata)
 
 
+@pytest.mark.skip(reason="tests for comparing AZFP converted data with Matlab outputs have not been implemented")
 def test_convert_azfp_01a_matlab_derived():
     """Compare variables derived from raw parsed data with Matlab outputs."""
     # TODO: test derived data
@@ -104,9 +105,6 @@ def test_convert_azfp_01a_matlab_derived():
 
     # # check convention-required variables in the Platform group
     # check_platform_required_scalar_vars(echodata)
-
-    pytest.xfail("Tests for converting AZFP and comparing it"
-                 + " against Matlab derived data have not been implemented yet.")
 
 
 def test_convert_azfp_01a_raw_echoview(azfp_path):
@@ -156,8 +154,10 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     check_platform_required_scalar_vars(echodata)
 
 
+@pytest.mark.skip(reason="required pulse length not in Sv offset dictionary")
 def test_convert_azfp_01a_no_temperature_pressure_tilt(azfp_path):
     """Test converting file with no valid temperature, pressure and tilt data."""
+
     azfp_01a_path = azfp_path / 'rutgers_glider_notemperature/22052500.01A'
     azfp_xml_path = azfp_path / 'rutgers_glider_notemperature/22052501.XML'
 

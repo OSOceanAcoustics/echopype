@@ -435,10 +435,23 @@ def test_convert_ek80_mru1(ek80_path):
     """Make sure we can convert EK80 file with MRU1 datagram."""
     ek80_mru1_path = str(ek80_path.joinpath('20231016_Cal_-D20231016-T220322.raw'))
     echodata = open_raw(raw_file=ek80_mru1_path, sonar_model='EK80')
-    parser = ParseEK80(str(ek80_mru1_path), None)
+    parser = ParseEK80(str(ek80_mru1_path))
     parser.parse_raw()
 
     np.all(echodata["Platform"]["pitch"].data == np.array(parser.mru["pitch"]))
     np.all(echodata["Platform"]["roll"].data == np.array(parser.mru["roll"]))
     np.all(echodata["Platform"]["vertical_offset"].data == np.array(parser.mru["heave"]))
     np.all(echodata["Platform"]["heading"].data == np.array(parser.mru["heading"]))
+
+
+def test_skip_ec150(ek80_path):
+    """Make sure we skip EC150 datagrams correctly."""
+    ek80_mru1_path = str(ek80_path.joinpath("RL2407_ADCP-D20240709-T150437.raw"))
+    echodata = open_raw(raw_file=ek80_mru1_path, sonar_model='EK80')
+
+    assert "EC150" not in echodata["Sonar/Beam_group1"]["channel"].values
+    assert "backscatter_i" in echodata["Sonar/Beam_group1"].data_vars
+    assert (
+        echodata["Sonar/Beam_group1"].dims
+        == {'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
+    )
