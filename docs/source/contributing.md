@@ -45,7 +45,7 @@ To create an environment for developing Echopype, we recommend the following ste
     git remote add upstream https://github.com/OSOceanAcoustics/echopype.git
     ```
 
-2. Create a conda environment using `mamba`, and follow the steps below:
+2. Create a conda environment using the conda-forge channel, and follow the steps below:
     ```shell
     # Create a conda environment using the supplied requirements files
     # Note the last one docs/requirements.txt is only required for building docs
@@ -69,6 +69,7 @@ It's common to encounter the situation that installing packages using Conda is s
 because Conda is unable to resolve dependencies.
 We suggest using Mamba to get around this.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
+One can replace `conda` with `mamba` in the above commands when creating the environment and installing additiona packages.
 :::
 
 
@@ -207,7 +208,7 @@ For some quick orientation of where things are:
 
 ### Versions
 
-ReadTheDocs defaults to having the `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
+ReadTheDocs defaults to having its `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
 
 
 
@@ -215,7 +216,7 @@ ReadTheDocs defaults to having the `stable` version tracking the most recent rel
 When a PR is created, the CI will run through all tests, basic spelling and formatting checks
 (via pre-commit), and build the documentation.
 You can check the test results in a section at the bottom of the PR like below:
-![ci_runs](https://user-images.githubusercontent.com/15334215/165646718-ebfd4041-b110-4b54-a5b9-54a7a08bc982.png)
+![ci_runs](./images/CI_checks.png)
 
 To see the newly built documentation, click  "Details" to the right of the
 `docs/readthedocs.org:echopype` entry shown above.
