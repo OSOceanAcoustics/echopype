@@ -126,7 +126,7 @@ class CalibrateEK(CalibrateBase):
 
         # Remove time1 if exist as a coordinate
         if "time1" in out.coords:
-            out = out.drop("time1")
+            out = out.drop_vars("time1")
 
         return out
 

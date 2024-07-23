@@ -118,8 +118,8 @@ def _check_and_drop_var(ed, tree, grp_path, var):
     assert isinstance(ed_var.values, type(tree_var.values))
 
     # drop variables so we can check that datasets are identical
-    ed[grp_path] = ed[grp_path].drop(var)
-    tree[grp_path].ds = tree[grp_path].ds.drop(var)
+    ed[grp_path] = ed[grp_path].drop_vars(var)
+    tree[grp_path].ds = tree[grp_path].ds.drop_vars(var)
 
 
 def _check_and_drop_attr(ed, tree, grp_path, attr, typ):
@@ -263,7 +263,7 @@ def test_v05x_v06x_conversion_structure(azfp_path, ek60_path, ek80_path):
             for name in prov_comb_names:
                 _check_and_drop_var(ed_v05x, tree_v06x, "Provenance", name)
 
-            ed_v05x["Provenance"] = ed_v05x["Provenance"].drop("src_filenames")
+            ed_v05x["Provenance"] = ed_v05x["Provenance"].drop_vars("src_filenames")
 
         # ignore direct comparison of the variables Sonar.sonar_serial_number,
         # Platform.drop_keel_offset_is_manual, and Platform.water_level_draft_is_manual

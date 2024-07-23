@@ -458,7 +458,7 @@ def test_nan_range_entries(range_check_files):
         )
         range_output = cal_obj.range_meter
         # broadband complex data EK80 file: always need to drop "beam" dimension
-        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop("beam").isnull()
+        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop_vars("beam").isnull()
     else:
         # EK60 file does not need dropping "beam" dimension
         ds_Sv = echopype.calibrate.compute_Sv(echodata)

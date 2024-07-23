@@ -195,7 +195,7 @@ def _frequency_to_channel(ed_obj, sensor):
             # set values for channel
             if "channel_id" in ed_obj[grp_path]:
                 ed_obj[grp_path]["channel"] = ed_obj[grp_path].channel_id.values
-                ed_obj[grp_path] = ed_obj._tree[grp_path].ds.drop("channel_id")
+                ed_obj[grp_path] = ed_obj._tree[grp_path].ds.drop_vars("channel_id")
 
             else:
                 ed_obj[grp_path]["channel"] = channel_id.sel(
@@ -256,7 +256,7 @@ def _change_beam_var_names(ed_obj, sensor):
             "long_name"
         ] = "Half power two-way beam width along athwartship axis of beam"
 
-        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].drop(
+        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].drop_vars(
             ["beamwidth_receive_athwartship", "beamwidth_transmit_alongship"]
         )
 
@@ -469,7 +469,7 @@ def _move_transducer_offset_vars(ed_obj, sensor):
                 full_transducer_vars[spatial].append(beam_group.ds["transducer_offset_" + spatial])
 
                 # remove transducer_offset_x/y/z from the beam group
-                beam_group.ds = beam_group.ds.drop("transducer_offset_" + spatial)
+                beam_group.ds = beam_group.ds.drop_vars("transducer_offset_" + spatial)
 
         # transfer transducser_offset_x/y/z to Platform
         for spatial in full_transducer_vars.keys():
@@ -717,7 +717,7 @@ def _rearrange_azfp_attrs_vars(ed_obj, sensor):
             ed_obj["Vendor"].attrs[key] = val
             del ed_obj["Sonar/Beam_group1"].attrs[key]
 
-        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].drop(
+        ed_obj["Sonar/Beam_group1"] = ed_obj["Sonar/Beam_group1"].drop_vars(
             ["cos_tilt_mag"] + beam_to_plat_vars + beam_to_vendor_vars
         )
 
@@ -934,7 +934,7 @@ def _add_source_filenames_var(ed_obj):
             ed_obj["Provenance"].src_filenames.values,
             {"long_name": "Source filenames"},
         )
-        ed_obj["Provenance"].drop("src_filenames")
+        ed_obj["Provenance"].drop_vars("src_filenames")
 
     else:
         ed_obj["Provenance"]["source_filenames"] = (

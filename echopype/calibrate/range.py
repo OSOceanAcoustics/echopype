@@ -185,7 +185,7 @@ def compute_range_EK(
 
     # remove time1 if exists as a coordinate
     if "time1" in range_meter.coords:
-        range_meter = range_meter.drop("time1")
+        range_meter = range_meter.drop_vars("time1")
 
     # add name to facilitate xr.merge
     range_meter.name = "echo_range"
@@ -212,7 +212,7 @@ def range_mod_TVG_EK(
     def mod_Ex80():
         mod = sound_speed * beam["transmit_duration_nominal"] / 4
         if isinstance(mod, xr.DataArray) and "time1" in mod.coords:
-            mod = mod.squeeze().drop("time1")
+            mod = mod.squeeze().drop_vars("time1")
         return mod
 
     beam = echodata[ed_beam_group]
