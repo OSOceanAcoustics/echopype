@@ -472,4 +472,4 @@ def conform_channel_order(ds_in: xr.Dataset, freq_ref: xr.DataArray) -> xr.Datas
         ds_in = ds_in.reindex_like(freq_ref)
         ds_in["channel"] = freq_ref["channel"]
 
-        return ds_in.swap_dims({"frequency_nominal": "channel"}).drop("frequency_nominal")
+        return ds_in.swap_dims({"frequency_nominal": "channel"}).drop_vars("frequency_nominal")

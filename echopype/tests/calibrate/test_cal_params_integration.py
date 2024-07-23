@@ -82,7 +82,7 @@ def test_cal_params_intake_EK60(ek60_path):
     # Need to drop ping_time for cal_obj.cal_params since get_vend_cal_params_power
     # retrieves sa_correction or gain_correction based on transmit_duration_nominal,
     # which can vary cross ping_time
-    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop("ping_time").identical(cal_params_manual["gain_correction"])
+    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").identical(cal_params_manual["gain_correction"])
 
     # Check against the final cal params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"gain_correction": gain_ext})
@@ -185,7 +185,7 @@ def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     # Need to drop ping_time for cal_obj.cal_params since get_vend_cal_params_power
     # retrieves sa_correction or gain_correction based on transmit_duration_nominal,
     # which can vary cross ping_time
-    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop("ping_time").identical(cal_params_manual["gain_correction"])
+    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").identical(cal_params_manual["gain_correction"])
 
     # Check against the final cal params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(

@@ -729,7 +729,7 @@ def test_get_cal_params_EK80_BB(
 )
 def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict):
     # Remove some variables from Vendor group to mimic EK60 data
-    vend_EK = vend_EK.drop("impedance_transceiver").drop("transceiver_type")
+    vend_EK = vend_EK.drop_vars("impedance_transceiver").drop_vars("transceiver_type")
     cal_dict = get_cal_params_EK(
         waveform_mode="CW",
         freq_center=freq_center,
