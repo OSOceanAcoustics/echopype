@@ -6,6 +6,7 @@ import xarray as xr
 
 from ..echodata import EchoData
 from ..utils import uwa
+from ..utils.align import align_to_ping_time
 from .cal_params import param2da
 
 ENV_PARAMS = (
@@ -68,9 +69,7 @@ def harmonize_env_param_time(
             return p.rename({"time1": "ping_time"})
 
         # Interpolate `p` to `ping_time`
-        return (
-            p.dropna(dim="time1").interp(time1=ping_time).ffill(dim="ping_time").drop_vars("time1")
-        )
+        return align_to_ping_time(p.dropna(dim="time1"), "time1", ping_time, method="linear")
     return p
 
 

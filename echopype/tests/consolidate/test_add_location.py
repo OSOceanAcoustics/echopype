@@ -162,7 +162,11 @@ def test_add_location(
                     position_var = ed["Platform"][ed_position]
                     if nmea_sentence:
                         position_var = position_var[ed["Platform"]["sentence_type"] == nmea_sentence]
-                    position_interp = position_var.interp(time1=ds_test["ping_time"])
+                    position_interp = position_var.interp(
+                        {"time1": ds_test["ping_time"]},
+                        method="nearest",
+                        kwargs={"fill_value": "extrapolate"},
+                    )
                     # interpolated values are identical
                     assert np.allclose(ds_test[ds_position].values, position_interp.values, equal_nan=True) # noqa
             elif location_type == "fixed-location":

@@ -4,6 +4,7 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
+from ..utils.align import align_to_ping_time
 from ..utils.log import _init_logger
 
 logger = _init_logger(__name__)
@@ -162,4 +163,4 @@ def sel_interp(
         )
     else:
         # Values may be nan if there are ping_time values outside the time_dim_name range
-        return position_var.interp(**{time_dim_name: ds["ping_time"]})
+        return align_to_ping_time(position_var, time_dim_name, ds["ping_time"], "linear")

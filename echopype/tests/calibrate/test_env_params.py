@@ -30,6 +30,7 @@ def ek80_cal_path(test_path):
     return test_path["EK80_CAL"]
 
 
+@pytest.mark.unit
 def test_harmonize_env_param_time():
     # Scalar
     p = 10.05
@@ -67,16 +68,6 @@ def test_harmonize_env_param_time():
     assert (p_new.data == p.data).all()
 
     # ping_time target requires actual interpolation
-    ping_time_target = xr.DataArray(
-        data=[1, 2],
-        coords={
-            "ping_time": np.array(
-                ["2017-06-20T01:00:15", "2017-06-20T01:00:30"], dtype="datetime64[ns]"
-            )
-        },
-        dims=["ping_time"],
-    )
-
     ping_time_target = xr.DataArray(
         data=[1],
         coords={
