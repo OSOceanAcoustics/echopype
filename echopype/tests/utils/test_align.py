@@ -7,9 +7,75 @@ from echopype.utils.align import align_to_ping_time
 
 
 @pytest.mark.unit
-def test_align_to_ping_time():
+@pytest.mark.parametrize(
+    "method, expected_aligned_da",
+    [
+        (
+            "nearest",
+            xr.DataArray(
+                [0.0, 2.0, 3.0],
+                coords={
+                    "ping_time": np.array(
+                        ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["ping_time"]
+            )
+        ),
+        (
+            "linear",
+            xr.DataArray(
+                [0.5, 2.0, 3.5],
+                coords={
+                    "ping_time": np.array(
+                        ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["ping_time"]
+            )
+        ),
+    ]
+)
+def test_align_to_ping_time_values(method, expected_aligned_da):
     """
-    Test aligning external pitch data to Echosounder ping time
+    Test 'nearest' and 'linear' `align_to_ping_time` output values on mock external and
+    ping time DataArrays.
+    """
+    # Create external and sounder DataArrays
+    external_da = xr.DataArray(
+        [0, 1, 2, 3],
+        coords={
+            "time1": np.array(
+                ["2017-06-20T01:10:00", "2017-06-20T01:20:00", "2017-06-20T01:30:00", "2017-06-20T01:40:00"],
+                dtype="datetime64[ns]"
+            )
+        },
+        dims=["time1"]
+    )
+    sounder_da = xr.DataArray(
+        [10, 20, 30],
+        coords={
+            "ping_time": np.array(
+                ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                dtype="datetime64[ns]"
+            )
+        },
+        dims=["ping_time"]
+    )
+
+    # Align external DataArray
+    aligned_da = align_to_ping_time(external_da, "time1", sounder_da["ping_time"], method=method)
+
+    # Check that expected_aligned_da equals aligned_da
+    expected_aligned_da.equals(aligned_da)
+
+
+@pytest.mark.integration
+def test_align_to_ping_time_glider_azfp():
+    """
+    Test aligning external Glider pitch data to Echosounder ping time.
     """
     # Open RAW and extract ping time
     ping_time_da = ep.open_raw(
