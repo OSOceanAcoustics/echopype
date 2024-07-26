@@ -164,7 +164,7 @@ def test_add_location(
                         position_var = position_var[ed["Platform"]["sentence_type"] == nmea_sentence]
                     position_interp = position_var.interp(
                         {"time1": ds_test["ping_time"]},
-                        method="nearest",
+                        method="linear",
                         kwargs={"fill_value": "extrapolate"},
                     )
                     # interpolated values are identical
