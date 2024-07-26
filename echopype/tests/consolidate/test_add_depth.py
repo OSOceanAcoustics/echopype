@@ -614,3 +614,45 @@ def test_add_depth_with_external_glider_depth_and_tilt_array():
 
     # Check that the two depth arrays are equal
     assert np.allclose(expected_depth_da, depth_da, equal_nan=True)
+
+
+@pytest.mark.unit
+def test_multi_dim_depth_offset_and_tilt_array_error():
+    """
+    Test that the correct `ValueError`s are raised when a multi-dimensional
+    array is passed into `add_depth` for the `depth_offset` and `tilt`
+    arguments.
+    """
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(
+        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        sonar_model="EK80"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
+
+    # Multi-dimensional mock array
+    multi_dim_da = xr.DataArray(
+        np.random.randn(5, 3),
+        dims=("x", "y"),
+        coords={"x": range(5), "y": range(3)}
+    )
+
+    # Test `add_depth` with multi-dim `depth_offset`
+    with pytest.raises(
+        ValueError,
+        match=(
+            "If depth_offset is passed in as an xr.DataArray, "
+            "it must contain a single dimension."
+        )
+    ):
+        ep.consolidate.add_depth(ds_Sv, depth_offset=multi_dim_da)
+
+    # Test `add_depth` with multi-dim `tilt`
+    with pytest.raises(
+        ValueError,
+        match=(
+            "If tilt is passed in as an xr.DataArray, "
+            "it must contain a single dimension."
+        )
+    ):
+        ep.consolidate.add_depth(ds_Sv, tilt=multi_dim_da)
