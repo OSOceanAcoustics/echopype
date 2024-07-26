@@ -274,7 +274,8 @@ def test_align_to_ping_time_glider_azfp():
     # before the first non-NaN pitch value and check that there is a single unique value and that
     # this single unique value matches the first non-NaN pitch value. Extrapolation was done on the
     # 'left-side' of this array because the pitch data starts before the Echosounder started pinging.
+    first_non_NaN_pitch = glider_ds["m_pitch"].dropna("time").isel(time=0)
     assert np.isclose(
-        first_non_NaN_pitch_value.values, 
-        np.unique(aligned_da.where(first_non_NaN_pitch_value["time"].values > aligned_da["ping_time"], drop=True))
+        first_non_NaN_pitch.values, 
+        np.unique(aligned_da.where(first_non_NaN_pitch["time"].values > aligned_da["ping_time"], drop=True))
     )
