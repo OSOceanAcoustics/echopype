@@ -65,7 +65,9 @@ def harmonize_env_param_time(
             )
 
         # Align array to ping time
-        return align_to_ping_time(p.dropna(dim="time1"), "time1", ping_time, method="linear")
+        return align_to_ping_time(
+            p.dropna(dim="time1", how="all"), "time1", ping_time, method="linear"
+        )
     return p
 
 

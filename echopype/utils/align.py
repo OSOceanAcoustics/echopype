@@ -34,10 +34,20 @@ def align_to_ping_time(
         external_da[external_time_name].rename({external_time_name: "ping_time"})
     ):
         return external_da.rename({external_time_name: "ping_time"})
-    elif len(external_da) == 1:
+    elif len(external_da[external_time_name]) == 1:
         # Extend single, fixed-location coordinate to match ping time length
         return xr.DataArray(
             data=external_da.values[0] * np.ones(len(ping_time_da), dtype=np.float64),
+            dims=["ping_time"],
+            coords={"ping_time": ping_time_da.values},
+            attrs=external_da.attrs,
+        )
+    elif len(external_da[external_time_name]) == 0:
+        # TODO: Raise warning for this case?
+        # Create an all NaN array matching the length of ping_time_da
+        data = np.full(len(ping_time_da), np.nan, dtype=np.float64)
+        return xr.DataArray(
+            data=data,
             dims=["ping_time"],
             coords={"ping_time": ping_time_da.values},
             attrs=external_da.attrs,
