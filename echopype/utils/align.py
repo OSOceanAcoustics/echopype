@@ -22,7 +22,7 @@ def align_to_ping_time(
     method : str, default 'nearest'
         Interpolation method. Not used if external time matches ping time or external
         DataArray is a single value.
-        For more interpolation methods please visit: A wrapper function for https://docs.xarray.dev/en/stable/generated/xarray.DataArray.interp.html # noqa
+        For more interpolation methods please visit: https://docs.xarray.dev/en/stable/generated/xarray.DataArray.interp.html # noqa
 
     Returns
     -------
@@ -43,8 +43,7 @@ def align_to_ping_time(
             attrs=external_da.attrs,
         )
     elif len(external_da[external_time_name]) == 0:
-        # TODO: Raise warning for this case?
-        # Create an all NaN array matching the length of ping_time_da
+        # Create an all NaN array matching the length of the ping time array
         data = np.full(len(ping_time_da), np.nan, dtype=np.float64)
         return xr.DataArray(
             data=data,
@@ -53,11 +52,10 @@ def align_to_ping_time(
             attrs=external_da.attrs,
         )
     else:
-        aligned_da = external_da.interp(
+        return external_da.interp(
             {external_time_name: ping_time_da},
             method=method,
             # More details for `fill_value` and `extrapolate` can be found here:
             # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html # noqa
             kwargs={"fill_value": "extrapolate"},
         ).drop_vars(external_time_name)
-    return aligned_da

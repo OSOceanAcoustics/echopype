@@ -72,6 +72,169 @@ def test_align_to_ping_time_values(method, expected_aligned_da):
     expected_aligned_da.equals(aligned_da)
 
 
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "external_da, expected_aligned_da",
+    [
+        (
+            xr.DataArray(
+                [2.0],
+                coords={
+                    "time1": np.array(
+                        ["2017-06-20T01:10:00"], # Before earliest ping time
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["time1"]
+            ),
+            xr.DataArray(
+                [2.0, 2.0, 2.0],
+                coords={
+                    "ping_time": np.array(
+                        ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["ping_time"]
+            )
+        ),
+        (
+            xr.DataArray(
+                [2.0],
+                coords={
+                    "time1": np.array(
+                        ["2017-06-20T01:20:00"], # Between min and max ping times
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["time1"]
+            ),
+            xr.DataArray(
+                [2.0, 2.0, 2.0],
+                coords={
+                    "ping_time": np.array(
+                        ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["ping_time"]
+            )
+        ),
+        (
+            xr.DataArray(
+                [2.0],
+                coords={
+                    "time1": np.array(
+                        ["2017-06-20T01:50:00"], # After latest ping time
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["time1"]
+            ),
+            xr.DataArray(
+                [2.0, 2.0, 2.0],
+                coords={
+                    "ping_time": np.array(
+                        ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["ping_time"]
+            )
+        ),
+        (
+            xr.DataArray(
+                [],
+                coords={
+                    "time1": np.array([])
+                },
+                dims=["time1"]
+            ),
+            xr.DataArray(
+                [np.nan, np.nan, np.nan],
+                coords={
+                    "ping_time": np.array(
+                        ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                        dtype="datetime64[ns]"
+                    )
+                },
+                dims=["ping_time"]
+            )
+        ),
+    ]
+)
+def test_align_to_ping_time_values_length_1_and_0(external_da, expected_aligned_da):
+    """
+    Test `align_to_ping_time` output values on mock external and
+    ping time DataArrays that have length 1 or length 0 on the time
+    dimension.
+    """
+    # Create sounder DataArray
+    sounder_da = xr.DataArray(
+        [10, 20, 30],
+        coords={
+            "ping_time": np.array(
+                ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                dtype="datetime64[ns]"
+            )
+        },
+        dims=["ping_time"]
+    )
+
+    # Align external DataArray
+    aligned_da = align_to_ping_time(external_da, "time1", sounder_da["ping_time"])
+
+    # Check that expected_aligned_da equals aligned_da
+    expected_aligned_da.equals(aligned_da)
+
+
+@pytest.mark.unit
+def test_align_to_ping_time_values_when_matching_time_values():
+    """
+    Test 'nearest' and 'linear' `align_to_ping_time` output values on mock external and
+    ping time DataArrays where the time values of the mock external and the ping time DataArrays
+    are equal.
+    """
+    # Create external, sounder, and expected aligned output DataArrays
+    external_da = xr.DataArray(
+        [0, 1, 2],
+        coords={
+            "time1": np.array(
+                ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                dtype="datetime64[ns]"
+            )
+        },
+        dims=["time1"]
+    )
+    sounder_da = xr.DataArray(
+        [10, 20, 30],
+        coords={
+            "ping_time": np.array(
+                ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                dtype="datetime64[ns]"
+            )
+        },
+        dims=["ping_time"]
+    )
+    expected_aligned_da = xr.DataArray(
+        [0, 1, 2],
+        coords={
+            "ping_time": np.array(
+                ["2017-06-20T01:15:00", "2017-06-20T01:30:00", "2017-06-20T01:45:00"],
+                dtype="datetime64[ns]"
+            )
+        },
+        dims=["ping_time"]
+    )
+
+    # Align external DataArray
+    aligned_da = align_to_ping_time(external_da, "time1", sounder_da["ping_time"])
+
+    # Check that sounder ping time equals aligned_da
+    expected_aligned_da.equals(aligned_da)
+
+
 @pytest.mark.integration
 def test_align_to_ping_time_glider_azfp():
     """
