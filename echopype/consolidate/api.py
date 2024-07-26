@@ -1,5 +1,6 @@
 import datetime
 import pathlib
+from numbers import Number
 from pathlib import Path
 from typing import Optional, Union
 
@@ -9,6 +10,7 @@ import xarray as xr
 from ..calibrate.ek80_complex import get_filter_coeff
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
+from ..utils.align import align_to_ping_time
 from ..utils.io import get_file_format, open_source
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
@@ -65,8 +67,8 @@ def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.
 def add_depth(
     ds: Union[xr.Dataset, str, pathlib.Path],
     echodata: Optional[Union[EchoData, str, pathlib.Path]] = None,
-    depth_offset: Optional[float] = None,
-    tilt: Optional[float] = None,
+    depth_offset: Optional[Union[Number, xr.DataArray]] = None,
+    tilt: Optional[Union[Number, xr.DataArray]] = None,
     downward: bool = True,
     use_platform_vertical_offsets: bool = False,
     use_platform_angles: bool = False,
@@ -82,11 +84,15 @@ def add_depth(
         Source Sv dataset to which a depth variable will be added.
     echodata : Optional[EchoData, str, pathlib.Path], default `None`
         `EchoData` object from which the `Sv` dataset originated.
-    depth_offset : Optional[float], default None
+    depth_offset : Optional[Union[Number, xr.DataArray]], default None
         Offset along the vertical (depth) dimension to account for actual transducer
         position in water, since `echo_range` is counted from transducer surface.
-    tilt : Optional[float], default None.
+        If provided as an xr.DataArray, it must have a single dimension corresponding to time.
+        The data array should represent the depth offset at each time step.
+    tilt : Optional[Union[Number, xr.DataArray]], default None.
         Transducer tilt angle [degree]. 0 corresponds to a transducer pointing vertically.
+        If provided as an xr.DataArray, it must have a single dimension corresponding to time.
+        The data array should represent the tilt angle at each time step.
     downward : bool, default `True`
         The transducers point downward.
     use_platform_vertical_offsets: bool, default `False`
@@ -155,9 +161,21 @@ def add_depth(
 
     # Initialize transducer depth to 0.0 (no effect on depth)
     transducer_depth = 0.0
-    if depth_offset:
+    if isinstance(depth_offset, Number):
         # Set transducer depth to user specified depth offset
         transducer_depth = depth_offset
+    if isinstance(depth_offset, xr.DataArray):
+        # Will not accept data variables that don't have a single dimension
+        if len(depth_offset.dims) != 1:
+            raise ValueError(
+                "If depth_offset is passed in as an xr.DataArray, "
+                "it must contain a single dimension."
+            )
+        else:
+            # Align `depth_offset` to `ping_time`
+            transducer_depth = align_to_ping_time(
+                depth_offset, depth_offset.dims[0], ds["ping_time"]
+            )
     elif echodata and sonar_model in ["EK60", "EK80"]:
         if use_platform_vertical_offsets:
             # Compute transducer depth in EK systems using platform vertical offset data
@@ -167,9 +185,20 @@ def add_depth(
 
     # Initialize echo range scaling to 1.0 (no effect on depth)
     echo_range_scaling = 1.0
-    if tilt:
+    if isinstance(tilt, Number):
         # Set echo range scaling (angular scaling) using user specified tilt
         echo_range_scaling = np.cos(np.deg2rad(tilt))
+    if isinstance(tilt, xr.DataArray):
+        # Will not accept data variables that don't have a single dimension
+        if len(tilt.dims) != 1:
+            raise ValueError(
+                "If tilt is passed in as an xr.DataArray, it must contain a single dimension."
+            )
+        else:
+            # Align `tilt` to `ping_time`
+            echo_range_scaling = np.cos(
+                np.deg2rad(align_to_ping_time(tilt, tilt.dims[0], ds["ping_time"]))
+            )
     elif echodata and sonar_model in ["EK60", "EK80"]:
         if use_platform_angles:
             # Compute echo range scaling in EK systems using platform angle data

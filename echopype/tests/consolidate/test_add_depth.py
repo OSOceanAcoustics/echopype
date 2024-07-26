@@ -2,6 +2,9 @@ import pytest
 import xarray as xr
 import pandas as pd
 import numpy as np
+from scipy.spatial.transform import Rotation as R
+
+from echopype.utils.align import align_to_ping_time
 
 import echopype as ep
 from echopype.consolidate.ek_depth_utils import (
@@ -544,3 +547,70 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
     assert history_attribute_without_time == (
         f". depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."
     )
+
+
+@pytest.mark.integration
+def test_add_depth_with_external_glider_depth_and_tilt_array():
+    """
+    Test add_depth with external glider depth offset and tilt array data.
+    """
+    # Open RAW
+    ed = ep.open_raw(
+        raw_file="echopype/test_data/azfp/rutgers_glider_external_nc/18011107.01A",
+        xml_path="echopype/test_data/azfp/rutgers_glider_external_nc/18011107.XML",
+        sonar_model="azfp"
+    )
+
+    # Open external glider dataset
+    glider_ds = xr.open_dataset(
+        "echopype/test_data/azfp/rutgers_glider_external_nc/ru32-20180109T0531-profile-sci-delayed-subset.nc",
+        engine="netcdf4"
+    )
+
+    # Grab external environment parameters
+    env_params_means = {}
+    for env_var in ["temperature", "salinity", "pressure"]:
+        env_params_means[env_var] = float(glider_ds[env_var].mean().values)
+
+    # Compute Sv with external environment parameters
+    ds_Sv = ep.calibrate.compute_Sv(ed, env_params=env_params_means)
+
+    # Grab pitch and roll from platform group
+    pitch = np.rad2deg(glider_ds["m_pitch"])
+    roll = np.rad2deg(glider_ds["m_roll"])
+
+    # Compute tilt in degrees from pitch roll rotations
+    yaw = np.zeros_like(pitch.values)
+    yaw_pitch_roll_euler_angles_stack = np.column_stack([yaw, pitch.values, roll.values])
+    yaw_rot_pitch_roll = R.from_euler("ZYX", yaw_pitch_roll_euler_angles_stack, degrees=True)
+    glider_tilt = yaw_rot_pitch_roll.as_matrix()[:, -1, -1]
+    glider_tilt = xr.DataArray(
+        glider_tilt, dims="time", coords={"time": glider_ds["time"]}
+    )
+    glider_tilt = np.rad2deg(glider_tilt)
+
+    # Add auxiliary depth and tilt
+    ds_Sv_with_depth = ep.consolidate.add_depth(
+        ds_Sv,
+        depth_offset=glider_ds["depth"].dropna("time"),
+        tilt=glider_tilt.dropna("time")
+    )
+    depth_da = ds_Sv_with_depth["depth"]
+
+    # Align glider depth and glider tilt to ping time
+    glider_depth_aligned = align_to_ping_time(
+        glider_ds["depth"].dropna("time"), "time", ds_Sv["ping_time"],
+    )
+    glider_tilt_aligned = align_to_ping_time(
+        glider_tilt.dropna("time"), "time", ds_Sv["ping_time"],
+    )
+
+    # Compute expected depth
+    expected_depth_da = (
+        glider_depth_aligned + (
+            ds_Sv["echo_range"] * np.cos(np.deg2rad(glider_tilt_aligned))
+        )
+    )
+
+    # Check that the two depth arrays are equal
+    assert np.allclose(expected_depth_da, depth_da, equal_nan=True)
