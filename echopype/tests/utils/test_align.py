@@ -256,14 +256,8 @@ def test_align_to_ping_time_glider_azfp():
     # Drop NaNs from pitch and align data array
     aligned_da = align_to_ping_time(glider_ds["m_pitch"].dropna("time"), "time", ping_time_da)
 
-    # Extract earliest non-NaN time of the aligned dataset
-    earliest_non_nan_time_in_aligned_da = aligned_da.dropna("ping_time")["ping_time"].min()
-
-    # Grab all values past the earliest non-NaN time in the aligned DataArray
-    subset_aligned_da = aligned_da.where(aligned_da["ping_time"] >= earliest_non_nan_time_in_aligned_da, drop=True)
-
-    # Check that all values past the earliest non-NaN time in the aligned DataArray are non-NaN
-    assert np.all(~np.isnan(subset_aligned_da))
+    # Check that all values in the aligned DataArray are non-NaN
+    assert np.all(~np.isnan(aligned_da))
 
     # Test if aligned_da matches interpolation
     assert np.allclose(
