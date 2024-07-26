@@ -64,11 +64,7 @@ def harmonize_env_param_time(
                 f"ping_time needs to be provided for comparison or interpolating {p.name}"
             )
 
-        # Direct assignment if all timestamps are identical (EK60 data)
-        if np.array_equal(p["time1"].data, ping_time.data):
-            return p.rename({"time1": "ping_time"})
-
-        # Interpolate `p` to `ping_time`
+        # Align array to ping time
         return align_to_ping_time(p.dropna(dim="time1"), "time1", ping_time, method="linear")
     return p
 

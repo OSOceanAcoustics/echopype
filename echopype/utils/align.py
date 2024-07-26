@@ -1,3 +1,4 @@
+import numpy as np
 import xarray as xr
 
 
@@ -10,26 +11,38 @@ def align_to_ping_time(
     """
     Aligns an external DataArray to align time-wise with the Echosounder ping time DataArray.
 
-    A wrapper function for https://docs.xarray.dev/en/stable/generated/xarray.DataArray.interp.html.
-
     Parameters
     ----------
     external_da : xr.DataArray
         External Non-Echosounder data.
-    external_time_name : str, default 'nearest'
+    external_time_name : str
         Time variable name of the External Non-Echosounder data.
     ping_time_da : xr.DataArray
         Echosounder ping time.
+    method : str, default 'nearest'
+        Interpolation method. Not used if external time matches ping time or external
+        DataArray is a single value.
+        For more interpolation methods please visit: A wrapper function for https://docs.xarray.dev/en/stable/generated/xarray.DataArray.interp.html # noqa
 
     Returns
     -------
     aligned_da : xr.DataArray
         External Non-Echosounder data that is now aligned with the Echosounder ping time.
     """
-    # Interpolate only if ping time and external time are not equal
-    if not ping_time_da.equals(
+    # Rename if the external time dimension is equal to ping time
+    if ping_time_da.equals(
         external_da[external_time_name].rename({external_time_name: "ping_time"})
     ):
+        return external_da.rename({external_time_name: "ping_time"})
+    elif len(external_da) == 1:
+        # Extend single, fixed-location coordinate to match ping time length
+        return xr.DataArray(
+            data=external_da.values[0] * np.ones(len(ping_time_da), dtype=np.float64),
+            dims=["ping_time"],
+            coords={"ping_time": ping_time_da.values},
+            attrs=external_da.attrs,
+        )
+    else:
         aligned_da = external_da.interp(
             {external_time_name: ping_time_da},
             method=method,
@@ -37,6 +50,4 @@ def align_to_ping_time(
             # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html # noqa
             kwargs={"fill_value": "extrapolate"},
         ).drop_vars(external_time_name)
-    else:
-        aligned_da = external_da.rename({external_time_name: "ping_time"})
     return aligned_da

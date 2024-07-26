@@ -161,6 +161,5 @@ def sel_interp(
             dims=["ping_time"],
             attrs=position_var.attrs,
         )
-    else:
-        # Values may be nan if there are ping_time values outside the time_dim_name range
-        return align_to_ping_time(position_var, time_dim_name, ds["ping_time"], "linear")
+    # Align position variable to ping time
+    return align_to_ping_time(position_var, time_dim_name, ds["ping_time"], "linear")
