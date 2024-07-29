@@ -19,7 +19,7 @@ from .ek_depth_utils import (
     ek_use_platform_angles,
     ek_use_platform_vertical_offsets,
 )
-from .loc_utils import check_loc_time_dim_duplicates, check_loc_vars_validity, sel_interp
+from .loc_utils import check_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
 logger = _init_logger(__name__)
@@ -304,23 +304,18 @@ def add_location(
     # Copy dataset
     interp_ds = ds.copy()
 
-    # Interpolate location variables and place into `interp_ds`
-    interp_ds["latitude"] = sel_interp(
-        ds=ds,
-        echodata=echodata,
-        loc_name=lat_name,
-        time_dim_name=time_dim_name,
-        nmea_sentence=nmea_sentence,
-        datagram_type=datagram_type,
-    )
-    interp_ds["longitude"] = sel_interp(
-        ds=ds,
-        echodata=echodata,
-        loc_name=lon_name,
-        time_dim_name=time_dim_name,
-        nmea_sentence=nmea_sentence,
-        datagram_type=datagram_type,
-    )
+    # Select NMEA subset (if applicable) and interpolate location variables and place
+    # into `interp_ds`.
+    for loc_var_name in ["latitude", "longitude"]:
+        loc_var = sel_nmea(
+            echodata=echodata,
+            loc_name=lon_name,
+            nmea_sentence=nmea_sentence,
+            datagram_type=datagram_type,
+        )
+        interp_ds[loc_var_name] = align_to_ping_time(
+            loc_var, time_dim_name, ds["ping_time"], "linear"
+        )
 
     # Most attributes are attached automatically via interpolation
     # here we add the history

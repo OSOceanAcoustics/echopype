@@ -4,7 +4,6 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..utils.align import align_to_ping_time
 from ..utils.log import _init_logger
 
 logger = _init_logger(__name__)
@@ -119,18 +118,16 @@ def check_loc_time_dim_duplicates(echodata: EchoData, time_dim_name: str) -> Non
         )
 
 
-def sel_interp(
-    ds: xr.Dataset,
+def sel_nmea(
     echodata: EchoData,
     loc_name: str,
-    time_dim_name: str,
     nmea_sentence: Union[str, None] = None,
     datagram_type: Union[str, None] = None,
 ) -> xr.DataArray:
     """
-    Selection and interpolation for a location variable.
+    Select location subset for a location variable based on NMEA sentence.
 
-    The selection logic is as follows, with 4 possible scenarios:
+    The selection logic is as follows, with 3 possible scenarios:
     Note here datagram_type = None is equivalent to datagram_type = NMEA
 
     1) If datagram_type is None and nmea_sentence is None, then do nothing.
@@ -138,13 +135,10 @@ def sel_interp(
     3) If datagram_type is not None and nmea_sentence is None, then do nothing.
     4) If datagram_type is not None and nmea_sentence is not None, then raise ValueError since NMEA
        sentence selection can only be used on location variables from the NMEA datagram.
-
-    After selection logic, the location variable is then interpolated time-wise to match
-    that of the input dataset's time dimension.
     """
     # NMEA sentence selection if datagram_type is None (NMEA corresponds to None)
     if nmea_sentence and datagram_type is None:
-        position_var = echodata["Platform"][loc_name][
+        return echodata["Platform"][loc_name][
             echodata["Platform"]["sentence_type"] == nmea_sentence
         ]
     elif nmea_sentence and datagram_type is not None:
@@ -152,14 +146,4 @@ def sel_interp(
             "If datagram_type is not `None`, then `nmea_sentence` cannot be specified."
         )
     else:
-        position_var = echodata["Platform"][loc_name]
-
-    if len(position_var) == 1:
-        # Propagate single, fixed-location coordinate
-        return xr.DataArray(
-            data=position_var.values[0] * np.ones(len(ds["ping_time"]), dtype=np.float64),
-            dims=["ping_time"],
-            attrs=position_var.attrs,
-        )
-    # Align position variable to ping time
-    return align_to_ping_time(position_var, time_dim_name, ds["ping_time"], "linear")
+        return echodata["Platform"][loc_name]
