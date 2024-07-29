@@ -306,14 +306,16 @@ def add_location(
 
     # Select NMEA subset (if applicable) and interpolate location variables and place
     # into `interp_ds`.
-    for loc_name in ["latitude", "longitude"]:
+    for loc_name, interp_loc_name in [(lat_name, "latitude"), (lon_name, "longitude")]:
         loc_var = sel_nmea(
             echodata=echodata,
             loc_name=loc_name,
             nmea_sentence=nmea_sentence,
             datagram_type=datagram_type,
         )
-        interp_ds[loc_name] = align_to_ping_time(loc_var, time_dim_name, ds["ping_time"], "linear")
+        interp_ds[interp_loc_name] = align_to_ping_time(
+            loc_var, time_dim_name, ds["ping_time"], "linear"
+        )
 
     # Most attributes are attached automatically via interpolation
     # here we add the history
