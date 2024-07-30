@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 import echopype as ep
 import pytest
+import pandas as pd
 
 from echopype.clean.utils import (
     extract_dB,
@@ -858,13 +859,55 @@ def test_mask_attenuated_signal_against_echopy(chunk):
     )
 
 
+@pytest.mark.unit
+def test_estimate_background_noise_upsampling():
+    """Test for the correct upsampling behavior in `estimate_background_noise`"""
+    # Open Raw and Calibrate
+    ed = ep.open_raw(
+        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
+        sonar_model="EK60"
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # Estimate background noise
+    Sv_noise = ep.clean.estimate_background_noise(
+        ds_Sv, ping_num=2, range_sample_num=5,
+    )
+
+    # Check that the correct upsampling has occurred
+    for channel_idx in range(len(ds_Sv["channel"])):
+        for range_sample_idx in range(len(ds_Sv["range_sample"])):
+            # Grab vector that just has ping time dimension
+            Sv_noise_vector = Sv_noise.isel(channel=channel_idx, range_sample=range_sample_idx)
+
+            # Check that the values repeat every 2 values:
+
+            # Grab numpy values
+            data_np = Sv_noise_vector.values
+
+            # Handle odd length by removing the last element
+            if len(data_np) % 2 != 0:
+                data_np = data_np[:-1]
+
+            # Reshape so that the pairs are columnwise next to each other
+            pairs = data_np.reshape(-1, 2)
+
+            # Assert that the pairs are equal
+            assert np.allclose(pairs[:,0], pairs[:,1])
+
+
+@pytest.mark.integration
 def test_remove_background_noise():
     """Test remove_background_noise on toy data"""
 
     # Parameters for fake data
     nchan, npings, nrange_samples = 1, 10, 100
     chan = np.arange(nchan).astype(str)
-    ping_index = np.arange(npings)
+    ping_time = pd.date_range(
+        start='2015-06-30T17:30:10.000000000',
+        end='2015-06-30T17:30:25.000000000',
+        periods=npings,
+    )
     range_sample = np.arange(nrange_samples)
     data = np.ones(nrange_samples)
 
@@ -878,7 +921,7 @@ def test_remove_background_noise():
         [data],
         coords=[
             ('channel', chan),
-            ('ping_time', ping_index),
+            ('ping_time', ping_time),
             ('range_sample', range_sample),
         ],
     )
@@ -915,7 +958,7 @@ def test_remove_background_noise():
         data,
         coords=[
             ('channel', chan),
-            ('ping_time', ping_index),
+            ('ping_time', ping_time),
             ('range_sample', range_sample),
         ],
     )
