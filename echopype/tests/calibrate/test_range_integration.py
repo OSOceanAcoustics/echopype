@@ -19,6 +19,7 @@ import echopype as ep
         # EK80 CW power
         ("EK80", "EK80", "Summer2018--D20180905-T033113.raw", None, None, None, "CW", "power"),
         # TODO: EK80 reduced sampling rate
+        ("EK80", "EK80", "Summer2018--D20180905-T033113.raw", None, None, None, "BB", "complex"),
     ],
     ids=[
         "azfp",
@@ -26,6 +27,7 @@ import echopype as ep
         "ek80_bb_complex",
         "ek80_cw_complex",
         "ek80_cw_power",
+        "ek80_bb_complex"
     ]
 )
 def test_range_dimensions(
