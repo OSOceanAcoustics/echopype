@@ -92,7 +92,7 @@ def add_depth(
     tilt : Optional[Union[Number, xr.DataArray]], default None.
         Transducer tilt angle [degree]. 0 corresponds to a transducer pointing vertically.
         If provided as an xr.DataArray, it must have a single dimension corresponding to time.
-        The data array should represent the tilt angle at each time step.
+        The data array should represent the tilt angle in degrees at each time step.
     downward : bool, default `True`
         The transducers point downward.
     use_platform_vertical_offsets: bool, default `False`
