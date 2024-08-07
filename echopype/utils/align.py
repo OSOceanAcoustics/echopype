@@ -27,7 +27,7 @@ def align_to_ping_time(
     Returns
     -------
     aligned_da : xr.DataArray
-        External Non-Echosounder data that is now aligned with the Echosounder ping time.
+        External non-echosounder data that is now aligned with the echosounder ping time.
     """
     # Rename if the external time dimension is equal to ping time
     if ping_time_da.equals(
