@@ -9,14 +9,14 @@ def align_to_ping_time(
     method: str = "nearest",
 ) -> xr.DataArray:
     """
-    Aligns an external DataArray to align time-wise with the Echosounder ping time DataArray.
+    Aligns an external DataArray to align time-wise with the echosounder ping time DataArray.
 
     Parameters
     ----------
     external_da : xr.DataArray
-        External Non-Echosounder data.
+        External non-echosounder data.
     external_time_name : str
-        Time variable name of the External Non-Echosounder data.
+        Time variable name of the external non-echosounder data.
     ping_time_da : xr.DataArray
         Echosounder ping time.
     method : str, default 'nearest'
