@@ -88,7 +88,7 @@ def add_depth(
         Offset along the vertical (depth) dimension to account for actual transducer
         position in water, since `echo_range` is counted from transducer surface.
         If provided as an xr.DataArray, it must have a single dimension corresponding to time.
-        The data array should represent the depth offset at each time step.
+        The data array should represent the depth offset in meters at each time step.
     tilt : Optional[Union[Number, xr.DataArray]], default None.
         Transducer tilt angle [degree]. 0 corresponds to a transducer pointing vertically.
         If provided as an xr.DataArray, it must have a single dimension corresponding to time.
