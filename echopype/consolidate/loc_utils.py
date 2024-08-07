@@ -127,7 +127,7 @@ def sel_nmea(
     """
     Select location subset for a location variable based on NMEA sentence.
 
-    The selection logic is as follows, with 3 possible scenarios:
+    The selection logic is as follows, with 4 possible scenarios:
     Note here datagram_type = None is equivalent to datagram_type = NMEA
 
     1) If datagram_type is None and nmea_sentence is None, then do nothing.
