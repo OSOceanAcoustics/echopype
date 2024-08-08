@@ -35,7 +35,7 @@ This release includes a number of new features and performance enhancements, as 
 * Update docs for visualization by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1347
 * Merge data processing level changes from `stable` by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1355
 * Add the Ping acoustic library to other resources by @gavinmacaulay in https://github.com/OSOceanAcoustics/echopype/pull/1362
-* Update contributing guide by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1356
+* Update contributing guide and README/index by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1356 and https://github.com/OSOceanAcoustics/echopype/pull/1373
 
 ## Others
 * Remove the deprecated `visualize` subpackage by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1336
