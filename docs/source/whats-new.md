@@ -19,7 +19,7 @@ This release includes a number of new features and performance enhancements, as 
 ## Enhancements
 * Support lazy-loaded EK80 broadband-complex data by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1311
 * Allow `MVBS` into `ep.mask.apply_mask`, and add alignment check for target variable and mask by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1345
-* Enchance ep.calibrate.compute_Sv scalability by enabling EchoData chunking and removing eager computation by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1331
+* Enhance `ep.calibrate.compute_Sv` scalability by enabling EchoData chunking and removing eager computation by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1331
 * Use Echodata `Platform` and `Beam_group1` variables to compute depth for EK60/EK80 by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1319
 * Allow waveform mode "FM" in calibrate by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1363
 * Allow external arrays in `add_depth` and add an universal ping time alignment function by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1369
