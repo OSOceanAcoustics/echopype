@@ -30,6 +30,7 @@ def ek80_cal_path(test_path):
     return test_path["EK80_CAL"]
 
 
+@pytest.mark.unit
 def test_harmonize_env_param_time():
     # Scalar
     p = 10.05
@@ -67,16 +68,6 @@ def test_harmonize_env_param_time():
     assert (p_new.data == p.data).all()
 
     # ping_time target requires actual interpolation
-    ping_time_target = xr.DataArray(
-        data=[1, 2],
-        coords={
-            "ping_time": np.array(
-                ["2017-06-20T01:00:15", "2017-06-20T01:00:30"], dtype="datetime64[ns]"
-            )
-        },
-        dims=["ping_time"],
-    )
-
     ping_time_target = xr.DataArray(
         data=[1],
         coords={
@@ -133,6 +124,7 @@ def test_harmonize_env_param_time():
     # .all computes dask array under the hood
     assert (p_new.data == [0.5, 2880.5]).all()
 
+
 @pytest.mark.unit
 def test_harmonize_env_param_time_only_one_non_NaN_along_time1():
     # Create data array with time1 dimension with only 1 non-NaN value
@@ -144,6 +136,7 @@ def test_harmonize_env_param_time_only_one_non_NaN_along_time1():
     output_da = harmonize_env_param_time(da, None)
     assert output_da == 1, "Output data array should just be 1"
     assert 'time1' not in output_da.dims, "```harmonize_env_param_time``` should have dropped 'time1' dimension"
+
 
 @pytest.mark.parametrize(
     ("user_dict", "channel", "out_dict"),

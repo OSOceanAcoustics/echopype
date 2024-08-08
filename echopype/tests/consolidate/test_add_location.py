@@ -5,11 +5,11 @@ import numpy as np
 import xarray as xr
 
 import echopype as ep
-from echopype.consolidate.loc_utils import sel_interp
+from echopype.consolidate.loc_utils import sel_nmea
 
 
 @pytest.mark.unit
-def test_sel_interp_value_error():
+def test_sel_nmea_value_error():
     """
     Check that the appropriate ValueError is raised when nmea_sentence!=None and datagram_type!=None.
     This would imply NMEA sentence selection of location variable not from the NMEA datagrams, which
@@ -19,12 +19,10 @@ def test_sel_interp_value_error():
     with pytest.raises(ValueError) as exc_info:
         # Pass in non-None values for nmea_sentence and datagram_type and leave the rest as
         # None (blank) since those are not needed to test this part of the function
-        sel_interp(
-            ds=None,
+        sel_nmea(
             echodata=None,
-            datagram_type="MRU1",
             loc_name=None,
-            time_dim_name=None,
+            datagram_type="MRU1",
             nmea_sentence="GGA"
         )
     assert ("If datagram_type is not `None`, then `nmea_sentence` cannot be specified.") == str(exc_info.value)
@@ -162,7 +160,11 @@ def test_add_location(
                     position_var = ed["Platform"][ed_position]
                     if nmea_sentence:
                         position_var = position_var[ed["Platform"]["sentence_type"] == nmea_sentence]
-                    position_interp = position_var.interp(time1=ds_test["ping_time"])
+                    position_interp = position_var.interp(
+                        {"time1": ds_test["ping_time"]},
+                        method="linear",
+                        kwargs={"fill_value": "extrapolate"},
+                    )
                     # interpolated values are identical
                     assert np.allclose(ds_test[ds_position].values, position_interp.values, equal_nan=True) # noqa
             elif location_type == "fixed-location":

@@ -410,6 +410,7 @@ def estimate_background_noise(
 
     # Align noise `ping_time` to the first index of each coarsened `ping_time` bin
     noise = noise.assign_coords(ping_time=ping_num * np.arange(len(noise["ping_time"])))
+    power_cal = power_cal.assign_coords(ping_time=np.arange(len(power_cal["ping_time"])))
 
     # Limit max noise level
     noise = (
@@ -420,7 +421,9 @@ def estimate_background_noise(
 
     # Upsample noise to original ping time dimension
     Sv_noise = (
-        noise.reindex({"ping_time": power_cal["ping_time"]}, method="ffill")
+        noise.reindex({"ping_time": power_cal["ping_time"]}, method="ffill").assign_coords(
+            ping_time=ds_Sv["ping_time"]
+        )
         + spreading_loss
         + absorption_loss
     )
@@ -434,7 +437,7 @@ def remove_background_noise(
     ping_num: int,
     range_sample_num: int,
     background_noise_max: str = None,
-    SNR_threshold: float = 3.0,
+    SNR_threshold: float = "3.0dB",
 ) -> xr.Dataset:
     """
     Remove noise by using estimates of background noise

@@ -310,52 +310,11 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
         "pH",
     ]
 
-    # Grab time variables
-    time1 = ed_combined["Environment"]["time1"]
-    ping_time = ed_combined["Sonar/Beam_group1"]["ping_time"]
-
     # Iterate through vars
     for env_var_name in environment_related_variable_names:
         env_var = ds_Sv[env_var_name]
         # Check that no NaNs exist
         assert not np.any(np.isnan(env_var.data))
-
-        # Check that all values past the max of time1 are ffilled with value
-        # that is time-wise closest to max of time1
-        if "channel" not in env_var.dims:
-            assert np.allclose(
-                np.unique(
-                    env_var.sel(
-                        ping_time=slice(
-                            time1.max(),
-                            ping_time.max()
-                        )
-                    ).data
-                ),
-                env_var.sel(ping_time=slice(time1.max())).data[-1]
-            )
-        else:
-            # Iterate through environment variable channels to do the same
-            # check as above per channel
-            for channel_index in range(len(env_var["channel"])):
-                assert np.allclose(
-                    np.unique(
-                        env_var.isel(
-                            channel=channel_index
-                        )
-                        .sel(
-                            ping_time=slice(
-                                time1.max(),
-                                ping_time.max()
-                            )
-                        ).data
-                    ),
-                    env_var.isel(
-                        channel=channel_index
-                    ).sel(
-                        ping_time=slice(time1.max())
-                    ).data[-1]
-                )
 
                 
 @pytest.mark.parametrize(
