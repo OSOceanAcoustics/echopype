@@ -18,9 +18,10 @@ scientists to make discovery using these new data.
 
 Wu-Jung Lee ([@leewujung](https://github.com/leewujung))
 founded the echopype project in 2018 and continue to be the primary contributor
-together with Praneeth Ratna([@praneethratna](https://github.com/praneethratna)).
+together with Caesar Tuguinay([@ctuguinay](https://github.com/ctuguinay)).
 Emilio Mayorga ([@emiliom](https://github.com/emiliom)),
 Landung "Don" Setiawan ([@lsetiawan](https://github.com/lsetiawan)),
+Praneeth Ratna([@praneethratna](https://github.com/praneethratna)),
 Brandon Reyes ([@b-reyes](https://github.com/b-reyes)),
 Kavin Nguyen ([@ngkavin](https://github.com/ngkavin))
 and Imran Majeed ([@imranmaj](https://github.com/imranmaj))
@@ -30,7 +31,7 @@ Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part 
 A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
 
 
-```{image} images/GSoC-logo-horizontal.svg
+<!-- ```{image} images/GSoC-logo-horizontal.svg
 :alt: Google Summer of Code logo
 :width: 300px
 ```
@@ -40,17 +41,23 @@ In collaboration with the [Integrated Ocean Observing System (IOOS)](https://ioo
 participants to help us upgrade the robustness and scalability of the Echopype package.
 
 If you are a GSoC 2024 contributor, please head over to [GSoC contributor's guide](https://github.com/OSOceanAcoustics/echopype/gsoc_contrib_guide.md) to get more information specific to the program.
-```
+``` -->
 
 ## Acknowledgement
 
+We thank all previous and current contributors to Echopype,
+including those whose contributions do not include code.
 We thank Dave Billenness of ASL Environmental Sciences for
 providing the AZFP Matlab Toolbox as reference for developing
 support for the AZFP echosounder,
-and Rick Towler ([@rhtowler](https://github.com/rhtowler))
+Rick Towler ([@rhtowler](https://github.com/rhtowler))
 of the NOAA Alaska Fisheries Science Center
 for providing low-level file parsing routines for
-Simrad EK60 and EK80 echosounders.
+Simrad EK60 and EK80 echosounders,
+and Alejandro Ariza ([@alejandro-ariza](https://github.com/alejandro-ariza))
+for developing NumPy implementation of
+acoustic analysis functions via Echopy, which
+we referenced for several Echopype functions.
 
 We also thank funding support from
 the National Science Foundation,
