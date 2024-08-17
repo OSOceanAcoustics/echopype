@@ -400,6 +400,9 @@ def apply_mask(
                 "have the channel dimension, that dimension should match between the two."
             )
 
+    # Turn NaN in final_mask to False, otherwise xr.where treats as True
+    final_mask = final_mask.fillna(False)
+
     # Apply the mask to var_name
     var_name_masked = xr.where(final_mask, x=source_da, y=fill_value)
 

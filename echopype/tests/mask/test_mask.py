@@ -1098,6 +1098,27 @@ def test_apply_mask(
         temp_dir.cleanup()
 
 
+def test_apply_mask_NaN_elements():
+    """
+    Make sure NaNs are interpreted correctly as False.
+    """
+    arr_mask = np.identity(3)
+    arr_mask = np.where(arr_mask==1, 1, np.nan)
+
+    da_mask = xr.DataArray(
+        arr_mask,
+        coords={"ping_time": np.arange(3), "depth": np.arange(3)},
+    )
+    ds_data = xr.DataArray(
+        np.random.rand(2, 3, 3),
+        coords={"channel": ["ch1", "ch2"], "ping_time": np.arange(3), "depth": np.arange(3)},
+    )
+    ds_data.name = "Sv"
+    ds_data = ds_data.to_dataset()
+    ds_data_masked = ep.mask.apply_mask(source_ds=ds_data, mask=da_mask)
+    assert np.array_equal( np.isnan(arr_mask), ds_data_masked["Sv"].isel(channel=0).isnull().values)
+    
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("source_has_ch", "mask", "truth_da"),
