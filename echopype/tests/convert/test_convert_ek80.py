@@ -485,7 +485,7 @@ def test_parse_mru0_mru1(ek80_path):
     for mru_var_name in mru_var_names:
         assert not np.any(np.isnan(echodata["Platform"][mru_var_name]))
 
-@pytest.mark.test
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "raw_path",
