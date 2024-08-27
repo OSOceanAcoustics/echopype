@@ -1145,6 +1145,9 @@ class SetGroupsEK80(SetGroupsBase):
 
             ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
 
+            # Drop any duplicate ping times
+            ds_data = ds_data.drop_duplicates(dim="ping_time")
+
             if ch in self.sorted_channel["complex"]:
                 ds_complex.append(ds_data)
             else:
