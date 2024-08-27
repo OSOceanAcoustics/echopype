@@ -1,9 +1,11 @@
+import shutil
+
 import pytest
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-from echopype import open_raw
 
+from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
@@ -482,3 +484,35 @@ def test_parse_mru0_mru1(ek80_path):
     ]
     for mru_var_name in mru_var_names:
         assert not np.any(np.isnan(echodata["Platform"][mru_var_name]))
+
+@pytest.mark.test
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "raw_path",
+    [
+        ("echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230624-T144316.raw"),
+        ("echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230701-T073658.raw"),
+        ("echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230719-T050043.raw"),
+    ]
+)
+def test_parse_missing_sound_velocity_profile(raw_path):
+    """
+    Tests that RAW files that are missing sound velocity profile values can be
+    converted, saved to Zarr, and opened again.
+    """
+    # Open RAW
+    ed = open_raw(raw_path,sonar_model="EK80")
+
+    # Save RAW to Zarr
+    save_path = "echopype/test_data/ek80_missing_sound_velocity_profile/test_save.zarr"
+    ed.to_zarr(save_path,overwrite=True)
+
+    # Open Converted
+    ed_2 = open_converted(save_path)
+
+    # Check Environment Sound Velocity Profile Depth coordinate
+    ed["Environment"]["sound_velocity_profile_depth"] == [np.nan]
+    ed_2["Environment"]["sound_velocity_profile_depth"] == [np.nan]
+
+    # Remove Zarr File
+    shutil.rmtree(save_path)
