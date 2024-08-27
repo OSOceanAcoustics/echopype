@@ -6,6 +6,7 @@ from scipy.io import loadmat
 import pytest
 
 from echopype import open_raw
+from echopype.convert import ParseEK60
 
 
 @pytest.fixture
@@ -236,3 +237,35 @@ def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
             ed["Sonar/Beam_group1"]["channel_mode"].data.dtype,
             np.float32
         )
+
+
+@pytest.mark.integration
+def test_converting_ek60_raw_with_missing_channel_power():
+    """
+    Tests that we can convert a EK60 RAW file that has missing power data for a
+    specific channel.
+    """
+    # Parse RAW
+    raw_path = "echopype/test_data/ek60_missing_channel_power/Summer2017-D20170807-T171736.raw"
+    ek60_parser = ParseEK60(raw_path)
+    ek60_parser.parse_raw()
+    ek60_parser.rectangularize_data()
+
+    # Open RAW
+    ed = open_raw(raw_path, sonar_model="EK60")
+
+    # Get channels that have empty `power`
+    channels = list(ek60_parser.config_datagram["transceivers"].keys())
+    channel_ids = {
+        ch: ek60_parser.config_datagram["transceivers"][ch]["channel_id"] for ch in channels
+    }
+    sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
+    empty_power_chs = {
+        key: value
+        for key, value in sorted_channel.items()
+        if len(ek60_parser.ping_data_dict["power"][key]) == 0
+    }
+    
+    # Check that all empty power channels do not exist in the EchoData Beam group
+    for _, empty_power_channel_name in empty_power_chs.items():
+        assert empty_power_channel_name not in ed["Sonar/Beam_group1"]["channel"]
