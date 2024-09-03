@@ -72,6 +72,13 @@ class SetGroupsEK60(SetGroupsBase):
         # In some examples the channels may not be ordered, thus sorting is required
         self.sorted_channel = dict(sorted(channel_ids.items(), key=lambda item: item[1]))
 
+        # Select channels where parser `power` is not empty
+        self.sorted_channel = {
+            key: value
+            for key, value in self.sorted_channel.items()
+            if len(self.parser_obj.ping_data_dict["power"][key]) != 0
+        }
+
         # obtain corresponding frequency dict from sorted channels
         self.freq = [
             self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
