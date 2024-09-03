@@ -235,10 +235,6 @@ def _set_var_attrs(da, long_name, units, round_digits, standard_name=None):
     da.attrs = {
         "long_name": long_name,
         "units": units,
-        "actual_range": [
-            round(float(da.min().values), round_digits),
-            round(float(da.max().values), round_digits),
-        ],
     }
     if standard_name:
         da.attrs["standard_name"] = standard_name
