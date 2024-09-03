@@ -495,7 +495,12 @@ class ParseEK(ParseBase):
 
             # XML datagrams store environment or instrument parameters for EK80
             if new_datagram["type"].startswith("XML"):
-                if new_datagram["subtype"] == "environment":
+                # Check that environment datagrams aren't invalid
+                # Temporary fix for suspected EK80 software bug described in:
+                # https://github.com/OSOceanAcoustics/echopype/issues/1386
+                if new_datagram["subtype"] == "environment" and set(
+                    ["drop_keel_offset", "drop_keel_offset_is_manual"]
+                ) != set(new_datagram["environment"].keys()):
                     self.environment = new_datagram["environment"]
                     self.environment["xml"] = new_datagram["xml"]
                     self.environment["timestamp"] = new_datagram["timestamp"]
