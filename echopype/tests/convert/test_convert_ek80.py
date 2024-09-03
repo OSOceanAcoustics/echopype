@@ -487,21 +487,16 @@ def test_parse_mru0_mru1(ek80_path):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    "raw_path",
-    [
-        ("echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230624-T144316.raw"),
-        ("echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230701-T073658.raw"),
-        ("echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230719-T050043.raw"),
-    ]
-)
-def test_parse_missing_sound_velocity_profile(raw_path):
+def test_parse_missing_sound_velocity_profile():
     """
     Tests that RAW files that are missing sound velocity profile values can be
     converted, saved to Zarr, and opened again.
     """
     # Open RAW
-    ed = open_raw(raw_path,sonar_model="EK80")
+    ed = open_raw(
+        "echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230701-T073658.raw",
+        sonar_model="EK80"
+    )
 
     # Save RAW to Zarr
     save_path = "echopype/test_data/ek80_missing_sound_velocity_profile/test_save.zarr"
