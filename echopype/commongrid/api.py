@@ -175,10 +175,6 @@ def compute_MVBS(
             "binning_mode": "physical units",
             "range_meter_interval": str(range_bin) + "m",
             "ping_time_interval": ping_time_bin,
-            "actual_range": [
-                round(float(ds_MVBS["Sv"].min().values), 2),
-                round(float(ds_MVBS["Sv"].max().values), 2),
-            ],
         }
     )
 
