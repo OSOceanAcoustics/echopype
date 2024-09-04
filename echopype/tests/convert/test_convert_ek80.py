@@ -482,3 +482,22 @@ def test_parse_mru0_mru1(ek80_path):
     ]
     for mru_var_name in mru_var_names:
         assert not np.any(np.isnan(echodata["Platform"][mru_var_name]))
+
+
+@pytest.mark.unit
+def test_parse_ek80_with_invalid_env_datagrams():
+    """
+    Tests parsing EK80 RAW file with invalid environment datagrams. Checks that the EchoData object
+    contains the necessary environment variables for calibration.
+    """
+
+    # Parse RAW
+    ed = open_raw(
+        "echopype/test_data/ek80_invalid_env_datagrams/SH24-replay-D20240705-T070536.raw",
+        sonar_model="EK80",
+    )
+
+    # Check that each calibration specific variable exists, is not NaN, and is of type float64
+    for var in ["acidity", "depth", "salinity", "temperature", "sound_speed_indicative"]:
+        env_var = ed["Environment"][var]
+        assert env_var.notnull().all() and env_var.dtype == np.float64
