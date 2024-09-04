@@ -173,7 +173,7 @@ class SetGroupsEK80(SetGroupsBase):
                     (
                         self.parser_obj.environment["sound_velocity_profile"][::2]
                         if "sound_velocity_profile" in self.parser_obj.environment
-                        else []
+                        else [np.nan]
                     ),
                     {
                         "standard_name": "depth",
