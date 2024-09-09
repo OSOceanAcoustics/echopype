@@ -1,4 +1,4 @@
-# Installation and Examples
+# Installation and examples
 
 ## Installation
 
@@ -15,7 +15,7 @@ $ pip install echopype
 ```
 
 :::{note}
-We are working on getting upgrading to 3.12 soon!
+We are working on getting upgraded to 3.12 soon!
 :::
 
 :::{attention}
