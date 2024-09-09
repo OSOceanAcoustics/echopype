@@ -33,6 +33,5 @@ see the [](contributing) page.
 
 
 ## Example notebooks
---------
 
 The [echopype-examples](https://github.com/OSOceanAcoustics/echopype-examples) repository contains multiple Jupyter notebook examples illustrating the Echopype workflow. See the [rendered pages](https://echopype-examples.readthedocs.io/) before trying them out!
