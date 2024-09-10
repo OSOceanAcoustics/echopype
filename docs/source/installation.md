@@ -15,7 +15,7 @@ $ pip install echopype
 ```
 
 :::{note}
-We are working on getting upgraded to 3.12 soon!
+We are working on adding support for Python 3.12 soon!
 :::
 
 :::{attention}
