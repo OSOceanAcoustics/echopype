@@ -1,6 +1,8 @@
+import numpy as np
+
 from .parse_base import ParseEK
 from .utils.ek_raw_io import RawSimradFile
-import numpy as np
+
 
 class ParseEK80(ParseEK):
     """Class for converting data from Simrad EK80 echosounders."""
@@ -16,6 +18,7 @@ class ParseEK80(ParseEK):
     ):
         super().__init__(file, bot_file, idx_file, storage_options, sonar_model)
         self.environment = {}  # dictionary to store environment data
+
 
 def is_EK80(raw_file, storage_options):
     """Parse raw data to check if it is from Simrad EK80 echosounder."""
