@@ -19,7 +19,7 @@ class ParseEK60(ParseEK):
         super().__init__(file, bot_file, idx_file, storage_options, sonar_model)
 
 
-def _is_EK60(raw_file, storage_options):
+def is_EK60(raw_file, storage_options):
     """Parse raw data to check if it is from Simrad EK80 echosounder."""
     with RawSimradFile(raw_file, "r", storage_options=storage_options) as fid:
         config_datagram = fid.read(1)
