@@ -6,7 +6,7 @@ from scipy.io import loadmat
 import pytest
 
 from echopype import open_raw
-from echopype.convert import ParseEK60
+from echopype.convert import ParseEK60, is_EK60
 
 
 @pytest.fixture
@@ -264,3 +264,19 @@ def test_converting_ek60_raw_with_missing_channel_power():
     # Check that all empty power channels do not exist in the EchoData Beam group
     for _, empty_power_channel_name in empty_power_chs.items():
         assert empty_power_channel_name not in ed["Sonar/Beam_group1"]["channel"]
+
+
+def test_is_EK60_ek60_file():
+    # Replace with the path to a valid EK60 test file
+    test_file_path = "path/to/ek60_test_file.raw"
+    assert is_EK60(test_file_path, storage_options={}) == True
+
+def test_is_EK60_er60_file():
+    # Replace with the path to a valid ER60 test file
+    test_file_path = "path/to/er60_test_file.raw"
+    assert is_EK60(test_file_path, storage_options={}) == True
+
+def test_is_EK60_non_ek60_file():
+    # Replace with the path to a non-EK60/ER60 test file
+    test_file_path = "path/to/non_ek60_test_file.raw"
+    assert is_EK60(test_file_path, storage_options={}) == False

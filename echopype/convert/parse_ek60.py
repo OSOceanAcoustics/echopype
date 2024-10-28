@@ -20,15 +20,12 @@ class ParseEK60(ParseEK):
 
 
 def is_EK60(raw_file, storage_options):
-    """Parse raw data to check if it is from Simrad EK80 echosounder."""
+    """Check if a raw data file is from Simrad EK60 echosounder."""
     with RawSimradFile(raw_file, "r", storage_options=storage_options) as fid:
         config_datagram = fid.read(1)
         config_datagram["timestamp"] = np.datetime64(
             config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
         )
 
-        # Only EK80 files have configuration in self.config_datagram
-        if config_datagram["sounder_name"] == "ER60" or config_datagram["sounder_name"] == "EK60":
-            return True
-        else:
-            return False
+        # Return True if the sounder name matches "ER60" or "EK60"
+        return config_datagram["sounder_name"] in {"ER60", "EK60"}

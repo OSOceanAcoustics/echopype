@@ -7,7 +7,7 @@ from scipy.io import loadmat
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
-from echopype.convert.parse_ek80 import ParseEK80
+from echopype.convert.parse_ek80 import ParseEK80, is_EK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 
 
@@ -531,3 +531,13 @@ def test_parse_ek80_with_invalid_env_datagrams():
         env_var = ed["Environment"][var]
         assert env_var.notnull().all() and env_var.dtype == np.float64
 
+
+def test_is_EK80_ek80_file():
+    # Replace with the path to a valid EK80 test file that includes "configuration"
+    test_file_path = "path/to/ek80_test_file.raw"
+    assert is_EK80(test_file_path, storage_options={}) == True
+
+def test_is_EK80_non_ek80_file():
+    # Replace with the path to a test file without "configuration" key
+    test_file_path = "path/to/non_ek80_test_file.raw"
+    assert is_EK80(test_file_path, storage_options={}) == False
