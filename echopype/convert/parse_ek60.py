@@ -27,5 +27,8 @@ def is_EK60(raw_file, storage_options):
             config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
         )
 
-        # Return True if the sounder name matches "ER60" or "EK60"
-        return config_datagram["sounder_name"] in {"ER60", "EK60"}
+        try:
+            # Return True if the sounder name matches "ER60" or "EK60"
+            return config_datagram["sounder_name"] in {"ER60", "EK60"}
+        except KeyError as e:
+            False

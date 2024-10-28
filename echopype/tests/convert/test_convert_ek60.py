@@ -268,7 +268,7 @@ def test_converting_ek60_raw_with_missing_channel_power():
 
 def test_is_EK60_ek60_file():
     # Replace with the path to a valid EK60 test file
-    test_file_path = "path/to/ek60_test_file.raw"
+    test_file_path = "echopype/test_data/ek60/L0003-D20040909-T161906-EK60.raw"
     assert is_EK60(test_file_path, storage_options={}) == True
 
 def test_is_EK60_er60_file():
