@@ -273,10 +273,10 @@ def test_is_EK60_ek60_file():
 
 def test_is_EK60_er60_file():
     # Replace with the path to a valid ER60 test file
-    test_file_path = "path/to/er60_test_file.raw"
+    test_file_path = "echopype/test_data/ek60/L0003-D20040909-T161906-EK60.raw"
     assert is_EK60(test_file_path, storage_options={}) == True
 
 def test_is_EK60_non_ek60_file():
     # Replace with the path to a non-EK60/ER60 test file
-    test_file_path = "path/to/non_ek60_test_file.raw"
+    test_file_path = "echopype/test_data/ek80/D20170912-T234910.raw"
     assert is_EK60(test_file_path, storage_options={}) == False

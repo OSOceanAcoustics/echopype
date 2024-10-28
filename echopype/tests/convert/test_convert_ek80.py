@@ -534,10 +534,10 @@ def test_parse_ek80_with_invalid_env_datagrams():
 
 def test_is_EK80_ek80_file():
     # Replace with the path to a valid EK80 test file that includes "configuration"
-    test_file_path = "path/to/ek80_test_file.raw"
+    test_file_path = "echopype/test_data/ek80/D20170912-T234910.raw"
     assert is_EK80(test_file_path, storage_options={}) == True
 
 def test_is_EK80_non_ek80_file():
     # Replace with the path to a test file without "configuration" key
-    test_file_path = "path/to/non_ek80_test_file.raw"
+    test_file_path = "echopype/test_data/ek60/L0003-D20040909-T161906-EK60.raw"
     assert is_EK80(test_file_path, storage_options={}) == False
