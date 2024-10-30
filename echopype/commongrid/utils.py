@@ -203,7 +203,7 @@ def get_distance_from_latlon(ds_Sv):
 
     if len(df_latlon_nonan) == 0:  # lat/lon entries are all NaN
         raise ValueError("All lat/lon entries are NaN!")
-    
+
     df_latlon_nonan["dist"] = df_latlon_nonan.apply(
         lambda x: distance.distance(
             (x["latitude"], x["longitude"]),
