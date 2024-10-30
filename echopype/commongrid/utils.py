@@ -200,6 +200,10 @@ def get_distance_from_latlon(ds_Sv):
     df_pos["latitude_prev"] = df_pos["latitude"].shift(-1)
     df_pos["longitude_prev"] = df_pos["longitude"].shift(-1)
     df_latlon_nonan = df_pos.dropna().copy()
+
+    if len(df_latlon_nonan) == 0:  # lat/lon entries are all NaN
+        raise ValueError("All lat/lon entries are NaN!")
+    
     df_latlon_nonan["dist"] = df_latlon_nonan.apply(
         lambda x: distance.distance(
             (x["latitude"], x["longitude"]),
