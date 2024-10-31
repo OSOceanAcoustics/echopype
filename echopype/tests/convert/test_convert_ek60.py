@@ -1,5 +1,5 @@
 import warnings
-
+import glob
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
@@ -266,17 +266,26 @@ def test_converting_ek60_raw_with_missing_channel_power():
         assert empty_power_channel_name not in ed["Sonar/Beam_group1"]["channel"]
 
 
-def test_is_EK60_ek60_file():
-    # Replace with the path to a valid EK60 test file
-    test_file_path = "echopype/test_data/ek60/L0003-D20040909-T161906-EK60.raw"
-    assert is_EK60(test_file_path, storage_options={}) == True
+def test_is_EK60_ek60_files():
+    # Collect all .raw files in the ek60 directory
+    ek60_files = glob.glob("echopype/test_data/ek60/*.raw")
+    
+    # Check that each file in ek60 is identified as EK60
+    for test_file_path in ek60_files:
+        assert is_EK60(test_file_path, storage_options={}) == True
 
-def test_is_EK60_er60_file():
-    # Replace with the path to a valid ER60 test file
-    test_file_path = "echopype/test_data/ek60/L0003-D20040909-T161906-EK60.raw"
-    assert is_EK60(test_file_path, storage_options={}) == True
+def test_is_EK60_er60_files():
+    # Collect all .raw files in the ek60 directory (assuming ER60 files are also here)
+    er60_files = glob.glob("echopype/test_data/ek60/*.raw")
+    
+    # Check that each file in ek60 is identified as EK60
+    for test_file_path in er60_files:
+        assert is_EK60(test_file_path, storage_options={}) == True
 
-def test_is_EK60_non_ek60_file():
-    # Replace with the path to a non-EK60/ER60 test file
-    test_file_path = "echopype/test_data/ek80/D20170912-T234910.raw"
-    assert is_EK60(test_file_path, storage_options={}) == False
+def test_is_EK60_non_ek60_files():
+    # Collect all .raw files in the ek80 directory (non-EK60 files)
+    ek80_files = glob.glob("echopype/test_data/ek80/*.raw")
+    
+    # Check that each file in ek80 is not identified as EK60
+    for test_file_path in ek80_files:
+        assert is_EK60(test_file_path, storage_options={}) == False
