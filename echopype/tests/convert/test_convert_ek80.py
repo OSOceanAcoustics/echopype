@@ -1,5 +1,5 @@
 import shutil
-
+import glob
 import pytest
 import numpy as np
 import pandas as pd
@@ -532,12 +532,20 @@ def test_parse_ek80_with_invalid_env_datagrams():
         assert env_var.notnull().all() and env_var.dtype == np.float64
 
 
-def test_is_EK80_ek80_file():
-    # Replace with the path to a valid EK80 test file that includes "configuration"
-    test_file_path = "echopype/test_data/ek80/D20170912-T234910.raw"
-    assert is_EK80(test_file_path, storage_options={}) == True
+def test_is_EK80_ek80_files():
+    """Test that EK80 files are identified as EK80."""
+    # Collect all .raw files in the ek80 directory
+    ek80_files = glob.glob("echopype/test_data/ek80/*.raw")
+    
+    # Check that each file in ek80 is identified as EK80
+    for test_file_path in ek80_files:
+        assert is_EK80(test_file_path, storage_options={}) == True
 
-def test_is_EK80_non_ek80_file():
-    # Replace with the path to a test file without "configuration" key
-    test_file_path = "echopype/test_data/ek60/L0003-D20040909-T161906-EK60.raw"
-    assert is_EK80(test_file_path, storage_options={}) == False
+def test_is_EK80_non_ek80_files():
+    """Test that non-EK80 files are not identified as EK80."""
+    # Collect all .raw files in the ek60 directory (non-EK80 files)
+    ek60_files = glob.glob("echopype/test_data/ek60/*.raw")
+    
+    # Check that each file in ek60 is not identified as EK80
+    for test_file_path in ek60_files:
+        assert is_EK80(test_file_path, storage_options={}) == False

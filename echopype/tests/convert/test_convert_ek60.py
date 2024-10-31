@@ -267,6 +267,7 @@ def test_converting_ek60_raw_with_missing_channel_power():
 
 
 def test_is_EK60_ek60_files():
+    """Check that EK60 files are identified as EK60"""
     # Collect all .raw files in the ek60 directory
     ek60_files = glob.glob("echopype/test_data/ek60/*.raw")
     
@@ -275,6 +276,7 @@ def test_is_EK60_ek60_files():
         assert is_EK60(test_file_path, storage_options={}) == True
 
 def test_is_EK60_er60_files():
+    """Check that ER60 files are identified as EK60"""
     # Collect all .raw files in the ek60 directory (assuming ER60 files are also here)
     er60_files = glob.glob("echopype/test_data/ek60/*.raw")
     
@@ -283,6 +285,7 @@ def test_is_EK60_er60_files():
         assert is_EK60(test_file_path, storage_options={}) == True
 
 def test_is_EK60_non_ek60_files():
+    """Check that non-EK60 files are not identified as EK60"""
     # Collect all .raw files in the ek80 directory (non-EK60 files)
     ek80_files = glob.glob("echopype/test_data/ek80/*.raw")
     
