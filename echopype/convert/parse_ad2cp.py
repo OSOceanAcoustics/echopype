@@ -1853,3 +1853,25 @@ class HeaderOrDataRecordFormats:
         DataRecordType.ECHOSOUNDER_RAW_TRANSMIT: ECHOSOUNDER_RAW_DATA_RECORD_FORMAT,
         DataRecordType.STRING: STRING_DATA_RECORD_FORMAT,
     }
+
+
+def is_AD2CP(raw_file):
+    """
+    Check if the provided file has a .ad2cp extension.
+
+    Parameters:
+    raw_file (str): The name of the file to check.
+
+    Returns:
+    bool: True if the file has a .ad2cp extension, False otherwise.
+    """
+    
+    # Check if the input is a string
+    if not isinstance(raw_file, str):
+        return False  # Return False if the input is not a string
+    
+    # Use the str.lower() method to check for the .ad2cp extension
+    has_ad2cp_extension = raw_file.lower().endswith('.ad2cp')
+
+    # Return the result of the check
+    return has_ad2cp_extension
