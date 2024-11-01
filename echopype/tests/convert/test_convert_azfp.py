@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
 import pytest
-from echopype.convert.parse_azfp import ParseAZFP
+from echopype.convert.parse_azfp import ParseAZFP, is_AZFP
 
 
 @pytest.fixture

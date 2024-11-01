@@ -12,10 +12,12 @@ import netCDF4
 import pytest
 from tempfile import TemporaryDirectory
 from pathlib import Path
+import glob
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
 
+from echopype.convert.parse_ad2cp import is_AD2CP
 
 @pytest.fixture
 def ocean_contour_export_dir(test_path):
@@ -260,3 +262,22 @@ def _check_raw_output(
                         atol=absolute_tolerance,
                     )
         base.close()
+
+
+def test_is_AD2CP_valid_files():
+    """Test that .ad2cp files are identified as valid AD2CP files."""
+    # Collect all .ad2cp files in the test directory
+    ad2cp_files = glob.glob("test_data/ad2cp/*.ad2cp")
+    
+    # Check that each file in ad2cp is identified as valid AD2CP
+    for test_file_path in ad2cp_files:
+        assert is_AD2CP(test_file_path) == True
+
+def test_is_AD2CP_invalid_files():
+    """Test that non-.ad2cp files are not identified as valid AD2CP files."""
+    # Collect all non-.ad2cp files in the test directory
+    non_ad2cp_files = glob.glob("echopype/test_data/azfp6/*")
+    
+    # Check that each file in non_ad2cp is not identified as valid AD2CP
+    for test_file_path in non_ad2cp_files:
+        assert is_AD2CP(test_file_path) == False
