@@ -1,12 +1,12 @@
 import warnings
-
+import glob
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 import pytest
 
 from echopype import open_raw
-from echopype.convert import ParseEK60
+from echopype.convert import ParseEK60, is_EK60
 
 
 @pytest.fixture
@@ -264,3 +264,31 @@ def test_converting_ek60_raw_with_missing_channel_power():
     # Check that all empty power channels do not exist in the EchoData Beam group
     for _, empty_power_channel_name in empty_power_chs.items():
         assert empty_power_channel_name not in ed["Sonar/Beam_group1"]["channel"]
+
+
+def test_is_EK60_ek60_files():
+    """Check that EK60 files are identified as EK60"""
+    # Collect all .raw files in the ek60 directory
+    ek60_files = glob.glob("echopype/test_data/ek60/*.raw")
+    
+    # Check that each file in ek60 is identified as EK60
+    for test_file_path in ek60_files:
+        assert is_EK60(test_file_path, storage_options={}) == True
+
+def test_is_EK60_er60_files():
+    """Check that ER60 files are identified as EK60"""
+    # Collect all .raw files in the ek60 directory (assuming ER60 files are also here)
+    er60_files = glob.glob("echopype/test_data/ek60/*.raw")
+    
+    # Check that each file in ek60 is identified as EK60
+    for test_file_path in er60_files:
+        assert is_EK60(test_file_path, storage_options={}) == True
+
+def test_is_EK60_non_ek60_files():
+    """Check that non-EK60 files are not identified as EK60"""
+    # Collect all .raw files in the ek80 directory (non-EK60 files)
+    ek80_files = glob.glob("echopype/test_data/ek80/*.raw")
+    
+    # Check that each file in ek80 is not identified as EK60
+    for test_file_path in ek80_files:
+        assert is_EK60(test_file_path, storage_options={}) == False
