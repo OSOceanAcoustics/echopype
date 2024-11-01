@@ -10,11 +10,11 @@ The current version supports:
 """
 
 # flake8: noqa
-from .parse_ad2cp import ParseAd2cp
-from .parse_azfp import ParseAZFP
-from .parse_azfp6 import ParseAZFP6
+from .parse_ad2cp import ParseAd2cp, is_AD2CP
+from .parse_azfp import ParseAZFP, is_AZFP
+from .parse_azfp6 import ParseAZFP6, is_AZFP6
 from .parse_base import ParseBase
-from .parse_ek60 import ParseEK60, is_EK60
+from .parse_ek60 import ParseEK60, is_EK60, is_ER60
 from .parse_ek80 import ParseEK80, is_EK80
 from .set_groups_ad2cp import SetGroupsAd2cp
 from .set_groups_azfp import SetGroupsAZFP
