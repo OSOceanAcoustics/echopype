@@ -4,7 +4,8 @@ This module test conversion of two sets of .ad2cp files.
 Files under "normal" contain default data variables,
 whereas files under "raw" additionally contain the IQ samples.
 """
-
+import glob
+from echopype.convert import is_AD2CP
 
 import xarray as xr
 import numpy as np

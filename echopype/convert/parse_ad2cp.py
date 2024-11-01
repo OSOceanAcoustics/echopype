@@ -8,6 +8,7 @@ from typing_extensions import Literal
 from .parse_base import ParseBase
 
 
+
 @unique
 class BurstAverageDataRecordVersion(Enum):
     """
