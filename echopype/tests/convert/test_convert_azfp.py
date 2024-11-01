@@ -271,7 +271,7 @@ def test_load_parse_azfp_xml(azfp_path):
 def test_is_AZFP_valid_files():
     """Test that XML files with <InstrumentType string="AZFP"> are identified as valid AZFP files."""
     # Collect all valid XML files in the test directory
-    valid_files = glob.glob("echopype/test_data/azfp/*.xml") + glob.glob("test_data/azfp/*.XML")
+    valid_files = glob.glob("echopype/test_data/azfp/*.xml") + glob.glob("echopype/test_data/azfp/*.XML")
     
     for test_file_path in valid_files:
         assert is_AZFP(test_file_path) == True

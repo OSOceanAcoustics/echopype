@@ -28,7 +28,7 @@ def is_ER60(raw_file, storage_options):
         )
         # Return True if the sounder name matches "ER60"
         try:
-            return config_datagram["sounder_name"] in {"ER60"}
+            return config_datagram["sounder_name"] in {"ER60", "EK60"}
         except KeyError:
             return False
 
@@ -43,6 +43,6 @@ def is_EK60(raw_file, storage_options):
 
         try:
             # Return True if the sounder name matches "EK60"
-            return config_datagram["sounder_name"] in {"EK60"}
+            return config_datagram["sounder_name"] in {"ER60", "EK60"}
         except KeyError:
             return False
