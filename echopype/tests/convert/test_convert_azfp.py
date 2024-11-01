@@ -4,6 +4,8 @@ This module contains tests that:
 - verify echopype converted files against those from AZFP Matlab scripts and EchoView
 - convert AZFP file with different range settings across frequency
 """
+import xml.etree.ElementTree as ET
+import glob
 
 import numpy as np
 import pandas as pd
@@ -263,3 +265,21 @@ def test_load_parse_azfp_xml(azfp_path):
     assert parseAZFP.parameters['pulse_len_phase2'] == [0, 0, 0, 0]
     assert parseAZFP.parameters['range_samples_phase1'] == [8273, 8273, 8273, 8273]
     assert parseAZFP.parameters['range_samples_phase2'] == [2750, 2750, 2750, 2750]
+
+
+
+def test_is_AZFP_valid_files():
+    """Test that XML files with <InstrumentType string="AZFP"> are identified as valid AZFP files."""
+    # Collect all valid XML files in the test directory
+    valid_files = glob.glob("echopype/test_data/azfp/*.xml") + glob.glob("test_data/azfp/*.XML")
+    
+    for test_file_path in valid_files:
+        assert is_AZFP(test_file_path) == True
+
+def test_is_AZFP_invalid_files():
+    """Test that XML files without <InstrumentType string="AZFP"> are not identified as valid AZFP files."""
+    # Collect all invalid XML files in the test directory
+    invalid_files = glob.glob("echopype/test_data/azfp6/*")
+    
+    for test_file_path in invalid_files:
+        assert is_AZFP(test_file_path) == False
