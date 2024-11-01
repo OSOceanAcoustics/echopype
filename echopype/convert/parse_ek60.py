@@ -1,9 +1,7 @@
 import numpy as np
 
-
 from .parse_base import ParseEK
 from .utils.ek_raw_io import RawSimradFile
-
 
 
 class ParseEK60(ParseEK):
@@ -21,7 +19,6 @@ class ParseEK60(ParseEK):
         super().__init__(file, bot_file, idx_file, storage_options, sonar_model)
 
 
-
 def is_ER60(raw_file, storage_options):
     """Check if a raw data file is from Simrad EK60 echosounder."""
     with RawSimradFile(raw_file, "r", storage_options=storage_options) as fid:
@@ -36,9 +33,7 @@ def is_ER60(raw_file, storage_options):
             return False
 
 
-
 def is_EK60(raw_file, storage_options):
-
     """Check if a raw data file is from Simrad EK60 echosounder."""
     with RawSimradFile(raw_file, "r", storage_options=storage_options) as fid:
         config_datagram = fid.read(1)
@@ -51,4 +46,3 @@ def is_EK60(raw_file, storage_options):
             return config_datagram["sounder_name"] in {"EK60"}
         except KeyError:
             return False
-

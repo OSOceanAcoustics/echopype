@@ -1865,13 +1865,13 @@ def is_AD2CP(raw_file):
     Returns:
     bool: True if the file has a .ad2cp extension, False otherwise.
     """
-    
+
     # Check if the input is a string
     if not isinstance(raw_file, str):
         return False  # Return False if the input is not a string
-    
+
     # Use the str.lower() method to check for the .ad2cp extension
-    has_ad2cp_extension = raw_file.lower().endswith('.ad2cp')
+    has_ad2cp_extension = raw_file.lower().endswith(".ad2cp")
 
     # Return the result of the check
     return has_ad2cp_extension

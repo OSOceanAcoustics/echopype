@@ -571,6 +571,7 @@ class ParseAZFP(ParseBase):
 
         return SV_OFFSET[freq][pulse_len]
 
+
 def is_AZFP(raw_file):
     """
     Check if the specified XML file contains an <InstrumentType> with string="AZFP".
@@ -582,25 +583,24 @@ def is_AZFP(raw_file):
     bool: True if <InstrumentType> with string="AZFP" is found, False otherwise.
     """
 
-        
     # Check if the filename ends with .xml or .XML, and strip the extension if it does
-    base_filename = raw_file.rstrip('.xml').rstrip('.XML')
+    base_filename = raw_file.rstrip(".xml").rstrip(".XML")
 
     # Create a list of possible filenames with both extensions
     possible_files = [f"{base_filename}.xml", f"{base_filename}.XML"]
-    
+
     for full_filename in possible_files:
         if os.path.isfile(full_filename):
             try:
                 # Parse the XML file
                 tree = ET.parse(full_filename)
                 root = tree.getroot()
-                
+
                 # Check for <InstrumentType> elements
-                for instrument in root.findall('.//InstrumentType'):
-                    if instrument.get('string') == 'AZFP':
+                for instrument in root.findall(".//InstrumentType"):
+                    if instrument.get("string") == "AZFP":
                         return True
             except ET.ParseError:
                 print(f"Error parsing the XML file: {full_filename}.")
-    
+
     return False
