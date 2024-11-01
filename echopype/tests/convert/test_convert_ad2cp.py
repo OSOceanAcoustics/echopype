@@ -267,7 +267,7 @@ def _check_raw_output(
 def test_is_AD2CP_valid_files():
     """Test that .ad2cp files are identified as valid AD2CP files."""
     # Collect all .ad2cp files in the test directory
-    ad2cp_files = glob.glob("test_data/ad2cp/*.ad2cp")
+    ad2cp_files = glob.glob("echopype/test_data/ad2cp/normal/*.ad2cp")
     
     # Check that each file in ad2cp is identified as valid AD2CP
     for test_file_path in ad2cp_files:
