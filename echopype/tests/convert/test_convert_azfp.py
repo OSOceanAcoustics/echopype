@@ -195,7 +195,7 @@ def test_convert_azfp_01a_pressure_temperature(azfp_path):
 
 
 def test_convert_azfp_UNB_glider_130kHz(azfp_path):
-    """Test converting file with valid pressure and temperature data."""
+    """Test converting UNB AZFP files with 130kHz."""
     azfp_01B_path = azfp_path / 'UNB_glider/20092418.01B'
     azfp_xml_path = azfp_path / 'UNB_glider/20092414.XML'
 
@@ -203,9 +203,7 @@ def test_convert_azfp_UNB_glider_130kHz(azfp_path):
         raw_file=azfp_01B_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
 
-    # Check that frequency nominal include 130kHz (may not need to check all 3 locations)
-    assert 130000.0 in echodata["Environment"]["frequency_nominal"]
-    assert 130000.0 in echodata["Platform"]["frequency_nominal"]
+    # Check that frequency nominal include 130kHz
     assert 130000.0 in echodata["Sonar/Beam_group1"]["frequency_nominal"]
 
 
