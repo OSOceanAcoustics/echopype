@@ -1,4 +1,7 @@
+import numpy as np
+
 from .parse_base import ParseEK
+from .utils.ek_raw_io import RawSimradFile
 
 
 class ParseEK80(ParseEK):
@@ -15,3 +18,15 @@ class ParseEK80(ParseEK):
     ):
         super().__init__(file, bot_file, idx_file, storage_options, sonar_model)
         self.environment = {}  # dictionary to store environment data
+
+
+def is_EK80(raw_file, storage_options):
+    """Check if a raw data file is from Simrad EK80 echosounder."""
+    with RawSimradFile(raw_file, "r", storage_options=storage_options) as fid:
+        config_datagram = fid.read(1)
+        config_datagram["timestamp"] = np.datetime64(
+            config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
+        )
+
+        # Return True if "configuration" exists in config_datagram
+        return "configuration" in config_datagram
