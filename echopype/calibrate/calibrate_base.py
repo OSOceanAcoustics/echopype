@@ -99,7 +99,7 @@ class CalibrateBase(abc.ABC):
         that will not overwhelm the system memory.
         """
         # Initialize total nbytes
-        if self.echodata.sonar_model in ["EK60", "AZFP"]:
+        if self.echodata.sonar_model in ["EK60", "AZFP", "EA640"]:
             total_nbytes = self.echodata["Sonar/Beam_group1"]["backscatter_r"].nbytes
         elif self.echodata.sonar_model == "EK80":
             # Select source of backscatter data
