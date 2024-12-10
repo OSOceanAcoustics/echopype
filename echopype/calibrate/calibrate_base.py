@@ -99,9 +99,7 @@ class CalibrateBase(abc.ABC):
         that will not overwhelm the system memory.
         """
         # Initialize total nbytes
-        if self.echodata.sonar_model in ["EK60", "AZFP", "EA640"]:
-            total_nbytes = self.echodata["Sonar/Beam_group1"]["backscatter_r"].nbytes
-        elif self.echodata.sonar_model == "EK80":
+        if self.echodata.sonar_model == "EK80":
             # Select source of backscatter data
             beam = self.echodata[self.ed_beam_group]
 
@@ -112,6 +110,8 @@ class CalibrateBase(abc.ABC):
                 total_nbytes = beam["backscatter_r"].nbytes + beam["backscatter_i"].nbytes
             elif self.waveform_mode == "CW" and self.encode_mode == "power":
                 total_nbytes = beam["backscatter_r"].nbytes
+        else:
+            total_nbytes = self.echodata["Sonar/Beam_group1"]["backscatter_r"].nbytes
 
         # Compute GigaBytes from Bytes
         total_gb = total_nbytes / (1024**3)
