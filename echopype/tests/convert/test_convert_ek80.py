@@ -1,5 +1,4 @@
 import shutil
-
 import pytest
 import numpy as np
 import pandas as pd
@@ -7,7 +6,7 @@ from scipy.io import loadmat
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
-from echopype.convert.parse_ek80 import ParseEK80
+from echopype.convert.parse_ek80 import ParseEK80, is_EK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 
 
@@ -530,4 +529,3 @@ def test_parse_ek80_with_invalid_env_datagrams():
     for var in ["acidity", "depth", "salinity", "temperature", "sound_speed_indicative"]:
         env_var = ed["Environment"][var]
         assert env_var.notnull().all() and env_var.dtype == np.float64
-
