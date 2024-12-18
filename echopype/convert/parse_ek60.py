@@ -1,5 +1,6 @@
 from .parse_base import ParseEK
 
+
 class ParseEK60(ParseEK):
     """Class for converting data from Simrad EK60 echosounders."""
 
