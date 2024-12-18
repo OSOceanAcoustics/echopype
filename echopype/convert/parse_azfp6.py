@@ -689,25 +689,3 @@ class ParseAZFP6(ParseBase):
             )
 
         return SV_OFFSET[freq][pulse_len]
-
-
-def is_AZFP6(raw_file):
-    """
-    Check if the provided file has a .azfp extension.
-
-    Parameters:
-    raw_file (str): The name of the file to check.
-
-    Returns:
-    bool: True if the file has a .azfp extension, False otherwise.
-    """
-
-    # Check if the input is a string
-    if not isinstance(raw_file, str):
-        return False  # Return False if the input is not a string
-
-    # Use the str.lower() method to check for the .azfp extension
-    has_azfp_extension = raw_file.lower().endswith(".azfp")
-
-    # Return the result of the check
-    return has_azfp_extension
