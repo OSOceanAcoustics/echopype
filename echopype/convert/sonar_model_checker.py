@@ -1,5 +1,7 @@
-from .utils.ek_raw_io import RawSimradFile
 import numpy as np
+
+from .utils.ek_raw_io import RawSimradFile
+
 
 def is_EK80(raw_file, storage_options):
     """Check if a raw data file is from Simrad EK80 echosounder."""
@@ -11,8 +13,7 @@ def is_EK80(raw_file, storage_options):
 
         # Return True if "configuration" exists in config_datagram
         return "configuration" in config_datagram
-    
-    
+
 
 def is_EK60(raw_file, storage_options):
     """Check if a raw data file is from Simrad EK60 echosounder."""
@@ -27,7 +28,6 @@ def is_EK60(raw_file, storage_options):
             return config_datagram["sounder_name"] in {"ER60", "EK60"}
         except KeyError:
             return False
-
 
 
 def is_AZFP6(raw_file):
@@ -85,6 +85,7 @@ def is_AZFP(raw_file):
 
     return False
 
+
 def is_AD2CP(raw_file):
     """
     Check if the provided file has a .ad2cp extension.
@@ -105,6 +106,7 @@ def is_AD2CP(raw_file):
 
     # Return the result of the check
     return has_ad2cp_extension
+
 
 def is_ER60(raw_file, storage_options):
     """Check if a raw data file is from Simrad EK60 echosounder."""
