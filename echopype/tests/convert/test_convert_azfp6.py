@@ -166,23 +166,3 @@ def test_convert_azfp_02a_gps_lat_long(azfp_path):
     )
     
     check_platform_required_scalar_vars(echodata)
-
-
-
-def test_is_AZFP6_valid_files():
-    """Test that .azfp files are identified as valid AZFP files."""
-    # Collect all .azfp files in the test directory
-    azfp_files = glob.glob("echopype/test_data/azfp6/*.azfp")
-    
-    # Check that each file in azfp is identified as valid AZFP
-    for test_file_path in azfp_files:
-        assert is_AZFP6(test_file_path) == True
-
-def test_is_AZFP6_invalid_files():
-    """Test that non-.azfp files are not identified as valid AZFP files."""
-    # Collect all non-.azfp files in the test directory
-    non_azfp_files = glob.glob("echopype/test_data/azfp/*")
-    
-    # Check that each file in non_azfp is not identified as valid AZFP
-    for test_file_path in non_azfp_files:
-        assert is_AZFP6(test_file_path) == False

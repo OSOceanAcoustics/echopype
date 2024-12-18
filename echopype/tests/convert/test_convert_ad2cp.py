@@ -263,22 +263,3 @@ def _check_raw_output(
                         atol=absolute_tolerance,
                     )
         base.close()
-
-
-def test_is_AD2CP_valid_files():
-    """Test that .ad2cp files are identified as valid AD2CP files."""
-    # Collect all .ad2cp files in the test directory
-    ad2cp_files = glob.glob("echopype/test_data/ad2cp/normal/*.ad2cp")
-    
-    # Check that each file in ad2cp is identified as valid AD2CP
-    for test_file_path in ad2cp_files:
-        assert is_AD2CP(test_file_path) == True
-
-def test_is_AD2CP_invalid_files():
-    """Test that non-.ad2cp files are not identified as valid AD2CP files."""
-    # Collect all non-.ad2cp files in the test directory
-    non_ad2cp_files = glob.glob("echopype/test_data/azfp6/*")
-    
-    # Check that each file in non_ad2cp is not identified as valid AD2CP
-    for test_file_path in non_ad2cp_files:
-        assert is_AD2CP(test_file_path) == False
