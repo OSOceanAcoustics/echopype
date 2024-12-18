@@ -1,8 +1,4 @@
-import numpy as np
-
 from .parse_base import ParseEK
-from .utils.ek_raw_io import RawSimradFile
-
 
 class ParseEK60(ParseEK):
     """Class for converting data from Simrad EK60 echosounders."""
