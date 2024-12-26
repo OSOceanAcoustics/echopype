@@ -53,7 +53,6 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
     """
     Validates and fixes data type for expected variables
     """
-
     if isinstance(ds, xr.Dataset):
         for name, var in ds.variables.items():
             if name in EXPECTED_VAR_DTYPE:
