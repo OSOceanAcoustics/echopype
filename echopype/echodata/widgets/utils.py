@@ -3,6 +3,7 @@ from hashlib import md5
 
 from xarray import DataTree
 from xarray.datatree_.datatree.render import RenderTree
+# NOTE this render tree import is wrong. Have to figure out what happened after this xarray: https://github.com/pydata/xarray/pull/8789. # noqa
 
 from ..convention.utils import _get_sonar_groups
 
