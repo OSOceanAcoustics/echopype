@@ -1,8 +1,8 @@
 import uuid
 from hashlib import md5
 
-from datatree import DataTree
-from datatree.render import RenderTree
+from xarray import DataTree
+from xarray.datatree_.datatree.render import RenderTree
 
 from ..convention.utils import _get_sonar_groups
 
