@@ -2,7 +2,7 @@ import uuid
 from hashlib import md5
 
 from xarray import DataTree
-from xarray.datatree_.datatree.render import RenderTree
+from xarray.core.datatree_render import RenderDataTree
 
 from ..convention.utils import _get_sonar_groups
 
@@ -66,7 +66,7 @@ def _single_node_repr(node: DataTree) -> str:
 
 
 def tree_repr(tree: DataTree) -> str:
-    renderer = RenderTree(tree)
+    renderer = RenderDataTree(tree)
     lines = []
     for pre, _, node in renderer:
         if node.has_data or node.has_attrs:
