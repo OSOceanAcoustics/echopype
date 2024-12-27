@@ -7,7 +7,7 @@ numpy<2
 pynmea2
 pytz
 scipy
-xarray
+xarray>=2024.11.0
 pandas
 zarr
 fsspec
