@@ -2,7 +2,7 @@
 
 ## Installation
 
-Echopype is available and tested for Python 3.9-3.12. The latest release can be installed through conda (or mamba, see below) via the [conda-forge channel](https://anaconda.org/conda-forge/echopype):
+Echopype is available and tested for Python 3.10-3.12. The latest release can be installed through conda (or mamba, see below) via the [conda-forge channel](https://anaconda.org/conda-forge/echopype):
 ```shell
 # Install via conda-forge
 $ conda install -c conda-forge echopype
