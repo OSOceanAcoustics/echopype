@@ -1,12 +1,12 @@
 import warnings
-
+import glob
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 import pytest
 
 from echopype import open_raw
-from echopype.convert import ParseEK60
+from echopype.convert import ParseEK60, is_EK60, is_ER60
 
 
 @pytest.fixture

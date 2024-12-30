@@ -81,7 +81,23 @@ One can replace `conda` with `mamba` in the above commands when creating the env
 
 Currently, test data are stored in a private Google Drive folder and
 made available via the [`cormorack/http`](https://hub.docker.com/r/cormorack/http)
-Docker image on Docker hub.
+Docker image on Docker hub. There’s no need to pull directly from Docker Hub, as the scripts below will handle that for you. For Linux Users: If you run into an issue where accessing the Docker daemon requires sudo privileges, which may not suit your environment, you can adjust your settings to allow non-root access to Docker:
+
+```shell
+sudo groupadd docker
+```
+
+Add the current user to the Docker group
+```shell
+sudo gpasswd -a $USER docker
+```
+
+Restart the docker daemon
+```shell
+sudo service docker restart
+```
+
+You might also need to restart your computer if the steps above don't resolve the issue.
 The image is rebuilt daily when new test data are added.
 If your tests require adding new test data, ping the maintainers (@leewujung, @ctuguinay)
 to get them added to the the Google Drive.
