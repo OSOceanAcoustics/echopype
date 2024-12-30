@@ -27,6 +27,7 @@ COMPRESSION_SETTINGS = {
 
 
 DEFAULT_ENCODINGS = {
+    "nmea_time": DEFAULT_TIME_ENCODING,
     "ping_time": DEFAULT_TIME_ENCODING,
     "ping_time_transmit": DEFAULT_TIME_ENCODING,
     "time1": DEFAULT_TIME_ENCODING,
