@@ -4,7 +4,7 @@ import fsspec
 from pathlib import Path
 import shutil
 
-from datatree import DataTree
+from xarray import DataTree
 from zarr.errors import GroupNotFoundError
 
 import echopype
