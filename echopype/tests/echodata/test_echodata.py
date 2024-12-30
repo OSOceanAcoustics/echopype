@@ -193,7 +193,7 @@ def range_check_files(request, test_path):
         test_path[request.param["path_model"]].joinpath(request.param['raw_path'])
     )
 
-# TODO: Uncomment when having fixed backward compatability https://github.com/OSOceanAcoustics/echopype/issues/1420 # noqa
+# TODO: Uncomment when having fixed backward compatibility https://github.com/OSOceanAcoustics/echopype/issues/1420 # noqa
 # class TestEchoData:
 #     expected_groups = (
 #         'Top-level',
