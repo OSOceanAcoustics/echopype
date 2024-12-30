@@ -12,7 +12,7 @@ import os
 import fsspec
 import xarray as xr
 import pytest
-from datatree import open_datatree
+from xarray import open_datatree
 from tempfile import TemporaryDirectory
 from echopype import open_raw
 from echopype.utils.coding import DEFAULT_ENCODINGS
