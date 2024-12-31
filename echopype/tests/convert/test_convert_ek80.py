@@ -1,9 +1,11 @@
+import shutil
+
 import pytest
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-from echopype import open_raw
 
+from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
@@ -482,3 +484,50 @@ def test_parse_mru0_mru1(ek80_path):
     ]
     for mru_var_name in mru_var_names:
         assert not np.any(np.isnan(echodata["Platform"][mru_var_name]))
+
+
+@pytest.mark.unit
+def test_parse_missing_sound_velocity_profile():
+    """
+    Tests that RAW files that are missing sound velocity profile values can be
+    converted, saved to Zarr, and opened again.
+    """
+    # Open RAW
+    ed = open_raw(
+        "echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230701-T073658.raw",
+        sonar_model="EK80"
+    )
+
+    # Save RAW to Zarr
+    save_path = "echopype/test_data/ek80_missing_sound_velocity_profile/test_save.zarr"
+    ed.to_zarr(save_path,overwrite=True)
+
+    # Open Converted
+    ed_2 = open_converted(save_path)
+
+    # Check Environment Sound Velocity Profile Depth coordinate
+    ed["Environment"]["sound_velocity_profile_depth"] == [np.nan]
+    ed_2["Environment"]["sound_velocity_profile_depth"] == [np.nan]
+
+    # Remove Zarr File
+    shutil.rmtree(save_path)
+
+
+@pytest.mark.unit
+def test_parse_ek80_with_invalid_env_datagrams():
+    """
+    Tests parsing EK80 RAW file with invalid environment datagrams. Checks that the EchoData object
+    contains the necessary environment variables for calibration.
+    """
+
+    # Parse RAW
+    ed = open_raw(
+        "echopype/test_data/ek80_invalid_env_datagrams/SH24-replay-D20240705-T070536.raw",
+        sonar_model="EK80",
+    )
+
+    # Check that each calibration specific variable exists, is not NaN, and is of type float64
+    for var in ["acidity", "depth", "salinity", "temperature", "sound_speed_indicative"]:
+        env_var = ed["Environment"][var]
+        assert env_var.notnull().all() and env_var.dtype == np.float64
+

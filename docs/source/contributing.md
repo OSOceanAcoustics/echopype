@@ -1,3 +1,4 @@
+(contributing)=
 # Contributing to echopype
 
 

@@ -24,9 +24,9 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v5.1.1
+      uses: actions/setup-python@v5.3.0
       with:
-        python-version: 3.9
+        python-version: 3.11
 
     - name: Install dependencies
       run: python -m pip install setuptools wheel
@@ -56,10 +56,10 @@ jobs:
     needs: build-artifact
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/setup-python@v5.1.1
+    - uses: actions/setup-python@v5.3.0
       name: Install Python
       with:
-        python-version: 3.9
+        python-version: 3.11
     - uses: actions/download-artifact@v4
       with:
         name: releases
@@ -69,7 +69,7 @@ jobs:
         ls -ltrh
         ls -ltrh dist
     - name: Publish to Test PyPI
-      uses: pypa/gh-action-pypi-publish@v1.9.0
+      uses: pypa/gh-action-pypi-publish@v1.12.3
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
         repository_url: https://test.pypi.org/legacy/
@@ -104,6 +104,6 @@ jobs:
         name: releases
         path: dist
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.9.0
+      uses: pypa/gh-action-pypi-publish@v1.12.3
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
