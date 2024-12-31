@@ -531,3 +531,15 @@ def test_parse_ek80_with_invalid_env_datagrams():
         env_var = ed["Environment"][var]
         assert env_var.notnull().all() and env_var.dtype == np.float64
 
+
+@pytest.mark.unit
+def test_duplicate_ping_times():
+    """
+    Tests that RAW file with duplicate ping times can be parsed.
+    """
+    # Open RAW
+    ed = open_raw("echopype/test_data/ek80_duplicate_ping_times/Hake-D20210913-T225435.raw", sonar_model="EK80")
+    # Check that there are no ping time duplicates in Beam group
+    assert ed["Sonar/Beam_group1"].equals(
+        ed["Sonar/Beam_group1"].drop_duplicates(dim="ping_time")
+    )
