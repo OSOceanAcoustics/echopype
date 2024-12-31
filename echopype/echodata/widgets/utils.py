@@ -6,9 +6,6 @@ from xarray.core.datatree_render import RenderDataTree
 
 from ..convention.utils import _get_sonar_groups
 
-# NOTE this render tree import is wrong. Have to figure out what happened after this xarray: https://github.com/pydata/xarray/pull/8789. # noqa
-
-
 SONAR_GROUPS = _get_sonar_groups()
 
 
