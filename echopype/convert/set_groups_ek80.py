@@ -227,7 +227,7 @@ class SetGroupsEK80(SetGroupsBase):
         # Create dataset
         sonar_vars = {
             "frequency_nominal": (
-                ["channel"],
+                ["channel_all"],
                 var["transducer_frequency"],
                 {
                     "units": "Hz",
@@ -237,21 +237,21 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             ),
             "transceiver_serial_number": (
-                ["channel"],
+                ["channel_all"],
                 var["serial_number"],
                 {
                     "long_name": "Transceiver serial number",
                 },
             ),
             "transducer_name": (
-                ["channel"],
+                ["channel_all"],
                 var["transducer_name"],
                 {
                     "long_name": "Transducer name",
                 },
             ),
             "transducer_serial_number": (
-                ["channel"],
+                ["channel_all"],
                 var["transducer_serial_number"],
                 {
                     "long_name": "Transducer serial number",
@@ -261,8 +261,8 @@ class SetGroupsEK80(SetGroupsBase):
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
             coords={
-                "channel": (
-                    ["channel"],
+                "channel_all": (
+                    ["channel_all"],
                     self.sorted_channel["all"],
                     self._varattrs["beam_coord_default"]["channel"],
                 ),

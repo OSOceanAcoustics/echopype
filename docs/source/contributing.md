@@ -50,7 +50,7 @@ To create an environment for developing Echopype, we recommend the following ste
     ```shell
     # Create a conda environment using the supplied requirements files
     # Note the last one docs/requirements.txt is only required for building docs
-    conda create -c conda-forge -n echopype --yes python=3.9 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
+    conda create -c conda-forge -n echopype --yes python=3.12 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
 
     # Switch to the newly built environment
     conda activate echopype
