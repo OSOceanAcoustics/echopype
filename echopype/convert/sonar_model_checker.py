@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import xml.etree.ElementTree as ET
 
 from .utils.ek_raw_io import RawSimradFile
 
