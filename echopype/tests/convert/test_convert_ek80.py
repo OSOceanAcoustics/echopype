@@ -6,7 +6,7 @@ from scipy.io import loadmat
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
-from echopype.convert.parse_ek80 import ParseEK80, is_EK80
+from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 
 
