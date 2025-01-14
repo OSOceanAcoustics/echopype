@@ -6,7 +6,7 @@ from scipy.io import loadmat
 import pytest
 
 from echopype import open_raw
-from echopype.convert import ParseEK60, is_EK60, is_ER60
+from echopype.convert import ParseEK60
 
 
 @pytest.fixture

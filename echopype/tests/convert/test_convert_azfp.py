@@ -4,15 +4,13 @@ This module contains tests that:
 - verify echopype converted files against those from AZFP Matlab scripts and EchoView
 - convert AZFP file with different range settings across frequency
 """
-import xml.etree.ElementTree as ET
-import glob
 
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
 import pytest
-from echopype.convert.parse_azfp import ParseAZFP, is_AZFP
+from echopype.convert.parse_azfp import ParseAZFP
 
 
 @pytest.fixture

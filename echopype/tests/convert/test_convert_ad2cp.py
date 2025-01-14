@@ -11,7 +11,6 @@ import netCDF4
 import pytest
 from tempfile import TemporaryDirectory
 from pathlib import Path
-import glob
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
