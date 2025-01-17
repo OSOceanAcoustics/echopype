@@ -1,5 +1,5 @@
 import glob
-from echopype.convert import is_AD2CP, is_AZFP, is_AZFP6, is_EK60, is_EK80, is_ER60
+from echopype.convert.sonar_model_checker import is_AD2CP, is_AZFP, is_AZFP6, is_EK60, is_EK80, is_ER60
 import pytest
 
 @pytest.fixture(scope="session") 
