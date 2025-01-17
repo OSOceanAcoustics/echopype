@@ -20,7 +20,7 @@ jobs:
         fail-fast: false
         matrix:
           include:
-          - python-version: 3.9
+          - python-version: 3.12
             experimental: false
       defaults:
         run:
@@ -51,7 +51,7 @@ jobs:
             python-version: ${{ matrix.python-version }}
             architecture: x64
         - name: Cache conda
-          uses: actions/cache@v4.1.2
+          uses: actions/cache@v4.2.0
           env:
             # Increase this value to reset cache if '.ci_helpers/py{0}.yaml' has not changed
             CACHE_NUMBER: 0

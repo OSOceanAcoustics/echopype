@@ -445,7 +445,6 @@ def test_convert_ek80_mru1(ek80_path):
     np.all(echodata["Platform"]["vertical_offset"].data == np.array(parser.mru1["heave"]))
     np.all(echodata["Platform"]["heading"].data == np.array(parser.mru1["heading"]))
 
-
 @pytest.mark.unit
 def test_skip_ec150(ek80_path):
     """Make sure we skip EC150 datagrams correctly."""
@@ -456,7 +455,7 @@ def test_skip_ec150(ek80_path):
     assert "backscatter_i" in echodata["Sonar/Beam_group1"].data_vars
     assert (
         echodata["Sonar/Beam_group1"].dims
-        == {'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
+        == {'channel_all': 1, 'beam_group': 1, 'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
     )
 
 
@@ -529,3 +528,26 @@ def test_parse_ek80_with_invalid_env_datagrams():
     for var in ["acidity", "depth", "salinity", "temperature", "sound_speed_indicative"]:
         env_var = ed["Environment"][var]
         assert env_var.notnull().all() and env_var.dtype == np.float64
+
+
+@pytest.mark.unit
+def test_ek80_sonar_all_channel():
+    """
+    Checks that when an EK80 raw file has 2 beam groups, the converted Echodata object contains
+    all channels in the 'channel_all' dimension of the Sonar group.
+    """
+    # Convert EK80 Raw File
+    ed = open_raw(
+        raw_file="echopype/test_data/ek80_new/echopype-test-D20211004-T235714.raw",
+        sonar_model="EK80"
+    )
+
+    # Grab channels from Sonar group
+    channel_set = set(ed["Sonar"]["channel_all"].data)
+
+    # Grab channels from both beam groups
+    target_channel_set = set(ed["Sonar/Beam_group1"]["channel"].data)
+    target_channel_set.update(set(ed["Sonar/Beam_group2"]["channel"].data))
+
+    # Check that channel sets are equal
+    assert channel_set == target_channel_set

@@ -238,7 +238,7 @@ def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
             np.float32
         )
 
-@pytest.mark.test
+
 @pytest.mark.integration
 def test_converting_ek60_raw_with_missing_channel_power():
     """
