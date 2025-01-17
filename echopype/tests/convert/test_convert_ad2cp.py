@@ -15,8 +15,6 @@ from pathlib import Path
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
 
-from echopype.convert.parse_ad2cp import is_AD2CP
-
 @pytest.fixture
 def ocean_contour_export_dir(test_path):
     return test_path["AD2CP"] / "ocean-contour"
