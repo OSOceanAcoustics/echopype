@@ -250,12 +250,14 @@ def test_converting_ek60_raw_with_missing_channel_power(ek60_missing_channel_pow
     specific channel.
     """
     # Parse RAW
-    raw_path = ek60_missing_channel_power_path / "Summer2017-D20170807-T171736.raw"
-    ek60_parser = ParseEK60(raw_path)
+    ek60_missing_channel_power_raw_path = str(
+        ek60_missing_channel_power_path.joinpath("Summer2017-D20170807-T171736.raw")
+    )
+    ek60_parser = ParseEK60(ek60_missing_channel_power_raw_path)
     ek60_parser.parse_raw()
 
     # Open RAW
-    ed = open_raw(raw_path, sonar_model="EK60")
+    ed = open_raw(ek60_missing_channel_power_raw_path, sonar_model="EK60")
 
     # Get channels that have empty `power`
     channels = list(ek60_parser.config_datagram["transceivers"].keys())
