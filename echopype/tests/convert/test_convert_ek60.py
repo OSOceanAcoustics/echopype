@@ -14,6 +14,10 @@ def ek60_path(test_path):
     return test_path["EK60"]
 
 @pytest.fixture
+def ek60_missing_channel_power_path(test_path):
+    return test_path["EK60_MISSING_CHANNEL_POWER"]
+
+@pytest.fixture
 def es60_path(test_path):
     return test_path["ES60"]
 
@@ -240,13 +244,13 @@ def test_convert_ek60_different_num_channel_mode_values(file_path, ek60_path):
 
 
 @pytest.mark.integration
-def test_converting_ek60_raw_with_missing_channel_power():
+def test_converting_ek60_raw_with_missing_channel_power(ek60_missing_channel_power_path):
     """
     Tests that we can convert a EK60 RAW file that has missing power data for a
     specific channel.
     """
     # Parse RAW
-    raw_path = "echopype/test_data/ek60_missing_channel_power/Summer2017-D20170807-T171736.raw"
+    raw_path = ek60_missing_channel_power_path / "Summer2017-D20170807-T171736.raw"
     ek60_parser = ParseEK60(raw_path)
     ek60_parser.parse_raw()
 

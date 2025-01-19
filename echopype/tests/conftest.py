@@ -18,6 +18,7 @@ def test_path():
         'ROOT': TEST_DATA_FOLDER,
         'EA640': TEST_DATA_FOLDER / "ea640",
         'EK60': TEST_DATA_FOLDER / "ek60",
+        'EK60_MISSING_CHANNEL_POWER': TEST_DATA_FOLDER / "ek60_missing_channel_power",
         'EK80': TEST_DATA_FOLDER / "ek80",
         'EK80_NEW': TEST_DATA_FOLDER / "ek80_new",
         'ES60': TEST_DATA_FOLDER / "es60",
