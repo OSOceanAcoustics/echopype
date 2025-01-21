@@ -2,14 +2,14 @@ bottleneck
 dask[array,distributed]
 dask-image
 jinja2
-netCDF4>1.6
+netCDF4>1.6,<1.7.1
 numpy<2
 pynmea2
 pytz
 scipy
 xarray
 pandas
-zarr
+zarr>=2,<3
 fsspec
 s3fs
 requests
