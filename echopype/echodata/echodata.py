@@ -8,7 +8,7 @@ import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
-from xarray import DataTree, open_datatree
+from xarray import DataTree, open_groups  # , open_datatree
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -166,12 +166,29 @@ class EchoData:
         echodata._check_path(converted_raw_path)
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
-        tree = open_datatree(
-            converted_raw_path,
-            engine=XARRAY_ENGINE_MAP[suffix],
-            **echodata.open_kwargs,
-        )
-        tree.name = "root"
+
+        if XARRAY_ENGINE_MAP[suffix] == "zarr":  # Testing for legacy datatree
+            tree = open_groups(  # open_datatree(
+                converted_raw_path,
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )  # open_groups has '/', '/Environment', '/Platform', etc
+            data_tree = xr.DataTree.from_dict(tree)
+
+            # tree = open_datatree(
+            #     converted_raw_path,
+            #     engine=XARRAY_ENGINE_MAP[suffix],
+            #     **echodata.open_kwargs,
+            # ) # if len(tree.keys()) == 1:
+
+            data_tree.name = "root"
+
+        # from packaging.version import Version
+        # processing_software_version = tree["/"].processing_software_version # not in 9.2
+        # if Version(processing_software_version) >= Version("0.9.2"):
+
+        # tree = xr.DataTree.from_dict(tree_group)
+        # https://docs.xarray.dev/en/stable/generated/xarray.open_groups.html
 
         echodata._set_tree(tree)
 
@@ -179,8 +196,10 @@ class EchoData:
             # Convert fsmap to Path so it can be used
             # for retrieving the path strings
             converted_raw_path = Path(converted_raw_path.root)
+
         echodata.converted_raw_path = converted_raw_path
         echodata._load_tree()
+
         return echodata
 
     def _load_tree(self) -> None:
