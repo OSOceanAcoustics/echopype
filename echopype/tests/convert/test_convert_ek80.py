@@ -530,3 +530,4 @@ def test_parse_ek80_with_invalid_env_datagrams():
     for var in ["acidity", "depth", "salinity", "temperature", "sound_speed_indicative"]:
         env_var = ed["Environment"][var]
         assert env_var.notnull().all() and env_var.dtype == np.float64
+
