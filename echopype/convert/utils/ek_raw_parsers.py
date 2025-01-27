@@ -142,8 +142,8 @@ class SimradDepthParser(_SimradDatagramParser):
         )
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 data[field] = data[field].decode()
 
@@ -159,13 +159,13 @@ class SimradDepthParser(_SimradDatagramParser):
             data["unused"] = np.zeros((data["transceiver_count"],))
 
             buf_indx = self.header_size(version)
-            for indx in range(data["transceiver_count"]):
+            for index in range(data["transceiver_count"]):
                 d, r, u = struct.unpack(
                     data_fmt, raw_string[buf_indx : buf_indx + data_size]  # noqa
                 )
-                data["depth"][indx] = d
-                data["reflectivity"][indx] = r
-                data["unused"][indx] = u
+                data["depth"][index] = d
+                data["reflectivity"][index] = r
+                data["unused"][index] = u
 
                 buf_indx += data_size
 
@@ -197,12 +197,12 @@ class SimradDepthParser(_SimradDatagramParser):
 
             datagram_fmt += "%df" % (3 * data["transceiver_count"])
 
-            for indx in range(data["transceiver_count"]):
+            for index in range(data["transceiver_count"]):
                 datagram_contents.extend(
                     [
-                        data["depth"][indx],
-                        data["reflectivity"][indx],
-                        data["unused"][indx],
+                        data["depth"][index],
+                        data["reflectivity"][index],
+                        data["unused"][index],
                     ]
                 )
 
@@ -249,8 +249,8 @@ class SimradBottomParser(_SimradDatagramParser):
         )
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 data[field] = data[field].decode()
 
@@ -326,8 +326,8 @@ class SimradAnnotationParser(_SimradDatagramParser):
         )
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 data[field] = data[field].decode()
 
@@ -425,8 +425,8 @@ class SimradNMEAParser(_SimradDatagramParser):
         )
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 data[field] = data[field].decode()
 
@@ -606,8 +606,8 @@ class SimradMRUParser(_SimradDatagramParser):
         )
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 #  first try to decode as utf-8 but fall back to latin_1 if that fails
                 try:
@@ -692,8 +692,8 @@ class SimradIDXParser(_SimradDatagramParser):
         )
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 #  first try to decode as utf-8 but fall back to latin_1 if that fails
                 try:
@@ -900,8 +900,8 @@ class SimradXMLParser(_SimradDatagramParser):
         )
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 data[field] = data[field].decode()
 
@@ -1179,8 +1179,8 @@ class SimradFILParser(_SimradDatagramParser):
             self.header_fmt(version), raw_string[: self.header_size(version)]
         )
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
 
             #  handle Python 3 strings
             if (sys.version_info.major > 2) and isinstance(data[field], bytes):
@@ -1194,10 +1194,10 @@ class SimradFILParser(_SimradDatagramParser):
             data["channel_id"] = data["channel_id"].strip("\x00")
 
             #  unpack the coefficients
-            indx = self.header_size(version)
+            index = self.header_size(version)
             block_size = data["n_coefficients"] * 8
             data["coefficients"] = np.frombuffer(
-                raw_string[indx : indx + block_size], dtype="complex64"  # noqa
+                raw_string[index : index + block_size], dtype="complex64"  # noqa
             )
 
         return data
@@ -1397,8 +1397,8 @@ class SimradConfigParser(_SimradDatagramParser):
             self.header_fmt(version), raw_string[: self.header_size(version)]
         )
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
 
             #  handle Python 3 strings
             if (sys.version_info.major > 2) and isinstance(data[field], bytes):
@@ -1680,8 +1680,8 @@ class SimradRawParser(_SimradDatagramParser):
 
         data = {}
 
-        for indx, field in enumerate(self.header_fields(version)):
-            data[field] = header_values[indx]
+        for index, field in enumerate(self.header_fields(version)):
+            data[field] = header_values[index]
             if isinstance(data[field], bytes):
                 data[field] = data[field].decode(encoding="unicode_escape")
 
@@ -1691,19 +1691,19 @@ class SimradRawParser(_SimradDatagramParser):
         if version == 0:
             if data["count"] > 0:
                 block_size = data["count"] * 2
-                indx = self.header_size(version)
+                index = self.header_size(version)
 
                 if int(data["mode"]) & 0x1:
                     data["power"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int16"  # noqa
+                        raw_string[index : index + block_size], dtype="int16"  # noqa
                     )
-                    indx += block_size
+                    index += block_size
                 else:
                     data["power"] = None
 
                 if int(data["mode"]) & 0x2:
                     data["angle"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int8"  # noqa
+                        raw_string[index : index + block_size], dtype="int8"  # noqa
                     )
                     data["angle"] = data["angle"].reshape((-1, 2))
                 else:
@@ -1721,24 +1721,24 @@ class SimradRawParser(_SimradDatagramParser):
             data["channel_id"] = data["channel_id"].strip("\x00")
 
             if data["count"] > 0:
-                #  set the initial block size and indx value.
+                #  set the initial block size and index value.
                 block_size = data["count"] * 2
-                indx = self.header_size(version)
+                index = self.header_size(version)
 
                 if data["data_type"] & 0b1:
                     data["power"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int16"  # noqa
+                        raw_string[index : index + block_size], dtype="int16"  # noqa
                     )
-                    indx += block_size
+                    index += block_size
                 else:
                     data["power"] = None
 
                 if data["data_type"] & 0b10:
                     data["angle"] = np.frombuffer(
-                        raw_string[indx : indx + block_size], dtype="int8"  # noqa
+                        raw_string[index : index + block_size], dtype="int8"  # noqa
                     )
                     data["angle"] = data["angle"].reshape((-1, 2))
-                    indx += block_size
+                    index += block_size
                 else:
                     data["angle"] = None
 
@@ -1759,7 +1759,7 @@ class SimradRawParser(_SimradDatagramParser):
                     block_size = data["count"] * data["n_complex"] * type_bytes
 
                     data["complex"] = np.frombuffer(
-                        raw_string[indx : indx + block_size],  # noqa
+                        raw_string[index : index + block_size],  # noqa
                         dtype=data["complex_dtype"],
                     )
                     data["complex"].dtype = np.complex64
