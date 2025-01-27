@@ -565,7 +565,7 @@ class SetGroupsAZFP(SetGroupsBase):
         for param in phase_params:
             for num in parameters["phase_number"]:
                 parameters[param].append(parameters[f"{param}_phase{num}"])
-        anc = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
+        and = np.array(unpacked_data["ancillary"])  # convert to np array for easy slicing
 
         ds = xr.Dataset(
             {
@@ -649,11 +649,11 @@ class SetGroupsAZFP(SetGroupsBase):
                 # unpacked ping by ping ancillary data from 01A file
                 "temperature_counts": (
                     ["ping_time"],
-                    anc[:, 4],
+                    and[:, 4],
                     {"long_name": "Raw counts for temperature"},
                 ),
-                "tilt_x_count": (["ping_time"], anc[:, 0], {"long_name": "Raw counts for Tilt-X"}),
-                "tilt_y_count": (["ping_time"], anc[:, 1], {"long_name": "Raw counts for Tilt-Y"}),
+                "tilt_x_count": (["ping_time"], and[:, 0], {"long_name": "Raw counts for Tilt-X"}),
+                "tilt_y_count": (["ping_time"], and[:, 1], {"long_name": "Raw counts for Tilt-Y"}),
                 # unpacked data with dim len=0 from 01A file
                 "profile_flag": unpacked_data["profile_flag"],
                 "burst_interval": (
