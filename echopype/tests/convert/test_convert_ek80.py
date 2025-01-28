@@ -533,7 +533,7 @@ def test_duplicate_ping_times(caplog):
     )
 
     # Check that no warning is logged since the data for all duplicate pings is unique
-    not_expected_warning = ("Data will be lost since we will be dropping all duplicate ping times.")
+    not_expected_warning = ("All duplicate ping_time entries' will be removed, resulting in potential data loss.")
     assert not any(not_expected_warning in record.message for record in caplog.records)
 
     # Turn off logger verbosity
@@ -565,9 +565,9 @@ def test_check_unique_ping_time_duplicates(caplog):
 
     # Check if the expected warning is logged
     expected_warning = (
-        "Duplicate slices in variable 'backscatter_r' corresponding to ping_time "
-        f"{str(ds_data['ping_time'].values[0])} differ in data. Data will be lost since "
-        "we will be dropping all duplicate ping times."
+        "Duplicate slices in variable 'backscatter_r' corresponding to 'ping_time' "
+        f"{str(ds_data['ping_time'].values[0])} differ in data. All duplicate "
+        "'ping_time' entries will be removed, which will result in data loss."
     )
     assert any(expected_warning in record.message for record in caplog.records)
 

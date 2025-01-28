@@ -37,8 +37,8 @@ def check_unique_ping_time_duplicates(ds_data: xr.Dataset, logger: logging.Logge
             for i in range(1, data_array.sizes["ping_time"]):
                 if not ref_slice.equals(data_array.isel({"ping_time": i})):
                     logger.warning(
-                        f"Duplicate slices in variable '{var}' corresponding to "
-                        f"ping_time {ping_time_val} differ in data. Data will be lost since we "
-                        "will be dropping all duplicate ping times."
+                        f"Duplicate slices in variable '{var}' corresponding to 'ping_time' "
+                        f"{ping_time_val} differ in data. All duplicate 'ping_time' entries "
+                        "will be removed, which will result in data loss."
                     )
                     break
