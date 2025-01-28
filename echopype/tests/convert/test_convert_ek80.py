@@ -4,11 +4,14 @@ import pytest
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
+import xarray as xr
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
+from echopype.utils import log
+from echopype.convert.utils.ek_duplicates import check_unique_ping_time_duplicates
 
 
 @pytest.fixture
@@ -514,17 +517,59 @@ def test_parse_missing_sound_velocity_profile():
 
 
 @pytest.mark.unit
-def test_duplicate_ping_times():
+def test_duplicate_ping_times(caplog):
     """
-    Tests that RAW file with duplicate ping times can be parsed.
+    Tests that RAW file with duplicate ping times can be parsed and that the correct warning has been raised.
     """
+    # Turn on logger verbosity
+    log.verbose(override=False)
+
     # Open RAW
     ed = open_raw("echopype/test_data/ek80_duplicate_ping_times/Hake-D20210913-T130612.raw", sonar_model="EK80")
+
     # Check that there are no ping time duplicates in Beam group
     assert ed["Sonar/Beam_group1"].equals(
         ed["Sonar/Beam_group1"].drop_duplicates(dim="ping_time")
     )
 
+    # Check that no warning is logged since the data for all duplicate pings is unique
+    not_expected_warning = ("Data will be lost since we will be dropping all duplicate ping times.")
+    assert not any(not_expected_warning in record.message for record in caplog.records)
+
+    # Turn off logger verbosity
+    log.verbose(override=True)
+
+
+@pytest.mark.unit
+def test_check_unique_ping_time_duplicates(caplog):
+    """
+    Checks that `check_unique_ping_time_duplicates` raises a warning when the data for duplicate ping times is not unique.
+    """
+    # Initialize logger
+    logger = log._init_logger(__name__)
+
+    # Turn on logger verbosity
+    log.verbose(override=False)
+
+    # Open duplicate ping time beam dataset
+    ds_data = xr.open_zarr("echopype/test_data/ek80_duplicate_ping_times/duplicate_beam_ds.zarr")
+
+    # Modify a single entry to ensure that there exists duplicate ping times that do not share the same backscatter data
+    ds_data["backscatter_r"][0,0,0] = 0
+
+    # Check for ping time duplicates
+    check_unique_ping_time_duplicates(ds_data, logger)
+
+    # Turn off logger verbosity
+    log.verbose(override=True)
+
+    # Check if the expected warning is logged
+    expected_warning = (
+        "Duplicate slices in variable 'backscatter_r' corresponding to ping_time "
+        f"{str(ds_data['ping_time'].values[0])} differ in data. Data will be lost since "
+        "we will be dropping all duplicate ping times."
+    )
+    assert any(expected_warning in record.message for record in caplog.records)
 
 
 @pytest.mark.unit
