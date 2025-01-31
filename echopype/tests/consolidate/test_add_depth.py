@@ -338,11 +338,8 @@ def test_add_depth_errors():
     with pytest.raises(NotImplementedError, match=(
         "`use_platform/beam_...` not implemented yet for `AZFP`."
     )):
-        ep.consolidate.add_depth(
-            ds_Sv,
-            ed["Sonar"].assign_attrs(sonar_model="AZFP"),
-            use_platform_angles=True
-        )
+        ed["Sonar"] = ed["Sonar"].assign_attrs(sonar_model="AZFP")
+        ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
 
 
 @pytest.mark.integration
