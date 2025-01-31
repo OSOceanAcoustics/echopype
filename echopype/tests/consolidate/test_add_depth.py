@@ -196,7 +196,7 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
     ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
 
     # Set first index of group variables to NaN
-    ed["Platform"]["water_level"] = np.nan # Is a scalar
+    ed["Platform"]["water_level"].values = np.nan # Is a scalar
     ed["Platform"]["vertical_offset"].values[0] = np.nan
     ed["Platform"]["transducer_offset_z"].values[0] = np.nan
     ed["Platform"]["pitch"].values[0] = np.nan
@@ -232,6 +232,7 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
             "NaNs. This will result in NaNs in the final `depth` array. Consider filling the "
             "NaNs and calling `.add_depth(...)` again."
         )
+        print(expected_warning)
         assert any(expected_warning in record.message for record in caplog.records)
 
     # Turn off logger verbosity
