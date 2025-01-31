@@ -376,9 +376,9 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
     ds_Sv = ds_Sv.isel(range_sample=slice(0,5))
 
     # Replace any Platform Vertical Offset NaN values with 0
-    ed["Platform"]["water_level"] = ed["Platform"]["water_level"].fillna(0)
-    ed["Platform"]["vertical_offset"] = ed["Platform"]["vertical_offset"].fillna(0)
-    ed["Platform"]["transducer_offset_z"] = ed["Platform"]["transducer_offset_z"].fillna(0)
+    ed["Platform"]["water_level"].values = ed["Platform"]["water_level"].fillna(0).values
+    ed["Platform"]["vertical_offset"].values = ed["Platform"]["vertical_offset"].fillna(0).values
+    ed["Platform"]["transducer_offset_z"].values = ed["Platform"]["transducer_offset_z"].fillna(0).values
 
     # Compute `depth` using platform vertical offset values
     ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_platform_vertical_offsets=True)
@@ -432,8 +432,8 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Replace any Beam Angle NaN values with 0
-    ed["Platform"]["pitch"] = ed["Platform"]["pitch"].fillna(0)
-    ed["Platform"]["roll"] = ed["Platform"]["roll"].fillna(0)
+    ed["Platform"]["pitch"].values = ed["Platform"]["pitch"].fillna(0).values
+    ed["Platform"]["roll"].values = ed["Platform"]["roll"].fillna(0).values
 
     # Compute `depth` using platform angle values
     ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
@@ -486,9 +486,9 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Replace Beam Angle NaN values
-    ed["Sonar/Beam_group1"]["beam_direction_x"] = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0)
-    ed["Sonar/Beam_group1"]["beam_direction_y"] = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna(0)
-    ed["Sonar/Beam_group1"]["beam_direction_z"] = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1)
+    ed["Sonar/Beam_group1"]["beam_direction_x"].values = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0).values
+    ed["Sonar/Beam_group1"]["beam_direction_y"].values = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna(0).values
+    ed["Sonar/Beam_group1"]["beam_direction_z"].values = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1).values
 
     # Compute `depth` using beam angle values
     ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
