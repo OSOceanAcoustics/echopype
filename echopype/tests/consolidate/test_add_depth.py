@@ -314,7 +314,6 @@ def test_add_depth_without_echodata():
 
 
 @pytest.mark.integration
-@pytest.mark.test1
 def test_add_depth_errors():
     """Check if all `add_depth` errors are raised appropriately."""
     # Open EK80 Raw file and Compute Sv
