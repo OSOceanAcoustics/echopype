@@ -328,7 +328,8 @@ class Ad2cpDataPacket:
         microsec100 = self.data["microsec100"]
         try:
             return np.datetime64(
-                f"{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{seconds:02}.{microsec100:04}"
+                f"{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{seconds:02}.{microsec100:04}",  # noqa
+                "ns",
             )  # type: ignore
         except ValueError:
             return np.datetime64("NaT")  # type: ignore
