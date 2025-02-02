@@ -178,7 +178,7 @@ def test_compute_Sv_azfp(azfp_path):
             'TS': 'TS',  # TS here is TS in matlab outputs
         }
         for fidx in range(4):  # loop through all freq
-            assert np.alltrue(
+            assert np.all(
                 ds_cmp.echo_range.isel(channel=fidx, ping_time=0).values[None, :]
                 == ds_base['Output'][0]['Range'][fidx]
             )
