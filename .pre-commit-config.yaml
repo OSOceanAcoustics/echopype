@@ -39,4 +39,4 @@ repos:
       - id: codespell
         # Checks spelling in `docs/source` and `echopype` dirs ONLY
         # Ignores `.ipynb` files and `_build` folders
-        args: ["-L", "soop,anc", "--skip=*.ipynb,docs/source/_build,echopype/test_data", "-w", "docs/source", "echopype"]
+        args: ["-L", "soop,anc,indx", "--skip=*.ipynb,docs/source/_build,echopype/test_data", "-w", "docs/source", "echopype"]
