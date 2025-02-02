@@ -149,14 +149,14 @@ class SetGroupsBase(abc.ABC):
         ds = xr.Dataset(
             {
                 "NMEA_datagram": (
-                    ["time1"],
+                    ["nmea_time"],
                     raw_nmea,
                     {"long_name": "NMEA datagram"},
                 )
             },
             coords={
-                "time1": (
-                    ["time1"],
+                "nmea_time": (
+                    ["nmea_time"],
                     time,
                     {
                         "axis": "T",

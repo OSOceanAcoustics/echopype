@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
 from .set_groups_base import SetGroupsBase
+from .utils.ek_duplicates import check_unique_ping_time_duplicates
 
 logger = _init_logger(__name__)
 
@@ -227,7 +228,7 @@ class SetGroupsEK80(SetGroupsBase):
         # Create dataset
         sonar_vars = {
             "frequency_nominal": (
-                ["channel"],
+                ["channel_all"],
                 var["transducer_frequency"],
                 {
                     "units": "Hz",
@@ -237,21 +238,21 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             ),
             "transceiver_serial_number": (
-                ["channel"],
+                ["channel_all"],
                 var["serial_number"],
                 {
                     "long_name": "Transceiver serial number",
                 },
             ),
             "transducer_name": (
-                ["channel"],
+                ["channel_all"],
                 var["transducer_name"],
                 {
                     "long_name": "Transducer name",
                 },
             ),
             "transducer_serial_number": (
-                ["channel"],
+                ["channel_all"],
                 var["transducer_serial_number"],
                 {
                     "long_name": "Transducer serial number",
@@ -261,8 +262,8 @@ class SetGroupsEK80(SetGroupsBase):
         ds = xr.Dataset(
             {**sonar_vars, **beam_groups_vars},
             coords={
-                "channel": (
-                    ["channel"],
+                "channel_all": (
+                    ["channel_all"],
                     self.sorted_channel["all"],
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
@@ -1144,6 +1145,17 @@ class SetGroupsEK80(SetGroupsBase):
                 continue
 
             ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
+
+            # Access the 'ping_time' coordinate as a NumPy array
+            ping_times = ds_data["ping_time"].values
+
+            # Check if ping time duplicates exist
+            if len(ping_times) > len(np.unique(ping_times)):
+                # Check for unique ping time duplicates and if they are not unique, raise warning.
+                check_unique_ping_time_duplicates(ds_data, logger)
+
+                # Drop duplicates
+                ds_data = ds_data.drop_duplicates(dim="ping_time")
 
             if ch in self.sorted_channel["complex"]:
                 ds_complex.append(ds_data)

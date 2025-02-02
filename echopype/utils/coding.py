@@ -27,6 +27,7 @@ COMPRESSION_SETTINGS = {
 
 
 DEFAULT_ENCODINGS = {
+    "nmea_time": DEFAULT_TIME_ENCODING,
     "ping_time": DEFAULT_TIME_ENCODING,
     "ping_time_transmit": DEFAULT_TIME_ENCODING,
     "time1": DEFAULT_TIME_ENCODING,
@@ -53,7 +54,6 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
     """
     Validates and fixes data type for expected variables
     """
-
     if isinstance(ds, xr.Dataset):
         for name, var in ds.variables.items():
             if name in EXPECTED_VAR_DTYPE:

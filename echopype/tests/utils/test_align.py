@@ -6,6 +6,11 @@ import echopype as ep
 from echopype.utils.align import align_to_ping_time
 
 
+@pytest.fixture
+def azfp_path(test_path):
+    return test_path["AZFP"]
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "method, expected_aligned_da",
@@ -236,20 +241,29 @@ def test_align_to_ping_time_values_when_matching_time_values():
 
 
 @pytest.mark.integration
-def test_align_to_ping_time_glider_azfp():
+def test_align_to_ping_time_glider_azfp(azfp_path):
     """
     Test aligning external Glider pitch data to Echosounder ping time.
     """
     # Open RAW and extract ping time
+    raw_file_path = str(
+        azfp_path.joinpath("rutgers_glider_external_nc/18011107.01A")
+    )
+    xml_file_path = str(
+        azfp_path.joinpath("rutgers_glider_external_nc/18011107.XML")
+    )
     ping_time_da = ep.open_raw(
-        raw_file="echopype/test_data/azfp/rutgers_glider_external_nc/18011107.01A",
-        xml_path="echopype/test_data/azfp/rutgers_glider_external_nc/18011107.XML",
+        raw_file=raw_file_path,
+        xml_path=xml_file_path,
         sonar_model="azfp"
     )["Sonar/Beam_group1"]["ping_time"]
+    nc_file_path = str(
+        azfp_path.joinpath("rutgers_glider_external_nc/ru32-20180109T0531-profile-sci-delayed-subset.nc")
+    )
 
     # Open external glider dataset
     glider_ds = xr.open_dataset(
-        "echopype/test_data/azfp/rutgers_glider_external_nc/ru32-20180109T0531-profile-sci-delayed-subset.nc",
+        nc_file_path,
         engine="netcdf4"
     )
 

@@ -11,7 +11,7 @@ See https://github.com/OSOceanAcoustics/echopype/pull/1143 for discussions.
 
 
 from typing import Any, Dict, Optional
-from datatree import open_datatree
+from xarray import open_datatree
 import pytest
 from echopype.echodata.echodata import EchoData, XARRAY_ENGINE_MAP
 from echopype.echodata.api import open_converted
