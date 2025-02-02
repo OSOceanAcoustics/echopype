@@ -383,7 +383,7 @@ def test_index_binning_pool_Sv_values(chunk, func):
         ).astype(int)
 
         # Remove values close to top
-        min_range_sample = (chan_Sv[range_var] <= exclude_above).argmin().values
+        min_range_sample = np.argmin((chan_Sv[range_var] <= exclude_above).data)
         chan_Sv = chan_Sv.isel(range_sample=slice(min_range_sample, None))
         chan_pooled_Sv = chan_pooled_Sv.isel(range_sample=slice(min_range_sample, None))
 
