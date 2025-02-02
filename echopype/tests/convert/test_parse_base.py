@@ -154,7 +154,7 @@ class TestParseEK:
                             # Filter out all Nans in array
                             # Create a 1D mask to filter out NaNs when both
                             # angle data is available
-                            dmask = np.alltrue(mask, axis=1)
+                            dmask = np.all(mask, axis=1)
                             darr = arr[i][dmask]
                             if len(darr) > 0:
                                 orig_arr = orig_data_dict[data_type][ch][i]

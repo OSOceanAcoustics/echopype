@@ -52,7 +52,7 @@ def test__parse_x_bin(x_bin, x_label, expected_result):
 def test__groupby_x_along_channels(request, range_var, lat_lon):
     """Testing the underlying function of compute_MVBS and compute_NASC"""
     range_bin = 20
-    ping_time_bin = "20S"
+    ping_time_bin = "20s"
     method = "map-reduce"
 
     flox_kwargs = {"reindex": True}
@@ -203,7 +203,7 @@ def test_compute_MVBS_index_binning(ds_Sv_echo_range_regular, regular_data_param
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ["range_bin", "ping_time_bin"], [(5, "10S"), ("10m", 10), ("10km", "10S"), ("10", "10S")]
+    ["range_bin", "ping_time_bin"], [(5, "10s"), ("10m", 10), ("10km", "10s"), ("10", "10s")]
 )
 def test_compute_MVBS_bin_inputs_fail(ds_Sv_echo_range_regular, range_bin, ping_time_bin):
     expected_error = ValueError
@@ -225,7 +225,7 @@ def test_compute_MVBS_w_latlon(ds_Sv_echo_range_regular_w_latlon, lat_attrs, lon
     from echopype.consolidate.api import POSITION_VARIABLES
 
     ds_MVBS = ep.commongrid.compute_MVBS(
-        ds_Sv_echo_range_regular_w_latlon, range_bin="5m", ping_time_bin="10S"
+        ds_Sv_echo_range_regular_w_latlon, range_bin="5m", ping_time_bin="10s"
     )
     for var in POSITION_VARIABLES:
         # Check to ensure variable is in dataset
@@ -280,7 +280,7 @@ def test_compute_MVBS(test_data_samples):
         if "azfp_cal_type" in range_kwargs:
             range_kwargs.pop("azfp_cal_type")
     Sv = ep.calibrate.compute_Sv(ed, **range_kwargs)
-    ping_time_bin = "20S"
+    ping_time_bin = "20s"
     ds_MVBS = ep.commongrid.compute_MVBS(Sv, ping_time_bin=ping_time_bin)
     assert ds_MVBS is not None
 
@@ -313,7 +313,7 @@ def test_compute_MVBS_range_output(request, er_type):
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
 
-    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="5m", ping_time_bin="10S")
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="5m", ping_time_bin="10s")
 
     if er_type == "regular":
         expected_len = (

@@ -26,12 +26,12 @@ def tapered_chirp(
     f0 = transmit_frequency_start
     f1 = transmit_frequency_stop
 
-    nsamples = int(np.floor(tau * fs))
+    nsamples = int(np.floor(tau * fs)[0])
     t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
     a = np.pi * (f1 - f0) / tau
     b = 2 * np.pi * f0
     y = np.cos(a * t * t + b * t)
-    L = int(np.round(tau * fs * slope * 2.0))  # Length of hanning window
+    L = int(np.round(tau * fs * slope * 2.0)[0])  # Length of hanning window
     w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
     N = len(y)
     w1 = w[0 : int(len(w) / 2)]

@@ -139,7 +139,7 @@ def index_binning_pool_Sv(
     # Iterate through channels
     for channel_index in range(len(ds_Sv["channel"])):
         # Create calibrated Sv DataArray copies and remove values too close to the surface
-        min_range_sample = (ds_Sv[range_var] <= exclude_above).argmin().values
+        min_range_sample = np.argmin((ds_Sv[range_var] <= exclude_above).data)
         chan_Sv = ds_Sv["Sv"].isel(
             channel=channel_index,
             range_sample=slice(min_range_sample, None),
@@ -349,8 +349,8 @@ def echopy_attenuated_signal_mask(
     for ping_time_idx in range(Sv.shape[0]):
 
         # Find indices for upper and lower SL limits
-        up = np.argmin(abs(range_var[ping_time_idx, :] - upper_limit_sl))
-        lw = np.argmin(abs(range_var[ping_time_idx, :] - lower_limit_sl))
+        up = np.argmin(abs(range_var[ping_time_idx, :] - upper_limit_sl).data)
+        lw = np.argmin(abs(range_var[ping_time_idx, :] - lower_limit_sl).data)
 
         # Mask when attenuation masking is feasible
         if not (
