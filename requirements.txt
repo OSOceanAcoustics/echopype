@@ -9,7 +9,7 @@ pytz
 scipy
 xarray>=2024.11.0
 pandas
-zarr
+zarr>=2,<3
 fsspec
 s3fs
 requests
