@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 import xarray as xr
 import yaml
+from importlib.resources import files
 
 from .. import convert
 from ..utils.coding import set_time_encodings
