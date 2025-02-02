@@ -1,4 +1,4 @@
-from importlib_resources import files
+from importlib.resources import files
 from typing import Optional
 
 import yaml
