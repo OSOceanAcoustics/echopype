@@ -1,7 +1,7 @@
-from importlib_resources import files
 from typing import Optional
 
 import yaml
+from importlib_resources import files
 
 from .. import convention
 
