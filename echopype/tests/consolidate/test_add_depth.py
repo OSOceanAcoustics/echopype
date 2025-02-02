@@ -232,7 +232,6 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
             "NaNs. This will result in NaNs in the final `depth` array. Consider filling the "
             "NaNs and calling `.add_depth(...)` again."
         )
-        print(expected_warning)
         assert any(expected_warning in record.message for record in caplog.records)
 
     # Turn off logger verbosity
