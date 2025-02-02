@@ -1,5 +1,5 @@
 from enum import Enum, auto, unique
-from importlib import resources
+from importlib_resources import files
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
@@ -35,7 +35,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         # resulting in index error in setting ds["pulse_compressed"]
         self.pulse_compressed = self.parser_obj.get_pulse_compressed()
         self._make_time_coords()
-        with resources.open_text(convert, "ad2cp_fields.yaml") as f:
+        with files(convert).joinpath("ad2cp_fields.yaml").open("r") as f:
             self.field_attrs: Dict[str, Dict[str, Dict[str, str]]] = yaml.safe_load(f)  # type: ignore # noqa
 
     def _make_time_coords(self):

@@ -1,4 +1,4 @@
-from importlib import resources
+from importlib_resources import files
 from typing import Optional
 
 import yaml
@@ -21,7 +21,7 @@ class _Convention:
         if self._yaml_dict:  # Data has already been read, return it directly
             return self._yaml_dict
 
-        with resources.open_text(package=convention, resource=f"{self.version}.yml") as fid:
+        with files(convention).joinpath(f"{self.version}.yml").open("r") as fid:
             convention_yaml = yaml.load(fid, Loader=yaml.SafeLoader)
 
         self._yaml_dict = convention_yaml
