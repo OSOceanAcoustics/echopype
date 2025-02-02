@@ -8,7 +8,7 @@ import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
-from datatree import DataTree, open_datatree
+from xarray import DataTree, open_datatree
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -242,7 +242,7 @@ class EchoData:
     def __get_dataset(node: DataTree) -> Optional[xr.Dataset]:
         if node.has_data or node.has_attrs:
             # validate and clean dtypes
-            return sanitize_dtypes(node.ds)
+            return sanitize_dtypes(node.to_dataset())
         return None
 
     def __get_node(self, key: Optional[str]) -> DataTree:
@@ -265,7 +265,7 @@ class EchoData:
         if self._tree:
             try:
                 node = self.__get_node(__key)
-                node.ds = __newvalue
+                node.dataset = __newvalue
                 return self.__get_dataset(node)
             except KeyError:
                 raise GroupNotFoundError(__key)
@@ -283,9 +283,9 @@ class EchoData:
                 group_path = group["ep_group"]
                 if self._tree:
                     if __name == "top":
-                        self._tree.ds = __value
+                        self._tree.dataset = __value
                     else:
-                        self._tree[group_path].ds = __value
+                        self._tree[group_path].dataset = __value
         super().__setattr__(__name, attr_value)
 
     @add_processing_level("L1A")

@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
         runs-on: [ubuntu-latest]
         experimental: [false]
     services:
@@ -67,7 +67,7 @@ jobs:
         run: |
           pytest -vv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           flags: unittests

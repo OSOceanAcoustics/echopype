@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union
 
 import fsspec
-from datatree import DataTree
+from xarray import DataTree
 
 # fmt: off
 # black and isort have conflicting ideas about how this should be formatted
