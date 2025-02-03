@@ -29,7 +29,7 @@ def ek60_path(test_path):
 def ek80_cal_path(test_path):
     return test_path["EK80_CAL"]
 
-@pytest.mark.test1
+
 @pytest.mark.unit
 def test_harmonize_env_param_time():
     # Scalar
