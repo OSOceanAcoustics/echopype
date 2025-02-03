@@ -102,7 +102,7 @@ def check_zarr_path(
 
 
 def _check_channel_selection_form(
-    channel_selection: Optional[Union[List, Dict[str, list]]] = None
+    channel_selection: Optional[Union[List, Dict[str, list]]] = None,
 ) -> None:
     """
     Ensures that the provided user input ``channel_selection`` is in
