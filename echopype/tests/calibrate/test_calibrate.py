@@ -316,7 +316,7 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
         # Check that no NaNs exist
         assert not np.any(np.isnan(env_var.data))
 
-@pytest.mark.test1
+
 @pytest.mark.parametrize(
     "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
     [
