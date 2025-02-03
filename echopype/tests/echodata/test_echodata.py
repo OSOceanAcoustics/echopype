@@ -21,9 +21,7 @@ from utils import get_mock_echodata, check_consolidated
 
 @pytest.fixture(scope="module")
 def single_ek60_zarr(test_path):
-    return (
-        test_path['EK60'] / "ncei-wcsd" / "Summer2017-D20170615-T190214__NEW.zarr"
-    )
+    return test_path["EK60"] / "ncei-wcsd" / "Summer2017-D20170615-T190214__NEW.zarr"
 
 
 @pytest.fixture(
@@ -57,9 +55,9 @@ def ek60_converted_zarr(request, test_path):
     if isinstance(request.param, tuple):
         desired_type, *paths = request.param
         if desired_type is not None:
-            return desired_type(test_path['EK60'].joinpath(*paths))
+            return desired_type(test_path["EK60"].joinpath(*paths))
         else:
-            return test_path['EK60'].joinpath(*paths)
+            return test_path["EK60"].joinpath(*paths)
     else:
         return request.param
 
@@ -151,7 +149,7 @@ def compute_range_samples(request, test_path):
         ek_waveform_mode,
         ek_encode_mode,
     ) = request.param
-    if sonar_model.lower() == 'es70':
+    if sonar_model.lower() == "es70":
         pytest.xfail(
             reason="Not supported at the moment",
         )
@@ -190,8 +188,9 @@ def compute_range_samples(request, test_path):
 def range_check_files(request, test_path):
     return (
         request.param["path_model"],
-        test_path[request.param["path_model"]].joinpath(request.param['raw_path'])
+        test_path[request.param["path_model"]].joinpath(request.param["raw_path"]),
     )
+
 
 # TODO: Uncomment when having fixed backward compatibility https://github.com/OSOceanAcoustics/echopype/issues/1420 # noqa
 # class TestEchoData:
@@ -357,9 +356,7 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
         storage_options = _check_path(str(ek60_converted_zarr))
 
     try:
-        ed = open_converted(
-            ek60_converted_zarr, storage_options=storage_options
-        )
+        ed = open_converted(ek60_converted_zarr, storage_options=storage_options)
         # raise Exception("Should prevent successful test")
         assert isinstance(ed, EchoData) is True
     except Exception as e:
@@ -454,13 +451,20 @@ def test_nan_range_entries(range_check_files):
     sonar_model, ek_file = range_check_files
     echodata = echopype.open_raw(ek_file, sonar_model=sonar_model)
     if sonar_model == "EK80":
-        ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode='BB', encode_mode='complex')
+        ds_Sv = echopype.calibrate.compute_Sv(echodata, waveform_mode="BB", encode_mode="complex")
         cal_obj = CalibrateEK80(
-            echodata, env_params=None, cal_params=None, ecs_file=None, waveform_mode="BB", encode_mode="complex",
+            echodata,
+            env_params=None,
+            cal_params=None,
+            ecs_file=None,
+            waveform_mode="BB",
+            encode_mode="complex",
         )
         range_output = cal_obj.range_meter
         # broadband complex data EK80 file: always need to drop "beam" dimension
-        nan_locs_backscatter_r = ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop_vars("beam").isnull()
+        nan_locs_backscatter_r = (
+            ~echodata["Sonar/Beam_group1"].backscatter_r.isel(beam=0).drop_vars("beam").isnull()
+        )
     else:
         # EK60 file does not need dropping "beam" dimension
         ds_Sv = echopype.calibrate.compute_Sv(echodata)
@@ -485,12 +489,12 @@ def test_nan_range_entries(range_check_files):
             {"pitch": "PITCH", "roll": "ROLL", "longitude": "longitude", "latitude": "latitude"},
             "EK80",
             (
-                    "saildrone",
-                    "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
+                "saildrone",
+                "SD2019_WCS_v05-Phase0-D20190617-T125959-0.raw",
             ),
             (
-                    "saildrone",
-                    "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",  #noqa
+                "saildrone",
+                "saildrone-gen_5-fisheries-acoustics-code-sprint-sd1039-20190617T130000-20190618T125959-1_hz-v1.1595357449818.nc",  # noqa
             ),
         ),
         (
@@ -499,22 +503,13 @@ def test_nan_range_entries(range_check_files):
             # variable_mappings dictionary as {Platform_var_name: external-data-var-name}
             {"longitude": "longitude", "latitude": "latitude"},
             "EK60",
-            (
-                    "ooi",
-                    "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
-            ),
+            ("ooi", "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"),
             (-100.0, -50.0),
         ),
     ],
 )
 def test_update_platform(
-        ext_type,
-        sonar_model,
-        variable_mappings,
-        path_model,
-        raw_path,
-        platform_data,
-        test_path
+    ext_type, sonar_model, variable_mappings, path_model, raw_path, platform_data, test_path
 ):
     raw_file = test_path[path_model] / raw_path[0] / raw_path[1]
     ed = echopype.open_raw(raw_file, sonar_model=sonar_model)
@@ -536,9 +531,7 @@ def test_update_platform(
                 "longitude": (["time"], np.array([float(platform_data[0])])),
                 "latitude": (["time"], np.array([float(platform_data[1])])),
             },
-            coords={
-                "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]))
-            },
+            coords={"time": (["time"], np.array([ed["Sonar/Beam_group1"].ping_time.values.min()]))},
         )
 
     # Run update_platform
@@ -559,10 +552,7 @@ def test_update_platform(
     ).all()
     # check there is only 1 time < min(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
-        np.count_nonzero(
-            ed["Platform"]["time3"] < ed["Sonar/Beam_group1"]["ping_time"].min()
-        )
-        <= 1
+        np.count_nonzero(ed["Platform"]["time3"] < ed["Sonar/Beam_group1"]["ping_time"].min()) <= 1
     )
     # check times are < max(ed["Sonar/Beam_group1"]["ping_time"]) + 2s
     assert (
@@ -571,10 +561,7 @@ def test_update_platform(
     ).all()
     # check there is only 1 time > max(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
-        np.count_nonzero(
-            ed["Platform"]["time3"] > ed["Sonar/Beam_group1"]["ping_time"].max()
-        )
-        <= 1
+        np.count_nonzero(ed["Platform"]["time3"] > ed["Sonar/Beam_group1"]["ping_time"].max()) <= 1
     )
 
 
@@ -591,13 +578,13 @@ def test_update_platform_multidim(test_path):
             "waterlevel": ([], float(10)),
         },
         coords={
-            "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+            "time": (["time"], np.array([ed["Sonar/Beam_group1"].ping_time.values.min()])),
             "time_pitch": (
                 ["time_pitch"],
                 # Adding a time delta is not necessary, but it may be handy if we later
                 # want to expand the scope of this test
-                np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]) + np.timedelta64(5, "s")
-            )
+                np.array([ed["Sonar/Beam_group1"].ping_time.values.min()]) + np.timedelta64(5, "s"),
+            ),
         },
     )
 
@@ -607,7 +594,7 @@ def test_update_platform_multidim(test_path):
         "longitude": "lon",
         "latitude": "lat",
         "pitch": "pitch",
-        "water_level": "waterlevel"
+        "water_level": "waterlevel",
     }
     ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
 
@@ -636,18 +623,17 @@ def test_update_platform_multidim(test_path):
         pytest.param(
             # lat and lon both exist, but aligned on different time dimension: should fail
             {"longitude": "lon", "latitude": "lat"},
-            marks=pytest.mark.xfail(strict=True, reason="Fail since lat and lon not on the same time dimension")
+            marks=pytest.mark.xfail(
+                strict=True, reason="Fail since lat and lon not on the same time dimension"
+            ),
         ),
         pytest.param(
             # only lon exists: should fail
             {"longitude": "lon"},
-            marks=pytest.mark.xfail(strict=True, reason="Fail since only lon exists without lat")
+            marks=pytest.mark.xfail(strict=True, reason="Fail since only lon exists without lat"),
         ),
     ],
-    ids=[
-        "lat_lon_diff_time",
-        "lon_only"
-    ]
+    ids=["lat_lon_diff_time", "lon_only"],
 )
 def test_update_platform_latlon(test_path, variable_mappings):
     raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
@@ -660,8 +646,12 @@ def test_update_platform_latlon(test_path, variable_mappings):
                 "lat": (["time2"], np.array([-50.0])),
             },
             coords={
-                "time1": (["time1"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
-                "time2": (["time2"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()]) + np.timedelta64(5, "s")),
+                "time1": (["time1"], np.array([ed["Sonar/Beam_group1"].ping_time.values.min()])),
+                "time2": (
+                    ["time2"],
+                    np.array([ed["Sonar/Beam_group1"].ping_time.values.min()])
+                    + np.timedelta64(5, "s"),
+                ),
             },
         )
     else:
@@ -670,7 +660,7 @@ def test_update_platform_latlon(test_path, variable_mappings):
                 "lon": (["time"], np.array([-100.0])),
             },
             coords={
-                "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+                "time": (["time"], np.array([ed["Sonar/Beam_group1"].ping_time.values.min()])),
             },
         )
 
@@ -688,7 +678,7 @@ def test_update_platform_no_update(test_path):
             "lat": (["time"], np.array([-50.0])),
         },
         coords={
-            "time": (["time"], np.array([ed['Sonar/Beam_group1'].ping_time.values.min()])),
+            "time": (["time"], np.array([ed["Sonar/Beam_group1"].ping_time.values.min()])),
         },
     )
 
@@ -728,7 +718,10 @@ def test_update_platform_latlon_notimestamp(test_path):
     assert ed["Platform"]["longitude"].dims[0] == ed["Platform"]["latitude"].dims[0]
     assert ed["Platform"]["longitude"].dims[0] in platform_preexisting_dims
     assert ed["Platform"]["latitude"].dims[0] in platform_preexisting_dims
-    assert ed['Platform']['longitude'].coords['time1'].values[0] == ed['Sonar/Beam_group1'].ping_time.data[0]
+    assert (
+        ed["Platform"]["longitude"].coords["time1"].values[0]
+        == ed["Sonar/Beam_group1"].ping_time.data[0]
+    )
 
 
 @pytest.mark.unit
@@ -742,8 +735,7 @@ def test_update_platform_latlon_notimestamp(test_path):
 def test_echodata_chunk(chunk_dict):
     # Parse Raw File
     ed = echopype.open_raw(
-        "echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
-        sonar_model="EK60"
+        "echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw", sonar_model="EK60"
     )
 
     # Chunk Echodata object
@@ -774,20 +766,51 @@ def test_echodata_chunk(chunk_dict):
                     assert chunk_sizes[-1] <= desired_chunk_size
 
 
-
 ### new ###
 @pytest.fixture
 def ek60_path(test_path):
     return test_path["EK60"]
 
+
 def test_convert_legacy_versions(ek60_path):
     ek60_raw_path = str(
         # ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.0.zarr')
-        ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.0_echodata.zarr') # use this to test old
+        ek60_path.joinpath(
+            "legacy_versions", "D20070720-T224031.raw_v0.9.0_echodata.zarr"
+        )  # use this to test old
         # ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.2_echodata.zarr')
-        ##ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.1.zarr')
-        #ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.2.zarr')
+        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw_v0.9.1.zarr")
+        # ek60_path.joinpath(
+        #     "legacy_versions", "D20070720-T224031.raw_v0.9.2.zarr"
+        # )  # need to create this file
+        #
+        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw")
     )
     # Convert file
+    # ed = echopype.open_raw(ek60_raw_path, sonar_model="EK60")
     ed = open_converted(converted_raw_path=ek60_raw_path)
     print(ed)
+    # ed.to_zarr("D20070720-T224031.raw_v0.9.2.zarr")
+    print("done")
+
+
+def test_convert_legacy_versions2(ek60_path):
+    ek60_raw_path = str(
+        ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw_v0.9.0.zarr")
+        # ek60_path.joinpath(
+        #     "legacy_versions", "D20070720-T224031.raw_v0.9.0_echodata.zarr"
+        # )  # use this to test old
+        # ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.2_echodata.zarr')
+        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw_v0.9.1.zarr")
+        # ek60_path.joinpath(
+        #     "legacy_versions", "D20070720-T224031.raw_v0.9.2.zarr"
+        # )  # need to create this file
+        #
+        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw")
+    )
+    # Convert file
+    # ed = echopype.open_raw(ek60_raw_path, sonar_model="EK60")
+    ed = open_converted(converted_raw_path=ek60_raw_path)
+    print(ed)
+    # ed.to_zarr("D20070720-T224031.raw_v0.9.2.zarr")
+    print("done")
