@@ -15,6 +15,6 @@ pytz
 requests
 s3fs
 scipy
-typing-extensions
+typing_extensions
 xarray>=2024.11.0
 zarr>=2,<3
