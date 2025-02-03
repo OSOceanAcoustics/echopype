@@ -282,7 +282,7 @@ def _gen_timestamp_data(ch_name, ch_range_sample_ping_time_len, ping_time_jitter
     for ch_seq, ch in enumerate(ch_name):
         mock_time = _gen_ping_time(
             ping_time_len=sum(ch_range_sample_ping_time_len[ch_seq]),
-            ping_time_interval="1S",
+            ping_time_interval="1s",
             ping_time_jitter_max_ms=ping_time_jitter_max_ms,
         )
         timestamp_data[ch] = [np.datetime64(t) for t in mock_time.tolist()]
