@@ -316,7 +316,7 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
         # Check that no NaNs exist
         assert not np.any(np.isnan(env_var.data))
 
-                
+@pytest.mark.test1
 @pytest.mark.parametrize(
     "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
     [
@@ -413,6 +413,9 @@ def test_check_echodata_backscatter_size(
         "with the results stored directly in a Zarr store on disk, rather then in memory."
     )
     assert warning_message == caplog.records[0].message
+
+    # Check that no list index warning is raised
+    assert not any("list index out of range" in record.message for record in caplog.records)
     
     # Turn off logger verbosity
     ep.utils.log.verbose(override=True)
