@@ -8,7 +8,7 @@ import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
-from xarray import DataTree, open_groups  # , open_datatree
+from xarray import DataTree, open_datatree, open_groups
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -173,15 +173,28 @@ class EchoData:
                 engine=XARRAY_ENGINE_MAP[suffix],
                 **echodata.open_kwargs,
             )  # open_groups has '/', '/Environment', '/Platform', etc
-            data_tree = xr.DataTree.from_dict(tree)
+            # newer 0.9.1 only has '/' ...older has '/'+'/Platform'+a bunch of others
+            if "/Platform/NMEA" in tree:
+                platform_nmea = tree["/Platform/NMEA"]
+                if "time1" in platform_nmea.coords:
+                    platform_nmea = platform_nmea.rename({"time1": "time_nmea"})
+                    print(platform_nmea)
+                    tree["/Platform/NMEA"] = platform_nmea
+                data_tree = xr.DataTree.from_dict(tree)  # before this rewrite 'time1'
+                data_tree.name = "root"
+                print(data_tree)
+            else:
+                tree = open_datatree(
+                    converted_raw_path,
+                    engine=XARRAY_ENGINE_MAP[suffix],
+                    **echodata.open_kwargs,
+                )  # open_groups has '/', '/Environment', '/Platform', etc
 
             # tree = open_datatree(
             #     converted_raw_path,
             #     engine=XARRAY_ENGINE_MAP[suffix],
             #     **echodata.open_kwargs,
             # ) # if len(tree.keys()) == 1:
-
-            data_tree.name = "root"
 
         # from packaging.version import Version
         # processing_software_version = tree["/"].processing_software_version # not in 9.2
