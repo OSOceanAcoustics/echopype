@@ -534,3 +534,24 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
                 [[True, False, False, True, True, True]]
             ]
             assert np.array_equal(da_nan_mask, np.array(expected_values))
+
+
+@pytest.mark.integration
+def test_assign_actual_range(request):
+    """
+    Tests assign_actual_range function to see if the attribute is properly assigned to the MVBS dataset.
+    """
+    # Grab mock Sv dataset
+    ds_Sv = request.getfixturevalue("mock_Sv_dataset_regular")
+
+    # Compute MVBS
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv).compute()
+
+    # Check if attribute matches manually computed attribute.
+    np.array_equal(
+        ep.commongrid.utils.assign_actual_range(ds_MVBS).attrs["actual_range"],
+        [
+            round(float(ds_MVBS["Sv"].min().values), 2),
+            round(float(ds_MVBS["Sv"].max().values), 2),
+        ]
+    )
