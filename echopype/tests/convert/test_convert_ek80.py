@@ -449,6 +449,7 @@ def test_convert_ek80_mru1(ek80_path):
     np.all(echodata["Platform"]["vertical_offset"].data == np.array(parser.mru1["heave"]))
     np.all(echodata["Platform"]["heading"].data == np.array(parser.mru1["heading"]))
 
+
 @pytest.mark.unit
 def test_skip_ec150(ek80_path):
     """Make sure we skip EC150 datagrams correctly."""
@@ -458,7 +459,7 @@ def test_skip_ec150(ek80_path):
     assert "EC150" not in echodata["Sonar/Beam_group1"]["channel"].values
     assert "backscatter_i" in echodata["Sonar/Beam_group1"].data_vars
     assert (
-        echodata["Sonar/Beam_group1"].dims
+        echodata["Sonar/Beam_group1"].sizes
         == {'channel_all': 1, 'beam_group': 1, 'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
     )
 
@@ -471,7 +472,7 @@ def test_parse_mru0_mru1(ek80_path):
 
     # Check dimensions
     assert (
-        echodata["Platform"].dims
+        echodata["Platform"].sizes
         == {'channel': 1, 'time1': 1, 'time2': 43, 'time3': 43}
     )
 
