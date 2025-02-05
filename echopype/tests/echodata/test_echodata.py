@@ -9,7 +9,7 @@ from zarr.errors import GroupNotFoundError
 
 import echopype
 from echopype.echodata import EchoData
-from echopype import open_converted, calibrate
+from echopype import open_converted
 from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 
 import pytest
@@ -362,7 +362,6 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
 
     try:
         ed = open_converted(ek60_converted_zarr, storage_options=storage_options)
-        # raise Exception("Should prevent successful test")
         assert isinstance(ed, EchoData) is True
     except Exception as e:
         if (
@@ -370,7 +369,6 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
             and ek60_converted_zarr.startswith("s3://")
             and ek60_converted_zarr.endswith(".nc")
         ):
-            # raise Exception("Should prevent successful test")
             assert isinstance(e, ValueError) is True
 
 
@@ -769,34 +767,6 @@ def test_echodata_chunk(chunk_dict):
                     for chunk_size in chunk_sizes[:-1]:
                         assert chunk_size == desired_chunk_size
                     assert chunk_sizes[-1] <= desired_chunk_size
-
-
-### new ###
-@pytest.fixture
-def ek60_path(test_path):
-    return test_path["EK60"]
-
-
-def test_convert_legacy_versions(ek60_path):
-    ek60_raw_path = str(
-        # ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.0.zarr')
-        ek60_path.joinpath(
-            "legacy_versions", "D20070720-T224031.raw_v0.9.0_echodata.zarr"
-        )  # use this to test old
-        # ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.2_echodata.zarr')
-        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw_v0.9.1.zarr")
-        # ek60_path.joinpath(
-        #     "legacy_versions", "D20070720-T224031.raw_v0.9.2.zarr"
-        # )  # need to create this file
-        #
-        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw")
-    )
-    # Convert file
-    # ed = echopype.open_raw(ek60_raw_path, sonar_model="EK60")
-    ed = open_converted(converted_raw_path=ek60_raw_path)
-    print(ed)
-    # ed.to_zarr("D20070720-T224031.raw_v0.9.2.zarr")
-    print("done")
 
 
 @pytest.mark.parametrize(
