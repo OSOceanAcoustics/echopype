@@ -9,7 +9,7 @@ from zarr.errors import GroupNotFoundError
 
 import echopype
 from echopype.echodata import EchoData
-from echopype import open_converted
+from echopype import open_converted, calibrate
 from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 
 import pytest
@@ -17,6 +17,11 @@ import xarray as xr
 import numpy as np
 
 from utils import get_mock_echodata, check_consolidated
+
+
+@pytest.fixture(scope="module")
+def legacy_data_zarr(test_path):
+    return test_path["LEGACY_DATA"]
 
 
 @pytest.fixture(scope="module")
@@ -794,23 +799,20 @@ def test_convert_legacy_versions(ek60_path):
     print("done")
 
 
-def test_convert_legacy_versions2(ek60_path):
+# def test_convert_DELETE_ME(ek60_path):
+#     ek60_raw_path = str(ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw"))
+#     echodata = echopype.open_raw(ek60_raw_path, sonar_model="EK60", storage_options={"anon": True})
+#     ds_Sv = calibrate.compute_Sv(echodata)
+#     print(ds_Sv)
+
+
+def test_convert_legacy_versions2(legacy_data_zarr):
     ek60_raw_path = str(
-        ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw_v0.9.0.zarr")
-        # ek60_path.joinpath(
-        #     "legacy_versions", "D20070720-T224031.raw_v0.9.0_echodata.zarr"
-        # )  # use this to test old
-        # ek60_path.joinpath('legacy_versions', 'D20070720-T224031.raw_v0.9.2_echodata.zarr')
-        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw_v0.9.1.zarr")
-        # ek60_path.joinpath(
-        #     "legacy_versions", "D20070720-T224031.raw_v0.9.2.zarr"
-        # )  # need to create this file
-        #
-        # ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw")
+        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.8.4_echodata.zarr")
+        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.0_echodata.zarr")
+        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.1_echodata.zarr")
+        legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.1_echodata.nc")
+        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.2_echodata.zarr")
     )
-    # Convert file
-    # ed = echopype.open_raw(ek60_raw_path, sonar_model="EK60")
     ed = open_converted(converted_raw_path=ek60_raw_path)
     print(ed)
-    # ed.to_zarr("D20070720-T224031.raw_v0.9.2.zarr")
-    print("done")

@@ -167,46 +167,29 @@ class EchoData:
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
 
-        if XARRAY_ENGINE_MAP[suffix] == "zarr":  # Testing for legacy datatree
-            # tree = open_datatree(  # open_datatree is for new datatree
-            tree = open_groups(  # open_groups is for older obsolete data
+        if XARRAY_ENGINE_MAP[suffix] == "zarr":
+            tree = open_groups(
                 converted_raw_path,
                 engine=XARRAY_ENGINE_MAP[suffix],
                 **echodata.open_kwargs,
-            )  # open_groups has '/', '/Environment', '/Platform', etc
-            # newer 0.9.1 only has '/' ...older has '/'+'/Platform'+a bunch of others
-            if (
-                "/Platform/NMEA" in tree
-            ):  # ......for v0.9.0.zarr there is only a root directory (when calibrate was done)
+            )
+            if "/Platform/NMEA" in tree:
                 platform_nmea = tree["/Platform/NMEA"]
                 if "time1" in platform_nmea.coords:
                     platform_nmea = platform_nmea.rename({"time1": "time_nmea"})
                     print(platform_nmea)
                     tree["/Platform/NMEA"] = platform_nmea
-                tree = xr.DataTree.from_dict(tree)  # before this rewrite 'time1'
-                tree.name = "root"
-                print(tree)
-            elif "/" in tree:
-                tree = xr.DataTree.from_dict(tree)  # before this rewrite 'time1'
+                tree = xr.DataTree.from_dict(tree)
                 tree.name = "root"
             else:
                 tree = open_datatree(
                     converted_raw_path,
                     engine=XARRAY_ENGINE_MAP[suffix],
                     **echodata.open_kwargs,
-                )  # open_groups has '/', '/Environment', '/Platform', etc
+                )
                 tree.name = "root"
-        # tree.orphan()
-        # tree = open_datatree(
-        #     converted_raw_path,
-        #     engine=XARRAY_ENGINE_MAP[suffix],
-        #     **echodata.open_kwargs,
-        # )
 
-        # tree = xr.DataTree.from_dict(tree_group)
-        # https://docs.xarray.dev/en/stable/generated/xarray.open_groups.html
-
-        echodata._set_tree(tree)
+            echodata._set_tree(tree)
 
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
