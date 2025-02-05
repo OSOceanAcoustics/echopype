@@ -12,9 +12,9 @@ from echopype.testing import TEST_DATA_FOLDER
 ECHOPYPE_RESOURCES = pooch.create(
     path=pooch.os_cache("echopype"),
     base_url="https://github.com/oftfrfbf/echopype-test-data/releases/download/{version}/",
-    version="2025.2.0",
+    version="2025.2.1",
     registry={
-        "legacy_data.zip": "sha256:5c2a7fe63e71ce1ee8375edf9fc72ac0e339398584b8c3918bc1836bc95a2573",
+        "legacy_data.zip": "sha256:14e0ef5715716aa7f42ca148c9aea660a36313dad12d419f827ddbd22d6bc902",
     },
 )
 

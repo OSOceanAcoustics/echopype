@@ -799,20 +799,20 @@ def test_convert_legacy_versions(ek60_path):
     print("done")
 
 
-# def test_convert_DELETE_ME(ek60_path):
-#     ek60_raw_path = str(ek60_path.joinpath("legacy_versions", "D20070720-T224031.raw"))
-#     echodata = echopype.open_raw(ek60_raw_path, sonar_model="EK60", storage_options={"anon": True})
-#     ds_Sv = calibrate.compute_Sv(echodata)
-#     print(ds_Sv)
-
-
-def test_convert_legacy_versions2(legacy_data_zarr):
-    ek60_raw_path = str(
-        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.8.4_echodata.zarr")
-        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.0_echodata.zarr")
-        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.1_echodata.zarr")
-        legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.1_echodata.nc")
-        # legacy_data_zarr.joinpath("ek60", "D20070720-T224031.raw_v0.9.2_echodata.zarr")
-    )
+@pytest.mark.parametrize(
+    "legacy_data_filename",
+    [
+        "D20070720-T224031.raw_v0.8.4_echodata.zarr",
+        "D20070720-T224031.raw_v0.8.4_echodata.nc",
+        "D20070720-T224031.raw_v0.9.0_echodata.zarr",
+        "D20070720-T224031.raw_v0.9.0_echodata.nc",
+        "D20070720-T224031.raw_v0.9.1_echodata.zarr",
+        "D20070720-T224031.raw_v0.9.1_echodata.nc",
+        "D20070720-T224031.raw_v0.9.2_echodata.zarr",
+        "D20070720-T224031.raw_v0.9.2_echodata.nc",
+    ],
+)
+def test_convert_legacy_versions2(legacy_data_zarr, legacy_data_filename):
+    ek60_raw_path = str(legacy_data_zarr.joinpath("ek60", legacy_data_filename))
     ed = open_converted(converted_raw_path=ek60_raw_path)
-    print(ed)
+    assert isinstance(ed, EchoData)

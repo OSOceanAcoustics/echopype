@@ -167,29 +167,27 @@ class EchoData:
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
 
-        if XARRAY_ENGINE_MAP[suffix] == "zarr":
-            tree = open_groups(
+        tree = open_groups(
+            converted_raw_path,
+            engine=XARRAY_ENGINE_MAP[suffix],
+            **echodata.open_kwargs,
+        )
+        if "/Platform/NMEA" in tree:
+            platform_nmea = tree["/Platform/NMEA"]
+            if "time1" in platform_nmea.coords:
+                platform_nmea = platform_nmea.rename({"time1": "time_nmea"})
+                print(platform_nmea)
+                tree["/Platform/NMEA"] = platform_nmea
+            tree = xr.DataTree.from_dict(tree)
+        else:
+            tree = open_datatree(
                 converted_raw_path,
                 engine=XARRAY_ENGINE_MAP[suffix],
                 **echodata.open_kwargs,
             )
-            if "/Platform/NMEA" in tree:
-                platform_nmea = tree["/Platform/NMEA"]
-                if "time1" in platform_nmea.coords:
-                    platform_nmea = platform_nmea.rename({"time1": "time_nmea"})
-                    print(platform_nmea)
-                    tree["/Platform/NMEA"] = platform_nmea
-                tree = xr.DataTree.from_dict(tree)
-                tree.name = "root"
-            else:
-                tree = open_datatree(
-                    converted_raw_path,
-                    engine=XARRAY_ENGINE_MAP[suffix],
-                    **echodata.open_kwargs,
-                )
-                tree.name = "root"
 
-            echodata._set_tree(tree)
+        tree.name = "root"
+        echodata._set_tree(tree)
 
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
