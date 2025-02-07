@@ -167,18 +167,17 @@ class EchoData:
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
 
-        tree = open_groups(
+        temp_tree = open_groups(
             converted_raw_path,
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
-        if "/Platform/NMEA" in tree:
-            platform_nmea = tree["/Platform/NMEA"]
+        if "/Platform/NMEA" in temp_tree:
+            platform_nmea = temp_tree["/Platform/NMEA"]
             if "time1" in platform_nmea.coords:
                 platform_nmea = platform_nmea.rename({"time1": "time_nmea"})
-                print(platform_nmea)
-                tree["/Platform/NMEA"] = platform_nmea
-            tree = xr.DataTree.from_dict(tree)
+                temp_tree["/Platform/NMEA"] = platform_nmea
+            tree = xr.DataTree.from_dict(temp_tree)
         else:
             tree = open_datatree(
                 converted_raw_path,
