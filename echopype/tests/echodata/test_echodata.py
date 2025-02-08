@@ -20,8 +20,8 @@ from utils import get_mock_echodata, check_consolidated
 
 
 @pytest.fixture(scope="module")
-def legacy_data_zarr(test_path):
-    return test_path["LEGACY_DATA"]
+def legacy_datatree(test_path):
+    return test_path["LEGACY_DATATREE"]
 
 
 @pytest.fixture(scope="module")
@@ -779,7 +779,7 @@ def test_echodata_chunk(chunk_dict):
 
 
 @pytest.mark.parametrize(
-    "legacy_data_filename",
+    "legacy_datatree_filename",
     [
         "D20070720-T224031.raw_v0.8.4_echodata.zarr",
         "D20070720-T224031.raw_v0.8.4_echodata.nc",
@@ -791,7 +791,7 @@ def test_echodata_chunk(chunk_dict):
         "D20070720-T224031.raw_v0.9.2_echodata.nc",
     ],
 )
-def test_convert_legacy_versions2(legacy_data_zarr, legacy_data_filename):
-    ek60_raw_path = str(legacy_data_zarr.joinpath("ek60", legacy_data_filename))
+def test_convert_legacy_versions2(legacy_datatree, legacy_datatree_filename):
+    ek60_raw_path = str(legacy_datatree.joinpath("ek60", legacy_datatree_filename))
     ed = open_converted(converted_raw_path=ek60_raw_path)
     assert isinstance(ed, EchoData)

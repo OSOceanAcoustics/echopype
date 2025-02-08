@@ -1,43 +1,9 @@
 """``pytest`` configuration."""
 
 import pytest
-import pooch
-import os
-from pathlib import Path
-from zipfile import ZipFile
 
 
 from echopype.testing import TEST_DATA_FOLDER
-
-ECHOPYPE_RESOURCES = pooch.create(
-    path=pooch.os_cache("echopype"),
-    base_url="https://github.com/oftfrfbf/echopype-test-data/releases/download/{version}/",
-    version="2025.2.1",
-    registry={
-        "legacy_data.zip": "sha256:14e0ef5715716aa7f42ca148c9aea660a36313dad12d419f827ddbd22d6bc902",
-    },
-)
-
-
-def unpack(fname, action, pup):
-    unzipped = Path(fname.split(".zip")[0]).parent  # + ".unzipped"
-    unzipped_child = fname.split(".zip")[0]
-    if action in ("update", "download") or not os.path.exists(unzipped_child):
-        with ZipFile(fname, "r") as zip_file:
-            zip_file.extractall(path=unzipped)
-    return unzipped
-
-
-def fetch_zipped_file(file_path):
-    fname = ECHOPYPE_RESOURCES.fetch(
-        fname=file_path,
-        processor=unpack,
-        # progressbar=True,
-    )
-    return Path(fname).joinpath(Path(file_path).stem)
-
-
-legacy_data = fetch_zipped_file("legacy_data.zip")
 
 
 @pytest.fixture(scope="session")
@@ -63,7 +29,7 @@ def test_path():
         "EK80_CAL": TEST_DATA_FOLDER / "ek80_bb_with_calibration",
         "EK80_EXT": TEST_DATA_FOLDER / "ek80_ext",
         "ECS": TEST_DATA_FOLDER / "ecs",
-        "LEGACY_DATA": legacy_data,
+        "LEGACY_DATATREE": TEST_DATA_FOLDER / "legacy_datatree",
     }
 
 
