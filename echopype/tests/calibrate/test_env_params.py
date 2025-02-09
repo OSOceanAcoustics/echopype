@@ -104,7 +104,7 @@ def test_harmonize_env_param_time():
     assert (p_new["ping_time"] == ping_time_target).all()
     assert isinstance(p_new.data, dask.array.Array)
     # np.array_equal() computes dask array under the hood
-    assert np.array_equal(p_new.data, p.data)
+    assert np.array_equal(p_new.data.compute(), p.data.compute())
 
     # ping_time target requires actual interpolation
     ping_time_target = xr.DataArray(
