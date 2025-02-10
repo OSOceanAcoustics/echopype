@@ -8,7 +8,7 @@ import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
-from xarray import DataTree, open_datatree
+from xarray import DataTree, open_datatree, open_groups
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -166,21 +166,36 @@ class EchoData:
         echodata._check_path(converted_raw_path)
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
-        tree = open_datatree(
+
+        temp_tree = open_groups(
             converted_raw_path,
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
-        tree.name = "root"
+        if "/Platform/NMEA" in temp_tree:
+            platform_nmea = temp_tree["/Platform/NMEA"]
+            if "time1" in platform_nmea.coords:
+                platform_nmea = platform_nmea.rename({"time1": "nmea_time"})
+                temp_tree["/Platform/NMEA"] = platform_nmea
+            tree = xr.DataTree.from_dict(temp_tree)
+        else:
+            tree = open_datatree(
+                converted_raw_path,
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )
 
+        tree.name = "root"
         echodata._set_tree(tree)
 
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
             # for retrieving the path strings
             converted_raw_path = Path(converted_raw_path.root)
+
         echodata.converted_raw_path = converted_raw_path
         echodata._load_tree()
+
         return echodata
 
     def _load_tree(self) -> None:
