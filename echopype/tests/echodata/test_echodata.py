@@ -9,7 +9,7 @@ from zarr.errors import GroupNotFoundError
 
 import echopype
 from echopype.echodata import EchoData
-from echopype import open_converted
+from echopype import open_converted, open_raw
 from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 
 import pytest
@@ -790,7 +790,36 @@ def test_echodata_chunk(chunk_dict):
         "D20070720-T224031.raw_v0.9.2_echodata.nc",
     ],
 )
-def test_convert_legacy_versions2(legacy_datatree, legacy_datatree_filename):
+def test_convert_legacy_versions_ek60(legacy_datatree, legacy_datatree_filename):
     ek60_raw_path = str(legacy_datatree.joinpath("ek60", legacy_datatree_filename))
     ed = open_converted(converted_raw_path=ek60_raw_path)
     assert isinstance(ed, EchoData)
+
+
+@pytest.mark.parametrize(
+    "legacy_datatree_filename",
+    [
+        "Summer2018--D20180905-T033113.raw_v0.8.4_echodata.nc",
+        "Summer2018--D20180905-T033113.raw_v0.8.4_echodata.zarr",
+        "Summer2018--D20180905-T033113.raw_v0.9.0_echodata.nc",
+        "Summer2018--D20180905-T033113.raw_v0.9.0_echodata.zarr",
+        "Summer2018--D20180905-T033113.raw_v0.9.1_echodata.nc",
+        "Summer2018--D20180905-T033113.raw_v0.9.1_echodata.zarr",
+        "Summer2018--D20180905-T033113.raw_v0.9.2_echodata.nc",
+        "Summer2018--D20180905-T033113.raw_v0.9.2_echodata.zarr",
+    ],
+)
+def test_convert_legacy_versions_ek80(legacy_datatree, legacy_datatree_filename):
+    ek80_raw_path = str(legacy_datatree.joinpath("ek80", legacy_datatree_filename))
+    ed = open_converted(converted_raw_path=ek80_raw_path)
+    assert isinstance(ed, EchoData)
+
+
+# def test_run_save_to_zarr():
+#     raw_file_name = "Summer2018--D20180905-T033113.raw"  # EK80 file
+#     echodata = open_raw(raw_file=raw_file_name, sonar_model="ek80")
+#     # echodata.to_zarr(f"{raw_file_name}_v{ep.__version__}_echodata.zarr")
+#     echodata.to_zarr(f"{raw_file_name}_v0.9.2_echodata.zarr")
+#     # echodata.to_netcdf(f"{raw_file_name}_v{ep.__version__}_echodata.nc")
+#     echodata.to_netcdf(f"{raw_file_name}_v0.9.2_echodata.nc")
+#     print("done converting")

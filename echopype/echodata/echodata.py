@@ -175,7 +175,7 @@ class EchoData:
         if "/Platform/NMEA" in temp_tree:
             platform_nmea = temp_tree["/Platform/NMEA"]
             if "time1" in platform_nmea.coords:
-                platform_nmea = platform_nmea.rename({"time1": "time_nmea"})
+                platform_nmea = platform_nmea.rename({"time1": "nmea_time"})
                 temp_tree["/Platform/NMEA"] = platform_nmea
             tree = xr.DataTree.from_dict(temp_tree)
         else:
