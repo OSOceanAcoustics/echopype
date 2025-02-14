@@ -181,11 +181,12 @@ class EchoData:
                     platform_nmea = platform_nmea.rename({"time1": "nmea_time"})
                     temp_tree["/Platform/NMEA"] = platform_nmea
 
-            # if "/Sonar" in temp_tree:
-            #     channel_all = temp_tree["/Sonar"]
-            #     if "channel" in channel_all.coords:
-            #         channel_all = channel_all.rename({"channel": "channel_all"})
-            #         temp_tree["/Sonar"] = channel_all
+            if "/Sonar" in temp_tree:
+                channel_all = temp_tree["/Sonar"]
+                if "channel" in channel_all.coords:
+                    # TODO: do we actually want to rename the children as well?
+                    channel_all = channel_all.rename({"channel": "channel_all"})
+                    temp_tree["/Sonar"] = channel_all
 
             tree = xr.DataTree.from_dict(temp_tree)
         else:
