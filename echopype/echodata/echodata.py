@@ -167,16 +167,26 @@ class EchoData:
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
 
+        # TODO: open more efficiently
+        #  RE: https://github.com/OSOceanAcoustics/echopype/pull/1447#issuecomment-2657830598
         temp_tree = open_groups(
             converted_raw_path,
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
-        if "/Platform/NMEA" in temp_tree:
-            platform_nmea = temp_tree["/Platform/NMEA"]
-            if "time1" in platform_nmea.coords:
-                platform_nmea = platform_nmea.rename({"time1": "nmea_time"})
-                temp_tree["/Platform/NMEA"] = platform_nmea
+        if "/Platform/NMEA" in temp_tree:  # or "channel" in temp_tree["/Sonar"]:
+            if "/Platform/NMEA" in temp_tree:
+                platform_nmea = temp_tree["/Platform/NMEA"]
+                if "time1" in platform_nmea.coords:
+                    platform_nmea = platform_nmea.rename({"time1": "nmea_time"})
+                    temp_tree["/Platform/NMEA"] = platform_nmea
+
+            # if "/Sonar" in temp_tree:
+            #     channel_all = temp_tree["/Sonar"]
+            #     if "channel" in channel_all.coords:
+            #         channel_all = channel_all.rename({"channel": "channel_all"})
+            #         temp_tree["/Sonar"] = channel_all
+
             tree = xr.DataTree.from_dict(temp_tree)
         else:
             tree = open_datatree(
