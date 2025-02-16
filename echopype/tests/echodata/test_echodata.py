@@ -786,8 +786,6 @@ def test_echodata_chunk(chunk_dict):
         "D20070720-T224031.raw_v0.9.0_echodata.nc",
         "D20070720-T224031.raw_v0.9.1_echodata.zarr",
         "D20070720-T224031.raw_v0.9.1_echodata.nc",
-        # "D20070720-T224031.raw_v0.9.2_echodata.zarr",
-        # "D20070720-T224031.raw_v0.9.2_echodata.nc",
     ],
 )
 def test_convert_legacy_versions_ek60(legacy_datatree, legacy_datatree_filename):
@@ -805,8 +803,6 @@ def test_convert_legacy_versions_ek60(legacy_datatree, legacy_datatree_filename)
         "Summer2018--D20180905-T033113.raw_v0.9.0_echodata.zarr",
         "Summer2018--D20180905-T033113.raw_v0.9.1_echodata.nc",
         "Summer2018--D20180905-T033113.raw_v0.9.1_echodata.zarr",
-        # "Summer2018--D20180905-T033113.raw_v0.9.2_echodata.nc",
-        # "Summer2018--D20180905-T033113.raw_v0.9.2_echodata.zarr",
     ],
 )
 def test_convert_legacy_versions_ek80(legacy_datatree, legacy_datatree_filename):
