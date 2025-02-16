@@ -781,7 +781,7 @@ def test_echodata_delete(caplog):
     """
     # Open raw using swap file
     ed = open_raw(
-        "/home/exouser/echopype/echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
+        "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
         sonar_model="EK60",
         use_swap=True
     )
