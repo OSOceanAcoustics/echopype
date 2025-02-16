@@ -115,9 +115,18 @@ def _get_auto_chunk(
     tuple
         The chunks
     """
-    auto_tuple = tuple(["auto" for i in variable.shape])
+    # Create a tuple filled with "auto" for each dimension in the variable's shape.
+    auto_tuple = tuple("auto" for _ in variable.shape)
+
+    # Generate a tuple of chunk sizes using the dask 'auto_chunks' function.
     chunks = auto_chunks(auto_tuple, variable.shape, chunk_size, variable.dtype)
-    return tuple([c[0] if isinstance(c, tuple) else c for c in chunks])
+
+    # Ensure each chunk is a single value by extracting the first element if it's a tuple.
+    list_chunks = list(c[0] if isinstance(c, tuple) else c for c in chunks)
+
+    # Map each key from variable.sizes to its corresponding chunk. We use zip to ensure that
+    # the keys are paired with the chunks in the correct order.
+    return dict(zip(variable.sizes, list_chunks))
 
 
 def set_time_encodings(ds: xr.Dataset) -> xr.Dataset:
