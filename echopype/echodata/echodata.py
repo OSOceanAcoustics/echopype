@@ -200,7 +200,7 @@ class EchoData:
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
-        
+
         is_legacy = True
         if is_kongsberg and ("nmea_time" in nmea_check.coords):
             is_legacy = False
@@ -228,7 +228,7 @@ class EchoData:
                 if "time1" in platform.coords:
                     platform = platform.rename({"time1": "nmea_time"})
                     temp_tree["/Platform/NMEA"] = platform
-            
+
             # Convert datatree to new format
             tree = xr.DataTree.from_dict(temp_tree)
 
