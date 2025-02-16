@@ -272,22 +272,6 @@ class EchoData:
         else:
             raise ValueError("Datatree not found!")
 
-    def __setattr__(self, __name: str, __value: Any) -> None:
-        attr_value = __value
-        if isinstance(__value, DataTree) and __name != "_tree":
-            attr_value = self.__get_dataset(__value)
-        elif isinstance(__value, xr.Dataset):
-            group_map = sonarnetcdf_1.yaml_dict["groups"]
-            if __name in group_map:
-                group = group_map.get(__name)
-                group_path = group["ep_group"]
-                if self._tree:
-                    if __name == "top":
-                        self._tree.dataset = __value
-                    else:
-                        self._tree[group_path].dataset = __value
-        super().__setattr__(__name, attr_value)
-
     @add_processing_level("L1A")
     def update_platform(
         self,
