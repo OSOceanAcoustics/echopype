@@ -1364,8 +1364,8 @@ class SetGroupsEK80(SetGroupsBase):
                 param = param_map[type_num]
 
                 # get filter coefficient values
-                val_imag =  np.imag(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
-                val_real =  np.real(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
+                val_imag = np.imag(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
+                val_real = np.real(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
                 coeffs_and_decimation[param][FILTER_IMAG].append(val_imag)
                 coeffs_and_decimation[param][FILTER_REAL].append(val_real)
 
