@@ -87,7 +87,7 @@ as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) 
 
 Please cite echopype as follows:
 
-Lee, W., Mayorga, E., Setiawan, L., Majeed, I., Nguyen, K., & Staneva, V. (2021). Echopype: A Python library for interoperable and scalable processing of water column sonar data for biological information. arXiv preprint arXiv:2111.00187
+Wu-Jung Lee, Landung Setiawan, Caesar Tuguinay, Emilio Mayorga, Valentina Staneva, Interoperable and scalable echosounder data processing with Echopype, ICES Journal of Marine Science, Volume 81, Issue 10, December 2024, Pages 1941–1951, https://doi.org/10.1093/icesjms/fsae133
 
 Citation information and project metadata are stored in `CITATION.cff`, which uses the [Citation File Format](https://citation-file-format.github.io/).
 
