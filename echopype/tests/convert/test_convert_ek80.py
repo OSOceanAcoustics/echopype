@@ -7,6 +7,7 @@ from scipy.io import loadmat
 import xarray as xr
 
 from echopype import open_raw, open_converted
+from echopype.calibrate import compute_Sv
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
@@ -615,6 +616,7 @@ def test_ek80_sonar_all_channel():
 
 
 @pytest.mark.unit
+@pytest.mark.test
 def test_ek80_sequence_filter_coeff():
     """
     Checks that filter coefficients are stored properly for EK80 raw files
@@ -640,3 +642,9 @@ def test_ek80_sequence_filter_coeff():
 
     assert np.isnan(ed["Vendor_specific"]["WBT_decimation"].values[0])
     assert ed["Vendor_specific"]["WBT_decimation"].values[1] == 6
+
+    # Check that calibration can run and that its channel matches that of the non-NaN vendor
+    # specific filter channel since that is the one associated with the complex calibration
+    ds_Sv = compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel")["channel"])
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel")["channel"])
