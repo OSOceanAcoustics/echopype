@@ -5,13 +5,13 @@ import math
 import dask
 import warnings
 
-from echopype.utils.coding import _get_auto_chunk, set_netcdf_encodings, _encode_time_dataarray, DEFAULT_TIME_ENCODING
+from echopype.utils.coding import _get_dask_auto_chunk, set_netcdf_encodings, _encode_time_dataarray, DEFAULT_TIME_ENCODING
 
 @pytest.mark.parametrize(
     "chunk",
     ["auto", "5MB", "10MB", "30MB", "70MB", "100MB", "default"],
 )
-def test__get_auto_chunk(chunk):
+def test__get_dask_auto_chunk(chunk):
     random_data = 15 + 8 * np.random.randn(10, 1000, 1000)
 
     da = xr.DataArray(
@@ -22,9 +22,9 @@ def test__get_auto_chunk(chunk):
     if chunk == "auto":
         dask_data = da.chunk('auto').data
     elif chunk == "default":
-        dask_data = da.chunk(_get_auto_chunk(da)).data
+        dask_data = da.chunk(_get_dask_auto_chunk(da)).data
     else:
-        dask_data = da.chunk(_get_auto_chunk(da, chunk)).data
+        dask_data = da.chunk(_get_dask_auto_chunk(da, chunk)).data
     
     chunk_byte_size = math.prod(dask_data.chunksize + (dask_data.itemsize,))
     

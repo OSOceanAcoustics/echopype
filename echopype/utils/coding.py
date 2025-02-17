@@ -96,11 +96,11 @@ def _encode_time_dataarray(da):
     )
 
 
-def _get_auto_chunk(
+def _get_dask_auto_chunk(
     variable: xr.DataArray, chunk_size: "int | str | float" = "100MB"
 ) -> Tuple[int]:
     """
-    Calculate default chunks for a data array based on desired chunk size
+    Calculate default Dask chunks for a data array based on desired chunk size
 
     Parameters
     ----------
@@ -218,7 +218,10 @@ def set_zarr_encodings(
             if rechunk:
                 # Use dask auto chunk to determine the optimal chunk
                 # spread for optimal chunk size
-                chunks = _get_auto_chunk(val, chunk_size=chunk_size)
+                chunks = _get_dask_auto_chunk(val, chunk_size=chunk_size)
+                # Dask expects chunk dictionary but Zarr expects list-like iterable of
+                # values in encoding
+                chunks = [*chunks.values()]
 
             encoding[name]["chunks"] = chunks
         if PREFERRED_CHUNKS in encoding[name]:
