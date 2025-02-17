@@ -1373,30 +1373,6 @@ class SetGroupsEK80(SetGroupsBase):
                 val_deci = fil_df[type_num] if fil_df else np.nan
                 coeffs_and_decimation[param][DECIMATION].append(val_deci)
 
-            # if fil_coeffs and fil_df:
-            #     # get filter coefficient values
-            #     for type_num, values in fil_coeffs.items():
-            #         param = param_map[type_num]
-            #         coeffs_and_decimation[param][FILTER_IMAG].append(np.imag(values))
-            #         coeffs_and_decimation[param][FILTER_REAL].append(np.real(values))
-
-            #     # get decimation factor values
-            #     for type_num, value in fil_df.items():
-            #         param = param_map[type_num]
-            #         coeffs_and_decimation[param][DECIMATION].append(value)
-
-            # else:
-            #     # get filter coefficient values
-            #     for type_num in param_map.keys():
-            #         param = param_map[type_num]
-            #         coeffs_and_decimation[param][FILTER_IMAG].append([np.nan])
-            #         coeffs_and_decimation[param][FILTER_REAL].append([np.nan])
-
-            #     # get decimation factor values
-            #     for type_num in param_map.keys():
-            #         param = param_map[type_num]
-            #         coeffs_and_decimation[param][DECIMATION].append(np.nan)
-
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
 
