@@ -308,9 +308,10 @@ class ParseAZFP6(ParseBase):
         def _test_valid_params(params):
             # If parameters are all empty return True.
             if all([len(self.parameters[p]) == 0 for p in params]):
-                return True
-            # The above was added because of the deprecation warning that arose due to
+                return False
+            # The above was added because of a deprecation warning that arose due to
             # the code below:
+            # https://github.com/OSOceanAcoustics/echopype/pull/1450
             # 'DeprecationWarning: The truth value of an empty array is ambiguous.
             # Returning False, but in future this will result in an error.
             if all([np.isclose(self.parameters[p], 0) for p in params]):
