@@ -1,5 +1,6 @@
 from textwrap import dedent
 
+import os
 import fsspec
 from pathlib import Path
 import shutil
@@ -9,9 +10,10 @@ from zarr.errors import GroupNotFoundError
 
 import echopype
 from echopype.echodata import EchoData
-from echopype import open_converted
+from echopype import open_raw, open_converted
 from echopype.calibrate.calibrate_ek import CalibrateEK60, CalibrateEK80
 
+import dask
 import pytest
 import xarray as xr
 import numpy as np
@@ -770,3 +772,58 @@ def test_echodata_chunk(chunk_dict):
                     for chunk_size in chunk_sizes[:-1]:
                         assert chunk_size == desired_chunk_size
                     assert chunk_sizes[-1] <= desired_chunk_size
+
+
+@pytest.mark.unit
+def test_echodata_delete(caplog):
+    """
+    Check for correct removal behavior and no warnings captured in echodata delete.
+    """
+    # Open raw using swap file
+    ed = open_raw(
+        "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
+        sonar_model="EK60",
+        use_swap=True
+    )
+
+    # Init temp zarr path
+    temp_zarr_path = None
+    sonar_group = "Sonar"
+    beam_group_var = "beam_group"
+    for beam_group in ed[sonar_group][beam_group_var].to_numpy():  # loop through all beam groups
+        # Go through each beam group
+        for var in ed[f"{sonar_group}/{beam_group}"].data_vars.values():
+            # Go through each variable that is a dask array
+            if isinstance(var.data, dask.array.Array):
+                da = var.data
+                # Get the dask graph so we have access to the underlying zarr stores
+                dask_graph = da.__dask_graph__()
+                # Get the zarr stores that exist due to the use swap file operation
+                zarr_stores = [
+                    v.store for k, v in dask_graph.items() if "original-from-zarr" in k
+                ]
+                if len(zarr_stores) > 0:
+                    # Break at the first associated file since there is only one unique file
+                    temp_zarr_path = zarr_stores[0].path
+                    break
+        
+        if temp_zarr_path:
+            break
+    
+    # Check that temp zarr path exists
+    assert os.path.exists(temp_zarr_path)
+
+    # Turn on logger verbosity
+    echopype.utils.log.verbose(override=False)
+
+    # Delete temp zarr in temp zarr path
+    ed.__del__()
+
+    # Turn off logger verbosity
+    echopype.utils.log.verbose(override=True)
+
+    # Check that no exceptions were wrapped by warnings
+    assert not any("Warning: Exception ignored in:" in record.message for record in caplog.records)
+
+    # Check that it doesn't exist
+    assert not os.path.exists(temp_zarr_path)

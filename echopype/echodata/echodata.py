@@ -74,28 +74,30 @@ class EchoData:
 
     def cleanup_swap_files(self):
         """
-        Clean up the swap files during raw data conversion
+        Clean up only the swap files created during raw data conversion.
         """
         sonar_group = "Sonar"
         beam_group_var = "beam_group"
         for beam_group in self[sonar_group][beam_group_var].to_numpy():
             # Go through each beam group
             for var in self[f"{sonar_group}/{beam_group}"].data_vars.values():
-                # Go through each variable and only delete if it's a dask array
+                # Go through each variable that is a dask array
                 if isinstance(var.data, dask.array.Array):
                     da = var.data
-                    # Get the dask graph so we have access to the underlying
-                    # zarr stores
+                    # Get the dask graph so we have access to the underlying zarr stores
                     dask_graph = da.__dask_graph__()
-                    # Get the zarr stores
+                    # Get the zarr stores that exist due to the use swap file operation
                     zarr_stores = [
                         v.store for k, v in dask_graph.items() if "original-from-zarr" in k
                     ]
-                    fs = zarr_stores[0].fs
-                    from ..utils.io import delete_zarr_store
+                    if len(zarr_stores) > 0:
+                        # Grab the first associated file since there is only one unique file
+                        # Can check using zarr_stores[0].path
+                        fs = zarr_stores[0].fs
+                        from ..utils.io import delete_zarr_store
 
-                    for store in zarr_stores:
-                        delete_zarr_store(store, fs)
+                        for store in zarr_stores:
+                            delete_zarr_store(store, fs)
 
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
