@@ -75,28 +75,30 @@ class EchoData:
 
     def cleanup_swap_files(self):
         """
-        Clean up the swap files during raw data conversion
+        Clean up only the swap files created during raw data conversion.
         """
         sonar_group = "Sonar"
         beam_group_var = "beam_group"
         for beam_group in self[sonar_group][beam_group_var].to_numpy():
             # Go through each beam group
             for var in self[f"{sonar_group}/{beam_group}"].data_vars.values():
-                # Go through each variable and only delete if it's a dask array
+                # Go through each variable that is a dask array
                 if isinstance(var.data, dask.array.Array):
                     da = var.data
-                    # Get the dask graph so we have access to the underlying
-                    # zarr stores
+                    # Get the dask graph so we have access to the underlying zarr stores
                     dask_graph = da.__dask_graph__()
-                    # Get the zarr stores
+                    # Get the zarr stores that exist due to the use swap file operation
                     zarr_stores = [
                         v.store for k, v in dask_graph.items() if "original-from-zarr" in k
                     ]
-                    fs = zarr_stores[0].fs
-                    from ..utils.io import delete_zarr_store
+                    if len(zarr_stores) > 0:
+                        # Grab the first associated file since there is only one unique file
+                        # Can check using zarr_stores[0].path
+                        fs = zarr_stores[0].fs
+                        from ..utils.io import delete_zarr_store
 
-                    for store in zarr_stores:
-                        delete_zarr_store(store, fs)
+                        for store in zarr_stores:
+                            delete_zarr_store(store, fs)
 
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
@@ -341,22 +343,6 @@ class EchoData:
                 raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
-
-    def __setattr__(self, __name: str, __value: Any) -> None:
-        attr_value = __value
-        if isinstance(__value, DataTree) and __name != "_tree":
-            attr_value = self.__get_dataset(__value)
-        elif isinstance(__value, xr.Dataset):
-            group_map = sonarnetcdf_1.yaml_dict["groups"]
-            if __name in group_map:
-                group = group_map.get(__name)
-                group_path = group["ep_group"]
-                if self._tree:
-                    if __name == "top":
-                        self._tree.dataset = __value
-                    else:
-                        self._tree[group_path].dataset = __value
-        super().__setattr__(__name, attr_value)
 
     @add_processing_level("L1A")
     def update_platform(
