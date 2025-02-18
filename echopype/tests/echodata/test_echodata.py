@@ -790,7 +790,7 @@ def test_echodata_delete(caplog):
     temp_zarr_path = None
     sonar_group = "Sonar"
     beam_group_var = "beam_group"
-    for beam_group in ed[sonar_group][beam_group_var].to_numpy():
+    for beam_group in ed[sonar_group][beam_group_var].to_numpy():  # loop through all beam groups
         # Go through each beam group
         for var in ed[f"{sonar_group}/{beam_group}"].data_vars.values():
             # Go through each variable that is a dask array
