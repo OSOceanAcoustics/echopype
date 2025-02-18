@@ -225,7 +225,7 @@ class SetGroupsAd2cp(SetGroupsBase):
         ds = xr.Dataset(data_vars=data_vars, coords=coords)
         # make arange coords for the remaining dims
         non_coord_dims = {dim.dimension_name() for dim in used_dims} - set(ds.coords.keys())
-        ds = ds.assign_coords({dim: np.arange(ds.dims[dim]) for dim in non_coord_dims})
+        ds = ds.assign_coords({dim: np.arange(ds.sizes[dim]) for dim in non_coord_dims})
         return ds
 
     def set_env(self) -> xr.Dataset:
