@@ -469,10 +469,11 @@ def add_splitbeam_angle(
 
     # fail if source_Sv and ds_beam do not have the same lengths
     # for ping_time, range_sample, and channel
-    same_dim_lens = [
-        ds_beam.dims[dim] == source_Sv.dims[dim] for dim in ["channel", "ping_time", "range_sample"]
+    same_size_lens = [
+        ds_beam.sizes[dim] == source_Sv.sizes[dim]
+        for dim in ["channel", "ping_time", "range_sample"]
     ]
-    if not same_dim_lens:
+    if not same_size_lens:
         raise ValueError(
             "The 'source_Sv' dataset does not have the same dimensions as data in 'echodata'!"
         )

@@ -200,8 +200,8 @@ def test_combine_echodata(raw_datasets):
             grp_drop_dims = []
             concat_dims = []
         else:
-            grp_drop_dims = list(set(combined_group.dims).intersection(set(all_drop_dims)))
-            concat_dims = list(set(combined_group.dims).intersection(append_dims))
+            grp_drop_dims = list(set(combined_group.sizes).intersection(set(all_drop_dims)))
+            concat_dims = list(set(combined_group.sizes).intersection(append_dims))
 
         # concat all Datasets along each concat dimension
         diff_concats = []
@@ -236,7 +236,7 @@ def test_combine_echodata(raw_datasets):
 def _check_prov_ds(prov_ds, eds):
     """Checks the Provenance dataset against source_filenames variable
     and global attributes in the original echodata object"""
-    for i in range(prov_ds.dims["echodata_filename"]):
+    for i in range(prov_ds.sizes["echodata_filename"]):
         ed_ds = eds[i]
         one_ds = prov_ds.isel(echodata_filename=i, filenames=i)
         for key, value in one_ds.data_vars.items():
@@ -286,7 +286,7 @@ def test_combine_echodata_combined_append(ek60_multi_test_data, test_param, sona
         
         def _check_prov_ds_and_dims(sel_comb_ed, n_val_expected):
             prov_ds = sel_comb_ed["Provenance"]
-            for _, n_val in prov_ds.dims.items():
+            for _, n_val in prov_ds.sizes.items():
                 assert n_val == n_val_expected
             _check_prov_ds(prov_ds, eds)
 
