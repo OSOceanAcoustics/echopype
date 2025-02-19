@@ -7,6 +7,7 @@ from scipy.io import loadmat
 import xarray as xr
 
 from echopype import open_raw, open_converted
+from echopype.calibrate import compute_Sv
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
@@ -431,9 +432,10 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
 
     vendor_spec_ds = echodata["Vendor_specific"]
 
+    # All filter elements should be NaN
     for t in [WIDE_BAND_TRANS, PULSE_COMPRESS]:
         for p in [FILTER_REAL, FILTER_IMAG, DECIMATION]:
-            assert f"{t}_{p}" not in vendor_spec_ds
+            assert np.all(np.isnan(vendor_spec_ds[f"{t}_{p}"]))
 
 
 @pytest.mark.xfail(reason="Setting MRU1 platform motion data to EchoData Platform group is not yet implemented.")
@@ -611,3 +613,37 @@ def test_ek80_sonar_all_channel():
 
     # Check that channel sets are equal
     assert channel_set == target_channel_set
+
+
+@pytest.mark.unit
+def test_ek80_sequence_filter_coeff():
+    """
+    Checks that filter coefficients are stored properly for EK80 raw files
+    generated with ping sequence.
+    """
+    # Convert EK80 Raw File
+    ed = open_raw(
+        raw_file="echopype/test_data/ek80_sequence/three_ensemble-Phase0-D20240506-T053349-0.raw",
+        sonar_model="EK80"
+    )
+
+    # Check that one channel is filter coeff are all NaN
+    assert (
+        ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel").sizes
+        == {'channel': 1, 'WBT_filter_n': 191}
+    )
+    assert (
+        ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel").sizes
+        == {'channel': 1, 'PC_filter_n': 63}
+    )
+    assert np.isnan(ed["Vendor_specific"]["PC_decimation"].values[0])
+    assert ed["Vendor_specific"]["PC_decimation"].values[1] == 2
+
+    assert np.isnan(ed["Vendor_specific"]["WBT_decimation"].values[0])
+    assert ed["Vendor_specific"]["WBT_decimation"].values[1] == 6
+
+    # Check that calibration can run and that its channel matches that of the non-NaN vendor
+    # specific filter channel since that is the one associated with the complex calibration
+    ds_Sv = compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel")["channel"])
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel")["channel"])

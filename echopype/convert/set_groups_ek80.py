@@ -1360,17 +1360,18 @@ class SetGroupsEK80(SetGroupsBase):
             fil_coeffs = self.parser_obj.fil_coeffs.get(ch, None)
             fil_df = self.parser_obj.fil_df.get(ch, None)
 
-            if fil_coeffs and fil_df:
+            for type_num in param_map.keys():
+                param = param_map[type_num]
+
                 # get filter coefficient values
-                for type_num, values in fil_coeffs.items():
-                    param = param_map[type_num]
-                    coeffs_and_decimation[param][FILTER_IMAG].append(np.imag(values))
-                    coeffs_and_decimation[param][FILTER_REAL].append(np.real(values))
+                val_imag = np.imag(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
+                val_real = np.real(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
+                coeffs_and_decimation[param][FILTER_IMAG].append(val_imag)
+                coeffs_and_decimation[param][FILTER_REAL].append(val_real)
 
                 # get decimation factor values
-                for type_num, value in fil_df.items():
-                    param = param_map[type_num]
-                    coeffs_and_decimation[param][DECIMATION].append(value)
+                val_deci = fil_df[type_num] if fil_df else np.nan
+                coeffs_and_decimation[param][DECIMATION].append(val_deci)
 
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
