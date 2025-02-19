@@ -616,7 +616,6 @@ def test_ek80_sonar_all_channel():
 
 
 @pytest.mark.unit
-@pytest.mark.test
 def test_ek80_sequence_filter_coeff():
     """
     Checks that filter coefficients are stored properly for EK80 raw files
