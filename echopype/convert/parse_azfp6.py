@@ -306,23 +306,16 @@ class ParseAZFP6(ParseBase):
 
         # Set flags for presence of valid parameters for temperature and tilt
         def _test_valid_params(params):
-            # If parameters are all empty return True.
-            if all([len(self.parameters[p]) == 0 for p in params]):
-                return False
-            # The above was added because of a deprecation warning that arose due to
-            # the code below:
-            # https://github.com/OSOceanAcoustics/echopype/pull/1450
-            # 'DeprecationWarning: The truth value of an empty array is ambiguous.
-            # Returning False, but in future this will result in an error.
             if all([np.isclose(self.parameters[p], 0) for p in params]):
                 return False
             else:
                 return True
 
-        temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
-        pressure_is_valid = _test_valid_params(["a0", "a1"])
-        tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
-        tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
+        # Initialize all *_is_valid flags to False
+        temperature_is_valid = False
+        pressure_is_valid = False
+        tilt_x_is_valid = False
+        tilt_y_is_valid = False
 
         with fmap.fs.open(fmap.root, "rb") as file:
 
@@ -330,6 +323,12 @@ class ParseAZFP6(ParseBase):
                 unpack("<I", file.read(4))[0] == self.XML_FILE_TYPE
             ):  # first field should match hard-coded FILE_TYPE from manufacturer
                 self.load_AZFP_xml(file)
+
+                # Check if parameters are valid
+                temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
+                pressure_is_valid = _test_valid_params(["a0", "a1"])
+                tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
+                tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
             else:
                 raise ValueError("Unknown file type")
 
