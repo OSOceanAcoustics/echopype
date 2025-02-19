@@ -311,10 +311,11 @@ class ParseAZFP6(ParseBase):
             else:
                 return True
 
-        temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
-        pressure_is_valid = _test_valid_params(["a0", "a1"])
-        tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
-        tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
+        # Initialize all *_is_valid flags to False
+        temperature_is_valid = False
+        pressure_is_valid = False
+        tilt_x_is_valid = False
+        tilt_y_is_valid = False
 
         with fmap.fs.open(fmap.root, "rb") as file:
 
@@ -322,6 +323,12 @@ class ParseAZFP6(ParseBase):
                 unpack("<I", file.read(4))[0] == self.XML_FILE_TYPE
             ):  # first field should match hard-coded FILE_TYPE from manufacturer
                 self.load_AZFP_xml(file)
+
+                # Check if parameters are valid
+                temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
+                pressure_is_valid = _test_valid_params(["a0", "a1"])
+                tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
+                tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
             else:
                 raise ValueError("Unknown file type")
 
