@@ -290,7 +290,7 @@ class TestEchoData:
         ed = self.create_ed(converted_raw_path=converted_zarr)
         ed["Sonar/Beam_group1"] = ed["Sonar/Beam_group1"].rename({"beam": "beam_newname"})
 
-        assert sorted(ed["Sonar/Beam_group1"].dims.keys()) == [
+        assert sorted(ed["Sonar/Beam_group1"].sizes.keys()) == [
             "beam_group",
             "beam_newname",
             "channel",
