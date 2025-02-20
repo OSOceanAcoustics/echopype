@@ -1,4 +1,5 @@
 import datetime
+import re
 import warnings
 from html import escape
 from pathlib import Path
@@ -8,7 +9,7 @@ import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
-from xarray import DataTree, open_datatree
+from xarray import DataTree, open_datatree, open_groups
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -168,21 +169,90 @@ class EchoData:
         echodata._check_path(converted_raw_path)
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
-        tree = open_datatree(
+
+        # Open specific groups to check if this is new or legacy data wrt xr.DataTree updates
+        # Legacy data will have: `channel` instead of `channel_all` in the Sonar group
+        #                        `time1` instead of `nmea_time` in the Platform/NMEA group
+        # Need to check both Platform/NMEA and Sonar groups, because:
+        # - datasets from some instruments may not have `channel_all` or `channel` in Sonar
+        # - datasets from some instruments may not have `Platform/NMEA` altogether (no GPS data)
+
+        # TODO: remove this check once adding NMEA subgroup to all sonar_model for consistency
+        # Open Top-level group to check sonar_model
+        # Only Kongsberg sonar_model has Platform/NMEA group
+        top_check = xr.open_dataset(
             converted_raw_path,
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
-        tree.name = "root"
+        kongsberg_sonar_model = ["EK60", "ES70", "EK80", "ES80", "EA640"]
+        combined_pattern = "|".join(re.escape(s) for s in kongsberg_sonar_model)
+        is_kongsberg = bool(re.search(combined_pattern, top_check.attrs["keywords"]))
+        if is_kongsberg:
+            nmea_check = xr.open_dataset(
+                converted_raw_path,
+                group="Platform/NMEA",
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )
 
+        sonar_check = xr.open_dataset(
+            converted_raw_path,
+            group="Sonar",
+            engine=XARRAY_ENGINE_MAP[suffix],
+            **echodata.open_kwargs,
+        )
+
+        is_legacy = True
+        if is_kongsberg and ("nmea_time" in nmea_check.coords):
+            is_legacy = False
+        if not is_kongsberg and "channel_all" in sonar_check.coords:
+            is_legacy = False
+
+        if is_legacy:
+            # If legacy data, update coordinates to avoid inheritance problem
+            temp_tree = open_groups(
+                converted_raw_path,
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )
+
+            # Update Sonar for all sonar_model if channel exists as a coordinate
+            sonar = temp_tree["/Sonar"]
+            if "channel" in sonar.coords:
+                # TODO: do we actually want to rename the children as well?
+                sonar = sonar.rename({"channel": "channel_all"})
+                temp_tree["/Sonar"] = sonar
+
+            # Update Platform/NMEA/time1 to Platform/NMEA/nmea_time for only Kongberg model
+            if is_kongsberg:
+                platform = temp_tree["/Platform/NMEA"]
+                if "time1" in platform.coords:
+                    platform = platform.rename({"time1": "nmea_time"})
+                    temp_tree["/Platform/NMEA"] = platform
+
+            # Convert datatree to new format
+            tree = xr.DataTree.from_dict(temp_tree)
+
+        else:
+            # If new data, proceed to open as usual
+            tree = open_datatree(
+                converted_raw_path,
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )
+
+        tree.name = "root"
         echodata._set_tree(tree)
 
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
             # for retrieving the path strings
             converted_raw_path = Path(converted_raw_path.root)
+
         echodata.converted_raw_path = converted_raw_path
         echodata._load_tree()
+
         return echodata
 
     def _load_tree(self) -> None:
