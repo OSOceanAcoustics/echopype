@@ -30,7 +30,7 @@ This release includes the critical migration to use the new `xr.DataTree` functi
 * Fill in NaN for missing EK80 coefficients by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1458
 
 ## Infrastructure
-* Update workflows python version by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1425
+* Update workflows to use python 3.12 and ubuntu 22.04 by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1425 and https://github.com/OSOceanAcoustics/echopype/pull/1466
 * Bump codespell version, add exceptions by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1438
 * Pin `zarr` and `netcdf4` temporarily by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1429
 * Add `type-extensions` to requirements.txt by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1440
