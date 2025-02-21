@@ -48,7 +48,7 @@ This release includes the critical migration to use the new `xr.DataTree` functi
 
 
 
-# v0.9.1 (2024/07/20) 
+# v0.9.1 (2024/07/20)
 
 ## Overview
 
