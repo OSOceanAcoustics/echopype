@@ -86,24 +86,24 @@ def ek_use_beam_angles(
         beam_ds, "Sonar/Beam_group1", ["beam_direction_x", "beam_direction_y", "beam_direction_z"]
     )
 
-    # Grab beam angles from beam group
-    beam_direction_x = beam_ds["beam_direction_x"]
-    beam_direction_y = beam_ds["beam_direction_y"]
-    beam_direction_z = beam_ds["beam_direction_z"]
+    # Grab beam angles from beam group (extract as numpy arrays)
+    beam_direction_x = beam_ds["beam_direction_x"].values
+    beam_direction_y = beam_ds["beam_direction_y"].values
+    beam_direction_z = beam_ds["beam_direction_z"].values
 
-    # Compute echo range scaling from pitch roll rotations
-    beam_dir_rotmatrix_stack = [
-        [
-            np.array([0, 0, beam_direction_x[c]]),
-            np.array([0, 0, beam_direction_y[c]]),
-            np.array([0, 0, beam_direction_z[c]]),
-        ]
-        for c in range(len(beam_direction_x))
-    ]
-    rot_beam_direction = R.from_matrix(beam_dir_rotmatrix_stack)
-    echo_range_scaling = rot_beam_direction.as_matrix()[:, -1, -1]
+    # Extract echo range scaling from align vectors
+    echo_range_scaling_list = []
+    for channel_idx in range(len(beam_direction_x)):
+        v = np.array(
+            [
+                beam_direction_x[channel_idx],
+                beam_direction_y[channel_idx],
+                beam_direction_z[channel_idx],
+            ]
+        )
+        R_obj, _ = R.align_vectors(np.array([[0, 0, 1]]), np.array([v]))
+        echo_range_scaling_list.append(R_obj.as_matrix()[-1, -1])
     echo_range_scaling = xr.DataArray(
-        echo_range_scaling, dims="channel", coords={"channel": beam_ds["channel"]}
+        echo_range_scaling_list, dims="channel", coords={"channel": beam_ds["channel"]}
     )
-
     return echo_range_scaling
