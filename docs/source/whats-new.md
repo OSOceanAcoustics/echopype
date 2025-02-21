@@ -4,6 +4,88 @@ What's new
 See [GitHub releases page](https://github.com/OSOceanAcoustics/echopype/releases) for the complete history.
 
 
+# v0.10.0 (2025/02/20)
+
+## Overview
+This release includes the critical migration to use the new `xr.DataTree` functionality, updates to support python 3.12, and many other updates to resolve deprecation warnings and small bugs. There are a number of pinned dependencies we continue to be working on.
+
+## Enhancements
+* Drop ping time duplicates by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1382
+* Support Python 3.12 and partial migration to Xarray DataTree by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1419
+* Fix tests that fail from new Xarray variable and attribute assignment updates by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1433
+* Add backward compatibility of raw-converted dataset with xr.DataTree by @oftfrfbf @leewujung @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1447
+* Add assign actual range utility function by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1435
+
+## Bug and warning fixes
+* Assemble AD2CP timestamp with nanosecond precision by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1436
+* Use `import_resources.files` instead of the legacy `open_text` by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1434
+* Fix invalid `\d` warning by using raw string by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1448
+* Check if there exist any swap files before cleaning them up by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1451
+* Remove `__setattr__` from EchoData by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1457
+* Compute dask array before np array equal by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1452
+* `Dataset.dims` to `Dataset.sizes` by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1453
+* Chunks as dictionaries in `_get_auto_chunk` by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1454
+* Set decode timedelta to False since it will default to this in later xarray version by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1462
+* Fixed logic bug in AZFP6 parser in validating parameters by @ctuguinay @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1450
+* Fill in NaN for missing EK80 coefficients by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1458
+
+## Infrastructure
+* Update workflows python version by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1425
+* Bump codespell version, add exceptions by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1438
+* Pin `zarr` and `netcdf4` temporarily by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1429
+* Add `type-extensions` to requirements.txt by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1440
+* Add manual trigger to pypi workflow by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1442
+* Pin `scipy` to temporarily ensure that rotation matrix calculation does not fail by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1460
+
+## Others
+* Update cff citation file by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1443
+* Replace previous arXiv citation with recent ICES paper citation by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1455
+
+**Full Changelog**: https://github.com/OSOceanAcoustics/echopype/compare/v0.9.1...v0.10.0
+
+
+
+
+
+
+# v0.9.1 (2024/07/20)
+
+## Overview
+
+This release includes a number of small fixes and enhancements. An important component is to set the max supported python version to <3.12, before we fully migrate to using the new [`xarray.DataTree`](https://github.com/pydata/xarray/blob/main/DATATREE_MIGRATION_GUIDE.md) in the next release with breaking changes.
+
+## Enhancements
+* Remove min max attributes for `compute_MVBS` by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1380
+* Update setup-services.py by @spacetimeengineer in https://github.com/OSOceanAcoustics/echopype/pull/1398
+* Add support for AZFP 130kHz by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1412
+* Update calibrate_base.py to include EA640 in backscatter size check. by @torsteinnh in https://github.com/OSOceanAcoustics/echopype/pull/1407
+
+## Bug and warning fixes
+* Handle `NaN` in `apply_mask` input mask by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1376
+* EK60 Conversion: Drop channels that don't have power data by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1383
+* Skip Parsing Invalid EK80 Environment Datagram(s) by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1387
+* Fix 'Division by Zero' error when converting EK80 files without Sound Velocity Profile Depth value(s) by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1381
+* Add error warning for all NaN lat/lon in `get_distance_from_latlon` by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1403
+* Updated paths in `test_align_to_ping_time_glider_azfp` to use pytest fixture by @oftfrfbf in https://github.com/OSOceanAcoustics/echopype/pull/1414
+
+## Documentation
+* Update installation doc page by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1389
+
+## Others
+* Set max python version <3.12 [all tests ci] by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1422
+
+## New Contributors
+* @spacetimeengineer made their first contribution in https://github.com/OSOceanAcoustics/echopype/pull/1398
+* @oftfrfbf made their first contribution in https://github.com/OSOceanAcoustics/echopype/pull/1414
+* @torsteinnh made their first contribution in https://github.com/OSOceanAcoustics/echopype/pull/1407
+
+**Full Changelog**: https://github.com/OSOceanAcoustics/echopype/compare/v0.9.0...v0.9.1
+
+
+
+
+
+
 # v0.9.0 (2024/07/20)
 
 ## Overview
