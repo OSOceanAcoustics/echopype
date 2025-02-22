@@ -23,6 +23,9 @@ jobs:
         # fetch all history so that setuptools-scm works
         fetch-depth: 0
 
+    - name: Ensure a clean tag
+      run: git checkout tags/$(git describe --tags --abbrev=0)
+  
     - name: Set up Python
       uses: actions/setup-python@v5.4.0
       with:
