@@ -19,6 +19,7 @@ This release includes the critical migration to use the new `xr.DataTree` functi
 ## Bug and warning fixes
 * Assemble AD2CP timestamp with nanosecond precision by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1436
 * Use `import_resources.files` instead of the legacy `open_text` by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1434
+* Replace `pkg_resources.resource_string` with `importlib.resources.files` by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1468
 * Fix invalid `\d` warning by using raw string by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1448
 * Check if there exist any swap files before cleaning them up by @ctuguinay in https://github.com/OSOceanAcoustics/echopype/pull/1451
 * Remove `__setattr__` from EchoData by @leewujung in https://github.com/OSOceanAcoustics/echopype/pull/1457
