@@ -1,8 +1,8 @@
 import datetime
 import html
 from functools import lru_cache
-from pathlib import Path
 from importlib.resources import files
+from pathlib import Path
 
 import pkg_resources
 from jinja2 import Environment, FileSystemLoader, Template
