@@ -4,7 +4,6 @@ from functools import lru_cache
 from pathlib import Path
 from importlib.resources import files
 
-import pkg_resources
 from jinja2 import Environment, FileSystemLoader, Template
 from jinja2.exceptions import TemplateNotFound
 
