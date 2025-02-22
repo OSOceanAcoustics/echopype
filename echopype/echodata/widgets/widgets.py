@@ -1,8 +1,8 @@
 import datetime
 import html
 from functools import lru_cache
-from pathlib import Path
 from importlib.resources import files
+from pathlib import Path
 
 import pkg_resources
 from jinja2 import Environment, FileSystemLoader, Template
@@ -37,10 +37,7 @@ def _load_static_files():
     """Lazily load the resource files into memory the first time they are needed.
     Clone from xarray.core.formatted_html_template.
     """
-    return [
-        files(__package__).joinpath(fname).read_text(encoding="utf8")
-        for fname in STATIC_FILES
-    ]
+    return [files(__package__).joinpath(fname).read_text(encoding="utf8") for fname in STATIC_FILES]
 
 
 def get_environment() -> Environment:
