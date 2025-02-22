@@ -20,11 +20,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        # fetch all history so that setuptools-scm works
-        fetch-depth: 0
-
-    - name: Ensure a clean tag
-      run: git checkout tags/$(git describe --tags --abbrev=0)
+        fetch-depth: 0  # fetch all history so that setuptools-scm works
+        fetch-tags: true  # Ensure all tags are fetched
   
     - name: Set up Python
       uses: actions/setup-python@v5.4.0
@@ -43,6 +40,9 @@ jobs:
         # compatible with PyPI.
         sed --in-place "s/node-and-date/no-local-version/g" pyproject.toml
 
+    - name: Debug setuptools_scm version
+      run: python -c "import setuptools_scm; print(setuptools_scm.get_version())"
+  
     - name: Build source and wheel distributions
       run: |
         python setup.py sdist bdist_wheel
