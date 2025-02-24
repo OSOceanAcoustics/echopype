@@ -3,7 +3,7 @@ Functions for enhancing the spatial and temporal coherence of data.
 """
 
 import logging
-from typing import Literal
+from typing import Literal, Union
 
 import numpy as np
 import pandas as pd
@@ -32,9 +32,11 @@ def compute_MVBS(
     range_var: Literal["echo_range", "depth"] = "echo_range",
     range_bin: str = "20m",
     ping_time_bin: str = "20s",
-    method="map-reduce",
-    skipna=True,
+    method: str = "map-reduce",
+    reindex: bool = False,
+    skipna: bool = True,
     closed: Literal["left", "right"] = "left",
+    range_var_max: Union[int, float] = None,
     **flox_kwargs,
 ):
     """
@@ -63,11 +65,21 @@ def compute_MVBS(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    reindex: bool, default False
+        If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
+        Generally, `reindex=False` results in less memory at the cost of computation speed.
+        Can only be used when method='map-reduce'.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
     skipna: bool, default True
         If true, the mean operation skips NaN values.
         Else, the mean operation includes NaN values.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
+    range_var_max: Union[int, float], default None
+        Range variable maximum. Can be true range variable maximum or the maximum depth the
+        user wishes to regrid to. If known, users can pass in range variable maximum to
+        ensure that `compute_MVBS` can lazily run without any computation.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -76,6 +88,8 @@ def compute_MVBS(
     -------
     A dataset containing bin-averaged Sv
     """
+    if method != "map-reduce" and reindex is not None:
+        raise ValueError(f"Passing in reindex={reindex} is only allowed when method='map_reduce'.")
 
     # Setup and validate
     # * Sv dataset must contain specified range_var
@@ -86,10 +100,11 @@ def compute_MVBS(
     if not isinstance(ping_time_bin, str):
         raise TypeError("ping_time_bin must be a string")
 
-    # create bin information for echo_range
-    # this computes the echo range max since there might NaNs in the data
-    echo_range_max = ds_Sv[range_var].max()
-    range_interval = np.arange(0, echo_range_max + range_bin, range_bin)
+    # Create bin information for the range variable
+    if range_var_max is None:
+        # This computes the range variable max since there might NaNs in the data
+        range_var_max = ds_Sv[range_var].max(skipna=True)
+    range_interval = np.arange(0, range_var_max + range_bin, range_bin)
 
     # create bin information needed for ping_time
     d_index = (
@@ -109,6 +124,7 @@ def compute_MVBS(
         ping_interval,
         range_var=range_var,
         method=method,
+        reindex=reindex,
         skipna=skipna,
         **flox_kwargs,
     )
