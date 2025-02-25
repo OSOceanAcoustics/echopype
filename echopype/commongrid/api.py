@@ -3,7 +3,7 @@ Functions for enhancing the spatial and temporal coherence of data.
 """
 
 import logging
-from typing import Literal, Union
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -36,7 +36,7 @@ def compute_MVBS(
     reindex: bool = False,
     skipna: bool = True,
     closed: Literal["left", "right"] = "left",
-    range_var_max: Union[int, float] = None,
+    range_var_max: str = None,
     **flox_kwargs,
 ):
     """
@@ -76,7 +76,7 @@ def compute_MVBS(
         Else, the mean operation includes NaN values.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
-    range_var_max: Union[int, float], default None
+    range_var_max: str, default None
         Range variable maximum. Can be true range variable maximum or the maximum depth the
         user wishes to regrid to. If known, users can pass in range variable maximum to
         ensure that `compute_MVBS` can lazily run without any computation.
@@ -104,6 +104,10 @@ def compute_MVBS(
     if range_var_max is None:
         # This computes the range variable max since there might NaNs in the data
         range_var_max = ds_Sv[range_var].max(skipna=True)
+    else:
+        # Parse string and small increase to ensure that we get the bin
+        # corresponding to range_var_max
+        range_var_max = _parse_x_bin(range_var_max) + 1e-8
     range_interval = np.arange(0, range_var_max + range_bin, range_bin)
 
     # create bin information needed for ping_time
