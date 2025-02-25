@@ -80,7 +80,7 @@ def ek_use_beam_angles(beam_ds: xr.Dataset) -> xr.DataArray:
     the beam direction vector is normalized. If not, then we normalize the z direction and set
     that as the echo range scaling.
     Additionally, if a nonzero vector is not normalized, a warning is issued and it is normalized.
-    If a channel-wise beam direction vector is zero, a warning is issued and the normalized z value
+    If a channel-wise beam direction vector is zero, a warning is issued and the returned z value
     is set to NaN.
     """
     # Check and log NaNs if they exist in the Beam direction variables
