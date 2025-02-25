@@ -104,28 +104,74 @@ def test_ek_use_platform_angles_output():
 
 
 @pytest.mark.unit
-def test_ek_use_beam_angles_output():
+def test_ek_use_beam_angles_output(caplog):
     """
-    Test `use_beam_angle` outputs for 2 sideways looking beams and 1 vertical looking beam.
+    Test `use_beam_angle` outputs for 2 sideways looking beams, 1 vertical looking beam, and 1
+    beam that does not have normalized directions.
     """
     # Create a Dataset with channel-specific beam direction vectors
     # In channels 1 and 2, the transducers are not pointing vertically at all so the echo
     # range scaling should be 0 (i.e zeros out the entire depth).
     # In channel 3, the transducer is completely vertical so the echo range scaling should
     # be 1 (i.e no change).
-    # In channel 4, the transducer is tilted to the x direction by 30 deg, so the
-    # echo range scaling should be sqrt(3)/2.
+    # In channel 4, we do not have a normalized vector so the echo range scaling should be
+    # sqrt(3)/2 divided by the norm of channel 4.
     channel_da = xr.DataArray(["chan1", "chan2", "chan3", "chan4"], dims=("channel"))
     beam_ds = xr.Dataset(
         {
-            "beam_direction_x": xr.DataArray([1, 0, 0, 1/2], dims=("channel")),
+            "beam_direction_x": xr.DataArray([1, 0, 0, 1], dims=("channel")),
             "beam_direction_y": xr.DataArray([0, 1, 0, 0], dims=("channel")),
             "beam_direction_z": xr.DataArray([0, 0, 1, np.sqrt(3)/2], dims=("channel")),
         },
         coords={"channel": channel_da}
     )
+
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+
+    # Compute beam angle echo range scaling
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
-    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0, np.sqrt(3)/2]))
+
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
+
+    # Verify the correct warning
+    assert "Beam direction vector was not normalized" in caplog.text
+
+    # Compute and compare manual test values with function values
+    fourth_value = (np.sqrt(3)/2) / np.sqrt(((np.sqrt(3)/2) ** 2) + 1)
+    assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0, fourth_value]))
+
+
+@pytest.mark.unit
+def test_warning_zero_vector(caplog):
+    """
+    Test that a warning is logged and NaN is returned for channels with zero beam direction vector.
+    """
+    # Create a dataset with two channels: zero vector [0, 0, 0] and nonzero normalized vector [0, 1, 0].
+    beam_ds = xr.Dataset(
+        {
+            "beam_direction_x": xr.DataArray([0, 0], dims=("channel")),
+            "beam_direction_y": xr.DataArray([0, 1], dims=("channel")),
+            "beam_direction_z": xr.DataArray([0, 0], dims=("channel")),
+        }
+    )
+    
+    # Turn on logger verbosity
+    ep.utils.log.verbose(override=False)
+    
+    # Compute beam angle echo range scaling
+    echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
+    
+    # Verify the correct warning
+    assert "Some beam direction vectors are zero" in caplog.text
+
+    # Check that channel 0 output is NaN and channel 1 output is 0
+    assert np.isnan(echo_range_scaling.values[0])
+    assert np.isclose(echo_range_scaling.values[1], 0.0)
+    
+    # Turn off logger verbosity
+    ep.utils.log.verbose(override=True)
 
 
 @pytest.mark.integration
