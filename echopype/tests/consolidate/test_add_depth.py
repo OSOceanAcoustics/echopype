@@ -167,11 +167,8 @@ def test_warning_zero_vector(caplog):
     assert "Some beam direction vectors are zero" in caplog.text
 
     # Check that channel 0 output is NaN and channel 1 output is 0
-    np.testing.assert_array_equal(
-        np.isnan(echo_range_scaling.values),
-        np.array([True, False])
-    )
-    np.testing.assert_allclose(echo_range_scaling.values[1], 0.0)
+    assert np.isnan(echo_range_scaling.values[0])
+    assert np.isclose(echo_range_scaling.values[1], 0.0)
     
     # Turn off logger verbosity
     ep.utils.log.verbose(override=True)
