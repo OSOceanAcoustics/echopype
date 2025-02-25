@@ -295,6 +295,7 @@ def compute_NASC(
 ) -> xr.Dataset:
     """
     Compute Nautical Areal Scattering Coefficient (NASC) from an Sv dataset.
+    TODO: Add range_var_max and reindex parameters to match `compute_MVBS`.
 
     Parameters
     ----------
