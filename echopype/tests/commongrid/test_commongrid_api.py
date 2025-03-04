@@ -555,3 +555,33 @@ def test_assign_actual_range(request):
             round(float(ds_MVBS["Sv"].max().values), 2),
         ]
     )
+
+
+@pytest.mark.integration
+def test_compute_MVBS_range_var_max(request):
+    """
+    Tests compute_MVBS when user specified range_var_max is passed in.
+    """
+    # Grab mock Sv dataset
+    ds_Sv = request.getfixturevalue("mock_Sv_dataset_regular")
+
+    # Compute MVBS
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="1m", range_var_max="8m")
+
+    # Ensure that last echo range value matches range variable maximum
+    assert ds_MVBS["echo_range"].max().compute() == 8
+
+
+@pytest.mark.integration
+def test_compute_reindex_non_NaN_not_map_reduce(request):
+    """
+    Tests compute_MVBS when user passes in reindex non-NaN without method as map-reduce.
+    """
+    # Grab mock Sv dataset
+    ds_Sv = request.getfixturevalue("mock_Sv_dataset_regular")
+
+    # Compute MVBS with invalid parameters
+    for method in ["blockwise", "cohorts"]:
+        for reindex in [True, False]:
+            with pytest.raises(ValueError, match=f"Passing in reindex={reindex} is only allowed when method='map_reduce'."):
+                ep.commongrid.compute_MVBS(ds_Sv, method=method, reindex=reindex)

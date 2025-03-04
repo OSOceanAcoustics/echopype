@@ -20,6 +20,7 @@ def compute_raw_MVBS(
     ping_interval: Union[pd.IntervalIndex, np.ndarray],
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method="map-reduce",
+    reindex=False,
     skipna=True,
     **flox_kwargs,
 ):
@@ -46,6 +47,12 @@ def compute_raw_MVBS(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    reindex: bool, default False
+        If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
+        Generally, `reindex=False` results in less memory at the cost of computation speed.
+        Can only be used when method='map-reduce'.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
     skipna: bool, default True
         If true, the mean operation skips NaN values.
         Else, the mean operation includes NaN values.
@@ -69,6 +76,7 @@ def compute_raw_MVBS(
         x_var=x_var,
         range_var=range_var,
         method=method,
+        reindex=reindex,
         func="nanmean" if skipna else "mean",
         skipna=skipna,
         **flox_kwargs,
@@ -495,6 +503,7 @@ def _groupby_x_along_channels(
     x_var: Literal["ping_time", "distance_nmi"] = "ping_time",
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
+    reindex: bool = False,
     func: str = "nanmean",
     skipna: bool = True,
     **flox_kwargs,
@@ -532,6 +541,12 @@ def _groupby_x_along_channels(
         **For NASC, this must be ``depth``.**
     method: str
         The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    reindex: bool, default False
+        If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
+        Generally, `reindex=False` results in less memory at the cost of computation speed.
+        Can only be used when method='map-reduce'.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
     func: str, default 'nanmean'
@@ -593,6 +608,7 @@ def _groupby_x_along_channels(
         expected_groups=(None, x_interval, range_interval),
         isbin=[False, True, True],
         method=method,
+        reindex=reindex,
         func=func,
         skipna=skipna,
         **flox_kwargs,
