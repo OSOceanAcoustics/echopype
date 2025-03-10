@@ -787,13 +787,13 @@ def test_validate_and_collect_mask_input(
         for ind, da in enumerate(mask_out):
             # create known solution for mask
             mask_da = xr.DataArray(
-                data=[mask_np[ind] for i in range(n_chan)], coords=coords, name="mask_" + str(ind)
+                data=[mask_np[ind].astype(bool) for i in range(n_chan)], coords=coords, name="mask_" + str(ind)
             )
 
             assert da.identical(mask_da)
     else:
         # create known solution for mask
-        mask_da = xr.DataArray(data=[mask_np for i in range(n_chan)], coords=coords, name="mask_0")
+        mask_da = xr.DataArray(data=[mask_np.astype(bool) for i in range(n_chan)], coords=coords, name="mask_0")
         assert mask_out.identical(mask_da)
 
 
