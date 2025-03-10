@@ -136,6 +136,11 @@ def _validate_and_collect_mask_input(
                     "('channel', 'ping_time', 'depth')"
                     "('channel', 'ping_time', 'echo_range')"
                 )
+            # **Enforce boolean type on mask values**
+            if not np.issubdtype(mask[mask_ind].dtype, np.bool_):
+                raise TypeError(
+                    f"Mask at index {mask_ind} must be boolean (dtype=bool), but got dtype {mask[mask_ind].dtype}"
+                )
 
         # Check for the channel dimension consistency
         channel_dim_shapes = set()
@@ -159,6 +164,11 @@ def _validate_and_collect_mask_input(
         if isinstance(mask, (str, pathlib.Path)):
             # open up DataArray using mask path
             mask = xr.open_dataarray(mask, engine=file_type, chunks={}, **storage_options_mask)
+        
+        # **Enforce boolean type on mask values**
+        if not np.issubdtype(mask.dtype, np.bool_):
+            raise TypeError(f"Mask must be boolean (dtype=bool), but got dtype {mask.dtype}")
+
 
     return mask
 
@@ -306,7 +316,8 @@ def apply_mask(
     source_ds: xr.Dataset, str, or pathlib.Path
         Points to a Dataset that contains the variable the mask should be applied to
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
-        The mask(s) to be applied.
+    The mask(s) to be applied. Must contain only boolean values (True/False).
+    If the mask contains numeric or NaN values, an error will be raised.
         Can be a individual input or a list that corresponds to a DataArray or a path.
         Each individual input or entry in the list must contain dimensions
         ``('ping_time', 'range_sample')`` or dimensions ``('ping_time', 'depth')``.
@@ -402,6 +413,10 @@ def apply_mask(
 
     # Turn NaN in final_mask to False, otherwise xr.where treats as True
     final_mask = final_mask.fillna(False)
+
+
+    # Ensure final_mask is strictly boolean before applying it
+    final_mask = final_mask.astype(bool)
 
     # Apply the mask to var_name
     var_name_masked = xr.where(final_mask, x=source_da, y=fill_value)
