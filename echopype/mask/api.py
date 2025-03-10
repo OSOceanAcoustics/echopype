@@ -164,11 +164,10 @@ def _validate_and_collect_mask_input(
         if isinstance(mask, (str, pathlib.Path)):
             # open up DataArray using mask path
             mask = xr.open_dataarray(mask, engine=file_type, chunks={}, **storage_options_mask)
-        
+
         # **Enforce boolean type on mask values**
         if not np.issubdtype(mask.dtype, np.bool_):
             raise TypeError(f"Mask must be boolean (dtype=bool), but got dtype {mask.dtype}")
-
 
     return mask
 
@@ -413,7 +412,6 @@ def apply_mask(
 
     # Turn NaN in final_mask to False, otherwise xr.where treats as True
     final_mask = final_mask.fillna(False)
-
 
     # Ensure final_mask is strictly boolean before applying it
     final_mask = final_mask.astype(bool)
