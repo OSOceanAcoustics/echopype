@@ -187,6 +187,7 @@ def _check_raw_output(
             base = xr.open_dataset(
                 str(ocean_contour_converted_transmit_data_path),
                 group="Data/RawEcho1_1000kHzTx",
+                decode_timedelta=False,
             )
             if "090" in filepath_raw.parts:
                 for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):
@@ -229,6 +230,7 @@ def _check_raw_output(
         base = xr.open_dataset(
             str(ocean_contour_converted_data_path),
             group="Data/RawEcho1_1000kHz",
+            decode_timedelta=False,
         )
         if "090" in filepath_raw.parts:
             for i in range(1, len(echodata["Sonar"]["beam_group"]) + 1):

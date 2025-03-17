@@ -4,55 +4,45 @@ authors:
 - family-names: "Lee"
   given-names: "Wu-Jung"
   orcid: "https://orcid.org/0000-0002-4112-2034"
-- family-names: "Nguyen"
-  given-names: "Kavin"
-  orcid: "https://orcid.org/0000-0003-4923-728X"
 - family-names: "Setiawan"
   given-names: "Landung"
   orcid: "https://orcid.org/0000-0002-1624-2667"
+- family-names: "Tuguinay"
+  given-names: "Caesar"
+  orcid: "https://orcid.org/0009-0000-6652-1093"
 - family-names: "Mayorga"
   given-names: "Emilio"
   orcid: "https://orcid.org/0000-0003-2574-4623"
-- family-names: "Reyes"
-  given-names: "Brandon"
-  orcid: "https://orcid.org/0000-0003-3496-7490"
-- family-names: "Majeed"
-  given-names: "Imran"
-  orcid: "https://orcid.org/0000-0002-2032-6476"
 - family-names: "Staneva"
   given-names: "Valentina"
   orcid: "https://orcid.org/0000-0002-3412-0364"
-title: "echopype"
+title: "Echopype"
 doi: 10.5281/zenodo.3906999
-# but pointing to a specific release/version will
-# require having to update this file with each release
-version: 0.6.4
-date-released: 2023-01-03
-url: "https://echopype.readthedocs.io"
-repository-code: "https://github.com/OSOceanAcoustics/echopype"
+url: "https://github.com/OSOceanAcoustics/echopype"
 preferred-citation:
   type: article
   authors:
   - family-names: "Lee"
     given-names: "Wu-Jung"
     orcid: "https://orcid.org/0000-0002-4112-2034"
-  - family-names: "Mayorga"
-    given-names: "Emilio"
-    orcid: "https://orcid.org/0000-0003-2574-4623"
   - family-names: "Setiawan"
     given-names: "Landung"
     orcid: "https://orcid.org/0000-0002-1624-2667"
-  - family-names: "Majeed"
-    given-names: "Imran"
-    orcid: "https://orcid.org/0000-0002-2032-6476"
-  - family-names: "Nguyen"
-    given-names: "Kavin"
-    orcid: "https://orcid.org/0000-0003-4923-728X"
+  - family-names: "Tuguinay"
+    given-names: "Caesar"
+    orcid: "https://orcid.org/0009-0000-6652-1093"
+  - family-names: "Mayorga"
+    given-names: "Emilio"
+    orcid: "https://orcid.org/0000-0003-2574-4623"
   - family-names: "Staneva"
     given-names: "Valentina"
     orcid: "https://orcid.org/0000-0002-3412-0364"
-  journal: "arXiv preprint arXiv:2111.00187"
-  doi: https://doi.org/10.48550/arXiv.2111.00187
-  month: 10
-  title: "Echopype: A Python library for interoperable and scalable processing of water column sonar data for biological information"
-  year: 2021
+  doi: "10.1093/icesjms/fsae133"
+  journal: "ICES Journal of Marine Science"
+  month: 12
+  start: 1941 # First page number
+  end: 1951 # Last page number
+  title: "Interoperable and scalable echosounder data processing with Echopype"
+  issue: 10
+  volume: 181
+  year: 2024

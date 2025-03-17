@@ -598,3 +598,26 @@ def _groupby_x_along_channels(
         **flox_kwargs,
     )
     return sv_mean
+
+
+def assign_actual_range(ds_MVBS: xr.Dataset) -> xr.Dataset:
+    """
+    Post computation function to assign Sv 'actual_range' attribute. 'actual_range' was
+    originally removed from the 'compute_MVBS' operation because it forced compute, which
+    was undesirable if users wanted to lazily evaluate 'compute_MVBS'.
+
+    Parameters
+    ----------
+    ds_MVBS : xr.Dataset
+        MVBS dataset without actual range attribute.
+
+    Returns
+    -------
+    ds_MVBS : xr.Dataset
+        MVBS dataset with actual range attribute.
+    """
+    actual_range = [
+        round(float(ds_MVBS["Sv"].min().values), 2),
+        round(float(ds_MVBS["Sv"].max().values), 2),
+    ]
+    return ds_MVBS.assign_attrs({"actual_range": actual_range})

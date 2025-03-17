@@ -46,12 +46,12 @@ jobs:
             # Check data endpoint
             curl http://localhost:8080/data/
         - name: Setup Python
-          uses: actions/setup-python@v5.3.0
+          uses: actions/setup-python@v5.4.0
           with:
             python-version: ${{ matrix.python-version }}
             architecture: x64
         - name: Cache conda
-          uses: actions/cache@v4.2.0
+          uses: actions/cache@v4.2.2
           env:
             # Increase this value to reset cache if '.ci_helpers/py{0}.yaml' has not changed
             CACHE_NUMBER: 0

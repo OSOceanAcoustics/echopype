@@ -1,4 +1,5 @@
 import datetime
+import re
 import warnings
 from html import escape
 from pathlib import Path
@@ -8,7 +9,7 @@ import dask.array
 import fsspec
 import numpy as np
 import xarray as xr
-from xarray import DataTree, open_datatree
+from xarray import DataTree, open_datatree, open_groups
 from zarr.errors import GroupNotFoundError, PathNotFoundError
 
 if TYPE_CHECKING:
@@ -74,28 +75,30 @@ class EchoData:
 
     def cleanup_swap_files(self):
         """
-        Clean up the swap files during raw data conversion
+        Clean up only the swap files created during raw data conversion.
         """
         sonar_group = "Sonar"
         beam_group_var = "beam_group"
         for beam_group in self[sonar_group][beam_group_var].to_numpy():
             # Go through each beam group
             for var in self[f"{sonar_group}/{beam_group}"].data_vars.values():
-                # Go through each variable and only delete if it's a dask array
+                # Go through each variable that is a dask array
                 if isinstance(var.data, dask.array.Array):
                     da = var.data
-                    # Get the dask graph so we have access to the underlying
-                    # zarr stores
+                    # Get the dask graph so we have access to the underlying zarr stores
                     dask_graph = da.__dask_graph__()
-                    # Get the zarr stores
+                    # Get the zarr stores that exist due to the use swap file operation
                     zarr_stores = [
                         v.store for k, v in dask_graph.items() if "original-from-zarr" in k
                     ]
-                    fs = zarr_stores[0].fs
-                    from ..utils.io import delete_zarr_store
+                    if len(zarr_stores) > 0:
+                        # Grab the first associated file since there is only one unique file
+                        # Can check using zarr_stores[0].path
+                        fs = zarr_stores[0].fs
+                        from ..utils.io import delete_zarr_store
 
-                    for store in zarr_stores:
-                        delete_zarr_store(store, fs)
+                        for store in zarr_stores:
+                            delete_zarr_store(store, fs)
 
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
@@ -166,21 +169,90 @@ class EchoData:
         echodata._check_path(converted_raw_path)
         converted_raw_path = echodata._sanitize_path(converted_raw_path)
         suffix = echodata._check_suffix(converted_raw_path)
-        tree = open_datatree(
+
+        # Open specific groups to check if this is new or legacy data wrt xr.DataTree updates
+        # Legacy data will have: `channel` instead of `channel_all` in the Sonar group
+        #                        `time1` instead of `nmea_time` in the Platform/NMEA group
+        # Need to check both Platform/NMEA and Sonar groups, because:
+        # - datasets from some instruments may not have `channel_all` or `channel` in Sonar
+        # - datasets from some instruments may not have `Platform/NMEA` altogether (no GPS data)
+
+        # TODO: remove this check once adding NMEA subgroup to all sonar_model for consistency
+        # Open Top-level group to check sonar_model
+        # Only Kongsberg sonar_model has Platform/NMEA group
+        top_check = xr.open_dataset(
             converted_raw_path,
             engine=XARRAY_ENGINE_MAP[suffix],
             **echodata.open_kwargs,
         )
-        tree.name = "root"
+        kongsberg_sonar_model = ["EK60", "ES70", "EK80", "ES80", "EA640"]
+        combined_pattern = "|".join(re.escape(s) for s in kongsberg_sonar_model)
+        is_kongsberg = bool(re.search(combined_pattern, top_check.attrs["keywords"]))
+        if is_kongsberg:
+            nmea_check = xr.open_dataset(
+                converted_raw_path,
+                group="Platform/NMEA",
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )
 
+        sonar_check = xr.open_dataset(
+            converted_raw_path,
+            group="Sonar",
+            engine=XARRAY_ENGINE_MAP[suffix],
+            **echodata.open_kwargs,
+        )
+
+        is_legacy = True
+        if is_kongsberg and ("nmea_time" in nmea_check.coords):
+            is_legacy = False
+        if not is_kongsberg and "channel_all" in sonar_check.coords:
+            is_legacy = False
+
+        if is_legacy:
+            # If legacy data, update coordinates to avoid inheritance problem
+            temp_tree = open_groups(
+                converted_raw_path,
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )
+
+            # Update Sonar for all sonar_model if channel exists as a coordinate
+            sonar = temp_tree["/Sonar"]
+            if "channel" in sonar.coords:
+                # TODO: do we actually want to rename the children as well?
+                sonar = sonar.rename({"channel": "channel_all"})
+                temp_tree["/Sonar"] = sonar
+
+            # Update Platform/NMEA/time1 to Platform/NMEA/nmea_time for only Kongberg model
+            if is_kongsberg:
+                platform = temp_tree["/Platform/NMEA"]
+                if "time1" in platform.coords:
+                    platform = platform.rename({"time1": "nmea_time"})
+                    temp_tree["/Platform/NMEA"] = platform
+
+            # Convert datatree to new format
+            tree = xr.DataTree.from_dict(temp_tree)
+
+        else:
+            # If new data, proceed to open as usual
+            tree = open_datatree(
+                converted_raw_path,
+                engine=XARRAY_ENGINE_MAP[suffix],
+                **echodata.open_kwargs,
+            )
+
+        tree.name = "root"
         echodata._set_tree(tree)
 
         if isinstance(converted_raw_path, fsspec.FSMap):
             # Convert fsmap to Path so it can be used
             # for retrieving the path strings
             converted_raw_path = Path(converted_raw_path.root)
+
         echodata.converted_raw_path = converted_raw_path
         echodata._load_tree()
+
         return echodata
 
     def _load_tree(self) -> None:
@@ -271,22 +343,6 @@ class EchoData:
                 raise GroupNotFoundError(__key)
         else:
             raise ValueError("Datatree not found!")
-
-    def __setattr__(self, __name: str, __value: Any) -> None:
-        attr_value = __value
-        if isinstance(__value, DataTree) and __name != "_tree":
-            attr_value = self.__get_dataset(__value)
-        elif isinstance(__value, xr.Dataset):
-            group_map = sonarnetcdf_1.yaml_dict["groups"]
-            if __name in group_map:
-                group = group_map.get(__name)
-                group_path = group["ep_group"]
-                if self._tree:
-                    if __name == "top":
-                        self._tree.dataset = __value
-                    else:
-                        self._tree[group_path].dataset = __value
-        super().__setattr__(__name, attr_value)
 
     @add_processing_level("L1A")
     def update_platform(

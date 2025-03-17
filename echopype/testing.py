@@ -94,7 +94,7 @@ def _gen_Sv_echo_range_regular(
     depth_len=100,
     depth_interval=0.5,
     ping_time_len=600,
-    ping_time_interval="0.3S",
+    ping_time_interval="0.3s",
     ping_time_jitter_max_ms=0,
     random_number_generator=None,
 ):
@@ -151,7 +151,7 @@ def _gen_Sv_echo_range_irregular(
     depth_interval=[0.5, 0.32, 0.13],
     depth_ping_time_len=[100, 300, 200],
     ping_time_len=600,
-    ping_time_interval="0.3S",
+    ping_time_interval="0.3s",
     ping_time_jitter_max_ms=0,
     random_number_generator=None,
 ):
@@ -282,7 +282,7 @@ def _gen_timestamp_data(ch_name, ch_range_sample_ping_time_len, ping_time_jitter
     for ch_seq, ch in enumerate(ch_name):
         mock_time = _gen_ping_time(
             ping_time_len=sum(ch_range_sample_ping_time_len[ch_seq]),
-            ping_time_interval="1S",
+            ping_time_interval="1s",
             ping_time_jitter_max_ms=ping_time_jitter_max_ms,
         )
         timestamp_data[ch] = [np.datetime64(t) for t in mock_time.tolist()]

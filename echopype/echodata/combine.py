@@ -102,7 +102,7 @@ def check_zarr_path(
 
 
 def _check_channel_selection_form(
-    channel_selection: Optional[Union[List, Dict[str, list]]] = None
+    channel_selection: Optional[Union[List, Dict[str, list]]] = None,
 ) -> None:
     """
     Ensures that the provided user input ``channel_selection`` is in
@@ -133,7 +133,7 @@ def _check_channel_selection_form(
 
         # make sure all keys are of the form Sonar/Beam_group using regular expression
         are_keys_right_form = [
-            True if re.match("Sonar/Beam_group(\d{1})", elem) else False  # noqa
+            True if re.match(r"Sonar/Beam_group(\d{1})", elem) else False  # noqa
             for elem in channel_selection.keys()
         ]
         if not all(are_keys_right_form):

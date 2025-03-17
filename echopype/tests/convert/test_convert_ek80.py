@@ -3,11 +3,15 @@ import pytest
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
+import xarray as xr
 
 from echopype import open_raw, open_converted
+from echopype.calibrate import compute_Sv
 from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
+from echopype.utils import log
+from echopype.convert.utils.ek_duplicates import check_unique_ping_time_duplicates
 
 
 @pytest.fixture
@@ -427,9 +431,10 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
 
     vendor_spec_ds = echodata["Vendor_specific"]
 
+    # All filter elements should be NaN
     for t in [WIDE_BAND_TRANS, PULSE_COMPRESS]:
         for p in [FILTER_REAL, FILTER_IMAG, DECIMATION]:
-            assert f"{t}_{p}" not in vendor_spec_ds
+            assert np.all(np.isnan(vendor_spec_ds[f"{t}_{p}"]))
 
 
 @pytest.mark.xfail(reason="Setting MRU1 platform motion data to EchoData Platform group is not yet implemented.")
@@ -454,7 +459,7 @@ def test_skip_ec150(ek80_path):
     assert "EC150" not in echodata["Sonar/Beam_group1"]["channel"].values
     assert "backscatter_i" in echodata["Sonar/Beam_group1"].data_vars
     assert (
-        echodata["Sonar/Beam_group1"].dims
+        echodata["Sonar/Beam_group1"].sizes
         == {'channel_all': 1, 'beam_group': 1, 'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
     )
 
@@ -467,7 +472,7 @@ def test_parse_mru0_mru1(ek80_path):
 
     # Check dimensions
     assert (
-        echodata["Platform"].dims
+        echodata["Platform"].sizes
         == {'channel': 1, 'time1': 1, 'time2': 43, 'time3': 43}
     )
 
@@ -512,6 +517,62 @@ def test_parse_missing_sound_velocity_profile():
 
 
 @pytest.mark.unit
+def test_duplicate_ping_times(caplog):
+    """
+    Tests that RAW file with duplicate ping times can be parsed and that the correct warning has been raised.
+    """
+    # Turn on logger verbosity
+    log.verbose(override=False)
+
+    # Open RAW
+    ed = open_raw("echopype/test_data/ek80_duplicate_ping_times/Hake-D20210913-T130612.raw", sonar_model="EK80")
+
+    # Check that there are no ping time duplicates in Beam group
+    assert ed["Sonar/Beam_group1"].equals(
+        ed["Sonar/Beam_group1"].drop_duplicates(dim="ping_time")
+    )
+
+    # Check that no warning is logged since the data for all duplicate pings is unique
+    not_expected_warning = ("All duplicate ping_time entries' will be removed, resulting in potential data loss.")
+    assert not any(not_expected_warning in record.message for record in caplog.records)
+
+    # Turn off logger verbosity
+    log.verbose(override=True)
+
+
+@pytest.mark.unit
+def test_check_unique_ping_time_duplicates(caplog):
+    """
+    Checks that `check_unique_ping_time_duplicates` raises a warning when the data for duplicate ping times is not unique.
+    """
+    # Initialize logger
+    logger = log._init_logger(__name__)
+
+    # Turn on logger verbosity
+    log.verbose(override=False)
+
+    # Open duplicate ping time beam dataset
+    ds_data = xr.open_zarr("echopype/test_data/ek80_duplicate_ping_times/duplicate_beam_ds.zarr")
+
+    # Modify a single entry to ensure that there exists duplicate ping times that do not share the same backscatter data
+    ds_data["backscatter_r"][0,0,0] = 0
+
+    # Check for ping time duplicates
+    check_unique_ping_time_duplicates(ds_data, logger)
+
+    # Turn off logger verbosity
+    log.verbose(override=True)
+
+    # Check if the expected warning is logged
+    expected_warning = (
+        "Duplicate slices in variable 'backscatter_r' corresponding to 'ping_time' "
+        f"{str(ds_data['ping_time'].values[0])} differ in data. All duplicate "
+        "'ping_time' entries will be removed, which will result in data loss."
+    )
+    assert any(expected_warning in record.message for record in caplog.records)
+
+
+@pytest.mark.unit
 def test_parse_ek80_with_invalid_env_datagrams():
     """
     Tests parsing EK80 RAW file with invalid environment datagrams. Checks that the EchoData object
@@ -551,3 +612,37 @@ def test_ek80_sonar_all_channel():
 
     # Check that channel sets are equal
     assert channel_set == target_channel_set
+
+
+@pytest.mark.unit
+def test_ek80_sequence_filter_coeff():
+    """
+    Checks that filter coefficients are stored properly for EK80 raw files
+    generated with ping sequence.
+    """
+    # Convert EK80 Raw File
+    ed = open_raw(
+        raw_file="echopype/test_data/ek80_sequence/three_ensemble-Phase0-D20240506-T053349-0.raw",
+        sonar_model="EK80"
+    )
+
+    # Check that one channel is filter coeff are all NaN
+    assert (
+        ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel").sizes
+        == {'channel': 1, 'WBT_filter_n': 191}
+    )
+    assert (
+        ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel").sizes
+        == {'channel': 1, 'PC_filter_n': 63}
+    )
+    assert np.isnan(ed["Vendor_specific"]["PC_decimation"].values[0])
+    assert ed["Vendor_specific"]["PC_decimation"].values[1] == 2
+
+    assert np.isnan(ed["Vendor_specific"]["WBT_decimation"].values[0])
+    assert ed["Vendor_specific"]["WBT_decimation"].values[1] == 6
+
+    # Check that calibration can run and that its channel matches that of the non-NaN vendor
+    # specific filter channel since that is the one associated with the complex calibration
+    ds_Sv = compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel")["channel"])
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel")["channel"])
