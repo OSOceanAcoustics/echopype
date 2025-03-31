@@ -304,7 +304,7 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = np.nan
             logger.info("WARNING: The water_level_draft was not in the file. Value set to NaN.")
 
-        time1, msg_type, lat_nmea, lon_nmea = self._extract_NMEA_latlon()
+        time1, msg_type, lat_nmea, lon_nmea, speed_nmea = self._extract_NMEA_latlonspeed()
         time2 = self.parser_obj.mru0.get("timestamp", None)
         time2 = np.array(time2) if time2 is not None else [np.nan]
         time3 = self.parser_obj.mru1.get("timestamp", None)
@@ -344,6 +344,11 @@ class SetGroupsEK80(SetGroupsBase):
                     ["time1"],
                     lon_nmea,
                     self._varattrs["platform_var_default"]["longitude"],
+                ),
+                "speed_over_ground": (
+                    ["time1"],
+                    speed_nmea,
+                    self._varattrs["platform_var_default"]["speed_over_ground"],
                 ),
                 "sentence_type": (
                     ["time1"],

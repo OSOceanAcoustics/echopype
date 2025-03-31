@@ -101,6 +101,10 @@ variable_and_varattributes:
       standard_name: longitude
       units: degrees_east
       valid_range: (-180.0, 180.0)
+    speed_over_ground:
+      long_name: Platform speed over ground
+      standard_name: speed_over_ground
+      units: knots
     MRU_offset_x:
       long_name: Distance along the x-axis from the platform coordinate system origin to the motion reference unit sensor origin
       units: m

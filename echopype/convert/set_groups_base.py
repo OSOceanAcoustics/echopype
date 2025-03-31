@@ -177,7 +177,7 @@ class SetGroupsBase(abc.ABC):
         raise NotImplementedError
 
     # TODO: move this to be part of parser as it is not a "set" operation
-    def _extract_NMEA_latlon(self):
+    def _extract_NMEA_latlonspeed(self):
         """Get the lat and lon values from the raw nmea data"""
         messages = [string[3:6] for string in self.parser_obj.nmea["nmea_string"]]
         idx_loc = np.argwhere(np.isin(messages, NMEA_SENTENCE_DEFAULT)).squeeze()
@@ -195,7 +195,7 @@ class SetGroupsBase(abc.ABC):
             ):
                 nmea_msg.append(None)
         if nmea_msg:
-            lat, lon = [], []
+            lat, lon, speed = [], [], []
             for x in nmea_msg:
                 try:
                     lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
@@ -213,8 +213,17 @@ class SetGroupsBase(abc.ABC):
                         f"At least one longitude entry is problematic and "
                         f"are assigned None in the converted data: {str(ve)}"
                     )
+                try:
+                    if x[3:6] == "RMC": 
+                        speed.append(x.speed if hasattr(x, "speed") else np.nan)
+                except ValueError as ve:
+                    speed.append(np.nan)
+                    warnings.warn(
+                        f"At least one speed entry is problematic and "
+                        f"are assigned None in the converted data: {str(ve)}"
+                    )
         else:
-            lat, lon = [np.nan], [np.nan]
+            lat, lon, speed = [np.nan], [np.nan], [np.nan]
         msg_type = (
             [x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg]
             if nmea_msg
@@ -231,7 +240,7 @@ class SetGroupsBase(abc.ABC):
         else:
             time1 = [np.nan]
 
-        return time1, msg_type, lat, lon
+        return time1, msg_type, lat, lon, speed
 
     def _beam_groups_vars(self):
         """Stage beam_group coordinate and beam_group_descr variables sharing
