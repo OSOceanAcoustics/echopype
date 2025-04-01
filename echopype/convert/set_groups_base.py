@@ -214,7 +214,7 @@ class SetGroupsBase(abc.ABC):
                         f"are assigned None in the converted data: {str(ve)}"
                     )
                 try:
-                    if x[3:6] == "RMC": 
+                    if x[3:6] == "RMC":
                         speed.append(x.speed if hasattr(x, "speed") else np.nan)
                 except ValueError as ve:
                     speed.append(np.nan)
