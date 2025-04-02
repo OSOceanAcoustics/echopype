@@ -35,6 +35,7 @@ def compute_MVBS(
     method: str = "map-reduce",
     reindex: bool = False,
     skipna: bool = True,
+    fill_value: float = np.nan,
     closed: Literal["left", "right"] = "left",
     range_var_max: str = None,
     **flox_kwargs,
@@ -74,6 +75,8 @@ def compute_MVBS(
     skipna: bool, default True
         If true, the mean operation skips NaN values.
         Else, the mean operation includes NaN values.
+    fill_value: float, default np.nan
+        Fill value when no group data exists to aggregate.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
     range_var_max: str, default None
@@ -130,6 +133,7 @@ def compute_MVBS(
         method=method,
         reindex=reindex,
         skipna=skipna,
+        fill_value=fill_value,
         **flox_kwargs,
     )
 

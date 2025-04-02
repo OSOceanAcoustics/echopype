@@ -22,6 +22,7 @@ def compute_raw_MVBS(
     method="map-reduce",
     reindex=False,
     skipna=True,
+    fill_value=np.nan,
     **flox_kwargs,
 ):
     """
@@ -56,6 +57,8 @@ def compute_raw_MVBS(
     skipna: bool, default True
         If true, the mean operation skips NaN values.
         Else, the mean operation includes NaN values.
+    fill_value: float, default np.nan
+        Fill value when no group data exists to aggregate.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -79,6 +82,7 @@ def compute_raw_MVBS(
         reindex=reindex,
         func="nanmean" if skipna else "mean",
         skipna=skipna,
+        fill_value=fill_value,
         **flox_kwargs,
     )
 
@@ -506,6 +510,7 @@ def _groupby_x_along_channels(
     reindex: bool = False,
     func: str = "nanmean",
     skipna: bool = True,
+    fill_value: float = np.nan,
     **flox_kwargs,
 ) -> xr.Dataset:
     """
@@ -558,6 +563,8 @@ def _groupby_x_along_channels(
         Else, aggregation function includes NaN values.
         Note that if ``func`` is set to 'mean' and ``skipna`` is set to True, then aggregation
         will have the same behavior as if func is set to 'nanmean'.
+    fill_value: float, default np.nan
+        Fill value when no group data exists to aggregate.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -611,6 +618,7 @@ def _groupby_x_along_channels(
         reindex=reindex,
         func=func,
         skipna=skipna,
+        fill_value=fill_value,
         **flox_kwargs,
     )
     return sv_mean
