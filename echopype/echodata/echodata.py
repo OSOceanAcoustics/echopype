@@ -412,7 +412,7 @@ class EchoData:
             extra_platform_data = extra_platform_data.swap_dims({obs_dim: time_dim})
 
         # History attribute to be included in each updated variable
-        history_attr = f"{datetime.datetime.utcnow()} +00:00. Added from external platform data"
+        history_attr = f"{datetime.datetime.now(datetime.UTC)} +00:00. Added from external platform data"
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
 
