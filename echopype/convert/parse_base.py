@@ -586,7 +586,8 @@ class ParseEK(ParseBase):
                 self.mru1["longitude"].append(new_datagram["longitude"])
                 self.mru1["timestamp"].append(new_datagram["timestamp"])
 
-            # FIL datagrams contain filters for processing bascatter data for EK80
+            # FIL datagrams contain filters for processing baskcatter data for EK80
+            # TODO: need to append each set of coeffs since they can vary ping by ping for FM/CW interleaving transmissions
             elif new_datagram["type"].startswith("FIL"):
                 if "EC150" not in new_datagram["channel_id"]:
                     # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
