@@ -109,6 +109,4 @@ def ek_use_beam_angles(beam_ds: xr.Dataset) -> xr.DataArray:
 
     # For channels with near-zero norm, we return NaN. Otherwise, we return the normalized
     # z component.
-
-
-return xr.where(norm < tolerance, np.nan, beam_direction_z / norm)
+    return xr.where(norm < tolerance, np.nan, beam_direction_z / norm)
