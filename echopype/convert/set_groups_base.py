@@ -213,8 +213,8 @@ class SetGroupsBase(abc.ABC):
                         f"At least one longitude entry is problematic and "
                         f"are assigned None in the converted data: {str(ve)}"
                     )
-                try: 
-                    if isinstance(x, pynmea2.RMC): 
+                try:
+                    if isinstance(x, pynmea2.RMC):
                         speed.append(x.spd_over_grnd if hasattr(x, "speed") else np.nan)
                     else:
                         speed.append(None)
