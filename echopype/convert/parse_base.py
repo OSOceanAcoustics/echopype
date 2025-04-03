@@ -64,8 +64,9 @@ class ParseEK(ParseBase):
         self.nmea = defaultdict(list)  # Dictionary to store NMEA data(timestamp and string)
         self.mru0 = defaultdict(list)  # Dictionary to store MRU0 data (heading, pitch, roll, heave)
         self.mru1 = defaultdict(list)  # Dictionary to store MRU1 data (latitude, longitude)
-        self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
-        self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
+        self.fil = defaultdict(list)  # Dictionary to store filter data
+        # self.fil_coeffs = defaultdict(list)  # Dictionary to store PC and WBT coefficients
+        # self.fil_decimation_fac = defaultdict(list)  # Dictionary to store filter decimation factors
         self.bot = defaultdict(list)  # Dictionary to store bottom depth values
         self.idx = defaultdict(list)  # Dictionary to store index file values
 
@@ -472,9 +473,6 @@ class ParseEK(ParseBase):
 
         while True:
             try:
-                # TODO: @ngkvain: what I need in the code to not PARSE the raw0/3 datagram
-                #  when users only want CONFIG or ENV, but the way this is implemented
-                #  the raw0/3 datagrams are still parsed, you are just not saving them
                 new_datagram = fid.read(1)
 
             except SimradEOF:
@@ -590,13 +588,12 @@ class ParseEK(ParseBase):
             # TODO: need to append each set of coeffs since they can vary ping by ping for FM/CW interleaving transmissions
             elif new_datagram["type"].startswith("FIL"):
                 if "EC150" not in new_datagram["channel_id"]:
+                    # print(new_datagram["channel_id"], new_datagram["stage"], new_datagram["decimation_factor"])
                     # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
-                    self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = (
-                        new_datagram["coefficients"]
-                    )
-                    self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
-                        "decimation_factor"
-                    ]
+                    self.fil["timestamp"].append(new_datagram["timestamp"])
+                    ch_stage_str = f"{new_datagram["channel_id"]}__stage{new_datagram["stage"]}"
+                    self.fil[ch_stage_str + "__coeffs"].append(new_datagram["coefficients"])
+                    self.fil[ch_stage_str + "__deci_fac"].append(new_datagram["decimation_factor"])
                 # else:
                 #     print(f"{new_datagram['channel_id']} from FIL")
 
