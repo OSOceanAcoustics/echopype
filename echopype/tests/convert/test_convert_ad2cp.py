@@ -5,7 +5,6 @@ Files under "normal" contain default data variables,
 whereas files under "raw" additionally contain the IQ samples.
 """
 
-
 import xarray as xr
 import numpy as np
 import netCDF4
@@ -15,7 +14,6 @@ from pathlib import Path
 
 from echopype import open_raw, open_converted
 from echopype.testing import TEST_DATA_FOLDER
-
 
 @pytest.fixture
 def ocean_contour_export_dir(test_path):
