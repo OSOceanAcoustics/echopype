@@ -179,7 +179,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Collect variables
         # Read lat/long from NMEA datagram
-        time1, msg_type, lat, lon = self._extract_NMEA_latlon()
+        time1, msg_type, lat, lon, _ = self._extract_NMEA_latlonspeed()
 
         # NMEA dataset: variables filled with np.nan if they do not exist
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
