@@ -105,7 +105,7 @@ def compute_MVBS(
 
     # Create bin information for the range variable
     if range_var_max is None:
-        # This computes the range variable max since there might NaNs in the data
+        # This computes the range variable max since there might be NaNs in the data
         range_var_max = ds_Sv[range_var].max(skipna=True)
     else:
         # Parse string and small increase to ensure that we get the bin
