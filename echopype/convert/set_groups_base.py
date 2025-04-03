@@ -213,14 +213,16 @@ class SetGroupsBase(abc.ABC):
                         f"At least one longitude entry is problematic and "
                         f"are assigned None in the converted data: {str(ve)}"
                     )
-                try:
-                    if x[3:6] == "RMC": 
-                        speed.append(x.speed if hasattr(x, "speed") else np.nan)
+                try: 
+                    if isinstance(x, pynmea2.RMC): 
+                        speed.append(x.spd_over_grnd if hasattr(x, "speed") else np.nan)
+                    else:
+                        speed.append(None)
                 except ValueError as ve:
                     speed.append(np.nan)
                     warnings.warn(
                         f"At least one speed entry is problematic and "
-                        f"are assigned None in the converted data: {str(ve)}"
+                        f"are assigned None in the converted data: {str(ve)} or the sentence is not RMC type and does not contain speed at all."
                     )
         else:
             lat, lon, speed = [np.nan], [np.nan], [np.nan]
