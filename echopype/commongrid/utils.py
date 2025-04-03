@@ -20,7 +20,9 @@ def compute_raw_MVBS(
     ping_interval: Union[pd.IntervalIndex, np.ndarray],
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method="map-reduce",
+    reindex=False,
     skipna=True,
+    fill_value=np.nan,
     **flox_kwargs,
 ):
     """
@@ -46,9 +48,17 @@ def compute_raw_MVBS(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    reindex: bool, default False
+        If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
+        Generally, `reindex=False` results in less memory at the cost of computation speed.
+        Can only be used when method='map-reduce'.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
     skipna: bool, default True
         If true, the mean operation skips NaN values.
         Else, the mean operation includes NaN values.
+    fill_value: float, default np.nan
+        Fill value when no group data exists to aggregate.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -69,8 +79,10 @@ def compute_raw_MVBS(
         x_var=x_var,
         range_var=range_var,
         method=method,
+        reindex=reindex,
         func="nanmean" if skipna else "mean",
         skipna=skipna,
+        fill_value=fill_value,
         **flox_kwargs,
     )
 
@@ -495,8 +507,10 @@ def _groupby_x_along_channels(
     x_var: Literal["ping_time", "distance_nmi"] = "ping_time",
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
+    reindex: bool = False,
     func: str = "nanmean",
     skipna: bool = True,
+    fill_value: float = np.nan,
     **flox_kwargs,
 ) -> xr.Dataset:
     """
@@ -534,6 +548,12 @@ def _groupby_x_along_channels(
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
+    reindex: bool, default False
+        If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
+        Generally, `reindex=False` results in less memory at the cost of computation speed.
+        Can only be used when method='map-reduce'.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
     func: str, default 'nanmean'
         The aggregation function used for reducing the data array.
         By default, 'nanmean' is used. Other options can be found in the flox `documentation
@@ -543,6 +563,8 @@ def _groupby_x_along_channels(
         Else, aggregation function includes NaN values.
         Note that if ``func`` is set to 'mean' and ``skipna`` is set to True, then aggregation
         will have the same behavior as if func is set to 'nanmean'.
+    fill_value: float, default np.nan
+        Fill value when no group data exists to aggregate.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -593,8 +615,10 @@ def _groupby_x_along_channels(
         expected_groups=(None, x_interval, range_interval),
         isbin=[False, True, True],
         method=method,
+        reindex=reindex,
         func=func,
         skipna=skipna,
+        fill_value=fill_value,
         **flox_kwargs,
     )
     return sv_mean
