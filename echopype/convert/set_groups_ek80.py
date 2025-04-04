@@ -1355,6 +1355,10 @@ class SetGroupsEK80(SetGroupsBase):
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
+        # TODO: use xr.merge across FIL1 time and channel in case
+        #       not all channels are updated so FIL1 at a particular timestamp
+        #       only contains a subset of channels
+        # TODO: factor these into a separate function!
         # Save filter coefficients and decimation factors for:
         # - stage 1: wide band transceiver (WBT)
         # - stage 2: pulse compression (PC)
