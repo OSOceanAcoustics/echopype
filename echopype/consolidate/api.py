@@ -326,7 +326,12 @@ def add_location(
     # Most attributes are attached automatically via interpolation
     # here we add the history
     history_attr = (
-        f"{datetime.datetime.now(datetime.UTC)}. "
+        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
+        if sys.version_info < (3, 11, 0)
+        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+    )
+    history_attr = (
+        history_attr +
         f"Interpolated or propagated from Platform {lat_name}/{lon_name}."  # noqa
     )
     for da_name in POSITION_VARIABLES:
@@ -521,7 +526,12 @@ def add_splitbeam_angle(
 
     # Add history attribute
     history_attr = (
-        f"{datetime.datetime.now(datetime.UTC)}. "
+        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
+        if sys.version_info < (3, 11, 0)
+        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+    )
+    history_attr = (
+        history_attr + 
         "Calculated using data stored in the Beam groups of the echodata object."  # noqa
     )
     for da_name in ["angle_alongship", "angle_athwartship"]:

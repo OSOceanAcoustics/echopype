@@ -1,3 +1,4 @@
+import sys
 import datetime
 import operator as op
 import pathlib
@@ -252,7 +253,12 @@ def _variable_prov_attrs(
         ],
     }
     # Add history attribute
-    history_attr = f"{datetime.datetime.now(datetime.UTC)}. " "Created masked Sv dataarray."  # noqa
+    history_attr = (
+        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
+        if sys.version_info < (3, 11, 0)
+        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+    )
+    history_attr = f"{history_attr}. " "Created masked Sv dataarray."  # noqa
     attrs = {**attrs, **{"history": history_attr}}
 
     # Add attributes from the mask DataArray, if present
@@ -620,9 +626,15 @@ def frequency_differencing(
             coords=template.coords,
         )
 
+    history_attr = (
+        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
+        if sys.version_info < (3, 11, 0)
+        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+    )
+
     xr_dataarray_attrs = {
         "mask_type": "frequency differencing",
-        "history": f"{datetime.datetime.now(datetime.UTC)}. "
+        "history": f"{history_attr}. "
         "Mask created by mask.frequency_differencing. "
         f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
     }
