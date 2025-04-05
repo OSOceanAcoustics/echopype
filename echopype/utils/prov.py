@@ -1,6 +1,7 @@
+import sys
 import functools
 import re
-from datetime import datetime as dt
+import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -29,11 +30,14 @@ def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
     process_type : ProcessType
         Echopype process function type
     """
-
+    if sys.version_info < (3, 11, 0):
+        utc_now = datetime.datetime.utcnow().isoformat(timespec="seconds") + "+00:00"
+    else:
+        utc_now = datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
     prov_dict = {
         f"{process_type}_software_name": "echopype",
         f"{process_type}_software_version": ECHOPYPE_VERSION,
-        f"{process_type}_time": dt.utcnow().isoformat(timespec="seconds") + "Z",  # use UTC time
+        f"{process_type}_time": utc_now,
     }
 
     return prov_dict
