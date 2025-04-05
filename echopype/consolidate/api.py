@@ -330,8 +330,7 @@ def add_location(
         else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
     )
     history_attr = (
-        history_attr +
-        f"Interpolated or propagated from Platform {lat_name}/{lon_name}."  # noqa
+        history_attr + f"Interpolated or propagated from Platform {lat_name}/{lon_name}."  # noqa
     )
     for da_name in POSITION_VARIABLES:
         interp_ds[da_name] = interp_ds[da_name].assign_attrs({"history": history_attr})
@@ -530,8 +529,8 @@ def add_splitbeam_angle(
         else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
     )
     history_attr = (
-        history_attr + 
-        "Calculated using data stored in the Beam groups of the echodata object."  # noqa
+        history_attr
+        + "Calculated using data stored in the Beam groups of the echodata object."  # noqa
     )
     for da_name in ["angle_alongship", "angle_athwartship"]:
         source_Sv[da_name] = source_Sv[da_name].assign_attrs({"history": history_attr})

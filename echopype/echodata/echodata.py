@@ -1,6 +1,6 @@
-import sys
 import datetime
 import re
+import sys
 import warnings
 from html import escape
 from pathlib import Path

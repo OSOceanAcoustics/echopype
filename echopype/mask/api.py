@@ -1,7 +1,7 @@
-import sys
 import datetime
 import operator as op
 import pathlib
+import sys
 from typing import List, Optional, Union
 
 import dask
