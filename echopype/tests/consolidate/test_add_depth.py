@@ -308,8 +308,8 @@ def test_add_depth_without_echodata():
 
     # Check history attribute
     history_attribute = ds_Sv_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[33:]
-    assert history_attribute_without_time == ". depth` calculated using: Sv `echo_range`."
+    history_attribute_without_time = history_attribute[32:]
+    assert history_attribute_without_time == ". `depth` calculated using: Sv `echo_range`."
 
 
 @pytest.mark.integration
@@ -439,7 +439,7 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
 
     # Check history attribute
     history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[33:]
+    history_attribute_without_time = history_attribute[32:]
     assert history_attribute_without_time == (
         ". `depth` calculated using: Sv `echo_range`, Echodata `Platform` Angles."
     )
@@ -494,9 +494,9 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
 
     # Check history attribute
     history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[33:]
+    history_attribute_without_time = history_attribute[32:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
+        ". `depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
     )
 
     # Compute echo range scaling values
@@ -543,9 +543,9 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
 
     # Check history attribute
     history_attribute = ds_Sv["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[33:]
+    history_attribute_without_time = history_attribute[32:]
     assert history_attribute_without_time == (
-        f". depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."
+        f". `depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."
     )
 
 
