@@ -84,7 +84,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
 
 def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     """
-    Test power from pulse compressed BB data
+    Test calibration-related parameters againt pyEcholab implementation
     """
     ek80_raw_path = (
         ek80_cal_path / "2018115-D20181213-T094600.raw"
@@ -150,6 +150,9 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
 
 
 def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
+    """
+    Test computed range againt pyEcholab implementation
+    """
     ek80_raw_path = (
         ek80_cal_path / "2018115-D20181213-T094600.raw"
     )  # rx impedance / rx fs / tcvr type
@@ -204,6 +207,10 @@ def test_ek80_BB_power_from_complex(
     dask_array,
     request,
 ):
+    """
+    Test power from pulse compressed BB data againt pyEcholab implementation
+    """    
+
     raw_data_path = request.getfixturevalue(raw_data_path)
     ek80_raw_path = raw_data_path / raw_file_name  # rx impedance / rx fs / tcvr type
 
@@ -279,6 +286,10 @@ def test_ek80_BB_power_compute_Sv(
     dask_array,
     request,
 ):
+    """
+    Test Sv computed from pulse compressed BB data againt pyEcholab implementation
+    """    
+
     raw_data_path = request.getfixturevalue(raw_data_path)
     ek80_raw_path = raw_data_path / raw_file_name  # rx impedance / rx fs / tcvr type
 
@@ -451,3 +462,14 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
         target_channel_ping_pattern,
         equal_nan=True
     )
+
+
+def test_ek80_complex_FM_CW_interleave(ek80_path):
+    # TODO: add this path to conftest
+    ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/hake2024_08152300-Phase0-D20240815-T234514-4.raw", sonar_model="EK80")  
+    # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/hake2024_08152300-Phase0-D20240815-T230012-0.raw", sonar_model="EK80")
+    # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/DRIX08-D20231003-T120051.raw", sonar_model="EK80")
+    # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/NYOS2105-D20210525-T213648.raw", sonar_model="EK80")
+    # ed = ep.open_raw(f"echopype/test_data/ek80/Summer2018--D20180905-T033113.raw", sonar_model="EK80")
+    
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")

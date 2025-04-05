@@ -224,7 +224,7 @@ def add_depth(
     used_platform_angles = use_platform_angles and not tilt
     used_beam_angles = use_beam_angles and not tilt
     history_attr = (
-        f"{datetime.datetime.utcnow()} +00:00. depth` calculated using:"
+        f"{datetime.datetime.utcnow()}. `depth` calculated using:"
         f" Sv `echo_range`"
         f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
         f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
