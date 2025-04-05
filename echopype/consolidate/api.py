@@ -1,3 +1,4 @@
+import sys
 import datetime
 import pathlib
 from numbers import Number
@@ -224,7 +225,12 @@ def add_depth(
     used_platform_angles = use_platform_angles and not tilt
     used_beam_angles = use_beam_angles and not tilt
     history_attr = (
-        f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
+        if sys.version_info < (3, 11, 0)
+        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+    )
+    history_attr = (
+        history_attr +
         f" Sv `echo_range`"
         f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
         f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
