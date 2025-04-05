@@ -334,7 +334,7 @@ def ds_Sv_echo_range_regular(regular_data_params, random_number_generator):
 @pytest.fixture
 def latlon_history_attr():
     return (
-        "2023-08-31 12:00:00.000000 +00:00. "
+        "2023-08-31 12:00:00.000000+00:00. "
         "Interpolated or propagated from Platform latitude/longitude."  # noqa
     )
 

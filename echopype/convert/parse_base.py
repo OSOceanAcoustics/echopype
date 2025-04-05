@@ -1,6 +1,7 @@
+import datetime
 import os
+import sys
 from collections import defaultdict
-from datetime import datetime as dt
 from typing import Any, Dict, Literal, Optional, Tuple
 
 import dask
@@ -72,9 +73,15 @@ class ParseEK(ParseBase):
         self.CON1_datagram = None  # Holds the ME70 CON1 datagram
 
     def _print_status(self):
-        time = dt.utcfromtimestamp(self.config_datagram["timestamp"].tolist() / 1e9).strftime(
-            "%Y-%b-%d %H:%M:%S"
-        )
+        if sys.version_info < (3, 11, 0):
+            time = datetime.datetime.utcfromtimestamp(
+                self.config_datagram["timestamp"].tolist() / 1e9
+            ).strftime("%Y-%b-%d %H:%M:%S")
+        else:
+            time = datetime.datetime.fromtimestamp(
+                self.config_datagram["timestamp"].tolist() / 1e9, datetime.UTC
+            ).strftime("%Y-%b-%d %H:%M:%S")
+
         logger.info(
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
         )
