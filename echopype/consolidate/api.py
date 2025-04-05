@@ -1,6 +1,6 @@
-import sys
 import datetime
 import pathlib
+import sys
 from numbers import Number
 from pathlib import Path
 from typing import Optional, Union
@@ -230,8 +230,7 @@ def add_depth(
         else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
     )
     history_attr = (
-        history_attr +
-        f" Sv `echo_range`"
+        history_attr + f" Sv `echo_range`"
         f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
         f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
         f"{', Echodata `%s` Angles' % (beam_group_name) if (used_beam_angles) else ''}"
