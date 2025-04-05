@@ -1,7 +1,7 @@
-import sys
-import os
-from collections import defaultdict
 import datetime
+import os
+import sys
+from collections import defaultdict
 from typing import Any, Dict, Literal, Optional, Tuple
 
 import dask
@@ -74,13 +74,13 @@ class ParseEK(ParseBase):
 
     def _print_status(self):
         if sys.version_info < (3, 11, 0):
-            time = datetime.datetime.utcfromtimestamp(self.config_datagram["timestamp"].tolist() / 1e9).strftime(
-                "%Y-%b-%d %H:%M:%S"
-            )
+            time = datetime.datetime.utcfromtimestamp(
+                self.config_datagram["timestamp"].tolist() / 1e9
+            ).strftime("%Y-%b-%d %H:%M:%S")
         else:
-            time = datetime.datetime.fromtimestamp(self.config_datagram["timestamp"].tolist() / 1e9, datetime.UTC).strftime(
-                "%Y-%b-%d %H:%M:%S"
-            )
+            time = datetime.datetime.fromtimestamp(
+                self.config_datagram["timestamp"].tolist() / 1e9, datetime.UTC
+            ).strftime("%Y-%b-%d %H:%M:%S")
 
         logger.info(
             f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
