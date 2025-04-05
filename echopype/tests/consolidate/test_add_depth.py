@@ -441,7 +441,7 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
     history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[33:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Angles."
+        ". `depth` calculated using: Sv `echo_range`, Echodata `Platform` Angles."
     )
 
     # Compute transducer depth
