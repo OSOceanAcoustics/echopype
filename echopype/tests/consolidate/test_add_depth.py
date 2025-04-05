@@ -384,9 +384,9 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
 
     # Check history attribute
     history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[33:]
+    history_attribute_without_time = history_attribute[32:]
     assert history_attribute_without_time == (
-        ". depth` calculated using: Sv `echo_range`, Echodata `Platform` Vertical Offsets."
+        ". `depth` calculated using: Sv `echo_range`, Echodata `Platform` Vertical Offsets."
     )
 
     # Compute transducer depth

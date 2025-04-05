@@ -253,7 +253,7 @@ def _variable_prov_attrs(
     }
     # Add history attribute
     history_attr = (
-        f"{datetime.datetime.now(datetime.UTC)} +00:00. " "Created masked Sv dataarray."
+        f"{datetime.datetime.now(datetime.UTC)}. " "Created masked Sv dataarray."
     )  # noqa
     attrs = {**attrs, **{"history": history_attr}}
 
@@ -624,7 +624,7 @@ def frequency_differencing(
 
     xr_dataarray_attrs = {
         "mask_type": "frequency differencing",
-        "history": f"{datetime.datetime.now(datetime.UTC)} +00:00. "
+        "history": f"{datetime.datetime.now(datetime.UTC)}. "
         "Mask created by mask.frequency_differencing. "
         f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
     }

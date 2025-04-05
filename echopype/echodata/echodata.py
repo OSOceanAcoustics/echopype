@@ -413,7 +413,7 @@ class EchoData:
 
         # History attribute to be included in each updated variable
         history_attr = (
-            f"{datetime.datetime.now(datetime.UTC)} +00:00. Added from external platform data"
+            f"{datetime.datetime.now(datetime.UTC)}. Added from external platform data"
         )
         if extra_platform_data_file_name:
             history_attr += ", from file " + extra_platform_data_file_name
