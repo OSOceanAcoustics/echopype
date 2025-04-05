@@ -252,9 +252,7 @@ def _variable_prov_attrs(
         ],
     }
     # Add history attribute
-    history_attr = (
-        f"{datetime.datetime.now(datetime.UTC)}. " "Created masked Sv dataarray."
-    )  # noqa
+    history_attr = f"{datetime.datetime.now(datetime.UTC)}. " "Created masked Sv dataarray."  # noqa
     attrs = {**attrs, **{"history": history_attr}}
 
     # Add attributes from the mask DataArray, if present
