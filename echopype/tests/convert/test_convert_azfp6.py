@@ -4,14 +4,12 @@ This module contains tests that:
 - verify echopype converted files against those from AZFP Matlab scripts and EchoView
 - convert AZFP file with different range settings across frequency
 """
-
 import numpy as np
-import pandas as pd
 from datetime import datetime, timedelta
 from scipy.io import loadmat
 from echopype import open_raw
 import pytest
-from echopype.convert.parse_azfp6 import ParseAZFP6
+
 
 
 @pytest.fixture
