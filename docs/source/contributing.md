@@ -4,8 +4,8 @@
 
 :::{note}
 We welcome your contributions, large or small!
-- Contributions to both code and documentation via Pull Requests are highly appreciated
-- Bug reports, feature requests, and questions via Issues are also welcome
+- Contributions to both code and documentation via [Pull Requests](https://github.com/OSOceanAcoustics/echopype/pulls) are highly appreciated
+- Bug reports, feature requests, and questions via [Issues](https://github.com/OSOceanAcoustics/echopype/issues) are also welcome
 :::
 
 
@@ -24,7 +24,7 @@ We have recently moved away from Gitflow development to [trunk-based development
 The main thing to keep in mind is to set the PR target to the `main` branch in the `upstream` repository (the one sitting under the OSOceanAcoustics GitHub organization).
 We will no longer use a `dev` branch.
 
-We encourage all code contributions to be accompanied by tests and documentations when appropriate.
+We encourage all code contributions to be accompanied by tests and documentations (doctrings and inline comments).
 We may ask for these when reviewing the PRs.
 If you have added new tests but the [GitHub Actions for continuous integration](#github-actions-for-continuous-integration-ci) need approval to run, ping the maintainers (@leewujung, @ctuguinay) to get them started.
 
@@ -34,7 +34,7 @@ If you have added new tests but the [GitHub Actions for continuous integration](
 
 To create an environment for developing Echopype, we recommend the following steps:
 
-1. Fork the Echopype repository following the guide above, clone your fork, then in `git remote` set your fork as the `origin` and the OSOceanAcoustics repository as `upstream`:
+1. Fork the Echopype repository, clone your fork to your machine, then in `git remote` set your fork as the `origin` and the OSOceanAcoustics repository as `upstream`:
     ```shell
     # Clone your fork
     git clone https://github.com/YOUR_GITHUB_USERNAME/echopype.git
@@ -65,11 +65,10 @@ To create an environment for developing Echopype, we recommend the following ste
     pip install -e ".[plot]"
     ```
 
-:::{note}
-It's common to encounter the situation that installing packages using Conda is slow or fails,
-because Conda is unable to resolve dependencies.
-We suggest using Mamba to get around this.
+:::{tip}
+We recommend using Mamba to get around the somtimes slow or stuck behavior when Conda is unable to solve dependencies.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
+The easiest way to get a minimal installation is through [Miniforge](https://conda-forge.org/download/).
 One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
 :::
 
@@ -86,7 +85,7 @@ The image is rebuilt daily when new test data are added.
 If your tests require adding new test data, ping the maintainers (@leewujung, @ctuguinay)
 to get them added to the the Google Drive.
 
-In the near future we plan to migrate all test data to GitHub Release Assets,
+We hope to migrate all test data to GitHub Release Assets in the near future,
 to keep test data versioned and directly associated with the repo.
 
 
