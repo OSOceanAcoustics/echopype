@@ -26,10 +26,13 @@ parts:
   - file: viz
   - file: processing-levels
     title: Processing levels
+- caption: Contributor guide
+  chapters:
+  - file: contrib_setup
+  - 
 - caption: Help & references
   chapters:
   - file: whats-new
-  - file: contributing
   - file: api
   - file: zbibliography
   - file: roadmap
