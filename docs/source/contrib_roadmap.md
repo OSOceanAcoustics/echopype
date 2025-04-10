@@ -12,6 +12,8 @@ See the paper [Interoperable and scalable echosounder data processing with Echop
 ![workflow](./images/workflow_v2.png)
 
 
+
+
 ## Development priorities
 
 ### Dependency resolution
@@ -20,3 +22,23 @@ Echopype depends on many libraries in the scientific Python ecosystem, and there
 - upgrade to use Zarr version 3
 
 See the [`requirements.txt`](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt) file for the current pinned versions. Ideally we would like to unpin the maximum version when possible.
+
+
+### Data conversion and standardization
+
+
+
+### Rule-based algorithms
+We plan to add more rule-based algorithms that are commonly used to analyze echosounder data into Echopype. The high priority categories are:
+- full support for broadband processing
+  - currently `calibrate.compute_Sv` supports generating band-averaged Sv for broadband data
+- noise removal
+  - currently the [`clean`](https://echopype.readthedocs.io/en/stable/api.html#module-echopype.clean) subpackage supports a handful of noise removal functions
+- bottom detection
+- swarm or school detection
+- single target detection
+
+
+:::{note}
+Echopype is designed to be used as a programmatic API and _not_ for manual editing. For interactive visualization, check out [Echoshader](https://github.com/OSOceanAcoustics/echoshader.
+:::
