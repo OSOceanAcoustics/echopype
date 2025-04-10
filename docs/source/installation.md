@@ -14,11 +14,10 @@ It is available via [PyPI](https://pypi.org/project/echopype):
 $ pip install echopype
 ```
 
-:::{attention}
-It's common to encounter the situation that installing packages using Conda is slow or fails,
-because Conda is unable to resolve dependencies.
-We suggest using Mamba to get around this.
+:::{tip}
+We recommend using Mamba to get around Conda's somtimes slow or stuck behavior when solving dependencies.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
+The easiest way to get a minimal installation is through [Miniforge](https://conda-forge.org/download/).
 One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
 :::
 

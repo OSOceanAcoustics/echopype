@@ -55,7 +55,7 @@ To create an environment for developing Echopype, we recommend the following ste
     ```
 
 :::{tip}
-We recommend using Mamba to get around the somtimes slow or stuck behavior when Conda is unable to solve dependencies.
+We recommend using Mamba to get around Conda's somtimes slow or stuck behavior when solving dependencies.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
 The easiest way to get a minimal installation is through [Miniforge](https://conda-forge.org/download/).
 One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
