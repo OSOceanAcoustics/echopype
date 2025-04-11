@@ -3,6 +3,7 @@
 Convert raw files
 =================
 
+(convert-sonar_types)=
 Supported raw file types
 ------------------------
 
