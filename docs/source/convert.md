@@ -53,13 +53,11 @@ This feature is accessible through `open_raw` via arguments `use_swap` and `max_
 :::
 
 
-File access
------------
+## File access
 
-.. Specifying multiple files
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~
+### Local and remote file sources
 
-.. ``open_raw`` can accept a list of file paths pointing to multiple files.
+<!-- .. ``open_raw`` can accept a list of file paths pointing to multiple files.
 .. For example:
 
 .. .. code-block:: python
@@ -68,67 +66,50 @@ File access
       './raw_data_files/file_01.raw',
       './raw_data_files/file_02.raw'
    ]
-   ed = open_raw(raw_file_paths, sonar_model='EK60')
+   ed = open_raw(raw_file_paths, sonar_model='EK60') -->
 
-``open_raw`` can also accept paths to files on remote systems such as ``http``
-(a file on a web server) and cloud object storage such as Amazon Web Services (AWS) S3.
-This capability is provided by the `fsspec <https://filesystem-spec.readthedocs.io>`_
-package, and all file systems implemented by ``fsspec`` are supported;
-a list of these file systems is available on the
-`fsspec registry documentation <https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations>`_.
+`open_raw` can accept paths to files on both local and remote file systems (e.g., web `http` server and cloud object storage such as Amazon Web Services (AWS) S3).
+This capability is provided by the [fsspec](https://filesystem-spec.readthedocs.io) package, and all file systems implemented by `fsspec` are supported (see the list [here](https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations)).
 
-https access
-~~~~~~~~~~~~
 
-A file on a web server can be accessed by specifying the file url:
+For a file on a web server can be accessed by specifying the file url:
+```python
+ed = open_raw(
+    "https://mydomain.com/my/dir/D20170615-T190214.raw",  # file on http server
+    sonar_model="EK80"
+)
+```
 
-.. code-block:: python
+For a file in a publicly accessible S3 bucket:
+```python
+raw_file_s3path = "s3://mybucket/my/dir/D20170615-T190214.raw"
+ed = open_raw(
+    "s3://mybucket/my/dir/D20170615-T190214.raw",  # file in S3 bucket
+    sonar_model="EK80",
+    storage_options={"anon": True}  # publicly accessible file ("anonymous")
+)
+```
 
-   raw_file_url = "https://mydomain.com/my/dir/D20170615-T190214.raw"
-   ed = open_raw(raw_file_url, sonar_model='EK60')
+For a file in a private S3 bucket:
+```python
+raw_file_s3path = "s3://mybucket/my/dir/D20170615-T190214.raw"
+ed = open_raw(
+    "s3://mybucket/my/dir/D20170615-T190214.raw",  # file in S3 bucket
+    sonar_model="EK80",
+    storage_options={"key": "ACCESSKEY", "secret": "SECRETKEY"}  # access credentials
+)
+```
 
-AWS S3 access
-~~~~~~~~~~~~~
-
-.. note::
-
-   These instructions should apply to other object storage providers such as
-   Google Cloud and Azure, but have only been tested on AWS S3.
-
-A file on an `AWS S3 <https://aws.amazon.com/s3/>`_ "bucket" can be accessed by
-specifying the S3 path that starts with "s3://" and using the ``storage_options``
-argument. For a publicly accessible file ("anonymous") on a bucket called ``mybucket``:
-
-.. code-block:: python
-
-   raw_file_s3path = "s3://mybucket/my/dir/D20170615-T190214.raw"
-   ed = open_raw(
-      raw_file_s3path, sonar_model='EK60',
-      storage_options={'anon': True}
-   )
-
-If the file is not publicly accessible, the credentials can be specified explicitly
-through ``storage_options`` keywords:
-
-.. code-block:: python
-
-   ed = open_raw(
-      raw_file_s3path, sonar_model='EK60',
-      storage_options={'key': 'ACCESSKEY', 'secret': 'SECRETKEY'}
-   )
-
-or via a credentials file stored in the default AWS credentials file
-(``~/.aws/credentials``). For ``profile`` "myprofilename" found in
-the credential file (note that ``aiobotocore`` is installed by ``echopype``):
-
-.. code-block:: python
-
-   import aiobotocore
-   aws_session = aiobotocore.AioSession(profile='myprofilename')
-   ed = open_raw(
-      raw_file_s3path, sonar_model='EK60',
-      storage_options={'session': aws_session}
-   )
+It is often safer to store a credential file so that the access credentials are not supplied directly in scripts or notebooks. For example, for AWS, a default AWS credentials file
+(`~/.aws/credentials`) can contain a with `profile` "myprofilename" and be used with `aiobotocore` to access data:
+```python
+import aiobotocore
+aws_session = aiobotocore.AioSession(profile="myprofilename")
+ed = open_raw(
+    raw_file_s3path, sonar_model="EK60",
+    storage_options={"session": aws_session}
+)
+```
 
 
 File export
