@@ -10,7 +10,7 @@ parts:
   - file: installation
 - caption: User guide
   chapters:
-  - file: convert
+  - file: convert.md
   - file: open-converted
   - file: data-format
     title: Raw data formats

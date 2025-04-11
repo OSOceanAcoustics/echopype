@@ -1,5 +1,5 @@
 (convert)=
-# Convert raw files
+# Converting raw files
 
 (convert-sonar_types)=
 ## Supported raw file types
