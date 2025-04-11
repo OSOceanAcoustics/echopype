@@ -1,5 +1,5 @@
 (contrib)=
-# Contributing to echopype
+# Contributing to Echopype
 
 We welcome your contributions, large or small!
 Contributions are NOT limited to code -- bug/warning reports, new feature requests, or usage questions are all very helpful for improving the software.
