@@ -15,7 +15,7 @@ $ pip install echopype
 ```
 
 :::{tip}
-We recommend using Mamba to get around Conda's somtimes slow or stuck behavior when solving dependencies.
+We recommend using Mamba to get around Conda's sometimes slow or stuck behavior when solving dependencies.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
 The easiest way to get a minimal installation is through [Miniforge](https://conda-forge.org/download/).
 One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
