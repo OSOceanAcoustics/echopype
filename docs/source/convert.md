@@ -95,6 +95,10 @@ ed = open_raw(
 )
 ```
 
+:::{note}
+These instructions should apply to other object storage providers such as Google Cloud Platform and Microsoft Azure, but have only been tested on AWS S3.
+:::
+
 
 ## Saving converted data
 
