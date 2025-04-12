@@ -32,11 +32,11 @@ Echopype currently support converting files from [a few echosounder models](conv
 
 
 ### Rule-based algorithms
-We plan to add more rule-based (i.e. non-ML) algorithms commonly used to analyze echosounder data into Echopype. The high priority categories and the proposed corresponding subpackages are:
+We plan to add more common rule-based (i.e. non-ML) echosounder data analysis algorithms into Echopype. The high priority items are:
 - Full support for broadband processing (in the `calibrate` subpackage)
   - currently `calibrate.compute_Sv` supports generating band-averaged Sv for broadband data
 - Noise removal (in the `clean` subpackage)
-  - currently [`clean`](https://echopype.readthedocs.io/en/stable/api.html#module-echopype.clean) contains a handful of noise removal functions from {cite:p}`Ryan2015`.
+  - currently [`clean`](https://echopype.readthedocs.io/en/stable/api.html#module-echopype.clean) contains a handful of noise removal functions from {cite:t}`Ryan2015`.
   - there are many others that can be useful, including [a more efficient algorithm for detecting transient noise](https://github.com/open-ocean-sounding/echopy/blob/96bb25f83490529a5373aeb3b423f03c9605f7a6/echopy/processing/mask_transient.py#L87C5-L87C13)
 - Regridding (in the `commongrid` subpackage)
   - currently [`commongrid`](https://echopype.readthedocs.io/en/stable/api.html#module-echopype.commongrid) contains functions produce MVBS and NASC
