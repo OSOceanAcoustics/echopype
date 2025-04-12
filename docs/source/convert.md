@@ -24,13 +24,10 @@ Use the parameter `sonar_model` to indicate the echosounder model:
 - `AD2CP`: Nortek Signature series ADCP (tested with Signature 500 and Signature 1000 files collected in 2021)
 
 
-To convert a raw EK80 file to an in-memory `EchoData` object and save it to a netCDF or zarr file:
+To convert a raw EK80 file to an in-memory `EchoData` object:
 ```python
 import echopype as ep  # we encourage importing echopype as ep
-
 ed = ep.open_raw("FILENAME.raw", sonar_model="EK80")  # for EK80 file
-ed.to_netcdf(save_path="./unpacked_files")  # save to FILENAME.nc in the folder unpacked_files
-ed.to_zarr(save_path="./unpacked_files/NEW_FILENAME.zarr")  # fully specify filename also works
 ```
 
 For data from the AZFP echosounder, the conversion requires an extra `.XML` file (specified using `xml_path`) along with the `.01A` data file:
@@ -53,20 +50,7 @@ This feature is accessible through `open_raw` via arguments `use_swap` and `max_
 :::
 
 
-## File access
-
-### Local and remote file sources
-
-<!-- .. ``open_raw`` can accept a list of file paths pointing to multiple files.
-.. For example:
-
-.. .. code-block:: python
-
-   raw_file_paths = [
-      './raw_data_files/file_01.raw',
-      './raw_data_files/file_02.raw'
-   ]
-   ed = open_raw(raw_file_paths, sonar_model='EK60') -->
+## Local and remote file access
 
 `open_raw` can accept paths to files on both local and remote file systems (e.g., web `http` server and cloud object storage such as Amazon Web Services (AWS) S3).
 This capability is provided by the [fsspec](https://filesystem-spec.readthedocs.io) package, and all file systems implemented by `fsspec` are supported (see the list [here](https://filesystem-spec.readthedocs.io/en/latest/api.html#built-in-implementations)).
@@ -112,106 +96,44 @@ ed = open_raw(
 ```
 
 
-File export
------------
+## Saving converted data
 
-Converted data are saved to netCDF4 or Zarr files using ``EchoData.to_netcdf()``
-and ``EchoData.to_zarr()``. These methods accept convenient optional arguments.
-The examples below apply equally to both methods, except as noted.
+The converted `EchoData` object can be saved to netCDF4 (`.nc`) or Zarr (`.zarr`) files using the `.to_netcdf` or `.to_zarr` method.
+The destination folder or file path should be specified with the `save_path` argument.
+If left unspecified, the converted files will be saved to `~/.echopype/temp_output`.
+This folder will be created if it does not already exists.
 
-A destination folder or file path should be specified with the ``save_path``
-argument in these methods in order to control the location of the converted files.
-If the argument is not specified, the converted ``.nc`` and ``.zarr``
-files are saved into the directory ``~/.echopype/temp_output``.
-This folder will be created if it doesn't already exists.
+```python
+ed.to_netcdf(save_path="./unpacked_files")  # save to FILENAME.nc in the folder unpacked_files
+ed.to_zarr(save_path="./unpacked_files/NEW_FILENAME.zarr")  # fully specify filename also works
+```
 
+The converted `EchoData` object can be also be saved directly to an AWS S3 bucket by specifying
+`output_storage_options`, similar to the `storage_options` argument in `open_raw`. The example below illustrates a workflow that reads a raw file from a web server and saving the converted Zarr dataset to S3. Writing netCDF4 to S3 is currently not supported.
 
-Specify metadata attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```python
+ed = open_raw("http://mydomain.com/from1/file_01.raw", sonar_model="EK60")
+ed.to_zarr(
+    overwrite=True,
+    save_path="s3://mybucket/converted_file.zarr",
+    output_storage_options={"key": "ACCESSKEY", "secret": "SECRETKEY"}
+)
+```
 
-Before calling ``to_netcdf()`` or ``to_zarr()``, you can manually set some
-metadata attributes that are not recorded in the raw data files but need to be
-specified according to the SONAR-netCDF4 convention.
-Common attributes typically not found in the raw files include the following,
-in the ``Platform`` netCDF4 group:
-``platform_name``, ``platform_type`` and ``platform_code_ICES``.
-These attributes can be set using the following:
-
-.. code-block:: python
-
-    ed['Platform']['platform_name'] = 'OOI'
-    ed['Platform']['platform_type'] = 'subsurface mooring'
-    ed['Platform']['platform_code_ICES'] = '3164'   # Platform code for Moorings
-
-The ``platform_code_ICES`` attribute can be chosen by referencing
-the platform code from the
-`ICES SHIPC vocabulary <https://vocab.ices.dk/?ref=315>`_.
+:::{note}
+Zarr datasets will be automatically chunked with default chunk sizes of 25000 for `range_sample` and 2500 for `ping_time` dimensions.
+:::
 
 
-.. Save converted files into a specified folder
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. In this example, each input file will be converted to an individual ``.nc`` file
-.. and stored in the ``./unpacked_files`` directory.
+## Specify metadata attributes
 
-.. .. code-block:: python
+You can manually set some `EchoData` metadata attributes specified in the SONAR-netCDF4 convention that are not recorded in the raw instrument-generated files. For example, many `Platform` variables are not stored in the raw files, including `platform_name`, `platform_type` and `platform_code_ICES`. They can be set by:
 
-   raw_file_paths = [                              # a list of raw data files
-      './raw_data_files/dir1/file_01.raw',
-      './raw_data_files/dir2/file_02.raw'
-   ]
-   ed = open_raw(raw_file_paths, sonar_model='EK60')     # create an EchoData object
-   ed.to_netcdf(save_path='./unpacked_files')      # set the output directory
+```python
+ed["Platform"]["platform_name"] = "OOI"
+ed["Platform"]["platform_type"] = "subsurface mooring"
+ed["Platform"]["platform_code_ICES"] = "3164"   # Platform code for Moorings
+```
 
-.. Combine multiple raw files into one converted file
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. Multiple files can be combined into a single converted file using the
-.. ``combine`` argument (the default is ``combine=False``). In that case,
-.. ``save_path`` must be specified explicitly. If ``save_path`` is only a filename
-.. rather than a full file path, the combined output file will be saved to the
-.. default ``~/.echopype/temp_output`` folder.
-
-.. .. code-block:: python
-
-   raw_file_paths = [                              # a list of raw data files
-      './raw_data_files/dir1/file_01.raw',
-      './raw_data_files/dir2/file_02.raw'
-   ]
-   ed = open_raw(raw_file_paths, sonar_model='EK60')     # create an EchoData object
-   ed.to_zarr(
-      combine=True,                                # combine all input files on conversion
-      save_path='./unpacked_files/combined_file.zarr'
-   )
-
-Save to AWS S3
-~~~~~~~~~~~~~~
-
-.. note::
-
-   These instructions should apply to other object storage providers such as
-   Google Cloud and Azure, but have only been tested on AWS S3.
-
-Converted files can be saved directly into an AWS S3 bucket by specifying
-``output_storage_options``, similar to ``storage_options`` with input files
-(see above, "AWS S3 access"). The example below illustrates a fully remote
-processing pipeline, reading a raw file from a web server and saving the
-converted Zarr dataset to S3. (As with ``storage_options`` when accessing
-raw data from S3, a ``profile``-based ``session`` can also be used, passing the
-``session`` to ``output_storage_options``). Writing netCDF4 to S3 is
-currently not supported.
-
-.. code-block:: python
-
-      raw_file_url = 'http://mydomain.com/from1/file_01.raw'
-      ed = open_raw(raw_file_url, sonar_model='EK60')
-      ed.to_zarr(
-         overwrite=True,
-         save_path='s3://mybucket/converted_file.zarr',
-         output_storage_options={'key': 'ACCESSKEY', 'secret': 'SECRETKEY'}
-      )
-
-.. note::
-
-   Zarr datasets will be automatically chunked with default chunk sizes of
-   25000 for ``range_sample`` and 2500 for ``ping_time`` dimensions.
+`platform_code_ICES` can be chosen by referencing the [ICES SHIPC vocabulary](https://vocab.ices.dk/?ref=315).
