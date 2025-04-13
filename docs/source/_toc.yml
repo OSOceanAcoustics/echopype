@@ -24,8 +24,8 @@ parts:
     - file: data-proc-func
     - file: data-proc-additional
   - file: viz
-  - file: processing-levels
-    title: Processing levels
+  # - file: processing-levels
+  #   title: Processing levels
 - caption: Contributor guide
   chapters:
   - file: contrib_type

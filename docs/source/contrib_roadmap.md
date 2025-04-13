@@ -66,7 +66,7 @@ Echopype is designed to be used as a programmatic API and not for manual editing
 
 ## Data processing levels
 
-Parallel to Echopype, the Echostack team is also working on defining a set of "data processing levels" for echosounder data: see the [proposal in Echolevels](https://echolevels.readthedocs.io/en/latest/levels_proposed.html). Clearly defined data processing levels are conducive to broader data usage. Many Echopype functions generate prototype [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing level information as data attributes. **However, both the proposed data processing levels and the implementation require revision.**
+Parallel to Echopype, the Echostack team is also working on defining a set of "data processing levels" for echosounder data: see the [proposal in Echolevels](https://echolevels.readthedocs.io/en/latest/levels_proposed.html). Clearly defined data processing levels are conducive to broader data usage. Many Echopype functions generate prototype [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing level information as data attributes. **However, both the proposed data processing levels and the implementation require revision. Please [chime in with any input or questions via GitHub issues](https://github.com/uw-echospace/data-processing-levels/issues/new)!** 
 
 
 
