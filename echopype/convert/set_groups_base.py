@@ -181,7 +181,6 @@ class SetGroupsBase(abc.ABC):
         """Get the lat and lon values from the raw nmea data"""
         messages = [string[3:6] for string in self.parser_obj.nmea["nmea_string"]]
         idx_loc = np.argwhere(np.isin(messages, NMEA_SENTENCE_DEFAULT)).squeeze()
-        test = np.argwhere(np.isin(messages, ['RMC'])).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
         nmea_msg = []
@@ -243,7 +242,6 @@ class SetGroupsBase(abc.ABC):
         else:
             time1 = [np.nan]
 
-        speed
         return time1, msg_type, lat, lon, speed
 
     def _beam_groups_vars(self):
