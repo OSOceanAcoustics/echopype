@@ -28,9 +28,10 @@ parts:
     title: Processing levels
 - caption: Contributor guide
   chapters:
-  - file: contrib
+  - file: contrib_type
   - file: contrib_setup
   - file: contrib_roadmap
+  - file: contrib_howto
 - caption: Help & references
   chapters:
   - file: whats-new

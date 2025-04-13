@@ -4,13 +4,6 @@
 Thank you for your interests in contributing to Echopype! In this page you will find information on the development workflow, setting up a development environment, and details about testing and documentation.
 
 
-:::{tip}
-We encourage all code contributions to be accompanied by tests and documentations (doctrings and inline comments).
-We may ask for these when reviewing the PRs.
-If you have added new tests but the [GitHub Actions for continuous integration](#github-actions-for-continuous-integration-ci) need approval to run, ping the maintainers (@leewujung, @ctuguinay) to get them started.
-:::
-
-
 
 ## Trunk-based development
 We have recently moved to follow [trunk-based development](https://www.atlassian.com/continuous-delivery/continuous-integration/trunk-based-development) to streamline the process and reduce repo management overhead.
