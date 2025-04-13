@@ -20,6 +20,7 @@ Echopype depends on many libraries in the scientific Python ecosystem, and there
 See the [`requirements.txt`](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt) file for the current pinned versions. Ideally we would like to unpin the maximum version when possible.
 
 
+
 ### Data conversion and standardization
 Echopype currently support converting files from [a few echosounder models](convert-sonar_types) to netCDF or Zarr files following [a modified version of the ICES SONAR-netCDF4 convention](data-format:sonarnetcdf4-adaptation). As the core data representation stabilizes, the next steps are to:
 - Enhance adherence to community conventions of metadata and processed data, such as:
@@ -29,6 +30,7 @@ Echopype currently support converting files from [a few echosounder models](conv
 - Add support for data from other echosounder models, including:
   - Simrad EK/BI500 ([unfinished PR](https://github.com/OSOceanAcoustics/echopype/pull/1252))
   - Biosonics [DT4](https://www.biosonicsinc.com/download/dt4-file-format-specification/) files
+
 
 
 ### Rule-based algorithms
@@ -50,7 +52,6 @@ We plan to add more common rule-based (i.e. non-ML) echosounder data analysis al
   - updated estimates of sound speed and absorption coefficients
   - water column profile-based (rather than water column average-based) Sv and TS computation
 
-
 :::{note}
 Echopype is designed to be used as a programmatic API and not for manual editing. For interactive visualization, check out [Echoshader](https://github.com/OSOceanAcoustics/echoshader).
 :::
@@ -60,28 +61,15 @@ Echopype is designed to be used as a programmatic API and not for manual editing
 
 ## Data processing levels and provenance --- SIMPLIFY THIS!!!!
 
-In parallel with code development, the Echopype team is also working on defining "data processing levels" for echosounder data (see [Echolevels](https://echolevels.readthedocs.io/en/latest/)). While no community agreement currently exists, these definitions are crucial for broader data usage, as evident in the widespread use of [NASA satellite remote sensing data](https://link.springer.com/referenceworkentry/10.1007/978-0-387-36699-9_36) that are accompanied by a set of robust and well-articulated data processing level definitions.
-
-In Echopype, currently many functions generate prototype [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing level information as data variables or attributes. Going forward we plan to:
-- Collaborate with the echosounder community to further refine the definitions for echosounder data processing levels
-- Improve data provenance preservation along the "chain" of data conversion and processing functions
-
-
-
-
-## Computational scalability --- SIMPLIFY THIS!!!!
-
-Computational scalability is a core goal of Echopype development. We aim to provide scalable data processing capability for researchers both on their own personal computer and on computing clusters. The Echopype data conversion tools provide direct read/write interface with both local filesystems and cloud storage, and all downstream data processing functions also natively interface with both local and cloud resources through the combination of the Zarr, Xarray, Dask, and related libraries. However, we have found that the often irregular spacing and structure of echosounder data in time and space can impose substantial computational bottleneck and require custom optimization beyond stock Xarray functions to parallelize efficiently across computing agents. With a few important memory issues during data conversion resolved (see [v0.8.0 release notes](https://echopype.readthedocs.io/en/stable/whats-new.html#v0-8-0-2023-august-27)), going forward we plan to:
-- Benchmark data processing functions against diverse datasets of different volume (100s of GB to TB) and spatiotemporal features that can cause unintended memory expansion during computation
-- Leverage Dask delayed approaches and experiment with different Zarr chunking schemes to resolve computational bottlenecks
+Parallel to Echopype, the Echostack team is also working on defining a set of "data processing levels" for echosounder data: see the [proposal in Echolevels](https://echolevels.readthedocs.io/en/latest/levels_proposed.html). Clearly defined data processing levels are conducive to broader data usage. Many Echopype functions generate prototype [data provenance](https://eos.org/opinions/the-importance-of-data-set-provenance-for-science) and processing level information as data attributes. **However, both the proposed data processing levels and the implementation require revision.**
 
 
 
 
 
-## Companion developments
+## Echostack: Companion developments
 
-Echopype focuses on data standardization, aggregations, and processing for building efficient and scalable data workflow. To address other needs in integrative analysis of echosounder data, check out the following companion libraries:
+Echopype focuses on data standardization, aggregations, and processing for building efficient and scalable data workflow. To address other needs in integrative analysis of echosounder data, check out the following companion libraries in the Echostack:
 
 - [Echoregions](https://github.com/OSOceanAcoustics/echoregions): Interface with echogram interpretation masks from physics-based or data-driven methods
 - [Echoshader](https://github.com/OSOceanAcoustics/echoshader): Interactive visualization widgets leveraging the [HoloViz](https://holoviz.org/) suite of tools
@@ -89,3 +77,14 @@ Echopype focuses on data standardization, aggregations, and processing for build
 - [Echodataflow](https://github.com/OSOceanAcoustics/echodataflow): Orchestrate workflow on the cloud or local platforms
 - [Echolevels](https://github.com/OSOceanAcoustics/echolevels): Proposed specifications of echosounder data processing levels
 <!-- - [Echopydantic](https://github.com/OSOceanAcoustics/echopydantic): provide convention-related functionalities, such as definitions and compliance checking -->
+
+
+
+
+
+
+<!-- ## Computational scalability --- SIMPLIFY THIS!!!!
+
+Computational scalability is a core goal of Echopype development. We aim to provide scalable data processing capability for researchers both on their own personal computer and on computing clusters. The Echopype data conversion tools provide direct read/write interface with both local filesystems and cloud storage, and all downstream data processing functions also natively interface with both local and cloud resources through the combination of the Zarr, Xarray, Dask, and related libraries. However, we have found that the often irregular spacing and structure of echosounder data in time and space can impose substantial computational bottleneck and require custom optimization beyond stock Xarray functions to parallelize efficiently across computing agents. With a few important memory issues during data conversion resolved (see [v0.8.0 release notes](https://echopype.readthedocs.io/en/stable/whats-new.html#v0-8-0-2023-august-27)), going forward we plan to:
+- Benchmark data processing functions against diverse datasets of different volume (100s of GB to TB) and spatiotemporal features that can cause unintended memory expansion during computation
+- Leverage Dask delayed approaches and experiment with different Zarr chunking schemes to resolve computational bottlenecks -->
