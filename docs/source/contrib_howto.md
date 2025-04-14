@@ -34,3 +34,26 @@ Typically:
 :::{tip}
 If your algorithm uses a library that is not currently an Echopype [dependency](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt), please add it into the `requirements.txt` file.
 :::
+
+
+
+
+
+
+## Steps to achieve scalability
+
+Computational scalability is a core goal of Echopype. However, from experience we know that scalability can be hard to achieve on first try, as it depends on the specific operations in the function and the exact implementation, as well as the chunking of the data.
+
+Therefore, we recommend breaking down the addition of a new function into 3 steps:
+1. Add the function following the guidelines in the above section
+    - Ensure the function works with datasets of reasonable sizes (e.g., 100 MB)
+    - Add tests for the new function in the testing suites (under `echopype/tests`)
+2. Benchmark function performance with different sizes of dataset and different chunking schemes, to determine if further optimization for scalability is needed
+    - Watch out for unexpected memory expansion in the computing steps - this can happen due to implicit broadcasting or padding operations
+3. Adjust the implementation to optimize theperformance if necessary
+
+Most current Echopype processing functions are capable of leveraging lazy-loaded datasets for delayed computation, which may require additional tuning.
+
+:::{tip}
+The xarray documentation includes a nice starting guide to [parallel computing with dask](https://docs.xarray.dev/en/latest/user-guide/dask.html).
+:::
