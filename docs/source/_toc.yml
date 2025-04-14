@@ -29,9 +29,9 @@ parts:
 - caption: Contributor guide
   chapters:
   - file: contrib_type
-  - file: contrib_setup
   - file: contrib_roadmap
   - file: contrib_howto
+  - file: contrib_setup
 - caption: Help & references
   chapters:
   - file: whats-new
