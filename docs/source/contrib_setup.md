@@ -1,4 +1,4 @@
-(contrib_setup)=
+(contrib:setup)=
 # Development setup
 
 Thank you for your interests in contributing to Echopype! In this page you will find information on the development workflow, setting up a development environment, and details about testing and documentation.
@@ -73,7 +73,7 @@ to keep test data versioned and directly associated with the repo.
 
 ### Running the tests
 
-To run the echopype unit tests found in `echopype/tests`,
+To run echopype tests found in `echopype/tests`,
 [`Docker`](https://docs.docker.com/get-docker/) needs to be installed.
 [`docker-compose`](https://docs.docker.com/compose/) is also needed,
 but it should already be installed in the development environment created above.
@@ -194,6 +194,7 @@ ReadTheDocs defaults to having its `stable` version tracking the most recent rel
 
 
 
+(contrib:setup_CI)=
 ## GitHub Actions for continuous integration (CI)
 When a PR is created, the CI will run through all tests, basic spelling and formatting checks (via pre-commit), and build the documentation.
 You can check the test results in a section at the bottom of the PR like below:
