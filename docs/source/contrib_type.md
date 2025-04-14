@@ -17,6 +17,6 @@ If you are new to this workflow, check out this [tutorial](https://medium.com/sw
 
 :::{tip}
 - See [](contrib_setup) for details of setting up a development environment, testing, building documentation, etc
-- See [](contrib-roadmap_priorities) for ideas of what functions to add
+- See [](contrib-roadmap) for ideas of what functions to add
 - See [](contrib-howto) for development tips and considerations
 :::

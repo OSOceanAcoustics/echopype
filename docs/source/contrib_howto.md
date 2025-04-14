@@ -3,7 +3,7 @@
 
 Thank you for your interests in contributing to Echopype!
 
-Check out our [](contrib-roadmap_priorities) to see what would make Echopype more powerful for analyzing echosounder data. Feel free to ping the maintainers (@leewujung, @ctuguina) for discussion and questions in existing issues, open a new issue, or create a PR directly.
+Check out our [](contrib-roadmap) to see what would make Echopype more powerful for analyzing echosounder data. Feel free to ping the maintainers (@leewujung, @ctuguina) for discussion and questions in existing issues, open a new issue, or create a PR directly.
 
 :::{tip}
 We encourage all code contributions to be accompanied by tests and documentations (doctrings and inline comments).
@@ -21,7 +21,7 @@ Many echosounder data processing functions (e.g., [](contrib-roadmap_algorithms)
 
 Since both raw data (via the `EchoData` object) and Sv data are ultimately loaded into xarray datasets:
 
-**If you have an algorithm written using xarray operations**: You can likely create a new function in the Echopype subpackage you think your function would best sit in, and directly transplant your algorithm there. Just make sure that the dimension/coordinate names match between what your function need and what Echopype Sv dataset contains.
+**If you have an algorithm written using xarray operations**: You can likely create a new function in the Echopype subpackage you think your function would best sit in (see [](contrib-roadmap_algorithms) for subpackage ideas), and directly transplant your algorithm there. Just make sure that the dimension/coordinate names match between what your function need and what Echopype Sv dataset contains.
 
 **If you have an algorithm written using numpy, scipy, or other common libraries**: We recommend that you replace the pure index-based slicing/indexing operations (e.g., `i=1`, `j=2`, ...) with xarray label-aware operations (e.g., `depth=1`, `ping_time="2025-04-12T12:00:00"`, ...). This makes the implementation much more readable and easier to debug, and have the added advantage of directly leveraging xarray's integration with numpy, dask, and zarr to allow distributed, out-of-core computing of large data.
 

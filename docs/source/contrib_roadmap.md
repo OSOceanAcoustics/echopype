@@ -3,12 +3,8 @@
 
 
 
-(contrib-roadmap_priorities)=
-## Development priorities
-
-
 (contrib-roadmap_dependency)=
-### Dependency resolution
+## Dependency resolution
 Echopype depends on many libraries in the scientific Python ecosystem, and therefore need to keep up with their updates. The two big ticket items that we hope to resolve soon are:
 - Upgrade to use Numpy version 2
 - Upgrade to use Zarr version 3
@@ -18,7 +14,7 @@ See the [`requirements.txt`](https://github.com/OSOceanAcoustics/echopype/blob/m
 
 
 (contrib-roadmap_convert)=
-### Data conversion and standardization
+## Data conversion and standardization
 Echopype currently support converting files from [a few echosounder models](convert-sonar_types) to netCDF or Zarr files following [a modified version of the ICES SONAR-netCDF4 convention](data-format:sonarnetcdf4-adaptation). As the core data representation stabilizes, the next steps are to:
 - Enhance adherence to community conventions of metadata and processed data, such as:
   - [ICES AcMeta](https://github.com/ices-publications/AcMeta)
@@ -31,7 +27,7 @@ Echopype currently support converting files from [a few echosounder models](conv
 
 
 (contrib-roadmap_algorithms)=
-### Rule-based algorithms
+## Rule-based algorithms
 We plan to add more common rule-based (i.e. non-ML) echosounder data analysis algorithms into Echopype. The high priority items are:
 - Full support for broadband processing (in the `calibrate` subpackage)
   - currently `calibrate.compute_Sv` supports generating band-averaged Sv for broadband data
