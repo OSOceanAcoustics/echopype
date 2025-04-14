@@ -53,7 +53,7 @@ jobs:
         if: ${{ matrix.python-version == '3.12' }}
         run: python -m pip install pytest-github-actions-annotate-failures
       - name: Install echopype
-        run: python -m pip install -e ".[plot]"
+        run: python -m pip install -e ".[plot,regrid]"
       - name: Print installed packages
         run: python -m pip list
       - name: Copying test data to services
