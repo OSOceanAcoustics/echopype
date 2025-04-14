@@ -1,4 +1,4 @@
-(contrib_setup)=
+(contrib:setup)=
 # Development setup
 
 Thank you for your interests in contributing to Echopype! In this page you will find information on the development workflow, setting up a development environment, and details about testing and documentation.
@@ -194,6 +194,7 @@ ReadTheDocs defaults to having its `stable` version tracking the most recent rel
 
 
 
+(contrib:setup_CI)=
 ## GitHub Actions for continuous integration (CI)
 When a PR is created, the CI will run through all tests, basic spelling and formatting checks (via pre-commit), and build the documentation.
 You can check the test results in a section at the bottom of the PR like below:

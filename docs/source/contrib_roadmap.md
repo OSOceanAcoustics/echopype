@@ -4,12 +4,12 @@
 
 
 (contrib-roadmap_dependency)=
-## Dependency resolution
+## Package dependency
 Echopype depends on many libraries in the scientific Python ecosystem, and therefore need to keep up with their updates. The two big ticket items that we hope to resolve soon are:
 - Upgrade to use Numpy version 2
 - Upgrade to use Zarr version 3
 
-See the [`requirements.txt`](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt) file for the current pinned versions. Whenever possible, we would like to remove the specification of maximum version.
+See the [`requirements.txt`](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt) file for the current pinned versions. We aim to remove the specification of maximum version (e.g., zarr<3) whenever possible.
 
 
 

@@ -3,12 +3,12 @@
 
 Thank you for your interests in contributing to Echopype!
 
-Check out our [](contrib-roadmap) to see what would make Echopype more powerful for analyzing echosounder data. Feel free to ping the maintainers (@leewujung, @ctuguina) for discussion and questions in existing issues, open a new issue, or create a PR directly.
+Check out the [](contrib-roadmap) to see what would make Echopype more powerful for analyzing echosounder data. Feel free to ping the maintainers (@leewujung, @ctuguina) for discussion and questions in existing issues, open a new issue, or create a PR directly.
 
-:::{tip}
+:::{note}
 We encourage all code contributions to be accompanied by tests and documentations (doctrings and inline comments).
 We may ask for these when reviewing the PRs.
-If you have added new tests but the [GitHub Actions for continuous integration](#github-actions-for-continuous-integration-ci) need approval to run, ping the maintainers (@leewujung, @ctuguinay) to get them started.
+If you have added new tests but the [GitHub Actions for continuous integration](contrib:setup_CI) need approval to run, ping the maintainers to get them started.
 :::
 
 
@@ -20,12 +20,9 @@ Many echosounder data processing functions (e.g., [](contrib-roadmap_algorithms)
 - Sv data are stored in standard [xarray `Dataset`](https://docs.xarray.dev/en/latest/user-guide/data-structures.html#dataset) that can be opened [using `xr.open_dataset` and other related functions](https://docs.xarray.dev/en/stable/user-guide/io.html) from the saved Zarr or netCDF files.
 
 Since both raw data (via the `EchoData` object) and Sv data are ultimately loaded into xarray datasets:
-
-**If you have an algorithm written using xarray operations**: You can likely create a new function in the Echopype subpackage you think your function would best sit in (see [](contrib-roadmap_algorithms) for subpackage ideas), and directly transplant your algorithm there. Just make sure that the dimension/coordinate names match between what your function need and what Echopype Sv dataset contains.
-
-**If you have an algorithm written using numpy, scipy, or other common libraries**: We recommend that you replace the pure index-based slicing/indexing operations (e.g., `i=1`, `j=2`, ...) with xarray label-aware operations (e.g., `depth=1`, `ping_time="2025-04-12T12:00:00"`, ...). This makes the implementation much more readable and easier to debug, and have the added advantage of directly leveraging xarray's integration with numpy, dask, and zarr to allow distributed, out-of-core computing of large data.
-
-**If you have an algorithm using image processing functions**: Check out [dask-image](https://image.dask.org/en/stable/) to see if you can leverage any implementations that are already scalable when adding your new function.
+- **If your algorithm is written using xarray operations**: You can likely create a new function in the Echopype subpackage you think your function would best sit in (see [](contrib-roadmap_algorithms) for subpackage ideas), and directly transplant your algorithm there. Just make sure that the dimension/coordinate names match between what your function need and what Echopype Sv dataset contains.
+- **If your algorithm is written using numpy, scipy, or other common libraries**: We recommend that you replace the pure index-based slicing/indexing operations (e.g., `i=1`, `j=2`, ...) with xarray label-aware operations (e.g., `depth=1`, `ping_time="2025-04-12T12:00:00"`, ...). This makes the implementation much more readable and easier to debug, and have the added advantage of directly leveraging xarray's integration with numpy, dask, and zarr to allow distributed, out-of-core computing of large data.
+- **If your algorithm uses image processing functions**: Check out [dask-image](https://image.dask.org/en/stable/) to see if you can leverage any implementations that are already scalable when adding your new function.
 
 Typically:
 - A processing function would either add data variables to the Sv dataset (e.g., `consolidate.add_latlon`) or return a new xarray `Dataset` or `DataArray` (e.g., `mask.apply_mask`).

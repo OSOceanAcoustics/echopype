@@ -24,7 +24,7 @@ One can replace `conda` with `mamba` in the above commands when creating the env
 Previous releases are also available on conda and PyPI.
 
 For instructions on installing a development version of echopype,
-see the [](contrib_setup) page.
+see the [](contrib:setup) page.
 
 
 ## Example notebooks
