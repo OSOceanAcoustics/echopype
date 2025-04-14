@@ -4,7 +4,7 @@
 
 
 (contrib:roadmap_dependency)=
-## Package dependency
+## Dependency
 Echopype depends on many libraries in the scientific Python ecosystem, and therefore need to keep up with their updates. The two big ticket items that we hope to resolve soon are:
 - Upgrade to use Numpy version 2
 - Upgrade to use Zarr version 3
