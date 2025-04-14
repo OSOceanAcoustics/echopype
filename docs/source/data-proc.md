@@ -1,14 +1,14 @@
 # Data processing
 
-Echopype data processing functionalities are structured into different subpackages with expandability and a series of [data processing levels](processing-levels) in mind. Once the data is converted from the raw instrument data files to standardized [`EchoData` objects](data-format:echodata-object) (or stored in `.zarr` or `.nc` format) and calibrated, the core input and output of most subsequent functions are generic [xarray `Datasets`](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html). This design allows new processing functions be easily added without needing to understand specialized objects, other than functions needing access of data stored only in the raw-converted `EchoData` objects.
+We aim for Echopype to provide "building blocks" that can be strung together to construct processing pipelines for water column sonar data to bring raw instrument-generated files to analysis-ready data products that can be easily leveraged by further downstream processing routines.
 
-The section [**Data processing functionalities**](data-proc:functions) provides information for current processing functions and their usage.
+To this end, the Echopype workflow focuses first on standardizing instrument-generated data to a netCDF data model (the `EchoData` object), and build computational routines based on the standardized data. Specifically, beyond the `EchoData` objects, the calibrated `Sv` and outputs of all subsequent data processing functions are generic [xarray Datasets](https://docs.xarray.dev/en/stable/user-guide/data-structures.html#dataset). This allows new processing functions be easily added without needing to understand specialized objects, other than functions needing access of data stored only in the raw-converted `EchoData` objects.
 
-The section [**Additional information for processed data**](data-proc:additional) provides on some aspects of processed data that may require additional explanation to fully understand the representation and underlying operations.
+![workflow](./images/workflow_v2.png)
 
-(data-proc:format)=
-## Format of processed data
+See the [Echopype paper](https://doi.org/10.1093/icesjms/fsae133) for more details on the design philosophy.
 
-Once raw data (represented by the `EchoData` objects) are calibrated  (via [`compute_Sv`](echopype.calibrate.compute_Sv)), the calibrated data and the outputs of all subsequent [processing functions](data-process:functionalities) are generic [xarray Datasets](https://docs.xarray.dev/en/stable/user-guide/data-structures.html#dataset).
-We currently do not follow any specific conventions for processed data, but we retain provenance information in the dataset, including the [data processing levels](./processing-levels.md).
-However, whether and how data variables used in the processing will be stored remain to be determined.
+
+In this section:
+- [](data-proc:functions) discusses current processing functions and their usage
+- [](data-proc:additional) discusses some aspects of processed data that may require additional explanation

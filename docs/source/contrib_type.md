@@ -1,5 +1,5 @@
 (contrib_type)=
-# Types of contributions
+# Contributing to Echopype
 
 We welcome your contributions, large or small!
 

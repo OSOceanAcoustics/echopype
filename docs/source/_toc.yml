@@ -4,7 +4,7 @@
 format: jb-book
 root: index
 parts:
-- caption: Getting Started
+- caption: Getting started
   chapters:
   - file: why
   - file: installation
@@ -37,5 +37,4 @@ parts:
   - file: whats-new
   - file: api
   - file: zbibliography
-  - file: roadmap
   - file: resources
