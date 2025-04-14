@@ -1,9 +1,9 @@
-(contrib-howto)=
+(contrib:howto)=
 # How to add a new function
 
 Thank you for your interests in contributing to Echopype!
 
-Check out the [](contrib-roadmap) to see what would make Echopype more powerful for analyzing echosounder data. Feel free to ping the maintainers (@leewujung, @ctuguina) for discussion and questions in existing issues, open a new issue, or create a PR directly.
+Check out the [](contrib:roadmap) to see what would make Echopype more powerful for analyzing echosounder data. Feel free to ping the maintainers (@leewujung, @ctuguina) for discussion and questions in existing issues, open a new issue, or create a PR directly.
 
 :::{note}
 We encourage all code contributions to be accompanied by tests and documentations (doctrings and inline comments).
@@ -15,12 +15,12 @@ If you have added new tests but the [GitHub Actions for continuous integration](
 
 ## Add rule-based processing functions
 
-Many echosounder data processing functions (e.g., [](contrib-roadmap_algorithms)) operate on Sv data or raw data parsed from instrument-generated files. In Echopype:
+Many echosounder data processing functions (e.g., [](contrib:roadmap_algorithms)) operate on Sv data or raw data parsed from instrument-generated files. In Echopype:
 - raw data are stored/accessed as [`EchoData` object](data-format:echodata-object) that can be opened using [`open_converted`](function:open-converted) from the saved Zarr or netCDF files.
 - Sv data are stored in standard [xarray `Dataset`](https://docs.xarray.dev/en/latest/user-guide/data-structures.html#dataset) that can be opened [using `xr.open_dataset` and other related functions](https://docs.xarray.dev/en/stable/user-guide/io.html) from the saved Zarr or netCDF files.
 
 Since both raw data (via the `EchoData` object) and Sv data are ultimately loaded into xarray datasets:
-- **If your algorithm is written using xarray operations**: You can likely create a new function in the Echopype subpackage you think your function would best sit in (see [](contrib-roadmap_algorithms) for subpackage ideas), and directly transplant your algorithm there. Just make sure that the dimension/coordinate names match between what your function need and what Echopype Sv dataset contains.
+- **If your algorithm is written using xarray operations**: You can likely create a new function in the Echopype subpackage you think your function would best sit in (see [](contrib:roadmap_algorithms) for subpackage ideas), and directly transplant your algorithm there. Just make sure that the dimension/coordinate names match between what your function need and what Echopype Sv dataset contains.
 - **If your algorithm is written using numpy, scipy, or other common libraries**: We recommend that you replace the pure index-based slicing/indexing operations (e.g., `i=1`, `j=2`, ...) with xarray label-aware operations (e.g., `depth=1`, `ping_time="2025-04-12T12:00:00"`, ...). This makes the implementation much more readable and easier to debug, and have the added advantage of directly leveraging xarray's integration with numpy, dask, and zarr to allow distributed, out-of-core computing of large data.
 - **If your algorithm uses image processing functions**: Check out [dask-image](https://image.dask.org/en/stable/) to see if you can leverage any implementations that are already scalable when adding your new function.
 
