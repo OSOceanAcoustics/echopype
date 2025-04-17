@@ -10,7 +10,7 @@ from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, DEFAULT_TIME_ENCODING, set_time_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
-NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
+NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC", "VTG"]
 
 
 class SetGroupsBase(abc.ABC):
@@ -197,25 +197,28 @@ class SetGroupsBase(abc.ABC):
         if nmea_msg:
             lat, lon, speed = [], [], []
             for x in nmea_msg:
-                try:
-                    lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
-                except ValueError as ve:
-                    lat.append(np.nan)
-                    warnings.warn(
-                        "At least one latitude entry is problematic and "
-                        f"are assigned None in the converted data: {str(ve)}"
-                    )
-                try:
-                    lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
-                except ValueError as ve:
-                    lon.append(np.nan)
-                    warnings.warn(
-                        f"At least one longitude entry is problematic and "
-                        f"are assigned None in the converted data: {str(ve)}"
-                    )
+                if not isinstance(x, pynmea2.VTG):          
+                    try:
+                        lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
+                    except ValueError as ve:
+                        lat.append(np.nan)
+                        warnings.warn(
+                            "At least one latitude entry is problematic and "
+                            f"are assigned None in the converted data: {str(ve)}"
+                        )
+                    try:
+                        lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
+                    except ValueError as ve:
+                        lon.append(np.nan)
+                        warnings.warn(
+                            f"At least one longitude entry is problematic and "
+                            f"are assigned None in the converted data: {str(ve)}"
+                        )
                 try:
                     if isinstance(x, pynmea2.RMC):
                         speed.append(x.spd_over_grnd if hasattr(x, "spd_over_grnd") else np.nan)
+                    elif isinstance(x, pynmea2.VTG):
+                        speed.append(x.spd_over_grnd_kts if hasattr(x, "spd_over_grnd_kts") else np.nan)
                     else:
                         speed.append(None)
                 except ValueError as ve:
