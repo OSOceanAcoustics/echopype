@@ -647,3 +647,13 @@ def test_ek80_sequence_filter_coeff():
     ds_Sv = compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
     assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel")["channel"])
     assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel")["channel"])
+
+def test_ek80_speed_over_ground():
+
+    ed = open_raw(
+        raw_file = "Documents/echopype_Test/Issue_1347/khr2405-D20241001-T024415.raw",
+        sonar_model = "EK80"
+        )
+
+    speed_data = "None,8.2,None,8.1,None,8.2,None,8.1,None,8.1,None,8.1,None,8.1,None,8.1,None,8.0,None,8.0,None,8.0,None,8.1,None,8.0,None,8.0,None,8.1,None,8.0,None,8.0,None,8.0,None,8.0,None,8.0,None,8.0,None,8.1,None,8.0,None,8.0,None,8.0,None,8.1,None,8.2,None,8.2,None,8.2,None,8.3,None,8.4,None,8.3,None,8.2,None,8.2,None,8.3,None,8.4,None,8.4,None,8.5,None,8.3,None,8.4,None,8.5,None,8.5,None,8.5,None,8.5,None,8.6,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.8,None,8.8,None,8.8,None,8.8,None,8.9,None,8.8,None,8.8,None,8.8,None,8.9,None,8.8,None,8.9,None,8.9,None,8.9,None,8.9,None,8.9,None,8.9,None,8.9,None,9.0,None,9.0,None,9.0,None,8.9,None,9.0,None,9.0,None,9.0,None,8.9,None,9.0,None,9.0,None,8.9,None,8.9,None,9.0,None,9.0,None,9.0,None,9.1,None,9.0,None,9.0,None,9.1,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.1,None,9.1,None,9.1,None,9.0,None,9.1,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.0,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.0,None,9.1,None,9.1,None,9.0,None,9.0,None,9.1,None,9.2,None,9.2,None,9.1,None,9.1,None,9.1,None,9.0,None,9.0,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.0,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.2,None,9.2,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.2,None,9.0,None,9.1,None,9.0,None,9.1,None,9.1,None,9.0,None,9.1,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.1,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,8.9,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.0,None,9.1,None,9.2,None,9.1,None,9.1,None,9.2,None,9.1"
+    assert ed['Platform']['speed_over_ground'].values == speed_data.split(",")
