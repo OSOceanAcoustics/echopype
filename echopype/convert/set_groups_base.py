@@ -197,7 +197,7 @@ class SetGroupsBase(abc.ABC):
         if nmea_msg:
             lat, lon, speed = [], [], []
             for x in nmea_msg:
-                if not isinstance(x, pynmea2.VTG):          
+                if not isinstance(x, pynmea2.VTG):
                     try:
                         lat.append(x.latitude if hasattr(x, "latitude") else np.nan)
                     except ValueError as ve:
@@ -218,7 +218,9 @@ class SetGroupsBase(abc.ABC):
                     if isinstance(x, pynmea2.RMC):
                         speed.append(x.spd_over_grnd if hasattr(x, "spd_over_grnd") else np.nan)
                     elif isinstance(x, pynmea2.VTG):
-                        speed.append(x.spd_over_grnd_kts if hasattr(x, "spd_over_grnd_kts") else np.nan)
+                        speed.append(
+                            x.spd_over_grnd_kts if hasattr(x, "spd_over_grnd_kts") else np.nan
+                        )
                     else:
                         speed.append(None)
                 except ValueError as ve:
