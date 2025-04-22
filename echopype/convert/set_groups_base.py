@@ -214,6 +214,9 @@ class SetGroupsBase(abc.ABC):
                             f"At least one longitude entry is problematic and "
                             f"are assigned None in the converted data: {str(ve)}"
                         )
+                else:
+                    lat.append(np.nan)
+                    lon.append(np.nan)
                 try:
                     if isinstance(x, pynmea2.RMC):
                         speed.append(x.spd_over_grnd if hasattr(x, "spd_over_grnd") else np.nan)
