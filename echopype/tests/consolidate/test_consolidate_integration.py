@@ -342,9 +342,16 @@ def test_add_splitbeam_angle_partial_valid_channels(test_path):
     # Manually override beam_type for one channel to simulate single-beam
     beam_types = ed["Sonar/Beam_group1"]["beam_type"].values
     total_channels = beam_types.shape[0]
+    valid_channels = 0
+    channel_to_invalidate = None
 
     # Force the first channel to an unsupported beam_type
-    beam_types[1] = 0
+    for idx, bt in enumerate(beam_types):
+        if bt != 0:
+            valid_channels += 1
+            if channel_to_invalidate is None:
+                channel_to_invalidate = idx
+
     ed["Sonar/Beam_group1"]["beam_type"].data[:] = beam_types
 
     # Compute Sv
@@ -354,6 +361,8 @@ def test_add_splitbeam_angle_partial_valid_channels(test_path):
     ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed, waveform_mode="CW",
                                                encode_mode="complex", pulse_compression=False, to_disk=False)
 
+    expected_valid_channels = valid_channels - 1
+
     valid_angle_channels = [
         ch for ch in ds_Sv.channel.values
         if not np.all(np.isnan(ds_Sv["angle_alongship"].sel(channel=ch)))
@@ -362,7 +371,7 @@ def test_add_splitbeam_angle_partial_valid_channels(test_path):
     # Verify angles exist for valid channel only
     assert "angle_alongship" in ds_Sv
     assert "angle_athwartship" in ds_Sv
-    assert len(valid_angle_channels) == total_channels - 1
+    assert len(valid_angle_channels) == expected_valid_channels
 
 # TODO: need a test for power/angle data, with mock EchoData object
 # containing some channels with single-beam data and some channels with split-beam data
