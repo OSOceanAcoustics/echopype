@@ -352,6 +352,8 @@ def test_add_splitbeam_angle_partial_valid_channels(test_path):
             if channel_to_invalidate is None:
                 channel_to_invalidate = idx
 
+    # Simulate disabling one valid channel
+    beam_types[channel_to_invalidate] = 0
     ed["Sonar/Beam_group1"]["beam_type"].data[:] = beam_types
 
     # Compute Sv

@@ -234,24 +234,25 @@ def get_angle_complex_samples(
     else:
         # beam_type different for some channels, process each channel separately
         theta_list, phi_list, valid_channels = [], [], []
-        for ch_id in bs["channel"].data:
-            beam_type_ch = ds_beam["beam_type"].sel(channel=ch_id).item()
+        beam_types = ds_beam["beam_type"].values
+
+        for idx, ch_id in enumerate(bs["channel"].data):
+            beam_type_ch = beam_types[idx]
 
             if beam_type_ch not in SUPPORTED_BEAM_TYPES:
                 logger.warning(f"Skipping channel {ch_id}: unsupported beam_type {beam_type_ch}")
                 continue
 
             theta_ch, phi_ch = _compute_angle_from_complex(
-                bs=bs.sel(channel=ch_id),
-                # beam_type is not time-varying
-                beam_type=(ds_beam["beam_type"].sel(channel=ch_id)),
+                bs=bs.isel(channel=idx),
+                beam_type=beam_type_ch,
                 sens=[
-                    angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
-                    angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
+                    float(angle_params["angle_sensitivity_alongship"].isel(channel=idx).values),
+                    float(angle_params["angle_sensitivity_athwartship"].isel(channel=idx).values),
                 ],
                 offset=[
-                    angle_params["angle_offset_alongship"].sel(channel=ch_id),
-                    angle_params["angle_offset_athwartship"].sel(channel=ch_id),
+                    float(angle_params["angle_offset_alongship"].isel(channel=idx).values),
+                    float(angle_params["angle_offset_athwartship"].isel(channel=idx).values),
                 ],
             )
             theta_list.append(theta_ch)
