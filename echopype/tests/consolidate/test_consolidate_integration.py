@@ -341,16 +341,12 @@ def test_add_splitbeam_angle_partial_valid_channels(test_path):
 
     # Manually override beam_type for one channel to simulate single-beam
     beam_types = ed["Sonar/Beam_group1"]["beam_type"].values
-    total_channels = beam_types.shape[0]
-    valid_channels = 0
     channel_to_invalidate = None
 
     # Force the first channel to an unsupported beam_type
     for idx, bt in enumerate(beam_types):
-        if bt != 0:
-            valid_channels += 1
-            if channel_to_invalidate is None:
-                channel_to_invalidate = idx
+        if bt != 0 and channel_to_invalidate is None:
+            channel_to_invalidate = idx
 
     # Simulate disabling one valid channel
     beam_types[channel_to_invalidate] = 0
@@ -363,7 +359,7 @@ def test_add_splitbeam_angle_partial_valid_channels(test_path):
     ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed, waveform_mode="CW",
                                                encode_mode="complex", pulse_compression=False, to_disk=False)
 
-    expected_valid_channels = valid_channels - 1
+    expected_valid_channels = len(ds_Sv.channel.values) - 1
 
     valid_angle_channels = [
         ch for ch in ds_Sv.channel.values
