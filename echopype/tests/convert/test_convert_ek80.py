@@ -650,8 +650,8 @@ def test_ek80_sequence_filter_coeff():
     assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel")["channel"])
 
 @pytest.fixture
-def ek80VesselSpeed_path():          
-    return Path(__file__).parent.parent.parent / "test_data" / "ek80" / "vessel_speed" / "khr2405-D20241001-T024415.raw"
+def ek80VesselSpeed_path(test_path):          
+    return test_path["EK80_Spd_Ovr_Grnd"]
 
 def test_ek80_speed_over_ground(ek80VesselSpeed_path):
     ed = open_raw(
@@ -660,4 +660,6 @@ def test_ek80_speed_over_ground(ek80VesselSpeed_path):
         )
     
     speed_data = "None,8.2,None,8.1,None,8.2,None,8.1,None,8.1,None,8.1,None,8.1,None,8.1,None,8.0,None,8.0,None,8.0,None,8.1,None,8.0,None,8.0,None,8.1,None,8.0,None,8.0,None,8.0,None,8.0,None,8.0,None,8.0,None,8.1,None,8.0,None,8.0,None,8.0,None,8.1,None,8.2,None,8.2,None,8.2,None,8.3,None,8.4,None,8.3,None,8.2,None,8.2,None,8.3,None,8.4,None,8.4,None,8.5,None,8.3,None,8.4,None,8.5,None,8.5,None,8.5,None,8.5,None,8.6,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.7,None,8.8,None,8.8,None,8.8,None,8.8,None,8.9,None,8.8,None,8.8,None,8.8,None,8.9,None,8.8,None,8.9,None,8.9,None,8.9,None,8.9,None,8.9,None,8.9,None,8.9,None,9.0,None,9.0,None,9.0,None,8.9,None,9.0,None,9.0,None,9.0,None,8.9,None,9.0,None,9.0,None,8.9,None,8.9,None,9.0,None,9.0,None,9.0,None,9.1,None,9.0,None,9.0,None,9.1,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.1,None,9.1,None,9.1,None,9.0,None,9.1,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.0,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.0,None,9.1,None,9.1,None,9.0,None,9.0,None,9.1,None,9.2,None,9.2,None,9.1,None,9.1,None,9.1,None,9.0,None,9.0,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.0,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.2,None,9.2,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.2,None,9.0,None,9.1,None,9.0,None,9.1,None,9.1,None,9.0,None,9.1,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.0,None,9.1,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,8.9,None,9.0,None,9.1,None,9.1,None,9.1,None,9.1,None,9.2,None,9.1,None,9.1,None,9.1,None,9.1,None,9.1,None,9.0,None,9.1,None,9.2,None,9.1,None,9.1,None,9.2,None,9.1"
-    assert ed['Platform']['speed_over_ground'].values == speed_data.split(",")
+    expected = list(map(float, speed_data.split(",")))
+    actual = ed['Platform']['speed_over_ground'].values.tolist()
+    assert  actual == expected

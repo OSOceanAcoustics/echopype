@@ -30,6 +30,7 @@ def test_path():
         "EK80_EXT": TEST_DATA_FOLDER / "ek80_ext",
         "ECS": TEST_DATA_FOLDER / "ecs",
         "LEGACY_DATATREE": TEST_DATA_FOLDER / "legacy_datatree",
+        "EK80_Spd_Ovr_Grnd": TEST_DATA_FOLDER / "ek80" / "vessel_speed",
     }
 
 
