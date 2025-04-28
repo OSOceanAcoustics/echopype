@@ -20,7 +20,7 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v5.5.0
+      uses: actions/setup-python@v5.6.0
       with:
         python-version: 3.12
 
@@ -52,7 +52,7 @@ jobs:
     needs: build-artifact
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/setup-python@v5.5.0
+    - uses: actions/setup-python@v5.6.0
       name: Install Python
       with:
         python-version: 3.12
