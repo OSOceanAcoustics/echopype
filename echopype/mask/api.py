@@ -126,7 +126,7 @@ def _validate_and_collect_mask_input(
                 {"channel", "ping_time", "depth"},
                 {"channel", "ping_time", "echo_range"},
             ]
-            if mask[mask_ind].dims not in allowed_dims:
+            if set(mask[mask_ind].dims) not in allowed_dims: 
                 raise ValueError(
                     "Masks must have one of the following dimensions, in any order: "
                     "('ping_time', 'range_sample'), "
