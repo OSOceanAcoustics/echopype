@@ -1,6 +1,7 @@
 black
 check-manifest
 codespell
+cftime==1.6.4.post1
 docker-compose # Not available in py3.10
 flake8
 flake8-builtins
