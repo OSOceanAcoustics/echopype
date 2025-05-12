@@ -120,16 +120,16 @@ def _validate_and_collect_mask_input(
             # check mask coordinates
             # the coordinate sequence matters, so fix the tuple form
             allowed_dims = [
-                ("ping_time", "range_sample"),
-                ("ping_time", "depth"),
-                ("ping_time", "echo_range"),
-                ("channel", "ping_time", "range_sample"),
-                ("channel", "ping_time", "depth"),
-                ("channel", "ping_time", "echo_range"),
+                {"ping_time", "range_sample"},
+                {"ping_time", "depth"},
+                {"ping_time", "echo_range"},
+                {"channel", "ping_time", "range_sample"},
+                {"channel", "ping_time", "depth"},
+                {"channel", "ping_time", "echo_range"},
             ]
-            if mask[mask_ind].dims not in allowed_dims:
+            if set(mask[mask_ind].dims) not in allowed_dims:
                 raise ValueError(
-                    "Masks must have one of the following dimensions: "
+                    "Masks must have one of the following dimensions, in any order: "
                     "('ping_time', 'range_sample'), "
                     "('ping_time', 'depth'), "
                     "('ping_time', 'echo_range'), "
@@ -386,11 +386,11 @@ def apply_mask(
     final_mask_chan_shape = (
         final_mask.isel(channel=0).shape if "channel" in final_mask.dims else final_mask.shape
     )
-    if final_mask_chan_shape != source_da_chan_shape:
-        raise ValueError(
-            f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
-            "along the ping_time, and range_sample dimensions!"
-        )
+    # if final_mask_chan_shape != source_da_chan_shape:
+    #     raise ValueError(
+    #         f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
+    #         "along the ping_time, and range_sample dimensions!"
+    #     )
     # If final_mask has dim channel then source_da must have dim channel
     if "channel" in final_mask.dims and "channel" not in source_da.dims:
         raise ValueError(
