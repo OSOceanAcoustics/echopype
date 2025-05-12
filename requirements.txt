@@ -1,5 +1,6 @@
 aiohttp
 bottleneck
+cftime==1.6.4.post1
 dask[array,distributed]
 dask-image
 flox>=0.7.2
