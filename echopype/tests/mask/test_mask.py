@@ -18,7 +18,7 @@ from echopype.mask.freq_diff import (
 )
 
 from typing import List, Union, Optional
-from ...mask.api import apply_mask
+from echopype.mask.api import apply_mask         
 
 
 def get_mock_freq_diff_data(
