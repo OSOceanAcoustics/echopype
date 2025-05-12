@@ -7,6 +7,7 @@ import xarray as xr
 import dask.array
 import tempfile
 import os
+import pandas as pd
 
 import echopype as ep
 import echopype.mask
@@ -17,6 +18,7 @@ from echopype.mask.freq_diff import (
 )
 
 from typing import List, Union, Optional
+from ...mask.api import apply_mask
 
 
 def get_mock_freq_diff_data(
@@ -1399,3 +1401,73 @@ def test_validate_source_ds_and_check_mask_dim_alignment():
             mask.expand_dims(dim={"channel": MVBS["channel"].data}),
             "Sv"
         )
+
+# We need to test apply_mask to verify it is agnostic to the dimnension orders.
+# @pytest.fixture
+# def apply_mask_order_agnostic_path(test_path):          
+#     return test_path["EK80_apply_mask_order_agnostic"]             
+
+import xarray.testing as xrt
+
+def test_apply_mask_order_agnostic(): #apply_mask_order_agnostic_path):
+
+    # "ping_time", "depth" are considered as the dimensions.
+    ping_time = pd.date_range("2022-01-01", periods=4, freq="1S")
+    depth = np.array([5, 10, 20])
+
+    # Sv data (4 ping_times x 3 depths)
+    sv_data = np.array([
+        [0.78867501, 0.35096309, 0.59688662],
+        [0.89240227, 0.40138397, 0.23003694],
+        [0.36652811, 0.34401511, 0.75049726],
+        [0.34782914, 0.70986695, 0.47811385]
+       ])
+
+    source_ds = xr.Dataset(
+        data_vars=dict(
+            Sv=(("ping_time", "depth"), sv_data)
+        ),
+        coords=dict(
+            ping_time=("ping_time", ping_time),
+            depth=("depth", depth)
+        )
+    )
+
+
+
+    mask_data = np.array([
+        [True, False, True, True],
+        [False, True, False, False],
+        [True, True, False, False],
+    ])  
+
+    mask = xr.DataArray(
+        mask_data,
+        dims = ("depth", "ping_time"),  # intentionally reversed
+        coords = {"depth": depth, "ping_time": ping_time}
+    )
+    
+    # apply_mask(
+    # source_ds: Union[xr.Dataset, str, pathlib.Path],
+    # mask: Union[xr.DataArray, str, pathlib.Path, List[Union[xr.DataArray, str, pathlib.Path]]],
+    # var_name: str = "Sv",
+    # fill_value: Union[int, float, xr.DataArray] = np.nan,
+    # storage_options_ds: dict = {},
+    # storage_options_mask: Union[dict, List[dict]] = {},
+    # ) -> xr.Dataset
+    actual = apply_mask(source_ds, mask, "Sv", np.nan, {}, {} )               
+    
+    expected_data = np.array([
+        [0.78867501, np.nan, 0.59688662],
+        [np.nan, 0.40138397, 0.23003694],
+        [0.36652811, np.nan, np.nan],
+        [0.34782914, np.nan, np.nan]
+       ])
+
+    expected = xr.DataArray(
+        expected_data,
+        dims=("ping_time", "depth"),
+        coords={"ping_time": ping_time, "depth": depth}
+    )
+
+    xrt.assert_allclose(actual["Sv"], expected)
