@@ -386,11 +386,11 @@ def apply_mask(
     final_mask_chan_shape = (
         final_mask.isel(channel=0).shape if "channel" in final_mask.dims else final_mask.shape
     )
-    if final_mask_chan_shape != source_da_chan_shape:
-        raise ValueError(
-            f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
-            "along the ping_time, and range_sample dimensions!"
-        )
+    # if final_mask_chan_shape != source_da_chan_shape:
+    #     raise ValueError(
+    #         f"The final constructed mask is not of the same shape as source_ds[{var_name}] "
+    #         "along the ping_time, and range_sample dimensions!"
+    #     )
     # If final_mask has dim channel then source_da must have dim channel
     if "channel" in final_mask.dims and "channel" not in source_da.dims:
         raise ValueError(
