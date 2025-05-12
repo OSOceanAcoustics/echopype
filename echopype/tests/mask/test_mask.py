@@ -1402,7 +1402,7 @@ def test_validate_source_ds_and_check_mask_dim_alignment():
             "Sv"
         )
 
-# We need to test apply_mask to verify it is agnostic to the dimnension orders.
+# We need to test apply_mask to verify it is agnostic to the dimension orders.
 # @pytest.fixture
 # def apply_mask_order_agnostic_path(test_path):          
 #     return test_path["EK80_apply_mask_order_agnostic"]             
