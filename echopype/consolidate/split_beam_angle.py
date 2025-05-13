@@ -2,24 +2,24 @@
 Contains functions necessary to compute the split-beam (alongship/athwartship)
 angles and add them to a Dataset.
 """
+
 from typing import List, Tuple
 
 import dask.array as da
 import numpy as np
 import xarray as xr
 
-from ..utils.log import _init_logger
 from ..calibrate.ek80_complex import compress_pulse, get_norm_fac, get_transmit_signal
-
+from ..utils.log import _init_logger
 
 logger = _init_logger(__name__)
 
 # Beam type identifiers
-BEAM_TYPE_SPLIT_4_SECTOR = 1      # 4-sector split-beam (common Simrad type)
-BEAM_TYPE_SPLIT_3_SECTOR = 17     # 3-sector
+BEAM_TYPE_SPLIT_4_SECTOR = 1  # 4-sector split-beam (common Simrad type)
+BEAM_TYPE_SPLIT_3_SECTOR = 17  # 3-sector
 BEAM_TYPE_SPLIT_3_PLUS_CENTER = 49  # 3-sector + center element
-BEAM_TYPE_SPLIT_VARIANT_65 = 65   # Another 3+1 variant (vendor-specific)
-BEAM_TYPE_SPLIT_VARIANT_81 = 81   # Another 3+1 variant (vendor-specific)
+BEAM_TYPE_SPLIT_VARIANT_65 = 65  # Another 3+1 variant (vendor-specific)
+BEAM_TYPE_SPLIT_VARIANT_81 = 81  # Another 3+1 variant (vendor-specific)
 
 SUPPORTED_BEAM_TYPES = [
     BEAM_TYPE_SPLIT_4_SECTOR,
