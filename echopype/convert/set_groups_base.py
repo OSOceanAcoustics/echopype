@@ -228,6 +228,11 @@ class SetGroupsBase(abc.ABC):
                     "calendar": DEFAULT_TIME_ENCODING["calendar"],
                 },
             )
+            time1 = xr.coding.times.decode_cf_datetime(
+                time1,
+                units=DEFAULT_TIME_ENCODING["units"],
+                calendar=DEFAULT_TIME_ENCODING["calendar"],
+            )
         else:
             time1 = [np.nan]
 
