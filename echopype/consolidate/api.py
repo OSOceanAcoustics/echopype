@@ -459,17 +459,16 @@ def add_splitbeam_angle(
     # and obtain the echodata group path corresponding to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
-    # Set the dataset_dimension based on use_frequency_nominal.
-    dataset_dimension = "frequency_nominal" if use_frequency_nominal else "channel"
-    if dataset_dimension not in source_Sv.variables:
-        raise ValueError(f"The input source_Sv Dataset must have a {dataset_dimension} dimension!")
+    # check that source_Sv at least has a channel dimension
+    if "channel" not in source_Sv.variables:
+        raise ValueError("The input source_Sv Dataset must have a channel dimension!")
 
     # Swap the dimension to frequency_nominal if use_frequency_nominal is True
     if use_frequency_nominal:
         source_Sv = swap_dims_channel_frequency(source_Sv)
 
     # Select ds_beam dimension from source_Sv
-    ds_beam = echodata[ed_beam_group].sel(channel=source_Sv[dataset_dimension].values)
+    ds_beam = echodata[ed_beam_group].sel(channel=source_Sv["channel"].values)
 
     # Assemble angle param dict
     angle_param_list = [
@@ -489,7 +488,7 @@ def add_splitbeam_angle(
     # for ping_time, range_sample, and channel
     same_size_lens = [
         ds_beam.sizes[dim] == source_Sv.sizes[dim]
-        for dim in [dataset_dimension, "ping_time", "range_sample"]
+        for dim in ["channel", "ping_time", "range_sample"]
     ]
     if not same_size_lens:
         raise ValueError(
@@ -503,25 +502,19 @@ def add_splitbeam_angle(
             theta, phi = get_angle_power_samples(ds_beam, angle_params)
         else:  # complex data
             # operation is identical with BB complex data
-            theta, phi = get_angle_complex_samples(
-                ds_beam, angle_params, dataset_dimension=dataset_dimension
-            )
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params)
     # BB mode data
     else:
         if pulse_compression:  # with pulse compression
             # put receiver fs into the same dict for simplicity
             pc_params = get_filter_coeff(
-                echodata["Vendor_specific"].sel(channel=source_Sv[dataset_dimension].values)
+                echodata["Vendor_specific"].sel(channel=source_Sv["channel"].values)
             )
             pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
-            theta, phi = get_angle_complex_samples(
-                ds_beam, angle_params, pc_params, dataset_dimension
-            )
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params)
         else:  # without pulse compression
             # operation is identical with CW complex data
-            theta, phi = get_angle_complex_samples(
-                ds_beam, angle_params, dataset_dimension=dataset_dimension
-            )
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params)
 
     # add theta and phi to source_Sv input
     theta.attrs["long_name"] = "split-beam alongship angle"

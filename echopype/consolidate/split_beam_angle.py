@@ -154,7 +154,6 @@ def get_angle_complex_samples(
     ds_beam: xr.Dataset,
     angle_params: dict,
     pc_params: dict = None,
-    dataset_dimension: str = "channel",
 ) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Obtain split-beam angle from CW or BB mode complex samples.
@@ -213,7 +212,7 @@ def get_angle_complex_samples(
     else:
         # beam_type different for some channels, process each channel separately
         theta, phi = [], []
-        for ch_id in bs[dataset_dimension].data:
+        for ch_id in bs["channel"].data:
             theta_ch, phi_ch = _compute_angle_from_complex(
                 bs=bs.sel(channel=ch_id),
                 # beam_type is not time-varying
@@ -234,7 +233,7 @@ def get_angle_complex_samples(
         theta = xr.DataArray(
             data=theta,
             coords={
-                dataset_dimension: bs[dataset_dimension],
+                "channel": bs["channel"],
                 "ping_time": bs["ping_time"],
                 "range_sample": bs["range_sample"],
             },
@@ -242,7 +241,7 @@ def get_angle_complex_samples(
         phi = xr.DataArray(
             data=phi,
             coords={
-                dataset_dimension: bs[dataset_dimension],
+                "channel": bs["channel"],
                 "ping_time": bs["ping_time"],
                 "range_sample": bs["range_sample"],
             },
