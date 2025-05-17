@@ -503,7 +503,9 @@ def add_splitbeam_angle(
             theta, phi = get_angle_power_samples(ds_beam, angle_params)
         else:  # complex data
             # operation is identical with BB complex data
-            theta, phi = get_angle_complex_samples(ds_beam, angle_params, dataset_dimension)
+            theta, phi = get_angle_complex_samples(
+                ds_beam, angle_params, dataset_dimension=dataset_dimension
+            )
     # BB mode data
     else:
         if pulse_compression:  # with pulse compression
@@ -517,7 +519,9 @@ def add_splitbeam_angle(
             )
         else:  # without pulse compression
             # operation is identical with CW complex data
-            theta, phi = get_angle_complex_samples(ds_beam, angle_params, dataset_dimension)
+            theta, phi = get_angle_complex_samples(
+                ds_beam, angle_params, dataset_dimension=dataset_dimension
+            )
 
     # add theta and phi to source_Sv input
     theta.attrs["long_name"] = "split-beam alongship angle"
