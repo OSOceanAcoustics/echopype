@@ -400,10 +400,10 @@ class SetGroupsBase(abc.ABC):
             },
         )
         timestamp_array = xr.coding.times.decode_cf_datetime(
-                timestamp_array,
-                units=DEFAULT_TIME_ENCODING["units"],
-                calendar=DEFAULT_TIME_ENCODING["calendar"],
-            )
+            timestamp_array,
+            units=DEFAULT_TIME_ENCODING["units"],
+            calendar=DEFAULT_TIME_ENCODING["calendar"],
+        )
         # TODO: Add attributes for `ping_number` and `file_offset`
         platform_ds = platform_ds.assign(
             {
