@@ -16,5 +16,5 @@ requests
 s3fs
 scipy<1.15.2
 typing-extensions
-xarray>=2024.11.0,<2025.4.0
+xarray>=2024.11.0
 zarr>=2,<3
