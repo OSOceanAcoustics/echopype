@@ -136,11 +136,18 @@ def _validate_and_collect_mask_input(
                     "('channel', 'ping_time', 'depth')"
                     "('channel', 'ping_time', 'echo_range')"
                 )
-            # **Enforce boolean type on mask values**
-            if not np.issubdtype(mask[mask_ind].dtype, np.bool_):
-                raise TypeError(
-                    f"Mask at index {mask_ind} must be boolean (dtype=bool), but got dtype {mask[mask_ind].dtype}"
-                )
+            
+            # **Validate boolean-like values - reject NaN**
+            # First check if there are any NaN values
+            if np.any(np.isnan(mask[mask_ind].values)):
+                raise TypeError("Mask must be boolean")
+            
+            # Get unique values and check if they are boolean-like
+            unique_vals = np.unique(mask[mask_ind].values)
+            
+            # Check if all values are boolean-like (0, 1, True, False)
+            if not np.all(np.isin(unique_vals, [0, 1, True, False])):
+                raise TypeError("Mask must be boolean")
 
         # Check for the channel dimension consistency
         channel_dim_shapes = set()
@@ -164,10 +171,18 @@ def _validate_and_collect_mask_input(
         if isinstance(mask, (str, pathlib.Path)):
             # open up DataArray using mask path
             mask = xr.open_dataarray(mask, engine=file_type, chunks={}, **storage_options_mask)
-
-        # **Enforce boolean type on mask values**
-        if not np.issubdtype(mask.dtype, np.bool_):
-            raise TypeError(f"Mask must be boolean (dtype=bool), but got dtype {mask.dtype}")
+        
+        # **Validate boolean-like values - reject NaN**
+        # First check if there are any NaN values
+        if np.any(np.isnan(mask.values)):
+            raise TypeError("Mask must be boolean")
+        
+        # Get unique values and check if they are boolean-like
+        unique_vals = np.unique(mask.values)
+        
+        # Check if all values are boolean-like (0, 1, True, False)
+        if not np.all(np.isin(unique_vals, [0, 1, True, False])):
+            raise TypeError("Mask must be boolean")
 
     return mask
 
