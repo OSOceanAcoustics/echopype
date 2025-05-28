@@ -1,32 +1,14 @@
-(contributing)=
-# Contributing to echopype
+(contrib:setup)=
+# Development setup
 
-
-:::{note}
-We welcome your contributions, large or small!
-- Contributions to both code and documentation via Pull Requests are highly appreciated
-- Bug reports, feature requests, and questions via Issues are also welcome
-:::
+Thank you for your interests in contributing to Echopype! In this page you will find information on the development workflow, setting up a development environment, and details about testing and documentation.
 
 
 
-## Contributing on GitHub
-
-### Bug reports, feature requests, questions
-Please ask questions, report bugs, or request new features via GitHub issues.
-If you're new to GitHub, checking out these tips for [creating issues on GitHub](https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f).
-
-### Contributions to code and documentation
-We use the fork-branch-pull request (PR) workflow to add new code into Echopype.
-If you are new to this workflow, check out this [tutorial](https://medium.com/swlh/forks-and-pull-requests-how-to-contribute-to-github-repos-8843fac34ce8).
-
-We have recently moved away from Gitflow development to [trunk-based development](https://www.atlassian.com/continuous-delivery/continuous-integration/trunk-based-development) to streamline the process and reduce repo management overhead.
+## Trunk-based development
+We have recently moved to follow [trunk-based development](https://www.atlassian.com/continuous-delivery/continuous-integration/trunk-based-development) to streamline the process and reduce repo management overhead.
 The main thing to keep in mind is to set the PR target to the `main` branch in the `upstream` repository (the one sitting under the OSOceanAcoustics GitHub organization).
 We will no longer use a `dev` branch.
-
-We encourage all code contributions to be accompanied by tests and documentations when appropriate.
-We may ask for these when reviewing the PRs.
-If you have added new tests but the [GitHub Actions for continuous integration](#github-actions-for-continuous-integration-ci) need approval to run, ping the maintainers (@leewujung, @ctuguinay) to get them started.
 
 
 
@@ -34,7 +16,7 @@ If you have added new tests but the [GitHub Actions for continuous integration](
 
 To create an environment for developing Echopype, we recommend the following steps:
 
-1. Fork the Echopype repository following the guide above, clone your fork, then in `git remote` set your fork as the `origin` and the OSOceanAcoustics repository as `upstream`:
+1. Fork the Echopype repository, clone your fork to your machine, then in `git remote` set your fork as the `origin` and the OSOceanAcoustics repository as `upstream`:
     ```shell
     # Clone your fork
     git clone https://github.com/YOUR_GITHUB_USERNAME/echopype.git
@@ -65,11 +47,10 @@ To create an environment for developing Echopype, we recommend the following ste
     pip install -e ".[plot]"
     ```
 
-:::{note}
-It's common to encounter the situation that installing packages using Conda is slow or fails,
-because Conda is unable to resolve dependencies.
-We suggest using Mamba to get around this.
+:::{tip}
+We recommend using Mamba to get around Conda's sometimes slow or stuck behavior when solving dependencies.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
+The easiest way to get a minimal installation is through [Miniforge](https://conda-forge.org/download/).
 One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
 :::
 
@@ -86,13 +67,13 @@ The image is rebuilt daily when new test data are added.
 If your tests require adding new test data, ping the maintainers (@leewujung, @ctuguinay)
 to get them added to the the Google Drive.
 
-In the near future we plan to migrate all test data to GitHub Release Assets,
+We hope to migrate all test data to GitHub Release Assets in the near future,
 to keep test data versioned and directly associated with the repo.
 
 
 ### Running the tests
 
-To run the echopype unit tests found in `echopype/tests`,
+To run echopype tests found in `echopype/tests`,
 [`Docker`](https://docs.docker.com/get-docker/) needs to be installed.
 [`docker-compose`](https://docs.docker.com/compose/) is also needed,
 but it should already be installed in the development environment created above.
@@ -213,9 +194,9 @@ ReadTheDocs defaults to having its `stable` version tracking the most recent rel
 
 
 
+(contrib:setup_CI)=
 ## GitHub Actions for continuous integration (CI)
-When a PR is created, the CI will run through all tests, basic spelling and formatting checks
-(via pre-commit), and build the documentation.
+When a PR is created, the CI will run through all tests, basic spelling and formatting checks (via pre-commit), and build the documentation.
 You can check the test results in a section at the bottom of the PR like below:
 ![ci_runs](./images/CI_checks.png)
 

@@ -228,6 +228,11 @@ class SetGroupsBase(abc.ABC):
                     "calendar": DEFAULT_TIME_ENCODING["calendar"],
                 },
             )
+            time1 = xr.coding.times.decode_cf_datetime(
+                time1,
+                units=DEFAULT_TIME_ENCODING["units"],
+                calendar=DEFAULT_TIME_ENCODING["calendar"],
+            )
         else:
             time1 = [np.nan]
 
@@ -393,6 +398,11 @@ class SetGroupsBase(abc.ABC):
                 "units": DEFAULT_TIME_ENCODING["units"],
                 "calendar": DEFAULT_TIME_ENCODING["calendar"],
             },
+        )
+        timestamp_array = xr.coding.times.decode_cf_datetime(
+            timestamp_array,
+            units=DEFAULT_TIME_ENCODING["units"],
+            calendar=DEFAULT_TIME_ENCODING["calendar"],
         )
         # TODO: Add attributes for `ping_number` and `file_offset`
         platform_ds = platform_ds.assign(
