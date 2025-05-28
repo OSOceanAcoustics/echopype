@@ -1100,7 +1100,7 @@ def test_apply_mask(
 
 def test_apply_mask_NaN_elements():
     """
-    Make sure NaNs are interpreted correctly as False.
+    Make sure NaNs are rejected in masks.
     """
     arr_mask = np.identity(3)
     arr_mask = np.where(arr_mask==1, 1, np.nan)
@@ -1115,8 +1115,10 @@ def test_apply_mask_NaN_elements():
     )
     ds_data.name = "Sv"
     ds_data = ds_data.to_dataset()
-    ds_data_masked = ep.mask.apply_mask(source_ds=ds_data, mask=da_mask)
-    assert np.array_equal( np.isnan(arr_mask), ds_data_masked["Sv"].isel(channel=0).isnull().values)
+    
+    # Expect TypeError when mask contains NaN values
+    with pytest.raises(TypeError, match="Mask must be boolean"):
+        ep.mask.apply_mask(source_ds=ds_data, mask=da_mask)
     
 
 @pytest.mark.integration
