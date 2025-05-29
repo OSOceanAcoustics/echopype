@@ -4,6 +4,7 @@ import pytest
 from scipy.io import loadmat
 import echopype as ep
 from echopype.calibrate.env_params_old import EnvParams
+from echopype.calibrate.cal_params import get_vend_cal_params_power
 import xarray as xr
 import dask.array as da
 
@@ -431,3 +432,35 @@ def test_fm_equals_bb():
     # Check that they are equal
     assert ds_Sv_bb.equals(ds_Sv_fm)
     assert ds_TS_bb.equals(ds_TS_fm)
+
+
+@pytest.mark.integration
+def test_calibrate_ek60_chunks():
+    """
+    Tests that the correct chunks are generated in the intermediate 'get_vend_cal_params_power'
+    output and in the final 'compute_Sv' output.
+    """
+    # Lazy-load the Zarr stores
+    test_dir = "echopype/test_data/ek60_calibrate_chunks"
+    ed = ep.open_converted(f"{test_dir}/ed_ek60_chunk_test.zarr", chunks={})
+    beam = xr.open_zarr(f"{test_dir}/beam_ek60_chunk_test.zarr", chunks={})
+    vend = xr.open_zarr(f"{test_dir}/vend_ek60_chunk_test.zarr", chunks={})
+
+    # Get gain correction parameters stored in the Vendor_specific group
+    da_param = get_vend_cal_params_power(beam=beam, vend=vend, param="gain_correction")
+
+    # Check that only two dimensions (and coords) exist: channel and ping time
+    assert len(da_param.dims) == 2
+    assert len(da_param.coords) == 2
+    assert "channel" in da_param.dims
+    assert "ping_time" in da_param.dims
+
+    # Check that only one large chunk exists per dimension
+    for chunk in da_param.chunks:
+        assert len(chunk) == 1
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed)
+
+    # Check that backscatter_r and Sv chunks are equal
+    assert ed["Sonar/Beam_group1"]["backscatter_r"].chunks == ds_Sv["Sv"].chunks

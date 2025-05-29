@@ -304,6 +304,10 @@ def get_vend_cal_params_power(beam: xr.Dataset, vend: xr.Dataset, param: str) ->
             da_param.channel, ascending=False
         )  # sortby because channel sequence differs in vend and beam
 
+    # Preemptively expand param dataarray using idxmin ping time coordinate so that
+    # implicit chunking of ping time does not occur during da_param.sel(...)
+    da_param = da_param.expand_dims(ping_time=idxmin.coords["ping_time"])
+
     da_param = da_param.sel(pulse_length_bin=idxmin, drop=True)
 
     # Set the nan elements back to nan.

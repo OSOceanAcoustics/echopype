@@ -74,36 +74,39 @@ def ek_use_platform_angles(platform_ds: xr.Dataset, ping_time_da: xr.DataArray) 
     return align_to_ping_time(echo_range_scaling, "time2", ping_time_da)
 
 
-def ek_use_beam_angles(
-    beam_ds: xr.Dataset,
-) -> xr.DataArray:
+def ek_use_beam_angles(beam_ds: xr.Dataset) -> xr.DataArray:
     """
-    Use `beam_direction_x`, `beam_direction_y`, and `beam_direction_z` from the EK Beam group to
-    compute echo range rotational values.
+    Compute echo range scaling from beam_direction components. For each channel, we expect that
+    the beam direction vector is normalized. If not, then we normalize the z direction and set
+    that as the echo range scaling.
+    Additionally, if a nonzero vector is not normalized, a warning is issued and it is normalized.
+    If a channel-wise beam direction vector is zero, a warning is issued and the returned z value
+    is set to NaN.
     """
-    # Check and log NaNs if they exist in the Beam group variables
+    # Check and log NaNs if they exist in the Beam direction variables
     _check_and_log_nans(
         beam_ds, "Sonar/Beam_group1", ["beam_direction_x", "beam_direction_y", "beam_direction_z"]
     )
 
-    # Grab beam angles from beam group
     beam_direction_x = beam_ds["beam_direction_x"]
     beam_direction_y = beam_ds["beam_direction_y"]
     beam_direction_z = beam_ds["beam_direction_z"]
 
-    # Compute echo range scaling from pitch roll rotations
-    beam_dir_rotmatrix_stack = [
-        [
-            np.array([0, 0, beam_direction_x[c]]),
-            np.array([0, 0, beam_direction_y[c]]),
-            np.array([0, 0, beam_direction_z[c]]),
-        ]
-        for c in range(len(beam_direction_x))
-    ]
-    rot_beam_direction = R.from_matrix(beam_dir_rotmatrix_stack)
-    echo_range_scaling = rot_beam_direction.as_matrix()[:, -1, -1]
-    echo_range_scaling = xr.DataArray(
-        echo_range_scaling, dims="channel", coords={"channel": beam_ds["channel"]}
-    )
+    # Calculate the norm for each channel
+    norm = np.sqrt(beam_direction_x**2 + beam_direction_y**2 + beam_direction_z**2)
 
-    return echo_range_scaling
+    # Warn if any nonzero vector is not normalized
+    tolerance = 1e-8
+    if ((norm > tolerance) & (np.abs(norm - 1) > tolerance)).any():
+        logger.warning(
+            "Beam direction vector was not normalized; applying normalization. "
+            "By definition, it should have been normalized."
+        )
+
+    # Warn if any channel has a (nearly) zero vector
+    if (norm < tolerance).any():
+        logger.warning("Some beam direction vectors are zero. Outputting NaN for those channels.")
+
+    # For channels with near-zero norm, we return NaN. Otherwise, we return the normalized
+    # z component.
+    return xr.where(norm < tolerance, np.nan, beam_direction_z / norm)
