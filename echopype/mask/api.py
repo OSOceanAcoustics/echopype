@@ -92,7 +92,7 @@ def _validate_and_collect_mask_input(
     TypeError
         If ``storage_options_mask`` is not a list of dict or a dict
     """
-    
+
     # Normalize single input to list format for unified processing
     is_single_input = not isinstance(mask, list)
     if is_single_input:
@@ -103,7 +103,7 @@ def _validate_and_collect_mask_input(
                 "dict because mask is a single value!"
             )
         storage_options_mask = [storage_options_mask]
-    
+
     # Validate storage_options_mask format
     if not isinstance(storage_options_mask, list):
         if not isinstance(storage_options_mask, dict):
@@ -146,15 +146,15 @@ def _validate_and_collect_mask_input(
                 "('channel', 'ping_time', 'depth')"
                 "('channel', 'ping_time', 'echo_range')"
             )
-        
+
         # Validate boolean-like values - reject NaN
         # First check if there are any NaN values
         if np.any(np.isnan(mask[mask_ind].values)):
             raise TypeError("Mask cannot contain NaN")
-        
+
         # Get unique values and check if they are boolean-like
         unique_vals = np.unique(mask[mask_ind].values)
-        
+
         # Check if all values are boolean-like (0, 1, True, False)
         if not np.all(np.isin(unique_vals, [0, 1, True, False])):
             raise TypeError("Mask must be boolean (True/False or 1/0)")
