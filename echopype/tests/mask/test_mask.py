@@ -1117,7 +1117,7 @@ def test_apply_mask_NaN_elements():
     ds_data = ds_data.to_dataset()
     
     # Expect TypeError when mask contains NaN values
-    with pytest.raises(TypeError, match="Mask must be boolean"):
+    with pytest.raises(TypeError, match="Mask cannot contain NaN"):
         ep.mask.apply_mask(source_ds=ds_data, mask=da_mask)
     
 
@@ -1414,5 +1414,5 @@ def test_apply_mask_non_boolean_error():
     invalid_mask = xr.DataArray(np.random.rand(5, 10), dims=("ping_time", "range_sample"))
 
     # Expect TypeError due to non-boolean mask
-    with pytest.raises(TypeError, match="Mask must be boolean"):
+    with pytest.raises(TypeError, match=r"Mask must be boolean \(True/False or 1/0\)"):
         echopype.mask.apply_mask(ds, invalid_mask)
