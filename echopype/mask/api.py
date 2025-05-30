@@ -129,22 +129,22 @@ def _validate_and_collect_mask_input(
         # check mask coordinates
         # the coordinate sequence matters, so fix the tuple form
         allowed_dims = [
-            ("ping_time", "range_sample"),
-            ("ping_time", "depth"),
-            ("ping_time", "echo_range"),
-            ("channel", "ping_time", "range_sample"),
-            ("channel", "ping_time", "depth"),
-            ("channel", "ping_time", "echo_range"),
+            {"ping_time", "range_sample"},
+            {"ping_time", "depth"},
+            {"ping_time", "echo_range"},
+            {"channel", "ping_time", "range_sample"},
+            {"channel", "ping_time", "depth"},
+            {"channel", "ping_time", "echo_range"},
         ]
-        if mask[mask_ind].dims not in allowed_dims:
+        if set(mask[mask_ind].dims) not in allowed_dims:
             raise ValueError(
                 "Masks must have one of the following dimensions: "
-                "('ping_time', 'range_sample'), "
-                "('ping_time', 'depth'), "
-                "('ping_time', 'echo_range'), "
-                "('channel', 'ping_time', 'range_sample'), "
-                "('channel', 'ping_time', 'depth')"
-                "('channel', 'ping_time', 'echo_range')"
+                "{'ping_time', 'range_sample'}, "
+                "{'ping_time', 'depth'}, "
+                "{'ping_time', 'echo_range'}, "
+                "{'channel', 'ping_time', 'range_sample'}, "
+                "{'channel', 'ping_time', 'depth'}"
+                "{'channel', 'ping_time', 'echo_range'}"
             )
 
         # Validate boolean-like values - reject NaN

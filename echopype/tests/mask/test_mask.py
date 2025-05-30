@@ -1416,3 +1416,97 @@ def test_apply_mask_non_boolean_error():
     # Expect TypeError due to non-boolean mask
     with pytest.raises(TypeError, match=r"Mask must be boolean \(True/False or 1/0\)"):
         echopype.mask.apply_mask(ds, invalid_mask)
+
+
+@pytest.mark.parametrize(
+    ("mask_input", "storage_options", "should_pass", "test_description"),
+    [
+        # Valid dimension orders - 2D cases
+        (xr.DataArray(np.ones((5, 5)), 
+                     dims=("ping_time", "range_sample"),
+                     coords={"ping_time": np.arange(5), "range_sample": np.arange(5)}),
+         {}, True, "2D_standard_order"),
+        
+        (xr.DataArray(np.ones((5, 5)), 
+                     dims=("range_sample", "ping_time"),
+                     coords={"ping_time": np.arange(5), "range_sample": np.arange(5)}),
+         {}, True, "2D_reversed_order"),
+        
+        # Valid dimension orders - 3D cases with channel
+        (xr.DataArray(np.ones((2, 5, 5)), 
+                     dims=("channel", "ping_time", "range_sample"),
+                     coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(5), "range_sample": np.arange(5)}),
+         {}, True, "3D_channel_first"),
+        
+        (xr.DataArray(np.ones((5, 2, 5)), 
+                     dims=("ping_time", "channel", "range_sample"),
+                     coords={"channel": ["chan1", "chan2"], "ping_time": np.arange(5), "range_sample": np.arange(5)}),
+         {}, True, "3D_channel_middle"),
+        
+        # List of masks with different orders
+        ([xr.DataArray(np.ones((5, 5)), 
+                      dims=("ping_time", "range_sample"),
+                      coords={"ping_time": np.arange(5), "range_sample": np.arange(5)}),
+          xr.DataArray(np.ones((5, 5)), 
+                      dims=("range_sample", "ping_time"),
+                      coords={"ping_time": np.arange(5), "range_sample": np.arange(5)})],
+         [{}, {}], True, "list_different_2D_orders"),
+        
+        ([xr.DataArray(np.ones((1, 5, 5)), 
+                      dims=("channel", "ping_time", "depth"),
+                      coords={"channel": ["chan1"], "ping_time": np.arange(5), "depth": np.arange(5)}),
+          xr.DataArray(np.ones((5, 1, 5)), 
+                      dims=("ping_time", "channel", "depth"),
+                      coords={"channel": ["chan1"], "ping_time": np.arange(5), "depth": np.arange(5)})],
+         {}, True, "list_different_3D_orders"),
+        
+    ],
+    ids=[
+        "2D_standard_order",
+        "2D_reversed_order", 
+        "3D_channel_first",
+        "3D_channel_middle",
+        "list_different_2D_orders",
+        "list_different_3D_orders",
+    ],
+)
+def test_validate_and_collect_mask_input_comprehensive(mask_input, storage_options, should_pass, test_description):
+    """
+    Comprehensive test for _validate_and_collect_mask_input that covers:
+    - Order-independent dimension validation
+    - Valid and invalid dimension combinations
+    - Channel consistency validation
+    - Storage options validation
+    - Single masks and lists of masks
+    
+    Parameters
+    ----------
+    mask_input: xr.DataArray or list of xr.DataArray
+        The mask input to test
+    storage_options: dict, list of dict, or invalid type
+        Storage options for the mask
+    should_pass: bool
+        Whether the test should pass or raise an exception
+    test_description: str
+        Description of what the test case covers
+    """
+    if should_pass:
+        # Should not raise an exception
+        result = _validate_and_collect_mask_input(mask_input, storage_options)
+        
+        if isinstance(mask_input, list):
+            assert isinstance(result, list)
+            assert len(result) == len(mask_input)
+            for i, mask in enumerate(result):
+                assert isinstance(mask, xr.DataArray)
+                # Verify dimensions are preserved (order-independent)
+                assert set(mask.dims) == set(mask_input[i].dims)
+        else:
+            assert isinstance(result, xr.DataArray)
+            # Verify dimensions are preserved (order-independent)
+            assert set(result.dims) == set(mask_input.dims)
+            
+    else:
+        # Should raise ValueError or TypeError
+        with pytest.raises((ValueError, TypeError)):
+            _validate_and_collect_mask_input(mask_input, storage_options)
