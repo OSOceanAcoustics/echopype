@@ -787,13 +787,13 @@ def test_validate_and_collect_mask_input(
         for ind, da in enumerate(mask_out):
             # create known solution for mask
             mask_da = xr.DataArray(
-                data=[mask_np[ind] for i in range(n_chan)], coords=coords, name="mask_" + str(ind)
+                data=[mask_np[ind].astype(bool) for i in range(n_chan)], coords=coords, name="mask_" + str(ind)
             )
 
             assert da.identical(mask_da)
     else:
         # create known solution for mask
-        mask_da = xr.DataArray(data=[mask_np for i in range(n_chan)], coords=coords, name="mask_0")
+        mask_da = xr.DataArray(data=[mask_np.astype(bool) for i in range(n_chan)], coords=coords, name="mask_0")
         assert mask_out.identical(mask_da)
 
 
@@ -1100,7 +1100,7 @@ def test_apply_mask(
 
 def test_apply_mask_NaN_elements():
     """
-    Make sure NaNs are interpreted correctly as False.
+    Make sure NaNs are rejected in masks.
     """
     arr_mask = np.identity(3)
     arr_mask = np.where(arr_mask==1, 1, np.nan)
@@ -1115,8 +1115,10 @@ def test_apply_mask_NaN_elements():
     )
     ds_data.name = "Sv"
     ds_data = ds_data.to_dataset()
-    ds_data_masked = ep.mask.apply_mask(source_ds=ds_data, mask=da_mask)
-    assert np.array_equal( np.isnan(arr_mask), ds_data_masked["Sv"].isel(channel=0).isnull().values)
+    
+    # Expect TypeError when mask contains NaN values
+    with pytest.raises(TypeError, match="Mask cannot contain NaN"):
+        ep.mask.apply_mask(source_ds=ds_data, mask=da_mask)
     
 
 @pytest.mark.integration
@@ -1399,3 +1401,18 @@ def test_validate_source_ds_and_check_mask_dim_alignment():
             mask.expand_dims(dim={"channel": MVBS["channel"].data}),
             "Sv"
         )
+
+@pytest.mark.unit        
+def test_apply_mask_non_boolean_error():
+    # Create a test dataset
+    ds = xr.Dataset(
+        {"Sv": (("ping_time", "range_sample"), np.random.rand(5, 10))},
+        coords={"ping_time": np.arange(5), "range_sample": np.arange(10)}
+    )
+
+    # Create an invalid (non-boolean) mask
+    invalid_mask = xr.DataArray(np.random.rand(5, 10), dims=("ping_time", "range_sample"))
+
+    # Expect TypeError due to non-boolean mask
+    with pytest.raises(TypeError, match=r"Mask must be boolean \(True/False or 1/0\)"):
+        echopype.mask.apply_mask(ds, invalid_mask)
