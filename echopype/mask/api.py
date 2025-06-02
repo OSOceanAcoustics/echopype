@@ -1,6 +1,7 @@
 import datetime
 import operator as op
 import pathlib
+import sys
 from typing import List, Optional, Union
 
 import dask
@@ -92,75 +93,83 @@ def _validate_and_collect_mask_input(
         If ``storage_options_mask`` is not a list of dict or a dict
     """
 
-    if isinstance(mask, list):
-        # if storage_options_mask is not a list create a list of
-        # length len(mask) with elements storage_options_mask
-        if not isinstance(storage_options_mask, list):
-            if not isinstance(storage_options_mask, dict):
-                raise TypeError("storage_options_mask must be a list of dict or a dict!")
-
-            storage_options_mask = [storage_options_mask] * len(mask)
-        else:
-            # ensure all element of storage_options_mask are a dict
-            if not all([isinstance(elem, dict) for elem in storage_options_mask]):
-                raise TypeError("storage_options_mask must be a list of dict or a dict!")
-
-        for mask_ind in range(len(mask)):
-            # validate the mask type or path (if it is provided)
-            mask_val, file_type = validate_source(mask[mask_ind], storage_options_mask[mask_ind])
-
-            # replace mask element path with its corresponding DataArray
-            if isinstance(mask_val, (str, pathlib.Path)):
-                # open up DataArray using mask path
-                mask[mask_ind] = xr.open_dataarray(
-                    mask_val, engine=file_type, chunks={}, **storage_options_mask[mask_ind]
-                )
-
-            # check mask coordinates
-            # the coordinate sequence matters, so fix the tuple form
-            allowed_dims = [
-                ("ping_time", "range_sample"),
-                ("ping_time", "depth"),
-                ("ping_time", "echo_range"),
-                ("channel", "ping_time", "range_sample"),
-                ("channel", "ping_time", "depth"),
-                ("channel", "ping_time", "echo_range"),
-            ]
-            if mask[mask_ind].dims not in allowed_dims:
-                raise ValueError(
-                    "Masks must have one of the following dimensions: "
-                    "('ping_time', 'range_sample'), "
-                    "('ping_time', 'depth'), "
-                    "('ping_time', 'echo_range'), "
-                    "('channel', 'ping_time', 'range_sample'), "
-                    "('channel', 'ping_time', 'depth')"
-                    "('channel', 'ping_time', 'echo_range')"
-                )
-
-        # Check for the channel dimension consistency
-        channel_dim_shapes = set()
-        for mask_indiv in mask:
-            if "channel" in mask_indiv.dims:
-                for mask_chan_ind in range(len(mask_indiv["channel"])):
-                    channel_dim_shapes.add(mask_indiv.isel(channel=mask_chan_ind).shape)
-        if len(channel_dim_shapes) > 1:
-            raise ValueError("All masks must have the same shape in the 'channel' dimension.")
-
-    else:
+    # Normalize single input to list format for unified processing
+    is_single_input = not isinstance(mask, list)
+    if is_single_input:
+        mask = [mask]
         if not isinstance(storage_options_mask, dict):
             raise ValueError(
                 "The provided input storage_options_mask should be a single "
                 "dict because mask is a single value!"
             )
+        storage_options_mask = [storage_options_mask]
 
+    # Validate storage_options_mask format
+    if not isinstance(storage_options_mask, list):
+        if not isinstance(storage_options_mask, dict):
+            raise TypeError("storage_options_mask must be a list of dict or a dict!")
+        storage_options_mask = [storage_options_mask] * len(mask)
+    else:
+        # ensure all elements of storage_options_mask are a dict
+        if not all([isinstance(elem, dict) for elem in storage_options_mask]):
+            raise TypeError("storage_options_mask must be a list of dict or a dict!")
+
+    # Process each mask
+    for mask_ind in range(len(mask)):
         # validate the mask type or path (if it is provided)
-        mask, file_type = validate_source(mask, storage_options_mask)
+        mask_val, file_type = validate_source(mask[mask_ind], storage_options_mask[mask_ind])
 
-        if isinstance(mask, (str, pathlib.Path)):
+        # replace mask element path with its corresponding DataArray
+        if isinstance(mask_val, (str, pathlib.Path)):
             # open up DataArray using mask path
-            mask = xr.open_dataarray(mask, engine=file_type, chunks={}, **storage_options_mask)
+            mask[mask_ind] = xr.open_dataarray(
+                mask_val, engine=file_type, chunks={}, **storage_options_mask[mask_ind]
+            )
 
-    return mask
+        # check mask coordinates
+        # the coordinate sequence matters, so fix the tuple form
+        allowed_dims = [
+            {"ping_time", "range_sample"},
+            {"ping_time", "depth"},
+            {"ping_time", "echo_range"},
+            {"channel", "ping_time", "range_sample"},
+            {"channel", "ping_time", "depth"},
+            {"channel", "ping_time", "echo_range"},
+        ]
+        if set(mask[mask_ind].dims) not in allowed_dims:
+            raise ValueError(
+                "Masks must have one of the following dimensions: "
+                "{'ping_time', 'range_sample'}, "
+                "{'ping_time', 'depth'}, "
+                "{'ping_time', 'echo_range'}, "
+                "{'channel', 'ping_time', 'range_sample'}, "
+                "{'channel', 'ping_time', 'depth'}"
+                "{'channel', 'ping_time', 'echo_range'}"
+            )
+
+        # Validate boolean-like values - reject NaN
+        # First check if there are any NaN values
+        if np.any(np.isnan(mask[mask_ind].values)):
+            raise TypeError("Mask cannot contain NaN")
+
+        # Get unique values and check if they are boolean-like
+        unique_vals = np.unique(mask[mask_ind].values)
+
+        # Check if all values are boolean-like (0, 1, True, False)
+        if not np.all(np.isin(unique_vals, [0, 1, True, False])):
+            raise TypeError("Mask must be boolean (True/False or 1/0)")
+
+    # Check for the channel dimension consistency
+    channel_dim_shapes = set()
+    for mask_indiv in mask:
+        if "channel" in mask_indiv.dims:
+            for mask_chan_ind in range(len(mask_indiv["channel"])):
+                channel_dim_shapes.add(mask_indiv.isel(channel=mask_chan_ind).shape)
+    if len(channel_dim_shapes) > 1:
+        raise ValueError("All masks must have the same shape in the 'channel' dimension.")
+
+    # Return single mask or list based on original input
+    return mask[0] if is_single_input else mask
 
 
 def _check_var_name_fill_value(
@@ -252,7 +261,12 @@ def _variable_prov_attrs(
         ],
     }
     # Add history attribute
-    history_attr = f"{datetime.datetime.utcnow()} +00:00. " "Created masked Sv dataarray."  # noqa
+    history_attr = (
+        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
+        if sys.version_info < (3, 11, 0)
+        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+    )
+    history_attr = f"{history_attr}. " "Created masked Sv dataarray."  # noqa
     attrs = {**attrs, **{"history": history_attr}}
 
     # Add attributes from the mask DataArray, if present
@@ -306,7 +320,8 @@ def apply_mask(
     source_ds: xr.Dataset, str, or pathlib.Path
         Points to a Dataset that contains the variable the mask should be applied to
     mask: xr.DataArray, str, pathlib.Path, or a list of these datatypes
-        The mask(s) to be applied.
+    The mask(s) to be applied. Must contain only boolean values (True/False or 1/0).
+    If the mask contains numeric or NaN values, an error will be raised.
         Can be a individual input or a list that corresponds to a DataArray or a path.
         Each individual input or entry in the list must contain dimensions
         ``('ping_time', 'range_sample')`` or dimensions ``('ping_time', 'depth')``.
@@ -402,6 +417,9 @@ def apply_mask(
 
     # Turn NaN in final_mask to False, otherwise xr.where treats as True
     final_mask = final_mask.fillna(False)
+
+    # Ensure final_mask is strictly boolean before applying it
+    final_mask = final_mask.astype(bool)
 
     # Apply the mask to var_name
     var_name_masked = xr.where(final_mask, x=source_da, y=fill_value)
@@ -620,9 +638,15 @@ def frequency_differencing(
             coords=template.coords,
         )
 
+    history_attr = (
+        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
+        if sys.version_info < (3, 11, 0)
+        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
+    )
+
     xr_dataarray_attrs = {
         "mask_type": "frequency differencing",
-        "history": f"{datetime.datetime.utcnow()} +00:00. "
+        "history": f"{history_attr}. "
         "Mask created by mask.frequency_differencing. "
         f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
     }
