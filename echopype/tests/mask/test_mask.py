@@ -1510,3 +1510,125 @@ def test_validate_and_collect_mask_input_comprehensive(mask_input, storage_optio
         # Should raise ValueError or TypeError
         with pytest.raises((ValueError, TypeError)):
             _validate_and_collect_mask_input(mask_input, storage_options)
+
+@pytest.mark.parametrize(
+    ("mask_type", "test_values", "expected_min", "expected_max", "test_description"),
+    [
+        # Identity mask - only diagonal values preserved
+        ("identity", 
+         np.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]),
+         1.0, 8.0, "identity_mask_diagonal_values"),
+        
+        # All-ones mask - all values preserved
+        ("all_ones",
+         np.array([[[0.5, 1.5], [2.5, 3.5]], [[4.5, 5.5], [6.5, 7.5]]]),
+         0.5, 7.5, "all_ones_mask_full_range"),
+         
+        # Partial mask - mixed pattern
+        ("partial",
+         np.array([[[100.0, 200.0], [300.0, 400.0]], [[500.0, 600.0], [700.0, 800.0]]]),
+         100.0, 800.0, "partial_mask_mixed_values"),
+         
+        # Negative values with identity mask
+        ("identity",
+         np.array([[[-8.0, -6.0], [-4.0, -2.0]], [[-1.0, 1.0], [2.0, 4.0]]]),
+         -8.0, 4.0, "negative_values_range"),
+         
+        # Precision test - values requiring rounding
+        ("all_ones",
+         np.array([[[1.23456, 2.98765], [3.14159, 4.87654]]]),
+         1.23, 4.88, "rounding_precision_test"),
+         
+        # Single channel test
+        ("identity",
+         np.array([[[10.5, 20.5], [30.5, 40.5]]]),
+         10.5, 40.5, "single_channel_test"),
+    ],
+    ids=[
+        "identity_mask_diagonal",
+        "all_ones_full_range", 
+        "partial_mask_mixed",
+        "negative_values",
+        "precision_rounding",
+        "single_channel",
+    ],
+)
+def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_min, expected_max, test_description):
+    """
+    Comprehensive test for actual_range attribute calculation in masked datasets.
+    Tests various masking scenarios, value ranges, precision, and edge cases.
+    """
+    # Determine dataset dimensions based on test_values shape
+    n_chan = test_values.shape[0]
+    n_dim = test_values.shape[1]
+    
+    # Create source dataset
+    source_ds = get_mock_source_ds_apply_mask(n_dim, n_chan, False)
+    var_name = "var1"
+    
+    # Set test values
+    source_ds[var_name].values = test_values
+    
+    # Create mask based on type
+    if mask_type == "identity":
+        mask = xr.DataArray(
+            np.identity(n_dim),
+            coords={"ping_time": np.arange(n_dim), "depth": np.arange(n_dim)},
+        )
+    elif mask_type == "all_ones":
+        mask = xr.DataArray(
+            np.ones((n_dim, n_dim)),
+            coords={"ping_time": np.arange(n_dim), "depth": np.arange(n_dim)},
+        )
+    elif mask_type == "all_zeros":
+        mask = xr.DataArray(
+            np.zeros((n_dim, n_dim)),
+            coords={"ping_time": np.arange(n_dim), "depth": np.arange(n_dim)},
+        )
+    elif mask_type == "partial":
+        # Create a partial mask pattern
+        partial_pattern = np.array([[1, 0], [1, 1]]) if n_dim == 2 else np.ones((n_dim, n_dim))
+        partial_pattern[0, 1] = 0  # Always mask at least one element
+        mask = xr.DataArray(
+            partial_pattern,
+            coords={"ping_time": np.arange(n_dim), "depth": np.arange(n_dim)},
+        )
+    
+    # Apply mask
+    masked_ds = echopype.mask.apply_mask(source_ds, mask, var_name)
+    
+    # Verify actual_range attribute exists and has correct structure
+    actual_range = masked_ds[var_name].attrs.get("actual_range")
+    assert actual_range is not None, f"actual_range missing for {test_description}"
+    assert isinstance(actual_range, list), f"actual_range should be list for {test_description}"
+    assert len(actual_range) == 2, f"actual_range should have 2 elements for {test_description}"
+    
+    # Validate actual_range values based on expected behavior
+    if expected_min is None and expected_max is None:
+        # All values masked - should result in NaN or inf values
+        assert (np.isnan(actual_range[0]) or np.isinf(actual_range[0])), \
+            f"Min should be NaN/inf when all masked for {test_description}"
+        assert (np.isnan(actual_range[1]) or np.isinf(actual_range[1])), \
+            f"Max should be NaN/inf when all masked for {test_description}"
+    else:
+        # Verify calculated min/max match expected values (with rounding to 2 decimal places)
+        expected_min_rounded = round(float(expected_min), 2)
+        expected_max_rounded = round(float(expected_max), 2)
+        
+        assert actual_range[0] == expected_min_rounded, \
+            f"Expected min {expected_min_rounded}, got {actual_range[0]} for {test_description}"
+        assert actual_range[1] == expected_max_rounded, \
+            f"Expected max {expected_max_rounded}, got {actual_range[1]} for {test_description}"
+        
+        # Verify that actual_range reflects only non-masked values
+        masked_values = masked_ds[var_name].values
+        valid_values = masked_values[~np.isnan(masked_values)]
+        
+        if len(valid_values) > 0:
+            actual_min_from_data = round(float(np.min(valid_values)), 2)
+            actual_max_from_data = round(float(np.max(valid_values)), 2)
+            
+            assert actual_range[0] == actual_min_from_data, \
+                f"actual_range min doesn't match data min for {test_description}"
+            assert actual_range[1] == actual_max_from_data, \
+                f"actual_range max doesn't match data max for {test_description}"
