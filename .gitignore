@@ -34,3 +34,4 @@ _echopype_version.py
 !echopype/test_data
 echopype/test_data/*
 !echopype/test_data/README.md
+.vscode/
