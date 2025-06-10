@@ -151,7 +151,9 @@ def get_angle_power_samples(
 
 
 def get_angle_complex_samples(
-    ds_beam: xr.Dataset, angle_params: dict, pc_params: dict = None
+    ds_beam: xr.Dataset,
+    angle_params: dict,
+    pc_params: dict = None,
 ) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Obtain split-beam angle from CW or BB mode complex samples.
