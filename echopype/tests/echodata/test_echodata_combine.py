@@ -167,7 +167,7 @@ def test_combine_echodata(raw_datasets):
         assert f"combination_{attr_token}" in combined['Provenance'].attrs
 
     def attr_time_to_dt(time_str):
-        return datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%SZ')
+        return datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S%z')
     assert (
             attr_time_to_dt(combined['Provenance'].attrs['conversion_time']) <=
             attr_time_to_dt(combined['Provenance'].attrs['combination_time'])
