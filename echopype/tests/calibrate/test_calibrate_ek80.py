@@ -84,7 +84,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
 
 def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     """
-    Test calibration-related parameters againt pyEcholab implementation
+    Test calibration-related parameters against pyEcholab implementation
     """
     ek80_raw_path = (
         ek80_cal_path / "2018115-D20181213-T094600.raw"
@@ -151,7 +151,7 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
 
 def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     """
-    Test computed range againt pyEcholab implementation
+    Test computed range against pyEcholab implementation
     """
     ek80_raw_path = (
         ek80_cal_path / "2018115-D20181213-T094600.raw"
@@ -208,7 +208,7 @@ def test_ek80_BB_power_from_complex(
     request,
 ):
     """
-    Test power from pulse compressed BB data againt pyEcholab implementation
+    Test power from pulse compressed BB data against pyEcholab implementation
     """    
 
     raw_data_path = request.getfixturevalue(raw_data_path)
@@ -287,7 +287,7 @@ def test_ek80_BB_power_compute_Sv(
     request,
 ):
     """
-    Test Sv computed from pulse compressed BB data againt pyEcholab implementation
+    Test Sv computed from pulse compressed BB data against pyEcholab implementation
     """    
 
     raw_data_path = request.getfixturevalue(raw_data_path)

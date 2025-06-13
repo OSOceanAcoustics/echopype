@@ -1364,16 +1364,12 @@ class SetGroupsEK80(SetGroupsBase):
         # - stage 2: pulse compression (PC)
         stage_type = {1: "WBT", 2: "PC"}
         param_type = ["coeffs_real", "coeffs_imag", "deci_fac"]
-        coeffs_and_decimation = {
-            t: {p: [] for p in param_type}
-            for t in list(stage_type.values())
-        }
+        coeffs_and_decimation = {t: {p: [] for p in param_type} for t in list(stage_type.values())}
 
         def pad_vec(x):
             max_len = np.max([len(xx) for xx in x])
             return [
-                np.pad(xx, (0, max_len - len(xx)), "constant", constant_values=np.nan)
-                for xx in x
+                np.pad(xx, (0, max_len - len(xx)), "constant", constant_values=np.nan) for xx in x
             ]
 
         fil = self.parser_obj.fil
@@ -1392,7 +1388,9 @@ class SetGroupsEK80(SetGroupsBase):
                 coeffs_and_decimation[filter_type]["coeffs_real"].append(val_real)
                 coeffs_and_decimation[filter_type]["coeffs_imag"].append(val_imag)
                 # Decimation factor
-                coeffs_and_decimation[filter_type]["deci_fac"].append(fil[ch_stage_str+"__deci_fac"])
+                coeffs_and_decimation[filter_type]["deci_fac"].append(
+                    fil[ch_stage_str + "__deci_fac"]
+                )
 
         # Pad nans across channel
         for filter_type in stage_type.values():
@@ -1401,7 +1399,12 @@ class SetGroupsEK80(SetGroupsBase):
                     x = coeffs_and_decimation[filter_type][param]
                     max_len = np.max([xx.shape[-1] for xx in x])
                     coeffs_and_decimation[filter_type][param] = [
-                        np.pad(xx, ((0, 0), (0, max_len - xx.shape[-1])), "constant", constant_values=np.nan)
+                        np.pad(
+                            xx,
+                            ((0, 0), (0, max_len - xx.shape[-1])),
+                            "constant",
+                            constant_values=np.nan,
+                        )
                         for xx in x
                     ]
 
@@ -1460,11 +1463,11 @@ class SetGroupsEK80(SetGroupsBase):
             for key, data in filter_info.items():
                 if data:
                     if "coeffs" in key:
-                        dims=["channel", "filter_time", f"{filter_type}_filter_n"]
-                        attrs={"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
+                        dims = ["channel", "filter_time", f"{filter_type}_filter_n"]
+                        attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
                     else:
-                        dims=["channel", "filter_time"]
-                        attrs={"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
+                        dims = ["channel", "filter_time"]
+                        attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
                     # Set the xarray data dictionary
                     coeffs_xr_data[f"{filter_type}_{key}"] = (dims, np.array(data), attrs)
 

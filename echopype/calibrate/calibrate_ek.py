@@ -313,7 +313,7 @@ class CalibrateEK80(CalibrateEK):
         """
         # When all samples are encoded as complex samples
         # there can be interleaving FM and CW pings
-        if not np.all(beam["transmit_type"] == "CW"):  # if atl east 
+        if not np.all(beam["transmit_type"] == "CW"):  # if atl east
             # At least 1 BB ping exists -- this is analogous to what we had from before
             # Before: when at least 1 BB ping exists, frequency_start and frequency_end will exist
 
