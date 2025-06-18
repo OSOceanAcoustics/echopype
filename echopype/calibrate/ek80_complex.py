@@ -245,8 +245,15 @@ def get_transmit_signal(
             # Filter out NaN values
             beam_values_without_nan = beam_values[~np.isnan(beam_values)]
             tx_params[p] = beam_values_without_nan
-            if tx_params[p].size != 1:
-                raise TypeError("File contains changing %s!" % p)
+            if p in ["transmit_frequency_start", "transmit_frequency_stop"]:
+                # When full CW (with no FM interleave) the size will be 0,
+                # else will be of size 1.
+                if tx_params[p].size > 1:
+                    raise TypeError("File contains changing %s!" % p)
+            else:
+                # Slope and transmit duration nominal should always be of size 1
+                if tx_params[p].size != 1:
+                    raise TypeError("File contains changing %s!" % p)
         fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
         tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
