@@ -66,8 +66,10 @@ class ParseEK(ParseBase):
         self.mru0 = defaultdict(list)  # Dictionary to store MRU0 data (heading, pitch, roll, heave)
         self.mru1 = defaultdict(list)  # Dictionary to store MRU1 data (latitude, longitude)
         self.fil = defaultdict(list)  # Dictionary to store filter data
-        # self.fil_coeffs = defaultdict(list)  # Dictionary to store PC and WBT coefficients
-        # self.fil_decimation_fac = defaultdict(list)  # Dictionary to store filter decimation factors
+        # Dictionary to store PC and WBT coefficients
+        # self.fil_coeffs = defaultdict(list)
+        # Dictionary to store filter decimation factors
+        # self.fil_decimation_fac = defaultdict(list)
         self.bot = defaultdict(list)  # Dictionary to store bottom depth values
         self.idx = defaultdict(list)  # Dictionary to store index file values
 
@@ -592,10 +594,14 @@ class ParseEK(ParseBase):
                 self.mru1["timestamp"].append(new_datagram["timestamp"])
 
             # FIL datagrams contain filters for processing baskcatter data for EK80
-            # TODO: need to append each set of coeffs since they can vary ping by ping for FM/CW interleaving transmissions
+            # TODO: need to append each set of coeffs since they can vary ping by
+            # ping for FM/CW interleaving transmissions
             elif new_datagram["type"].startswith("FIL"):
                 if "EC150" not in new_datagram["channel_id"]:
-                    # print(new_datagram["channel_id"], new_datagram["stage"], new_datagram["decimation_factor"])
+                    # print(new_datagram["channel_id"],
+                    #   new_datagram["stage"],
+                    #   new_datagram["decimation_factor"]
+                    # )
                     # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
                     self.fil["timestamp"].append(new_datagram["timestamp"])
                     ch_stage_str = f"{new_datagram["channel_id"]}__stage{new_datagram["stage"]}"
