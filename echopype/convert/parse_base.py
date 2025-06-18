@@ -604,7 +604,7 @@ class ParseEK(ParseBase):
                     # )
                     # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
                     self.fil["timestamp"].append(new_datagram["timestamp"])
-                    ch_stage_str = f"{new_datagram["channel_id"]}__stage{new_datagram["stage"]}"
+                    ch_stage_str = f"{new_datagram['channel_id']}__stage{new_datagram['stage']}"
                     self.fil[ch_stage_str + "__coeffs"].append(new_datagram["coefficients"])
                     self.fil[ch_stage_str + "__deci_fac"].append(new_datagram["decimation_factor"])
                 # else:
