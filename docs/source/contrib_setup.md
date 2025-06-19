@@ -28,31 +28,29 @@ To create an environment for developing Echopype, we recommend the following ste
     git remote add upstream https://github.com/OSOceanAcoustics/echopype.git
     ```
 
-2. Create a conda environment using the conda-forge channel, and follow the steps below:
+2. Create a development environment using [`uv`](https://github.com/astral-sh/uv):
     ```shell
-    # Create a conda environment using the supplied requirements files
-    # Note the last one docs/requirements.txt is only required for building docs
-    conda create -c conda-forge -n echopype --yes python=3.12 --file requirements.txt --file requirements-dev.txt --file docs/requirements.txt
+    # Generate or update the lock file
+    uv lock
 
-    # Switch to the newly built environment
-    conda activate echopype
+    # Install runtime dependencies from ``uv.lock``
+    uv sync
 
-    # ipykernel is recommended, in order to use with JupyterLab and IPython for development
-    # We recommend you install JupyterLab separately
-    conda install -c conda-forge ipykernel
+    # Install development tools defined in ``pyproject.toml``
+    uv sync --extra dev
 
-    # install echopype in editable mode (setuptools "develop mode")
-    # plot is an extra set of requirements that can be used for plotting.
-    # the command will install all the dependencies along with plotting dependencies.
-    pip install -e ".[plot]"
+    # Install ``echopype`` in editable mode with optional extras
+    uv pip install -e . --extra dev --extra docs --extra plot
+
+    # Verify that packages were installed
+    uv pip list | head
+
+    # Set up pre-commit hooks
+    uv run pre-commit install
+    uv run pre-commit run --files echopype/__init__.py
     ```
 
-:::{tip}
-We recommend using Mamba to get around Conda's sometimes slow or stuck behavior when solving dependencies.
-See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
-The easiest way to get a minimal installation is through [Miniforge](https://conda-forge.org/download/).
-One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
-:::
+
 
 
 
@@ -75,21 +73,20 @@ to keep test data versioned and directly associated with the repo.
 
 To run echopype tests found in `echopype/tests`,
 [`Docker`](https://docs.docker.com/get-docker/) needs to be installed.
-[`docker-compose`](https://docs.docker.com/compose/) is also needed,
+The [`docker compose` plugin](https://docs.docker.com/compose/) is also needed,
 but it should already be installed in the development environment created above.
 
 To run the tests:
 ```shell
 # Install and/or deploy the echopype docker containers for testing.
 # Test data files will be downloaded
-python .ci_helpers/docker/setup-services.py --deploy
+uv run .ci_helpers/docker/setup-services.py --deploy
 
-# Run all the tests. But first make sure the
-# echopype development conda environment is activated
-python .ci_helpers/run-test.py --local --pytest-args="-vv"
+# Run all the tests
+uv run .ci_helpers/run-test.py --local --pytest-args="-vv"
 
 # When done, "tear down" the docker containers
-python .ci_helpers/docker/setup-services.py --tear-down
+uv run .ci_helpers/docker/setup-services.py --tear-down
 ```
 
 The tests include reading and writing from locally set up (via docker)
@@ -103,36 +100,50 @@ You can use `run-test.py` to run only tests for specific subpackages
 (`convert`, `calibrate`, etc) by passing a comma-separated list:
 ```shell
 # Run only tests associated with the calibrate and mask subpackages
-python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/mask/api.py
+uv run .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/mask/api.py
 ```
 or specific test files by passing a comma-separated list:
 ```shell
 # Run only tests in the test_convert_azfp.py and test_noise.py files
-python .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
+uv run .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
 ```
 
 For `run-test.py` usage information, use the ``-h`` argument:
 ```shell
-`python .ci_helpers/run-test.py -h`
+`uv run .ci_helpers/run-test.py -h`
+```
+
+``scripts/run_pr_checks.sh`` combines these steps by running the pre-commit
+hooks on the staged files, deploying the test services, running tests only for
+files changed relative to ``origin/main`` with coverage enabled, and then
+tearing the services down. Execute it from the repository root before opening a
+pull request:
+
+```shell
+scripts/run_pr_checks.sh
 ```
 
 
 
 ## pre-commit hooks
 
-The echopype development conda environment includes [pre-commit](https://pre-commit.com),
-and useful pre-commit "hooks" have been configured in the
-[.pre-commit-config.yaml file](https://github.com/OSOceanAcoustics/echopype/blob/main/.pre-commit-config.yaml).
-Current hooks include file formatting (linting) checks
-(trailing spaces, trailing lines, JSON and YAML format checks, etc)
-and Python style autoformatters (PEP8 / flake8, `black` and `isort`).
+This project uses [pre-commit](https://pre-commit.com) to check formatting and style.
+The hooks are defined in
+[.pre-commit-config.yaml](https://github.com/OSOceanAcoustics/echopype/blob/main/.pre-commit-config.yaml)
+and are installed as part of the ``dev`` dependencies above.
 
-To run pre-commit hooks locally, run `pre-commit install` before running the
-docker setup-service deploy statement described above.
-The hooks will run automatically during `git commit` and will give you
-options as needed before committing your changes.
-You can also run `pre-commit` before actually doing `git commit` as you edit the code,
-by running `pre-commit run --all-files`.
+To enable them locally run:
+
+```shell
+uv run pre-commit install
+```
+
+The hooks run automatically on ``git commit``. You can trigger them manually with:
+
+```shell
+uv run pre-commit run --all-files
+```
+
 See the [pre-commit usage documentation](https://pre-commit.com/#usage) for details.
 
 
@@ -180,8 +191,8 @@ jupyter-book build docs/source --path-output docs
 
 To view the HTML files generated by Jupyter Book, open `docs/_build/html/index.html` in your browser.
 
-For some quick orientation of where things are:
-- The documentation package dependencies are in `docs/requirements.txt`
+-For some quick orientation of where things are:
+- The documentation package dependencies are declared under the `docs` extra in `pyproject.toml`
 - The documentation source files are in the `docs/source` directory
 - The Jupyter Book [configurations](https://jupyterbook.org/en/stable/customize/config.html)
   is in `docs/source/_config.yml`

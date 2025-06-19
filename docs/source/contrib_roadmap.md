@@ -9,7 +9,7 @@ Echopype depends on many libraries in the scientific Python ecosystem, and there
 - Upgrade to use Numpy version 2
 - Upgrade to use Zarr version 3
 
-See the [`requirements.txt`](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt) file for the current pinned versions. We aim to remove the specification of maximum version (e.g., zarr<3) whenever possible.
+See the [`pyproject.toml`](https://github.com/OSOceanAcoustics/echopype/blob/main/pyproject.toml) file for the current pinned versions. We aim to remove the specification of maximum version (e.g., zarr<3) whenever possible.
 
 
 

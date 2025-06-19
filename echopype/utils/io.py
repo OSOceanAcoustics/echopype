@@ -38,7 +38,7 @@ logger = _init_logger(__name__)
 
 # Get root echopype package name
 ECHOPYPE = __name__.split(".")[0]
-ECHOPYPE_DIR = Path(os.path.expanduser("~")) / ".{ECHOPYPE}"
+ECHOPYPE_DIR = Path(os.path.expanduser("~")) / f".{ECHOPYPE}"
 ECHOPYPE_TEMP_DIR = Path(tempfile.gettempdir()) / ECHOPYPE
 _SWAP_PREFIX = "ep-swap"
 
