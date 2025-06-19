@@ -29,7 +29,7 @@ Typically:
 - The functions should accept input data either as an in-memory or lazy-loaded data or a path to local or remote storage locations (e.g., cloud, http server). If the input data is in netCDF or Zarr, this is easily supported by xarray. The only thing to watch out for is that, for a remote path, access credentials need to be provided via adding a `storage_options` argument.
 
 :::{tip}
-If your algorithm uses a library that is not currently an Echopype [dependency](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt), please add it into the `requirements.txt` file.
+If your algorithm uses a library that is not currently an Echopype [dependency](https://github.com/OSOceanAcoustics/echopype/blob/main/pyproject.toml), please add it to the `pyproject.toml` dependencies list.
 :::
 
 
