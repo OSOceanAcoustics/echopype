@@ -28,7 +28,7 @@ def tapered_chirp(
 
     nsamples = int(np.floor(tau * fs)[0])
     t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
-    a = np.pi * (f1 - f0) / tau
+    a = np.pi * (f1 + -f0) / tau
     b = 2 * np.pi * f0
     y = np.cos(a * t * t + b * t)
     L = int(np.round(tau * fs * slope * 2.0)[0])  # Length of hanning window
@@ -240,20 +240,19 @@ def get_transmit_signal(
     for ch in beam["channel"].values:
         tx_params = {}
         for p in tx_param_names:
-            # Extract beam values and filter out NaNs
-            beam_values = np.unique(beam[p].sel(channel=ch))
-            # Filter out NaN values
-            beam_values_without_nan = beam_values[~np.isnan(beam_values)]
-            tx_params[p] = beam_values_without_nan
-            if p in ["transmit_frequency_start", "transmit_frequency_stop"]:
-                # When full CW (with no FM interleave) the size will be 0,
-                # else will be of size 1.
-                if tx_params[p].size > 1:
-                    raise TypeError("File contains changing %s!" % p)
+            if waveform_mode == "CW" and p in [
+                "transmit_frequency_start",
+                "transmit_frequency_stop",
+            ]:
+                tx_params[p] = np.unique(beam["frequency_nominal"].sel(channel=ch))
             else:
-                # Slope and transmit duration nominal should always be of size 1
-                if tx_params[p].size != 1:
-                    raise TypeError("File contains changing %s!" % p)
+                # Extract beam values and filter out NaNs
+                beam_values = np.unique(beam[p].sel(channel=ch))
+                # Filter out NaN values
+                beam_values_without_nan = beam_values[~np.isnan(beam_values)]
+                tx_params[p] = beam_values_without_nan
+            if tx_params[p].size != 1:
+                raise TypeError("File contains changing %s!" % p)
         fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
         tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
