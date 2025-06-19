@@ -1,0 +1,7 @@
+sphinx_rtd_theme
+sphinx-automodapi
+sphinx-panels
+sphinxcontrib-mermaid
+jupyter-book
+numpydoc
+docutils<0.18
