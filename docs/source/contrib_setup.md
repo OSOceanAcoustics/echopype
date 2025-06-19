@@ -71,7 +71,7 @@ to keep test data versioned and directly associated with the repo.
 
 To run echopype tests found in `echopype/tests`,
 [`Docker`](https://docs.docker.com/get-docker/) needs to be installed.
-[`docker-compose`](https://docs.docker.com/compose/) is also needed,
+The [`docker compose` plugin](https://docs.docker.com/compose/) is also needed,
 but it should already be installed in the development environment created above.
 
 To run the tests:
