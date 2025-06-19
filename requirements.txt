@@ -12,6 +12,7 @@ pandas
 psutil>=5.9.1
 pynmea2
 pytz
+pyyaml>=6.0
 requests
 s3fs
 scipy<1.15.2
