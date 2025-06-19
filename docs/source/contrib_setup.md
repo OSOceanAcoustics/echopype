@@ -28,27 +28,29 @@ To create an environment for developing Echopype, we recommend the following ste
     git remote add upstream https://github.com/OSOceanAcoustics/echopype.git
     ```
 
-2. Create a conda environment using the conda-forge channel, and follow the steps below:
+2. Create a development environment using [`uv`](https://github.com/astral-sh/uv):
     ```shell
-    conda create -c conda-forge -n echopype --yes python=3.12
+    # Generate or update the lock file
+    uv lock
 
-    # Switch to the newly built environment
-    conda activate echopype
+    # Install runtime dependencies from ``uv.lock``
+    uv sync
 
-    # ipykernel is recommended, in order to use with JupyterLab and IPython for development
-    # We recommend you install JupyterLab separately
-    conda install -c conda-forge ipykernel
+    # Install development tools defined in ``pyproject.toml``
+    uv sync --extra dev
 
-    # install echopype in editable mode with development and documentation dependencies
-    pip install -e ".[dev,docs,plot]"
+    # Install ``echopype`` in editable mode with optional extras
+    uv pip install -e . --extra dev --extra docs --extra plot
+
+    # Verify that packages were installed
+    uv pip list | head
+
+    # Set up pre-commit hooks
+    uv run pre-commit install
+    uv run pre-commit run --files echopype/__init__.py
     ```
 
-:::{tip}
-We recommend using Mamba to get around Conda's sometimes slow or stuck behavior when solving dependencies.
-See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
-The easiest way to get a minimal installation is through [Miniforge](https://conda-forge.org/download/).
-One can replace `conda` with `mamba` in the above commands when creating the environment and installing additional packages.
-:::
+
 
 
 
@@ -80,8 +82,7 @@ To run the tests:
 # Test data files will be downloaded
 uv run .ci_helpers/docker/setup-services.py --deploy
 
-# Run all the tests. But first make sure the
-# echopype development conda environment is activated
+# Run all the tests
 uv run .ci_helpers/run-test.py --local --pytest-args="-vv"
 
 # When done, "tear down" the docker containers
@@ -126,19 +127,23 @@ scripts/run_pr_checks.sh
 
 ## pre-commit hooks
 
-The echopype development conda environment includes [pre-commit](https://pre-commit.com),
-and useful pre-commit "hooks" have been configured in the
-[.pre-commit-config.yaml file](https://github.com/OSOceanAcoustics/echopype/blob/main/.pre-commit-config.yaml).
-Current hooks include file formatting (linting) checks
-(trailing spaces, trailing lines, JSON and YAML format checks, etc)
-and Python style autoformatters (PEP8 / flake8, `black` and `isort`).
+This project uses [pre-commit](https://pre-commit.com) to check formatting and style.
+The hooks are defined in
+[.pre-commit-config.yaml](https://github.com/OSOceanAcoustics/echopype/blob/main/.pre-commit-config.yaml)
+and are installed as part of the ``dev`` dependencies above.
 
-To run pre-commit hooks locally, run `pre-commit install` before running the
-docker setup-service deploy statement described above.
-The hooks will run automatically during `git commit` and will give you
-options as needed before committing your changes.
-You can also run `pre-commit` before actually doing `git commit` as you edit the code,
-by running `pre-commit run --all-files`.
+To enable them locally run:
+
+```shell
+uv run pre-commit install
+```
+
+The hooks run automatically on ``git commit``. You can trigger them manually with:
+
+```shell
+uv run pre-commit run --all-files
+```
+
 See the [pre-commit usage documentation](https://pre-commit.com/#usage) for details.
 
 
