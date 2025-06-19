@@ -78,14 +78,14 @@ To run the tests:
 ```shell
 # Install and/or deploy the echopype docker containers for testing.
 # Test data files will be downloaded
-python .ci_helpers/docker/setup-services.py --deploy
+uv run .ci_helpers/docker/setup-services.py --deploy
 
 # Run all the tests. But first make sure the
 # echopype development conda environment is activated
-python .ci_helpers/run-test.py --local --pytest-args="-vv"
+uv run .ci_helpers/run-test.py --local --pytest-args="-vv"
 
 # When done, "tear down" the docker containers
-python .ci_helpers/docker/setup-services.py --tear-down
+uv run .ci_helpers/docker/setup-services.py --tear-down
 ```
 
 The tests include reading and writing from locally set up (via docker)
@@ -99,17 +99,27 @@ You can use `run-test.py` to run only tests for specific subpackages
 (`convert`, `calibrate`, etc) by passing a comma-separated list:
 ```shell
 # Run only tests associated with the calibrate and mask subpackages
-python .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/mask/api.py
+uv run .ci_helpers/run-test.py --local --pytest-args="-vv" echopype/calibrate/calibrate_ek.py,echopype/mask/api.py
 ```
 or specific test files by passing a comma-separated list:
 ```shell
 # Run only tests in the test_convert_azfp.py and test_noise.py files
-python .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
+uv run .ci_helpers/run-test.py --local --pytest-args="-vv"  echopype/tests/convert/test_convert_azfp.py,echopype/tests/clean/test_noise.py
 ```
 
 For `run-test.py` usage information, use the ``-h`` argument:
 ```shell
-`python .ci_helpers/run-test.py -h`
+`uv run .ci_helpers/run-test.py -h`
+```
+
+``scripts/run_pr_checks.sh`` combines these steps by running the pre-commit
+hooks on the staged files, deploying the test services, running tests only for
+files changed relative to ``origin/main`` with coverage enabled, and then
+tearing the services down. Execute it from the repository root before opening a
+pull request:
+
+```shell
+scripts/run_pr_checks.sh
 ```
 
 
