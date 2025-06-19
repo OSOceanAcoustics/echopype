@@ -118,14 +118,15 @@ if __name__ == "__main__":
                 commands.append(
                     {
                         "msg": "Pulling latest images ...",
-                        "cmd": ["docker-compose", "-f", COMPOSE_FILE, "pull"],
+                        "cmd": ["docker", "compose", "-f", COMPOSE_FILE, "pull"],
                     }
                 )
             commands.append(
                 {
                     "msg": "Bringing up services ...",
                     "cmd": [
-                        "docker-compose",
+                        "docker",
+                        "compose",
                         "-f",
                         COMPOSE_FILE,
                         "up",
@@ -160,7 +161,7 @@ if __name__ == "__main__":
         commands.append({"msg": "Setting up minio s3 bucket ...", "cmd": load_s3})
 
     if args.tear_down:
-        command = ["docker-compose", "-f", COMPOSE_FILE, "down", "--remove-orphans", "--volumes"]
+        command = ["docker", "compose", "-f", COMPOSE_FILE, "down", "--remove-orphans", "--volumes"]
         if args.images:
             command = command + ["--rmi", "all"]
         commands.append({"msg": "Stopping test services deployment ...", "cmd": command})
