@@ -14,9 +14,9 @@ logger = _init_logger(__name__)
 
 WIDE_BAND_TRANS = "WBT"
 PULSE_COMPRESS = "PC"
-FILTER_IMAG = "filter_i"
-FILTER_REAL = "filter_r"
-DECIMATION = "decimation"
+FILTER_IMAG = "coeffs_imag"
+FILTER_REAL = "coeffs_real"
+DECIMATION = "deci_fac"
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -1451,11 +1451,11 @@ class SetGroupsEK80(SetGroupsBase):
         """
 
         attrs_dict = {
-            "coeffs_real": "filter coefficients (real part)",
-            "coeffs_imag": "filter coefficients (imaginary part)",
-            "deci_fac": "decimation factor",
-            "WBT": "Wideband transceiver",
-            "PC": "Pulse compression",
+            FILTER_REAL: "filter coefficients (real part)",
+            FILTER_IMAG: "filter coefficients (imaginary part)",
+            DECIMATION: "decimation factor",
+            WIDE_BAND_TRANS: "Wideband transceiver",
+            PULSE_COMPRESS: "Pulse compression",
         }
 
         coeffs_xr_data = {}
