@@ -112,7 +112,9 @@ def get_vend_filter_EK80(
 
     if param_type == "coeff":
         # Compute complex number from imaginary and real parts
-        v_complex = sel_vend[var_real].isel(filter_time=0) + 1j * sel_vend[var_imag].isel(filter_time=0)
+        v_complex = sel_vend[var_real].isel(filter_time=0) + 1j * sel_vend[var_imag].isel(
+            filter_time=0
+        )
         # Drop nan fillers and get the values
         v = v_complex.dropna(dim=f"{filter_name}_filter_n").values
         return v
