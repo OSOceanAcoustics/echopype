@@ -28,7 +28,7 @@ def tapered_chirp(
 
     nsamples = int(np.floor(tau * fs)[0])
     t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
-    a = np.pi * (f1 + -f0) / tau
+    a = np.pi * (f1 - f0) / tau
     b = 2 * np.pi * f0
     y = np.cos(a * t * t + b * t)
     L = int(np.round(tau * fs * slope * 2.0)[0])  # Length of hanning window
