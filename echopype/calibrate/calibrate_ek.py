@@ -215,6 +215,7 @@ class CalibrateEK80(CalibrateEK):
         cal_params,
         waveform_mode,
         encode_mode,
+        assume_single_filter_time,
         ecs_file=None,
         **kwargs,
     ):
@@ -228,6 +229,10 @@ class CalibrateEK80(CalibrateEK):
         self.waveform_mode = waveform_mode
         self.encode_mode = encode_mode
         self.echodata = echodata
+
+        # If assuming a single filter time, select first index filter time
+        if assume_single_filter_time:
+            self.echodata["Vendor_specific"] = self.echodata["Vendor_specific"].isel(filter_time=0)
 
         # Get the right ed_beam_group given waveform and encode mode
         self.ed_beam_group = retrieve_correct_beam_group(
@@ -311,9 +316,9 @@ class CalibrateEK80(CalibrateEK):
         Build dict to select BB and CW channels from complex samples where data
         from both waveform modes may co-exist.
         """
-        # Use center frequency for each ping to select BB or CW channels
-        # when all samples are encoded as complex samples
-        if not np.all(beam["transmit_type"] == "CW"):
+        # When all samples are encoded as complex samples
+        # there can be interleaving FM and CW pings
+        if not np.all(beam["transmit_type"] == "CW"):  # if atl east
             # At least 1 BB ping exists -- this is analogous to what we had from before
             # Before: when at least 1 BB ping exists, frequency_start and frequency_end will exist
 

@@ -14,9 +14,9 @@ logger = _init_logger(__name__)
 
 WIDE_BAND_TRANS = "WBT"
 PULSE_COMPRESS = "PC"
-FILTER_IMAG = "filter_i"
-FILTER_REAL = "filter_r"
-DECIMATION = "decimation"
+FILTER_IMAG = "coeffs_imag"
+FILTER_REAL = "coeffs_real"
+DECIMATION = "deci_fac"
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -743,17 +743,25 @@ class SetGroupsEK80(SetGroupsBase):
             Channel id
         """
 
-        # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
-        # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
-            freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
-            freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
-        elif not self.sorted_channel["power"]:
-            freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
-            freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
-            freq_stop = freq_start
-        else:
-            return ds_tmp
+        # pulse_form: 0 = CW, 1 = FM, 5 = FMD
+        # cw_idx = np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0
+        fm_idx = np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 1
+        freq_start = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
+        freq_stop = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
+        freq_start[fm_idx] = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
+        freq_stop[fm_idx] = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
+
+        # # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
+        # # CW data encoded as complex samples do NOT have frequency_start and frequency_end
+        # if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
+        #     freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
+        #     freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
+        # elif not self.sorted_channel["power"]:
+        #     freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
+        #     freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
+        #     freq_stop = freq_start
+        # else:
+        #     return ds_tmp
 
         ds_f_start_end = xr.Dataset(
             {
@@ -1347,36 +1355,65 @@ class SetGroupsEK80(SetGroupsBase):
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
-        # Save decimation factors and filter coefficients
-        # Param map values
-        # 1: wide band transceiver (WBT)
-        # 2: pulse compression (PC)
-        param_map = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
-        coeffs_and_decimation = {
-            t: {FILTER_IMAG: [], FILTER_REAL: [], DECIMATION: []} for t in list(param_map.values())
-        }
+        # TODO: use xr.merge across FIL1 time and channel in case
+        #       not all channels are updated so FIL1 at a particular timestamp
+        #       only contains a subset of channels
+        # TODO: factor these into a separate function!
+        # Save filter coefficients and decimation factors for:
+        # - stage 1: wide band transceiver (WBT)
+        # - stage 2: pulse compression (PC)
+        stage_type = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
+        param_type = [FILTER_REAL, FILTER_IMAG, DECIMATION]
+        coeffs_and_decimation = {t: {p: [] for p in param_type} for t in list(stage_type.values())}
 
+        def pad_vec(x):
+            max_len = np.max([len(xx) for xx in x])
+            return [
+                np.pad(xx, (0, max_len - len(xx)), "constant", constant_values=np.nan) for xx in x
+            ]
+
+        fil = self.parser_obj.fil
+        # Go across channels
         for ch in self.sorted_channel["all"]:
-            fil_coeffs = self.parser_obj.fil_coeffs.get(ch, None)
-            fil_df = self.parser_obj.fil_df.get(ch, None)
+            # WBT and PC
+            for stage_num, filter_type in stage_type.items():
+                ch_stage_str = f"{ch}__stage{stage_num}"
+                # Coefficients
+                full_str = f"{ch_stage_str}__coeffs"
+                if full_str in fil.keys():  # if filter info exists
+                    val_real = np.real(pad_vec(fil[full_str]))
+                    val_imag = np.imag(pad_vec(fil[full_str]))
+                else:
+                    val_real, val_imag = [np.nan], [np.nan]
+                coeffs_and_decimation[filter_type]["coeffs_real"].append(val_real)
+                coeffs_and_decimation[filter_type]["coeffs_imag"].append(val_imag)
+                # Decimation factor
+                coeffs_and_decimation[filter_type]["deci_fac"].append(
+                    fil[ch_stage_str + "__deci_fac"]
+                )
 
-            for type_num in param_map.keys():
-                param = param_map[type_num]
-
-                # get filter coefficient values
-                val_imag = np.imag(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
-                val_real = np.real(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
-                coeffs_and_decimation[param][FILTER_IMAG].append(val_imag)
-                coeffs_and_decimation[param][FILTER_REAL].append(val_real)
-
-                # get decimation factor values
-                val_deci = fil_df[type_num] if fil_df else np.nan
-                coeffs_and_decimation[param][DECIMATION].append(val_deci)
+        # Pad nans across channel
+        for filter_type in stage_type.values():
+            for param in param_type:
+                if "coeffs" in param:
+                    x = coeffs_and_decimation[filter_type][param]
+                    max_len = np.max([xx.shape[-1] for xx in x])
+                    coeffs_and_decimation[filter_type][param] = [
+                        np.pad(
+                            xx,
+                            ((0, 0), (0, max_len - xx.shape[-1])),
+                            "constant",
+                            constant_values=np.nan,
+                        )
+                        for xx in x
+                    ]
 
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
 
         # Add the coeffs and decimation
+        ds = ds.assign_coords({"filter_time": np.unique(fil["timestamp"])})
+
         ds = ds.pipe(self._add_filter_params, coeffs_and_decimation)
 
         # Save the entire config XML in vendor group in case of info loss
@@ -1394,7 +1431,8 @@ class SetGroupsEK80(SetGroupsBase):
 
     @staticmethod
     def _add_filter_params(
-        dataset: xr.Dataset, coeffs_and_decimation: Dict[str, Dict[str, List[Union[int, NDArray]]]]
+        dataset: xr.Dataset,
+        coeffs_and_decimation: Dict[str, Dict[str, List[Union[int, NDArray]]]],
     ) -> xr.Dataset:
         """
         Assembles filter coefficient and decimation factors and add to the dataset
@@ -1411,38 +1449,26 @@ class SetGroupsEK80(SetGroupsBase):
         xr.Dataset
             The modified dataset with filter coefficient and decimation factors included
         """
-        attribute_values = {
-            FILTER_IMAG: "filter coefficients (imaginary part)",
+
+        attrs_dict = {
             FILTER_REAL: "filter coefficients (real part)",
+            FILTER_IMAG: "filter coefficients (imaginary part)",
             DECIMATION: "decimation factor",
             WIDE_BAND_TRANS: "Wideband transceiver",
             PULSE_COMPRESS: "Pulse compression",
         }
 
         coeffs_xr_data = {}
-        for cd_type, values in coeffs_and_decimation.items():
-            for key, data in values.items():
+        for filter_type, filter_info in coeffs_and_decimation.items():
+            for key, data in filter_info.items():
                 if data:
-                    if "filter" in key:
-                        attrs = {
-                            "long_name": f"{attribute_values[cd_type]} {attribute_values[key]}"
-                        }
-                        # filter_i and filter_r
-                        max_len = np.max([len(a) for a in data])
-                        # Pad arrays
-                        data = np.asarray(
-                            [
-                                np.pad(a, (0, max_len - len(a)), "constant", constant_values=np.nan)
-                                for a in data
-                            ]
-                        )
-                        dims = ["channel", f"{cd_type}_filter_n"]
+                    if "coeffs" in key:
+                        dims = ["channel", "filter_time", f"{filter_type}_filter_n"]
+                        attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
                     else:
-                        attrs = {
-                            "long_name": f"{attribute_values[cd_type]} {attribute_values[DECIMATION]}"  # noqa
-                        }
-                        dims = ["channel"]
+                        dims = ["channel", "filter_time"]
+                        attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
                     # Set the xarray data dictionary
-                    coeffs_xr_data[f"{cd_type}_{key}"] = (dims, data, attrs)
+                    coeffs_xr_data[f"{filter_type}_{key}"] = (dims, np.array(data), attrs)
 
         return dataset.assign(coeffs_xr_data)

@@ -239,15 +239,21 @@ def get_transmit_signal(
     ]
     for ch in beam["channel"].values:
         tx_params = {}
-        for p in tx_param_names:
-            # Extract beam values and filter out NaNs
-            beam_values = np.unique(beam[p].sel(channel=ch))
-            # Filter out NaN values
-            beam_values_without_nan = beam_values[~np.isnan(beam_values)]
-            tx_params[p] = beam_values_without_nan
-            if tx_params[p].size != 1:
-                raise TypeError("File contains changing %s!" % p)
         fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
+        for p in tx_param_names:
+            if waveform_mode == "CW" and p in [
+                "transmit_frequency_start",
+                "transmit_frequency_stop",
+            ]:
+                tx_params[p] = fs_chan
+            else:
+                # Extract beam values and filter out NaNs
+                beam_values = np.unique(beam[p].sel(channel=ch))
+                # Filter out NaN values
+                beam_values_without_nan = beam_values[~np.isnan(beam_values)]
+                tx_params[p] = beam_values_without_nan
+            # if tx_params[p].size != 1:
+            #    raise TypeError("File contains changing %s!" % p)
         tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
         # Filter and decimate chirp template
