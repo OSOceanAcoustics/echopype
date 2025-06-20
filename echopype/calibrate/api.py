@@ -27,11 +27,12 @@ def _compute_cal(
     ecs_file=None,
     waveform_mode=None,
     encode_mode=None,
+    assume_single_filter_time=None,
 ):
     # Make waveform_mode "FM" equivalent to "BB"
     waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
 
-    # Check on waveform_mode and encode_mode inputs
+    # Check on waveform_mode, encode_mode inputs, and assumption on single filter time
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
@@ -48,6 +49,12 @@ def _compute_cal(
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
 
+    # Check that assume_single_filter_time is correctly passed in
+    if (
+        echodata.sonar_model != "EK80" or encode_mode != "complex"
+    ) and assume_single_filter_time is not None:
+        raise ValueError("assume_single_filter_time can only be used on complex EK80 data.")
+
     # Set up calibration object
     cal_obj = CALIBRATOR[echodata.sonar_model](
         echodata,
@@ -56,6 +63,7 @@ def _compute_cal(
         ecs_file=ecs_file,
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
+        assume_single_filter_time=assume_single_filter_time,
     )
 
     # Check Echodata Backscatter Size
@@ -179,6 +187,11 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
 
+    assume_single_filter_time : boolean, optional
+        If true, filter coefficients and decimation values will be used from the first
+        filter time. If false, all filter times will be used.
+        This can only be used for complex EK80 calibration.
+
     Returns
     -------
     xr.Dataset
@@ -267,6 +280,10 @@ def compute_TS(echodata: EchoData, **kwargs):
         - `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
+
+    assume_single_filter_time : boolean, optional
+        If true, filter coefficients and decimation values will be used from the first
+        filter time. If false, all filter times will be used.
 
     Returns
     -------

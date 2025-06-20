@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import numpy as np
 import pandas as pd
@@ -473,3 +475,71 @@ def test_ek80_complex_FM_CW_interleave(ek80_path):
     # ed = ep.open_raw(f"echopype/test_data/ek80/Summer2018--D20180905-T033113.raw", sonar_model="EK80")
     
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
+
+
+@pytest.mark.parametrize(
+    ("sonar_model", "compute_type", "waveform_mode", "encode_mode"),
+    [
+        ("EK80", "Sv", "CW", "complex"),
+        ("EK80", "TS", "CW", "complex"),
+        ("EK80", "Sv", "CW", "power"),
+        ("EK80", "TS", "CW", "power"),
+        ("EK60", "Sv", None, None),
+        ("EK60", "TS", None, None)
+    ],
+)
+def test_assume_single_filter_time(sonar_model, compute_type, waveform_mode, encode_mode, ek80_path):
+    if sonar_model == "EK80":
+        if encode_mode == "complex":
+            ek80_raw_path = str(
+                ek80_path.joinpath("ar2.0-D20201210-T000409.raw")
+            )
+        else:
+            ek80_raw_path = str(
+                ek80_path.joinpath("Summer2018--D20180905-T033113.raw")
+            )
+        # Read echodata object with Vendor specific dataset containing a single filter time
+        ed = ep.open_raw(ek80_raw_path, sonar_model=sonar_model)
+
+        # Modify Vendor specific to have two filter times
+        vendor_specific_ds = ed["Vendor_specific"]
+        vendor_specific_ds = xr.concat(
+            [vendor_specific_ds, vendor_specific_ds],
+            dim="filter_time"
+        )
+        first_time = vendor_specific_ds.coords["filter_time"].values[0]
+        new_times = [first_time, pd.to_datetime(first_time) + pd.Timedelta(seconds=10)]
+        vendor_specific_ds = vendor_specific_ds.assign_coords(filter_time=("filter_time", new_times))
+        ed["Vendor_specific"] = vendor_specific_ds
+    else:
+        ek60_path = Path(str(ek80_path).replace("80", "60"))
+        ek60_raw_path = str(
+            ek60_path.joinpath("DY1801_EK60-D20180211-T164025.raw")
+        )
+        # Read echodata object from EK60 raw file with no transmit parameters
+        ed = ep.open_raw(ek60_raw_path, sonar_model=sonar_model)
+
+    # Run calibration
+    if encode_mode == "complex":
+        if compute_type == "Sv":
+            ep.calibrate.compute_Sv(
+                ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+            )
+        else:
+            ep.calibrate.compute_TS(
+                ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+            )
+    else:
+        # Check that the correct value error is raised with encode mode power
+        with pytest.raises(
+            ValueError,
+            match="assume_single_filter_time can only be used on complex EK80 data."
+        ):
+            if compute_type == "Sv":
+                ep.calibrate.compute_Sv(
+                    ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+                )
+            else:
+                ep.calibrate.compute_TS(
+                    ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+                )

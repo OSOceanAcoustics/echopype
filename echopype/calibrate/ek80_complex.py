@@ -112,9 +112,7 @@ def get_vend_filter_EK80(
 
     if param_type == "coeff":
         # Compute complex number from imaginary and real parts
-        v_complex = sel_vend[var_real].isel(filter_time=0) + 1j * sel_vend[var_imag].isel(
-            filter_time=0
-        )
+        v_complex = sel_vend[var_real] + 1j * sel_vend[var_imag]
         # Drop nan fillers and get the values
         v = v_complex.dropna(dim=f"{filter_name}_filter_n").values
         return v
@@ -254,8 +252,8 @@ def get_transmit_signal(
                 # Filter out NaN values
                 beam_values_without_nan = beam_values[~np.isnan(beam_values)]
                 tx_params[p] = beam_values_without_nan
-            if tx_params[p].size != 1:
-                raise TypeError("File contains changing %s!" % p)
+            # if tx_params[p].size != 1:
+            #    raise TypeError("File contains changing %s!" % p)
         tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
         # Filter and decimate chirp template
