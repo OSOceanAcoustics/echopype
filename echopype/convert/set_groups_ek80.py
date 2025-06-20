@@ -1362,8 +1362,8 @@ class SetGroupsEK80(SetGroupsBase):
         # Save filter coefficients and decimation factors for:
         # - stage 1: wide band transceiver (WBT)
         # - stage 2: pulse compression (PC)
-        stage_type = {1: "WBT", 2: "PC"}
-        param_type = ["coeffs_real", "coeffs_imag", "deci_fac"]
+        stage_type = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
+        param_type = [FILTER_REAL, FILTER_IMAG, DECIMATION]
         coeffs_and_decimation = {t: {p: [] for p in param_type} for t in list(stage_type.values())}
 
         def pad_vec(x):
