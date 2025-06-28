@@ -8,6 +8,81 @@ requires = [
 ]
 build-backend = 'setuptools.build_meta'
 
+[project]
+name = "echopype"
+description = "Enhancing the interoperability and scalability in analyzing ocean sonar data"
+readme = "README.md"
+requires-python = ">=3.10, <3.13"
+authors = [{ name = "Wu-Jung Lee", email = "leewujung@gmail.com" }]
+license = { text = "Apache-2.0" }
+dynamic = ["version"]
+dependencies = [
+    "aiohttp",
+    "bottleneck",
+    "dask[array,distributed]",
+    "dask-image",
+    "flox>=0.7.2",
+    "fsspec",
+    "geopy",
+    "jinja2",
+    "netCDF4>1.6,<1.7.1",
+    "numpy<2",
+    "pandas",
+    "psutil>=5.9.1",
+    "pynmea2",
+    "pytz",
+    "pyyaml>=6.0",
+    "requests",
+    "s3fs",
+    "scipy<1.15.2",
+    "typing-extensions",
+    "xarray>=2024.11.0",
+    "zarr>=2,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "check-manifest",
+    "codespell",
+    "flake8",
+    "flake8-builtins",
+    "flake8-comprehensions",
+    "flake8-mutable",
+    "flake8-print",
+    "isort",
+    "mypy",
+    "moto",
+    "numpydoc",
+    "pre-commit",
+    "pylint",
+    "pytest",
+    "pytest-cov",
+    "pytest-flake8",
+    "pytest-xdist",
+    "pytest-mock",
+    "setuptools_scm",
+    "sphinx",
+    "sphinx-automodapi",
+    "sphinx_rtd_theme",
+    "sphinxcontrib-mermaid",
+    "twine",
+    "wheel",
+]
+docs = [
+    "sphinx_rtd_theme",
+    "sphinx-automodapi",
+    "sphinx-panels",
+    "sphinxcontrib-mermaid",
+    "jupyter-book",
+    "numpydoc",
+    "docutils<0.18",
+]
+plot = [
+    "matplotlib>=3.7",
+    "cmocean",
+]
+
 [tool.setuptools_scm]
 fallback_version = "unknown"
 local_scheme = "node-and-date"
