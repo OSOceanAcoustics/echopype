@@ -1,3 +1,4 @@
+import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
@@ -110,7 +111,7 @@ def _compute_cal(
             if index == len(filter_times) - 1:
                 end_time = None
             else:
-                end_time = filter_times[index + 1]
+                end_time = filter_times[index + 1] - np.timedelta64(1, "ns")
             echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(
                 ping_time=slice(start_time, end_time)
             )
