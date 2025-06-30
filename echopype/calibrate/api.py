@@ -125,12 +125,6 @@ def _compute_cal(
         # Create an echodata copy so as not to modify the original
         echodata_copy = echodata.copy()
 
-        # Select first index of filter time, which is of length 1. This ensures that
-        # the coefficient and decimation arrays in `filter_decimate_chirp`are of shape (n,)
-        # instead of shape (1, n,).
-        if "filter_time" in echodata["Vendor_specific"].dims:
-            echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].isel(filter_time=0)
-
         # Compute a single calibration dataset
         cal_ds = _compute_cal_ds(echodata_copy).drop_vars("filter_time", errors="ignore")
 

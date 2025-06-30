@@ -136,6 +136,11 @@ def get_filter_coeff(vend: xr.Dataset) -> Dict:
         A dictionary indexed by ``channel`` and values being dictionaries containing
         filter coefficients and decimation factors for constructing the transmit replica.
     """
+    # Select first index of filter time, which is of length 1. This ensures that the
+    # coefficient and decimation arrays are of shape (n,) instead of shape (1, n,).
+    if "filter_time" in vend.dims:
+        vend = vend.isel(filter_time=0)
+
     coeff = defaultdict(dict)
     for ch_id in vend["channel"].values:
         # filter coefficients and decimation factor
