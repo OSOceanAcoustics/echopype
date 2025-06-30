@@ -215,7 +215,6 @@ class CalibrateEK80(CalibrateEK):
         cal_params,
         waveform_mode,
         encode_mode,
-        assume_single_filter_time,
         ecs_file=None,
         **kwargs,
     ):
@@ -229,10 +228,6 @@ class CalibrateEK80(CalibrateEK):
         self.waveform_mode = waveform_mode
         self.encode_mode = encode_mode
         self.echodata = echodata
-
-        # If assuming a single filter time, select first index filter time
-        if assume_single_filter_time:
-            self.echodata["Vendor_specific"] = self.echodata["Vendor_specific"].isel(filter_time=0)
 
         # Get the right ed_beam_group given waveform and encode mode
         self.ed_beam_group = retrieve_correct_beam_group(

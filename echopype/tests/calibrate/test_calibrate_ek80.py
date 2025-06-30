@@ -543,3 +543,61 @@ def test_assume_single_filter_time(sonar_model, compute_type, waveform_mode, enc
                 ep.calibrate.compute_TS(
                     ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
                 )
+
+
+@pytest.mark.parametrize(
+    ("compute_type"),
+    [("Sv"), ("TS")],
+)
+def test_multiple_filter_times_calibration(compute_type, ek80_path):
+    # Select raw path
+    ek80_raw_path = str(
+        ek80_path.joinpath("ar2.0-D20201210-T000409.raw")
+    )
+
+    # Read echodata object with Vendor specific dataset containing a single filter time
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+
+    # Create copy
+    ed_copy = ed.copy()
+
+    # Modify Vendor specific to have two filter times
+    vendor_specific_ds = ed_copy["Vendor_specific"]
+    vendor_specific_ds = xr.concat(
+        [vendor_specific_ds, vendor_specific_ds],
+        dim="filter_time"
+    )
+    first_time = vendor_specific_ds.coords["filter_time"].values[0]
+    new_times = [first_time, pd.to_datetime(first_time) + pd.Timedelta(seconds=10)]
+    vendor_specific_ds = vendor_specific_ds.assign_coords(filter_time=("filter_time", new_times))
+    ed_copy["Vendor_specific"] = vendor_specific_ds
+    ed_copy_copy = ed_copy.copy()
+
+    # Calibrate for both echodata objects and when assume_filter_time=True
+    # and check that all 3 are equal
+    if compute_type == "Sv":
+        ds_cal = ep.calibrate.compute_Sv(
+            ed, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_copy = ep.calibrate.compute_Sv(
+            ed_copy, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_assume_single_filter_time = ep.calibrate.compute_Sv(
+            ed_copy_copy, waveform_mode="CW",
+            encode_mode="complex",
+            assume_single_filter_time=True
+        )
+    else:
+        ds_cal = ep.calibrate.compute_TS(
+            ed, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_copy = ep.calibrate.compute_TS(
+            ed_copy, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_assume_single_filter_time = ep.calibrate.compute_TS(
+            ed_copy_copy, waveform_mode="CW",
+            encode_mode="complex",
+            assume_single_filter_time=True
+        )
+    assert ds_cal.equals(ds_cal_copy)
+    assert ds_cal.equals(ds_cal_assume_single_filter_time)

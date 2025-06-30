@@ -1,7 +1,7 @@
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_input_args_combination
+from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
@@ -49,36 +49,93 @@ def _compute_cal(
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
 
+    # Check calibration type
+    if cal_type not in ["Sv", "TS"]:
+        raise ValueError("cal_type must be Sv or TS")
+
     # Check that assume_single_filter_time is correctly passed in
     if (
         echodata.sonar_model != "EK80" or encode_mode != "complex"
     ) and assume_single_filter_time is not None:
         raise ValueError("assume_single_filter_time can only be used on complex EK80 data.")
 
-    # Set up calibration object
-    cal_obj = CALIBRATOR[echodata.sonar_model](
-        echodata,
-        env_params=env_params,
-        cal_params=cal_params,
-        ecs_file=ecs_file,
-        waveform_mode=waveform_mode,
-        encode_mode=encode_mode,
-        assume_single_filter_time=assume_single_filter_time,
+    # Get the right ed_beam_group given waveform and encode mode
+    ed_beam_group = retrieve_correct_beam_group(
+        echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
     )
 
-    # Check Echodata Backscatter Size
-    cal_obj._check_echodata_backscatter_size()
+    # Compute calibration dataset
+    def _compute_cal_ds(echodata):
+        # Set up calibration object
+        cal_obj = CALIBRATOR[echodata.sonar_model](
+            echodata,
+            env_params=env_params,
+            cal_params=cal_params,
+            ecs_file=ecs_file,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
+        )
 
-    # Perform calibration
-    if cal_type == "Sv":
-        cal_ds = cal_obj.compute_Sv()
-    elif cal_type == "TS":
-        cal_ds = cal_obj.compute_TS()
+        # Check Echodata Backscatter Size
+        cal_obj._check_echodata_backscatter_size()
+
+        # Perform calibration
+        if cal_type == "Sv":
+            cal_ds = cal_obj.compute_Sv()
+        else:
+            cal_ds = cal_obj.compute_TS()
+
+        return cal_ds
+
+    # If assuming a single filter time, select first index filter time
+    if assume_single_filter_time:
+        echodata["Vendor_specific"] = echodata["Vendor_specific"].isel(filter_time=0)
+
+    if (
+        echodata.sonar_model == "EK80"
+        and "filter_time" in echodata["Vendor_specific"].dims
+        and len(echodata["Vendor_specific"]["filter_time"]) > 1
+    ):
+        # Compute calibration dataset for each filter time and merge
+        cal_ds_list = []
+        filter_times = echodata["Vendor_specific"]["filter_time"]
+        for index in range(len(filter_times)):
+            # Susbet echodata object to grab vendor values and ping times corresponding to
+            # the index's associated filter time
+            echodata_copy = echodata.copy()
+            echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].sel(
+                filter_time=filter_times[index]
+            )
+            start_time = filter_times[index]
+            if index == len(filter_times) - 1:
+                end_time = None
+            else:
+                end_time = filter_times[index + 1]
+            echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(
+                ping_time=slice(start_time, end_time)
+            )
+
+            # Calibrate and drop filter time
+            cal_ds_iteration = _compute_cal_ds(echodata_copy).drop_vars("filter_time")
+            cal_ds_list.append(cal_ds_iteration)
+
+        # Merge along ping time
+        cal_ds = xr.merge(cal_ds_list)
     else:
-        raise ValueError("cal_type must be Sv or TS")
+        # Create an echodata copy so as not to modify the original
+        echodata_copy = echodata.copy()
+
+        # Select first index of filter time, which is of length 1. This ensures that
+        # the coefficient and decimation arrays in `filter_decimate_chirp`are of shape (n,)
+        # instead of shape (1, n,).
+        if "filter_time" in echodata["Vendor_specific"].dims:
+            echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].isel(filter_time=0)
+
+        # Compute a single calibration dataset
+        cal_ds = _compute_cal_ds(echodata_copy).drop_vars("filter_time", errors="ignore")
 
     # Add attributes
-    def add_attrs(cal_type, ds):
+    def _add_attrs(cal_type, ds):
         """Add attributes to backscattering strength dataset.
         cal_type: Sv or TS
         """
@@ -99,7 +156,7 @@ def _compute_cal(
                 }
             )
 
-    add_attrs(cal_type, cal_ds)
+    _add_attrs(cal_type, cal_ds)
 
     # Add provinance
     # Provenance source files may originate from raw files (echodata.source_files)

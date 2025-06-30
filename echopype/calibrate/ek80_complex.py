@@ -252,8 +252,8 @@ def get_transmit_signal(
                 # Filter out NaN values
                 beam_values_without_nan = beam_values[~np.isnan(beam_values)]
                 tx_params[p] = beam_values_without_nan
-            # if tx_params[p].size != 1:
-            #    raise TypeError("File contains changing %s!" % p)
+            if tx_params[p].size != 1:
+                raise TypeError("File contains changing %s!" % p)
         tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
         # Filter and decimate chirp template

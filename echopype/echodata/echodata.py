@@ -1,3 +1,4 @@
+import copy
 import datetime
 import re
 import sys
@@ -734,3 +735,26 @@ class EchoData:
                     self[echodata_group] = group.chunk(subset_chunks)
 
         return self
+
+    def copy(self, deep: bool = True):
+        """
+        Create a copy of the Echodata object.
+
+        Parameters
+        ----------
+        deep : bool, default True
+            If True, make a deep copy. If False, make a shallow copy.
+
+        Returns
+        -------
+        Echodata
+            A copy of the Echodata object.
+        """
+        # Create a new echodata object
+        ed_copy = self.__class__.__new__(self.__class__)
+
+        # Copy attributes
+        for attr, value in self.__dict__.items():
+            setattr(ed_copy, attr, copy.deepcopy(value) if deep else value)
+
+        return ed_copy
