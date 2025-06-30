@@ -59,11 +59,6 @@ def _compute_cal(
     ) and assume_single_filter_time is not None:
         raise ValueError("assume_single_filter_time can only be used on complex EK80 data.")
 
-    # Get the right ed_beam_group given waveform and encode mode
-    ed_beam_group = retrieve_correct_beam_group(
-        echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
-    )
-
     # Compute calibration dataset
     def _compute_cal_ds(echodata):
         # Set up calibration object
@@ -96,6 +91,11 @@ def _compute_cal(
         and "filter_time" in echodata["Vendor_specific"].dims
         and len(echodata["Vendor_specific"]["filter_time"]) > 1
     ):
+        # Get the right ed_beam_group given waveform and encode mode
+        ed_beam_group = retrieve_correct_beam_group(
+            echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
+
         # Compute calibration dataset for each filter time and merge
         cal_ds_list = []
         filter_times = echodata["Vendor_specific"]["filter_time"]
@@ -122,7 +122,7 @@ def _compute_cal(
         # Merge along ping time
         cal_ds = xr.merge(cal_ds_list)
     else:
-        # Create an echodata copy so as not to modify the original
+        # Create an echodata copy
         echodata_copy = echodata.copy()
 
         # Compute a single calibration dataset
