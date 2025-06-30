@@ -13,12 +13,12 @@ def ek80_path(test_path):
 def gen_mock_vend(ch_num, filter_len=10, has_nan=False):
     vend = xr.Dataset(
         data_vars={
-            "WBT_filter_r": (["channel", "WBT_filter_n"], np.random.rand(ch_num, filter_len)),
-            "WBT_filter_i": (["channel", "WBT_filter_n"], np.random.rand(ch_num, filter_len)),
-            "WBT_decimation": 6,
-            "PC_filter_r": (["channel", "PC_filter_n"], np.random.rand(ch_num, filter_len*2)),
-            "PC_filter_i": (["channel", "PC_filter_n"], np.random.rand(ch_num, filter_len*2)),
-            "PC_decimation": 1,
+            "WBT_coeffs_real": (["channel", "WBT_filter_n"], np.random.rand(ch_num, filter_len)),
+            "WBT_coeffs_imag": (["channel", "WBT_filter_n"], np.random.rand(ch_num, filter_len)),
+            "WBT_deci_fac": 6,
+            "PC_coeffs_real": (["channel", "PC_filter_n"], np.random.rand(ch_num, filter_len*2)),
+            "PC_coeffs_imag": (["channel", "PC_filter_n"], np.random.rand(ch_num, filter_len*2)),
+            "PC_deci_fac": 1,
         },
         coords={
             "channel": [f"ch_{ch}" for ch in np.arange(ch_num)],
@@ -28,10 +28,10 @@ def gen_mock_vend(ch_num, filter_len=10, has_nan=False):
     )
     if has_nan:  # replace some parts of filter coeff with NaN
         if filter_len != 1:
-            vend["WBT_filter_r"].data[:, int(filter_len/2):] = np.nan
-            vend["WBT_filter_i"].data[:, int(filter_len/2):] = np.nan
-            vend["PC_filter_r"].data[:, filter_len:] = np.nan
-            vend["PC_filter_i"].data[:, filter_len:] = np.nan
+            vend["WBT_coeffs_real"].data[:, int(filter_len/2):] = np.nan
+            vend["WBT_coeffs_imag"].data[:, int(filter_len/2):] = np.nan
+            vend["PC_coeffs_real"].data[:, filter_len:] = np.nan
+            vend["PC_coeffs_imag"].data[:, filter_len:] = np.nan
         else:
             raise ValueError("Cannot replace some parts of filter coeff with NaN")
     return vend
@@ -58,11 +58,11 @@ def test_get_vend_filter_EK80(ch_num, filter_len, has_nan):
     
     for ch in [f"ch_{ch}" for ch in np.arange(ch_num)]:
         for filter_name in ["WBT", "PC"]:
-            var_imag = f"{filter_name}_filter_i"
-            var_real = f"{filter_name}_filter_r"
-            var_df = f"{filter_name}_decimation"
+            var_imag = f"{filter_name}_coeffs_imag"
+            var_real = f"{filter_name}_coeffs_real"
+            var_df = f"{filter_name}_deci_fac"
             sel_vend = vend.sel(channel=ch)
-            
+
             assert np.all(
                 (sel_vend[var_real] + 1j * sel_vend[var_imag]).dropna(dim=f"{filter_name}_filter_n").values
                 == get_vend_filter_EK80(vend, channel_id=ch, filter_name=filter_name, param_type="coeff")
