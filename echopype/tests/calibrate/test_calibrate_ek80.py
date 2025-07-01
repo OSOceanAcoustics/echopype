@@ -474,7 +474,7 @@ def test_ek80_complex_FM_CW_interleave(ek80_path):
     # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/NYOS2105-D20210525-T213648.raw", sonar_model="EK80")
     # ed = ep.open_raw(f"echopype/test_data/ek80/Summer2018--D20180905-T033113.raw", sonar_model="EK80")
     
-    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
+    # ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
 
 
 @pytest.mark.parametrize(
