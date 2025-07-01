@@ -92,18 +92,35 @@ def _compute_cal(
         and "filter_time" in echodata["Vendor_specific"].dims
         and len(echodata["Vendor_specific"]["filter_time"]) > 1
     ):
-        # Get the right ed_beam_group given waveform and encode mode
+        # Grab the correct ed_beam_group given waveform and encode mode and subset for
+        # CW or BB if it is encode mode is complex
         ed_beam_group = retrieve_correct_beam_group(
             echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
+        echodata_subset = echodata.copy()
+        if waveform_mode == "CW":
+            echodata_subset[ed_beam_group] = echodata_subset[ed_beam_group].where(
+                echodata_subset[ed_beam_group]["transmit_type"] == "CW", drop=True
+            )
+        else:
+            echodata_subset[ed_beam_group] = echodata_subset[ed_beam_group].where(
+                echodata_subset[ed_beam_group]["transmit_type"] != "CW", drop=True
+            )
 
         # Compute calibration dataset for each filter time and merge
         cal_ds_list = []
-        filter_times = echodata["Vendor_specific"]["filter_time"]
+        filter_times = echodata_subset["Vendor_specific"]["filter_time"].copy()
+
+        # Subset filter times for times that are in the echodata beam group subset
+        filter_times = filter_times.where(
+            (filter_times >= echodata_subset[ed_beam_group]["ping_time"].min())
+            & (filter_times <= echodata_subset[ed_beam_group]["ping_time"].max()),
+            drop=True,
+        )
         for index in range(len(filter_times)):
             # Susbet echodata object to grab vendor values and ping times corresponding to
             # the index's associated filter time
-            echodata_copy = echodata.copy()
+            echodata_copy = echodata_subset.copy()
             echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].sel(
                 filter_time=filter_times[index]
             )
