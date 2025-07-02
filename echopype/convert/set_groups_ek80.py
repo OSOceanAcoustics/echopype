@@ -1478,12 +1478,14 @@ class SetGroupsEK80(SetGroupsBase):
                     else:
                         if data.ndim == 3:
                             data = data.squeeze()
+                        # data = np.atleast_2d(data)
                         dims = ["channel", "filter_time"]
+                        data = data.reshape(dataset.sizes[dims[0]], dataset.sizes[dims[1]])
                         attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
                         coeffs_xr_data[f"{filter_type}_{key}"] = (
                             dims,
                             # TODO Review if this is needed. Better to modify upstream
-                            np.atleast_2d(data),
+                            data,
                             attrs,
                         )
 
