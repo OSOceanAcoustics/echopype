@@ -24,6 +24,11 @@ def ek80_ext_path(test_path):
     return test_path["EK80_EXT"]
 
 
+@pytest.fixture
+def ek80_multiplex_path(test_path):
+    return test_path["EK80_MULTI"]
+
+
 def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     """
     Test transmit chirp reconstruction against Andersen et al. 2021/pyEcholab implementation
@@ -466,15 +471,17 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
     )
 
 
-def test_ek80_complex_FM_CW_interleave(ek80_path):
-    # TODO: add this path to conftest
-    ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/hake2024_08152300-Phase0-D20240815-T234514-4.raw", sonar_model="EK80")  
-    # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/hake2024_08152300-Phase0-D20240815-T230012-0.raw", sonar_model="EK80")
-    # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/DRIX08-D20231003-T120051.raw", sonar_model="EK80")
-    # ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/NYOS2105-D20210525-T213648.raw", sonar_model="EK80")
-    # ed = ep.open_raw(f"echopype/test_data/ek80/Summer2018--D20180905-T033113.raw", sonar_model="EK80")
-    
-    # ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
+@pytest.mark.parametrize(
+    ("filename"),
+    [
+        ("hake2024_08152300-Phase0-D20240815-T234514-4.raw"),
+        ("DRIX08-D20231003-T120051.raw"),
+        ("NYOS2105-D20210525-T213648.raw"),
+    ],
+)
+def test_ek80_complex_FM_CW_interleave(filename, ek80_multiplex_path):
+    ed = ep.open_raw(ek80_multiplex_path / filename, sonar_model="EK80") 
+    ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
 
 
 @pytest.mark.parametrize(
