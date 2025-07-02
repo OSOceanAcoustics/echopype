@@ -99,13 +99,16 @@ def _compute_cal(
         )
         echodata_subset = echodata.copy()
         if waveform_mode == "CW":
-            echodata_subset[ed_beam_group] = echodata_subset[ed_beam_group].where(
-                echodata_subset[ed_beam_group]["transmit_type"] == "CW", drop=True
+            valid_ping_times = (
+                (echodata_subset[ed_beam_group]["transmit_type"] == "CW").isel(channel=0).data
             )
         else:
-            echodata_subset[ed_beam_group] = echodata_subset[ed_beam_group].where(
-                echodata_subset[ed_beam_group]["transmit_type"] != "CW", drop=True
+            valid_ping_times = (
+                (echodata_subset[ed_beam_group]["transmit_type"] != "CW").isel(channel=0).data
             )
+        echodata_subset[ed_beam_group] = echodata_subset[ed_beam_group].sel(
+            ping_time=valid_ping_times
+        )
 
         # Compute calibration dataset for each filter time and merge
         cal_ds_list = []
@@ -137,7 +140,6 @@ def _compute_cal(
             cal_ds_iteration = _compute_cal_ds(echodata_copy).drop_vars("filter_time")
             cal_ds_list.append(cal_ds_iteration)
 
-        # Merge along ping time
         cal_ds = xr.merge(cal_ds_list)
     else:
         # Create an echodata copy
