@@ -1384,23 +1384,26 @@ class SetGroupsEK80(SetGroupsBase):
                     val_real = np.real(pad_vec(fil[full_str]))
                     val_imag = np.imag(pad_vec(fil[full_str]))
                 else:
-                    val_real, val_imag = [np.nan], [np.nan]
+                    val_real, val_imag = np.array([]), np.array([])
                 coeffs_and_decimation[filter_type]["coeffs_real"].append(val_real)
                 coeffs_and_decimation[filter_type]["coeffs_imag"].append(val_imag)
                 # Decimation factor
                 coeffs_and_decimation[filter_type]["deci_fac"].append(
-                    fil[ch_stage_str + "__deci_fac"]
+                    np.array(fil[ch_stage_str + "__deci_fac"], dtype=np.float64)
                 )
 
         # Pad nans across channel
         for filter_type in stage_type.values():
             for param in param_type:
-                if "coeffs" in param:
-                    x = coeffs_and_decimation[filter_type][param]
-                    max_len = np.max([xx.shape[-1] for xx in x])
+                # if "coeffs" in param:
+                x = coeffs_and_decimation[filter_type][param]
+                max_len = np.max([xx.shape[-1] for xx in x])
+                if max_len > 0:
                     coeffs_and_decimation[filter_type][param] = [
                         np.pad(
-                            xx,
+                            # TODO Investigate upstream why
+                            # atleast_2d is needed
+                            np.atleast_2d(xx),
                             ((0, 0), (0, max_len - xx.shape[-1])),
                             "constant",
                             constant_values=np.nan,
@@ -1462,13 +1465,24 @@ class SetGroupsEK80(SetGroupsBase):
         for filter_type, filter_info in coeffs_and_decimation.items():
             for key, data in filter_info.items():
                 if data:
+                    data = np.array(np.broadcast_arrays(*data))
                     if "coeffs" in key:
                         dims = ["channel", "filter_time", f"{filter_type}_filter_n"]
                         attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
+                        coeffs_xr_data[f"{filter_type}_{key}"] = (
+                            dims,
+                            # TODO Review if this is needed. Better to modify upstream
+                            np.atleast_3d(data),
+                            attrs,
+                        )
                     else:
                         dims = ["channel", "filter_time"]
                         attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
-                    # Set the xarray data dictionary
-                    coeffs_xr_data[f"{filter_type}_{key}"] = (dims, np.array(data), attrs)
+                        coeffs_xr_data[f"{filter_type}_{key}"] = (
+                            dims,
+                            # TODO Review if this is needed. Better to modify upstream
+                            data.squeeze() if data.ndim == 3 else data,
+                            attrs,
+                        )
 
         return dataset.assign(coeffs_xr_data)
