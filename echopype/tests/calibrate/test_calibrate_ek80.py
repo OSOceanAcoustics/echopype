@@ -475,6 +475,7 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
     ("filename"),
     [
         ("hake2024_08152300-Phase0-D20240815-T234514-4.raw"),
+        # TODO The below two are not FM CW interleave. They only have LFM and NaN transmit types, no CW
         ("DRIX08-D20231003-T120051.raw"),
         ("NYOS2105-D20210525-T213648.raw"),
     ],
@@ -482,7 +483,6 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
 def test_ek80_complex_FM_CW_interleave(filename, ek80_multiplex_path):
     ed = ep.open_raw(ek80_multiplex_path / filename, sonar_model="EK80", use_swap=True) 
     ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
-    #ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="complex")
 
 
 @pytest.mark.parametrize(

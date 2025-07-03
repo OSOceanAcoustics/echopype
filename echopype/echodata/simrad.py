@@ -118,19 +118,31 @@ def _retrieve_correct_beam_group_EK80(
     """
 
     # initialize power and complex EchoData group values
+    # Complex ed_group contains either complex CW or complex BB
+    # whereas complex_CW_ed_group only contains complex CW
     power_ed_group = None
     complex_ed_group = None
+    complex_CW_ed_group = None
 
-    transmit_types = np.unique(echodata["Sonar/Beam_group1"]["transmit_type"])
-    if len(transmit_types) == 2:
+    transmit_types_1 = np.unique(echodata["Sonar/Beam_group1"]["transmit_type"])
+    if echodata["Sonar/Beam_group2"] is not None:
+        transmit_types_2 = np.unique(echodata["Sonar/Beam_group2"]["transmit_type"])
+    else:
+        transmit_types_2 = None
+    if (
+        encode_mode == "complex"
+        and transmit_types_2 is not None
+        and "CW" in transmit_types_2
+        and ("LFM" in transmit_types_1 or "FMD" in transmit_types_1)
+    ):
         # This is the case when both CW and BB exist as complex data and both are stored in
         # Sonar/Beam_group1.
         complex_ed_group = "Sonar/Beam_group1"
-        power_ed_group = "Sonar/Beam_group2"
+        complex_CW_ed_group = "Sonar/Beam_group2"
     elif waveform_mode == "BB":
         # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
         # when echodata contains CW power and BB complex samples
-        if transmit_types[0] == "CW":
+        if "CW" in transmit_types_1:
             raise ValueError("waveform_mode='BB', but complex data does not exist!")
         elif echodata["Sonar/Beam_group2"] is not None:
             power_ed_group = "Sonar/Beam_group2"
@@ -144,7 +156,7 @@ def _retrieve_correct_beam_group_EK80(
         # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
 
         # Raise error if waveform_mode="CW" but CW data does not exist (not a single ping is CW)
-        if encode_mode == "complex" and transmit_types[0] != "CW":
+        if encode_mode == "complex" and ("LFM" in transmit_types_1 or "FMD" in transmit_types_1):
             raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
 
         if echodata["Sonar/Beam_group2"] is None:
@@ -180,7 +192,7 @@ def _retrieve_correct_beam_group_EK80(
                 complex_ed_group = "Sonar/Beam_group1"
                 power_ed_group = "Sonar/Beam_group2"
 
-    return power_ed_group, complex_ed_group
+    return power_ed_group, complex_ed_group, complex_CW_ed_group
 
 
 def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
@@ -217,7 +229,7 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
 
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
         # check modes against data for EK80 and get power/complex EchoData groups
-        power_ed_group, complex_ed_group = _retrieve_correct_beam_group_EK80(
+        power_ed_group, complex_ed_group, complex_CW_ed_group = _retrieve_correct_beam_group_EK80(
             echodata, waveform_mode, encode_mode
         )
 
@@ -226,6 +238,9 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
         raise RuntimeError("EchoData was produced by a non-Simrad or unknown Simrad echo sounder!")
 
     if encode_mode == "complex":
-        return complex_ed_group
+        if waveform_mode == "CW" and (complex_CW_ed_group is not None):
+            return complex_CW_ed_group
+        else:
+            return complex_ed_group
     else:
         return power_ed_group

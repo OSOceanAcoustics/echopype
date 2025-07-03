@@ -234,28 +234,21 @@ class CalibrateEK80(CalibrateEK):
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
-        # Select the channels to calibrate
-        if self.encode_mode == "power":
-            # Power sample only possible under CW mode,
-            # and all power samples will live in the same group
-            self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
-        else:
-            # Complex samples can be CW or BB, so select based on waveform mode
-            chan_dict = self._get_chan_dict(self.echodata[self.ed_beam_group])
-            self.chan_sel = chan_dict[self.waveform_mode]
+        # TODO Drop all other chan_sel usage
+        self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
 
         # Subset of the right Sonar/Beam_groupX group given the selected channels
-        beam = self.echodata[self.ed_beam_group].sel(channel=self.chan_sel)
+        beam = self.echodata[self.ed_beam_group]
 
         # Use center frequency if in BB mode, else use nominal channel frequency
         if self.waveform_mode == "BB":
             # use true center frequency to interpolate for various cal params
             self.freq_center = (
                 beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]
-            ).sel(channel=self.chan_sel) / 2
+            ) / 2
         else:
             # use nominal channel frequency for CW pulse
-            self.freq_center = beam["frequency_nominal"].sel(channel=self.chan_sel)
+            self.freq_center = beam["frequency_nominal"]
 
         # Convert env_params and cal_params if self.ecs_file exists
         # Note a warning if thrown out in CalibrateBase.__init__

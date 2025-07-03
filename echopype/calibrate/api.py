@@ -93,37 +93,25 @@ def _compute_cal(
         and len(echodata["Vendor_specific"]["filter_time"]) > 1
     ):
         # Grab the correct ed_beam_group given waveform and encode mode and subset for
-        # CW or BB if it is encode mode is complex
+        # CW or BB if encode mode is complex
         ed_beam_group = retrieve_correct_beam_group(
             echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
-        echodata_subset = echodata.copy()
-        if waveform_mode == "CW":
-            valid_ping_times = (
-                (echodata_subset[ed_beam_group]["transmit_type"] == "CW").isel(channel=0).data
-            )
-        else:
-            valid_ping_times = (
-                (echodata_subset[ed_beam_group]["transmit_type"] != "CW").isel(channel=0).data
-            )
-        echodata_subset[ed_beam_group] = echodata_subset[ed_beam_group].sel(
-            ping_time=valid_ping_times
         )
 
         # Compute calibration dataset for each filter time and merge
         cal_ds_list = []
-        filter_times = echodata_subset["Vendor_specific"]["filter_time"].copy()
+        filter_times = echodata["Vendor_specific"]["filter_time"].copy()
 
         # Subset filter times for times that are in the echodata beam group subset
         filter_times = filter_times.where(
-            (filter_times >= echodata_subset[ed_beam_group]["ping_time"].min())
-            & (filter_times <= echodata_subset[ed_beam_group]["ping_time"].max()),
+            (filter_times >= echodata[ed_beam_group]["ping_time"].min())
+            & (filter_times <= echodata[ed_beam_group]["ping_time"].max()),
             drop=True,
         )
         for index in range(len(filter_times)):
             # Susbet echodata object to grab vendor values and ping times corresponding to
             # the index's associated filter time
-            echodata_copy = echodata_subset.copy()
+            echodata_copy = echodata.copy()
             echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].sel(
                 filter_time=filter_times[index]
             )

@@ -1170,6 +1170,7 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power.append(ds_data)
 
+        # TODO change this description
         # Merge and save group:
         #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
         #   and power data in /Sonar/Beam_group2
@@ -1195,7 +1196,15 @@ class SetGroupsEK80(SetGroupsBase):
             ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        return [ds_beam, ds_beam_power]
+        # TODO add comment
+        if "CW" in ds_beam["transmit_type"] and (
+            "LFM" in ds_beam["transmit_type"] or "FMD" in ds_beam["transmit_type"]
+        ):
+            ds_beam_BB = ds_beam.where(ds_beam["transmit_type"].isin(["LFM", "FMD"]), drop=True)
+            ds_beam_CW = ds_beam.where(ds_beam["transmit_type"] == "CW", drop=True)
+            return [ds_beam_BB, ds_beam_CW]
+        else:
+            return [ds_beam, ds_beam_power]
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""
