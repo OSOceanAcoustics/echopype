@@ -1410,8 +1410,6 @@ class SetGroupsEK80(SetGroupsBase):
                 if max_len > 0:
                     coeffs_and_decimation[filter_type][param] = [
                         np.pad(
-                            # TODO Investigate upstream why
-                            # atleast_2d is needed
                             np.atleast_2d(xx),
                             ((0, 0), (0, max_len - xx.shape[-1])),
                             "constant",
@@ -1477,15 +1475,19 @@ class SetGroupsEK80(SetGroupsBase):
                     data = np.array(np.broadcast_arrays(*data))
                     if "coeffs" in key:
                         dims = ["channel", "filter_time", f"{filter_type}_filter_n"]
+                        filter_type_size = int(
+                            data.size / (dataset.sizes[dims[0]] * dataset.sizes[dims[1]])
+                        )
+                        data = data.reshape(
+                            dataset.sizes[dims[0]], dataset.sizes[dims[1]], filter_type_size
+                        )
                         attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
                         coeffs_xr_data[f"{filter_type}_{key}"] = (
                             dims,
-                            np.atleast_3d(data),
+                            data,
                             attrs,
                         )
                     else:
-                        if data.ndim == 3:
-                            data = data.squeeze()
                         dims = ["channel", "filter_time"]
                         data = data.reshape(dataset.sizes[dims[0]], dataset.sizes[dims[1]])
                         attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
