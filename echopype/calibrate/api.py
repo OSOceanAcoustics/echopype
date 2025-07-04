@@ -50,10 +50,6 @@ def _compute_cal(
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
 
-    # Check calibration type
-    if cal_type not in ["Sv", "TS"]:
-        raise ValueError("cal_type must be Sv or TS")
-
     # Check that assume_single_filter_time is correctly passed in
     if (
         echodata.sonar_model != "EK80" or encode_mode != "complex"
