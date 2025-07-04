@@ -1475,9 +1475,12 @@ class SetGroupsEK80(SetGroupsBase):
                     data = np.array(np.broadcast_arrays(*data))
                     if "coeffs" in key:
                         dims = ["channel", "filter_time", f"{filter_type}_filter_n"]
-                        filter_type_size = int(
-                            data.size / (dataset.sizes[dims[0]] * dataset.sizes[dims[1]])
-                        )
+                        if (dataset.sizes[dims[0]] * dataset.sizes[dims[1]]) != 0:
+                            filter_type_size = int(
+                                data.size / (dataset.sizes[dims[0]] * dataset.sizes[dims[1]])
+                            )
+                        else:
+                            filter_type_size = 0
                         data = data.reshape(
                             dataset.sizes[dims[0]], dataset.sizes[dims[1]], filter_type_size
                         )
