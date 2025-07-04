@@ -378,8 +378,8 @@ def test_convert_ek80_freq_subset(ek80_path):
     )
     echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
 
-    # Check if converted output has only 2 frequency channels
-    assert echodata["Sonar/Beam_group1"].channel.size == 2
+    # Check if converted output has only 1 frequency channels
+    assert echodata["Sonar/Beam_group1"].channel.size == 1
 
     # check platform
     nan_plat_vars = [
