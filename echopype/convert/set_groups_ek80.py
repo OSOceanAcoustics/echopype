@@ -1439,7 +1439,7 @@ class SetGroupsEK80(SetGroupsBase):
         ):
             ds = self._add_seafloor_detection_data_to_vendor_ds(ds)
 
-        return ds
+        return set_time_encodings(ds)
 
     @staticmethod
     def _add_filter_params(
