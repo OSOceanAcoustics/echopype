@@ -124,10 +124,6 @@ class CalibrateEK(CalibrateBase):
         # Add env and cal parameters
         out = self._add_params_to_output(out)
 
-        # Remove time1 if exist as a coordinate
-        if "time1" in out.coords:
-            out = out.drop_vars("time1")
-
         return out
 
 
