@@ -56,12 +56,22 @@ class SetGroupsEK80(SetGroupsBase):
                 "power": "contains backscatter power (uncalibrated) and "
                 "other beam or channel-specific data,"
                 " including split-beam angle data when they exist.",
-                "complex": "contains complex backscatter data and other "
+                "complex": "contains FM or CW complex backscatter data and other "
                 "beam or channel-specific data.",
             },
         },
         {
             "name": "Beam_group2",
+            "descr": {
+                "power": "contains backscatter power (uncalibrated) and "
+                "other beam or channel-specific data,"
+                " including split-beam angle data when they exist.",
+                "complex": "contains CW complex backscatter data and other "
+                "beam or channel-specific data.",
+            },
+        },
+        {
+            "name": "Beam_group3",
             "descr": (
                 "contains backscatter power (uncalibrated) and other beam or channel-specific data,"  # noqa
                 " including split-beam angle data when they exist."
@@ -1170,11 +1180,16 @@ class SetGroupsEK80(SetGroupsBase):
             else:
                 ds_power.append(ds_data)
 
-        # TODO change this description
-        # Merge and save group:
-        #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
-        #   and power data in /Sonar/Beam_group2
-        #  if only one type of data exist: data in /Sonar/Beam_group1 group
+        # Merge and save group(s):
+        # Four cases:
+        # If only one of complex or power data exist: Place in /Sonar/Beam_group1
+        # If both complex FM/CW and power data exist: Complex in /Sonar/Beam_group1
+        # and power in /Sonar/Beam_group2.
+        # If complex FM and complex CW data exist: Complex FM in /Sonar/Beam_group1
+        # and complex CW in /Sonar/Beam_group2
+        # If complex FM, complex CW, and power data exist: Complex FM in
+        # /Sonar/Beam_group1, complex CW in /Sonar/Beam_group2, and
+        # power in /Sonar/Beam_group3.
         ds_beam_power = None
         if len(ds_complex) > 0:
             ds_beam = self.merge_save(ds_complex, ds_invariant_complex)
@@ -1196,13 +1211,17 @@ class SetGroupsEK80(SetGroupsBase):
             ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
         )
 
-        # TODO add comment
         if "CW" in ds_beam["transmit_type"] and (
             "LFM" in ds_beam["transmit_type"] or "FMD" in ds_beam["transmit_type"]
         ):
-            ds_beam_BB = ds_beam.where(ds_beam["transmit_type"].isin(["LFM", "FMD"]), drop=True)
-            ds_beam_CW = ds_beam.where(ds_beam["transmit_type"] == "CW", drop=True)
-            return [ds_beam_BB, ds_beam_CW]
+            # Create BB and CW masks and select beam subsets from mask coordinates
+            mask_BB = ds_beam["transmit_type"].isin(["LFM", "FMD"])
+            mask_BB = mask_BB.where(mask_BB, drop=True)
+            mask_CW = ds_beam["transmit_type"] == "CW"
+            mask_CW = mask_CW.where(mask_CW, drop=True)
+            ds_beam_BB = ds_beam.sel(channel=mask_BB["channel"], ping_time=mask_BB["ping_time"])
+            ds_beam_CW = ds_beam.sel(channel=mask_CW["channel"], ping_time=mask_CW["ping_time"])
+            return [ds_beam_BB, ds_beam_CW, ds_beam_power]
         else:
             return [ds_beam, ds_beam_power]
 
