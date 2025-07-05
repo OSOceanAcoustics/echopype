@@ -130,7 +130,9 @@ def _compute_cal(
         echodata_copy = echodata.copy()
 
         # Compute a single calibration dataset
-        cal_ds = _compute_cal_ds(echodata_copy).drop_vars("filter_time", errors="ignore")
+        cal_ds = _compute_cal_ds(echodata_copy)
+        if "filter_time" in cal_ds:
+            cal_ds = cal_ds.drop_vars("filter_time")
 
     # Add attributes
     def _add_attrs(cal_type, ds):
