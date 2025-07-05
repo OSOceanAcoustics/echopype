@@ -50,16 +50,16 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     )
     fs = cal_obj.cal_params["receiver_sampling_frequency"]
     filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(
-        ed["Vendor_specific"].sel(channel=cal_obj.chan_sel)
+        ed["Vendor_specific"].sel(channel=ed["Sonar/Beam_group1"]["channel"])
     )
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(
-        ed["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel), filter_coeff, waveform_mode, fs
+        ed["Sonar/Beam_group1"].sel(channel=ed["Sonar/Beam_group1"]["channel"]), filter_coeff, waveform_mode, fs
     )
     tau_effective = ep.calibrate.ek80_complex.get_tau_effective(
         ytx_dict=tx,
         fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
         waveform_mode=cal_obj.waveform_mode,
-        channel=cal_obj.chan_sel,
+        channel=ed["Sonar/Beam_group1"]["channel"],
         ping_time=cal_obj.echodata["Sonar/Beam_group1"]["ping_time"],
     )
 
@@ -187,6 +187,7 @@ def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     pyel_vals = pyel_BB_p_data["range"]
     assert np.allclose(pyel_vals, ep_vals)
 
+
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
     [
@@ -238,12 +239,12 @@ def test_ek80_BB_power_from_complex(
     )
 
     # Params needed
-    beam = cal_obj.echodata[cal_obj.ed_beam_group].sel(channel=cal_obj.chan_sel)
+    beam = cal_obj.echodata[cal_obj.ed_beam_group]
     z_er = cal_obj.cal_params["impedance_transceiver"]
     z_et = cal_obj.cal_params["impedance_transducer"]
     fs = cal_obj.cal_params["receiver_sampling_frequency"]
     filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(
-        ed["Vendor_specific"].sel(channel=cal_obj.chan_sel)
+        ed["Vendor_specific"].sel(channel=beam["channel"])
     )
     tx, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs)
 
@@ -265,6 +266,7 @@ def test_ek80_BB_power_from_complex(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
+
 
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
@@ -356,10 +358,10 @@ def test_ek80_BB_power_echoview(ek80_path):
         waveform_mode="BB",
         encode_mode="complex",
     )
-    beam = echodata["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel)
+    beam = echodata["Sonar/Beam_group1"]
 
     coeff = ep.calibrate.ek80_complex.get_filter_coeff(
-        echodata["Vendor_specific"].sel(channel=cal_obj.chan_sel)
+        echodata["Vendor_specific"].sel(channel=beam["channel"])
     )
     chirp, _ = ep.calibrate.ek80_complex.get_transmit_signal(
         beam,
@@ -389,6 +391,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     ep_vals = pc_mean.values.real[:, :]
     assert np.allclose(ev_vals[:, 69:], ep_vals[:, 69:], atol=1e-4)
     assert np.allclose(ev_vals[:, 90:], ep_vals[:, 90:], atol=1e-5)
+
 
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))
