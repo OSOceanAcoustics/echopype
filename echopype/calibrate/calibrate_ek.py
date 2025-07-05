@@ -28,7 +28,7 @@ class CalibrateEK(CalibrateBase):
 
         self.ed_beam_group = None  # will be assigned in child class
 
-    def compute_echo_range(self, chan_sel: xr.DataArray = None):
+    def compute_echo_range(self):
         """
         Compute echo range for EK echosounders.
 
@@ -42,7 +42,6 @@ class CalibrateEK(CalibrateBase):
             env_params=self.env_params,
             waveform_mode=self.waveform_mode,
             encode_mode=self.encode_mode,
-            chan_sel=chan_sel,
         )
 
     def _cal_power_samples(self, cal_type: str) -> xr.Dataset:
@@ -142,10 +141,6 @@ class CalibrateEK60(CalibrateEK):
         self.ed_beam_group = retrieve_correct_beam_group(
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
-
-        # Set the channels to calibrate
-        # For EK60 this is all channels
-        self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
         beam = self.echodata[self.ed_beam_group]
 
         # Convert env_params and cal_params if self.ecs_file exists
@@ -230,9 +225,6 @@ class CalibrateEK80(CalibrateEK):
             echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
         )
 
-        # TODO Drop all other chan_sel usage
-        self.chan_sel = self.echodata[self.ed_beam_group]["channel"]
-
         # Subset of the right Sonar/Beam_groupX group given the selected channels
         beam = self.echodata[self.ed_beam_group]
 
@@ -251,16 +243,10 @@ class CalibrateEK80(CalibrateEK):
         # to let user know cal_params and env_params are ignored if ecs_file is provided
         if self.ecs_file is not None:  # also means self.ecs_dict != {}
             ds_env, ds_cal_NB, ds_cal_BB = ecs_ev2ep(self.ecs_dict, "EK80")
-            self.env_params = ecs_ds2dict(
-                conform_channel_order(ds_env, beam["frequency_nominal"].sel(channel=self.chan_sel))
-            )
-            ds_cal_BB = conform_channel_order(
-                ds_cal_BB, beam["frequency_nominal"].sel(channel=self.chan_sel)
-            )
+            self.env_params = ecs_ds2dict(conform_channel_order(ds_env, beam["frequency_nominal"]))
+            ds_cal_BB = conform_channel_order(ds_cal_BB, beam["frequency_nominal"])
             ds_cal_NB = self._scale_ecs_cal_params_NB(
-                conform_channel_order(
-                    ds_cal_NB, beam["frequency_nominal"].sel(channel=self.chan_sel)
-                ),
+                conform_channel_order(ds_cal_NB, beam["frequency_nominal"]),
                 beam,
             )
             cal_params_dict = ecs_ds2dict(ds_cal_NB)
@@ -285,44 +271,14 @@ class CalibrateEK80(CalibrateEK):
         self.cal_params = get_cal_params_EK(
             waveform_mode=self.waveform_mode,
             freq_center=self.freq_center,
-            beam=beam,  # already subset above
-            vend=self.echodata["Vendor_specific"].sel(channel=self.chan_sel),
+            beam=beam,
+            vend=self.echodata["Vendor_specific"].sel(channel=beam.channel),
             user_dict=self.cal_params,
             sonar_type="EK80",
         )
 
         # Compute echo range in meters
-        self.compute_echo_range(chan_sel=self.chan_sel)
-
-    @staticmethod
-    def _get_chan_dict(beam: xr.Dataset) -> Dict:
-        """
-        Build dict to select BB and CW channels from complex samples where data
-        from both waveform modes may co-exist.
-        """
-        # When all samples are encoded as complex samples
-        # there can be interleaving FM and CW pings
-        if not np.all(beam["transmit_type"] == "CW"):  # if atl east
-            # At least 1 BB ping exists -- this is analogous to what we had from before
-            # Before: when at least 1 BB ping exists, frequency_start and frequency_end will exist
-
-            # assume transmit_type identical for all pings in a channel
-            first_ping_transmit_type = (
-                beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
-            ).compute()  # noqa
-            return {
-                # For BB: Keep only non-CW channels (LFM or FMD) based on transmit_type
-                "BB": first_ping_transmit_type.where(
-                    first_ping_transmit_type != "CW", drop=True
-                ).channel,  # noqa
-                # For CW: Keep only CW channels based on transmit_type
-                "CW": first_ping_transmit_type.where(
-                    first_ping_transmit_type == "CW", drop=True
-                ).channel,  # noqa
-            }
-        else:
-            # All channels are CW
-            return {"BB": None, "CW": beam.channel}
+        self.compute_echo_range()
 
     def _scale_ecs_cal_params_NB(self, ds_cal_NB: xr.Dataset, beam: xr.Dataset) -> xr.Dataset:
         """
@@ -480,9 +436,9 @@ class CalibrateEK80(CalibrateEK):
         xr.Dataset
             The calibrated dataset containing Sv or TS
         """
-        # Select source of backscatter data
-        beam = self.echodata[self.ed_beam_group].sel(channel=self.chan_sel)
-        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
+        # Select source of backscatter and vendor data
+        beam = self.echodata[self.ed_beam_group]
+        vend = self.echodata["Vendor_specific"].sel(channel=beam["channel"])
 
         # Get transmit signal
         tx_coeff = get_filter_coeff(vend)
@@ -527,7 +483,7 @@ class CalibrateEK80(CalibrateEK):
                 ytx_dict=tx,
                 fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
                 waveform_mode=self.waveform_mode,
-                channel=self.chan_sel,
+                channel=beam["channel"],
                 ping_time=beam["ping_time"],
             )
             # Use pulse_duration in place of tau_effective for GPT channels
