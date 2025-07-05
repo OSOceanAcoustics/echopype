@@ -67,8 +67,6 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
                 expected_dtype = var.dtype
 
             if not np.issubdtype(var.dtype, expected_dtype):
-                if name in ["beam_stabilisation", "non_quantitative_processing"]:
-                    var = var.fillna(0)
                 ds[name] = var.astype(expected_dtype)
     return ds
 
