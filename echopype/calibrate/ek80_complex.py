@@ -136,6 +136,11 @@ def get_filter_coeff(vend: xr.Dataset) -> Dict:
         A dictionary indexed by ``channel`` and values being dictionaries containing
         filter coefficients and decimation factors for constructing the transmit replica.
     """
+    # Select first index of filter time, which is of length 1. This ensures that the
+    # coefficient and decimation arrays are of shape (n,) instead of shape (1, n,).
+    if "filter_time" in vend.dims:
+        vend = vend.isel(filter_time=0)
+
     coeff = defaultdict(dict)
     for ch_id in vend["channel"].values:
         # filter coefficients and decimation factor
@@ -239,15 +244,21 @@ def get_transmit_signal(
     ]
     for ch in beam["channel"].values:
         tx_params = {}
+        fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
         for p in tx_param_names:
-            # Extract beam values and filter out NaNs
-            beam_values = np.unique(beam[p].sel(channel=ch))
-            # Filter out NaN values
-            beam_values_without_nan = beam_values[~np.isnan(beam_values)]
-            tx_params[p] = beam_values_without_nan
+            if waveform_mode == "CW" and p in [
+                "transmit_frequency_start",
+                "transmit_frequency_stop",
+            ]:
+                tx_params[p] = fs_chan
+            else:
+                # Extract beam values and filter out NaNs
+                beam_values = np.unique(beam[p].sel(channel=ch))
+                # Filter out NaN values
+                beam_values_without_nan = beam_values[~np.isnan(beam_values)]
+                tx_params[p] = beam_values_without_nan
             if tx_params[p].size != 1:
                 raise TypeError("File contains changing %s!" % p)
-        fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
         tx_params["fs"] = fs_chan
         y_ch, _ = tapered_chirp(**tx_params)
         # Filter and decimate chirp template

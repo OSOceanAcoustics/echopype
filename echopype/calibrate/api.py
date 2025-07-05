@@ -1,7 +1,8 @@
+import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_input_args_combination
+from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
@@ -27,11 +28,12 @@ def _compute_cal(
     ecs_file=None,
     waveform_mode=None,
     encode_mode=None,
+    assume_single_filter_time=None,
 ):
     # Make waveform_mode "FM" equivalent to "BB"
     waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
 
-    # Check on waveform_mode and encode_mode inputs
+    # Check on waveform_mode, encode_mode inputs, and assumption on single filter time
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
@@ -48,29 +50,92 @@ def _compute_cal(
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
 
-    # Set up calibration object
-    cal_obj = CALIBRATOR[echodata.sonar_model](
-        echodata,
-        env_params=env_params,
-        cal_params=cal_params,
-        ecs_file=ecs_file,
-        waveform_mode=waveform_mode,
-        encode_mode=encode_mode,
-    )
+    # Check that assume_single_filter_time is correctly passed in
+    if (
+        echodata.sonar_model != "EK80" or encode_mode != "complex"
+    ) and assume_single_filter_time is not None:
+        raise ValueError("assume_single_filter_time can only be used on complex EK80 data.")
 
-    # Check Echodata Backscatter Size
-    cal_obj._check_echodata_backscatter_size()
+    # Compute calibration dataset
+    def _compute_cal_ds(echodata):
+        # Set up calibration object
+        cal_obj = CALIBRATOR[echodata.sonar_model](
+            echodata,
+            env_params=env_params,
+            cal_params=cal_params,
+            ecs_file=ecs_file,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
+        )
 
-    # Perform calibration
-    if cal_type == "Sv":
-        cal_ds = cal_obj.compute_Sv()
-    elif cal_type == "TS":
-        cal_ds = cal_obj.compute_TS()
+        # Check Echodata Backscatter Size
+        cal_obj._check_echodata_backscatter_size()
+
+        # Perform calibration
+        if cal_type == "Sv":
+            cal_ds = cal_obj.compute_Sv()
+        else:
+            cal_ds = cal_obj.compute_TS()
+
+        return cal_ds
+
+    # If assuming a single filter time, select first index filter time
+    if assume_single_filter_time:
+        echodata["Vendor_specific"] = echodata["Vendor_specific"].isel(filter_time=0)
+
+    if (
+        echodata.sonar_model == "EK80"
+        and "filter_time" in echodata["Vendor_specific"].dims
+        and len(echodata["Vendor_specific"]["filter_time"]) > 1
+    ):
+        # Grab the correct ed_beam_group given waveform and encode mode and subset for
+        # CW or BB if encode mode is complex
+        ed_beam_group = retrieve_correct_beam_group(
+            echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
+
+        # Compute calibration dataset for each filter time and merge
+        cal_ds_list = []
+        filter_times = echodata["Vendor_specific"]["filter_time"].copy()
+
+        # Subset filter times for times that are in the echodata beam group subset
+        filter_times = filter_times.where(
+            (filter_times >= echodata[ed_beam_group]["ping_time"].min())
+            & (filter_times <= echodata[ed_beam_group]["ping_time"].max()),
+            drop=True,
+        )
+        for index in range(len(filter_times)):
+            # Susbet echodata object to grab vendor values and ping times corresponding to
+            # the index's associated filter time
+            echodata_copy = echodata.copy()
+            echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].sel(
+                filter_time=filter_times[index]
+            )
+            start_time = filter_times[index]
+            if index == len(filter_times) - 1:
+                end_time = None
+            else:
+                end_time = filter_times[index + 1] - np.timedelta64(1, "ns")
+            echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(
+                ping_time=slice(start_time, end_time)
+            )
+
+            # Calibrate and drop filter time
+            cal_ds_iteration = _compute_cal_ds(echodata_copy).drop_vars("filter_time")
+            cal_ds_list.append(cal_ds_iteration)
+
+        cal_ds = xr.merge(cal_ds_list)
     else:
-        raise ValueError("cal_type must be Sv or TS")
+        # Create an echodata copy
+        echodata_copy = echodata.copy()
+
+        # Compute a single calibration dataset
+        cal_ds = _compute_cal_ds(echodata_copy)
+        if "filter_time" in cal_ds:
+            cal_ds = cal_ds.drop_vars("filter_time")
 
     # Add attributes
-    def add_attrs(cal_type, ds):
+    def _add_attrs(cal_type, ds):
         """Add attributes to backscattering strength dataset.
         cal_type: Sv or TS
         """
@@ -91,7 +156,7 @@ def _compute_cal(
                 }
             )
 
-    add_attrs(cal_type, cal_ds)
+    _add_attrs(cal_type, cal_ds)
 
     # Add provinance
     # Provenance source files may originate from raw files (echodata.source_files)
@@ -178,6 +243,11 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         - `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
+
+    assume_single_filter_time : boolean, optional
+        If true, filter coefficients and decimation values will be used from the first
+        filter time. If false, all filter times will be used.
+        This can only be used for complex EK80 calibration.
 
     Returns
     -------
@@ -267,6 +337,10 @@ def compute_TS(echodata: EchoData, **kwargs):
         - `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
+
+    assume_single_filter_time : boolean, optional
+        If true, filter coefficients and decimation values will be used from the first
+        filter time. If false, all filter times will be used.
 
     Returns
     -------

@@ -1,4 +1,5 @@
 import math
+import sys
 
 import pytest
 import numpy as np
@@ -185,7 +186,6 @@ def test_add_location(
             _tests(ds_sel, location_type, nmea_sentence="GGA")
 
 
-@pytest.mark.integration
 @pytest.mark.parametrize(
     ("raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs"),
     [
@@ -200,7 +200,7 @@ def test_add_location(
                 "encode_mode": "complex"
             }
         ),
-        (
+        pytest.param(
             "echopype/test_data/ek80/RL2407_ADCP-D20240709-T150437.raw",
             "EK80",
             "MRU1",
@@ -209,7 +209,13 @@ def test_add_location(
             {
                 "waveform_mode": "CW",
                 "encode_mode": "complex"
-            }
+            },
+            marks=pytest.mark.skipif(
+                sys.version_info[0] == 3 and sys.version_info[1] == 10,
+                reason="The CI test only fails with Python 3.10 from an attempted import of cftime: " \
+                "https://github.com/OSOceanAcoustics/echopype/actions/runs/16092648567/job/45411361883?pr=1508. " \
+                "The CI test passes for Python 3.11 and 3.12."
+            )
         ),
         (
             "echopype/test_data/ek80/idx_bot/Hake-D20230711-T181910.raw",

@@ -164,7 +164,7 @@ def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     )
 
     # Manually go through cal params intake
-    beam = ed["Sonar/Beam_group1"].sel(channel=chan_sel)
+    beam = ed["Sonar/Beam_group2"].sel(channel=chan_sel)
     vend = ed["Vendor_specific"].sel(channel=chan_sel)
     freq_center = beam["frequency_nominal"].sel(channel=chan_sel)
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
