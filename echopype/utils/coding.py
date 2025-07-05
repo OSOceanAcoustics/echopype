@@ -1,6 +1,10 @@
 from re import search
 from typing import Any, Dict, Tuple
 
+# Eagerly import cftime to avoid attempt import in xarray:
+# https://github.com/OSOceanAcoustics/echopype/actions/runs/16092648567/job/45411361883?pr=1508 # noqa
+# This only happens for Python 3.10. CI passes for Python 3.11 and 3.12.
+import cftime  # noqa
 import numpy as np
 import xarray as xr
 import zarr
