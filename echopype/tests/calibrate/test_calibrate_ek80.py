@@ -481,7 +481,7 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
         # ("NYOS2105-D20210525-T213648.raw"),
     ],
 )
-def test_ek80_complex_FM_CW_interleave(filename, ek80_multiplex_path):
+def test_ek80_complex_FM_CW_interleave_dimensions(filename, ek80_multiplex_path):
     # Open converted/raw file and calibrate both FM and CW
     if filename.endswith(".zarr"):
         ed = ep.open_converted(ek80_multiplex_path / filename)
