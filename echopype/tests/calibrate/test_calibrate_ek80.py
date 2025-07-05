@@ -571,7 +571,10 @@ def test_assume_single_filter_time(sonar_model, compute_type, waveform_mode, enc
 
 @pytest.mark.parametrize(
     ("compute_type"),
-    [("Sv"), ("TS")],
+    [
+        ("Sv"),
+        ("TS")
+    ],
 )
 def test_multiple_filter_times_calibration(compute_type, ek80_path):
     # Select raw path
