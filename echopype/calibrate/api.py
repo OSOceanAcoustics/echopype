@@ -104,7 +104,7 @@ def _compute_cal(
         filter_times_subset = sorted(
             np.intersect1d(
                 filter_times_all,
-                echodata[ed_beam_group]["ping_time"].copy().data,
+                echodata[ed_beam_group]["ping_time"].data,
             )
         )
         for filter_time in filter_times_subset:
