@@ -96,26 +96,36 @@ def _compute_cal(
 
         # Compute calibration dataset for each filter time and merge
         cal_ds_list = []
-        filter_times = echodata["Vendor_specific"]["filter_time"].copy()
+
+        # Sort all filter times
+        filter_times_all = sorted(echodata["Vendor_specific"]["filter_time"].data)
 
         # Subset filter times for times that are in the echodata beam group subset
-        filter_times = filter_times.where(
-            (filter_times >= echodata[ed_beam_group]["ping_time"].min())
-            & (filter_times <= echodata[ed_beam_group]["ping_time"].max()),
-            drop=True,
+        filter_times_subset = sorted(
+            np.intersect1d(
+                filter_times_all,
+                echodata[ed_beam_group]["ping_time"].copy().data,
+            )
         )
-        for index in range(len(filter_times)):
+        for filter_time in filter_times_subset:
             # Susbet echodata object to grab vendor values and ping times corresponding to
             # the index's associated filter time
             echodata_copy = echodata.copy()
             echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].sel(
-                filter_time=filter_times[index]
+                filter_time=filter_time
             )
-            start_time = filter_times[index]
-            if index == len(filter_times) - 1:
+            # We want to subset the beam group to calibrate for 1 specific set of calibration
+            # parameters; however, this can get complicated:
+            # For example, in the complex FM, CW, FM case, there will be a filter
+            # time that is specific to each recording. However, FM complex will be completely
+            # contained in Beam_group1, so there will be a gap in Beam_group1. The filter
+            # time corresponding to the CW recording is the end time for the first FM recording.
+            start_time = filter_time
+            filter_times_all_index = np.where(filter_times_all == start_time)[0][0]
+            if filter_times_all_index == len(filter_times_all) - 1:
                 end_time = None
             else:
-                end_time = filter_times[index + 1] - np.timedelta64(1, "ns")
+                end_time = filter_times_all[filter_times_all_index + 1] - np.timedelta64(1, "ns")
             echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(
                 ping_time=slice(start_time, end_time)
             )
