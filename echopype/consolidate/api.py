@@ -303,9 +303,6 @@ def add_location(
     # Grab time dimension name
     time_dim_name = list(echodata["Platform"][lon_name].dims)[0]
 
-    # Check if there are duplicates in time_dim_name
-    check_loc_time_dim_duplicates(echodata, time_dim_name)
-
     # Copy dataset
     interp_ds = ds.copy()
 
@@ -318,6 +315,10 @@ def add_location(
             nmea_sentence=nmea_sentence,
             datagram_type=datagram_type,
         )
+
+        # Check if there are duplicates in time_dim_name for this NMEA subset
+        check_loc_time_dim_duplicates(loc_var, time_dim_name)
+
         interp_ds[interp_loc_name] = align_to_ping_time(
             loc_var, time_dim_name, ds["ping_time"], "linear"
         )
