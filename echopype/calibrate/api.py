@@ -130,11 +130,17 @@ def _compute_cal(
                 ping_time=slice(start_time, end_time)
             )
 
-            # Calibrate and drop filter time
-            cal_ds_iteration = _compute_cal_ds(echodata_copy).drop_vars("filter_time")
+            # Calibrate and broadcast filter time onto ping time dimension, and convert it from
+            # coordinate to data variable
+            cal_ds_iteration = _compute_cal_ds(echodata_copy)
+            cal_ds_iteration["filter_time"] = cal_ds_iteration["filter_time"].broadcast_like(
+                cal_ds_iteration["ping_time"]
+            )
+            cal_ds_iteration = cal_ds_iteration.reset_coords(names="filter_time", drop=False)
             cal_ds_list.append(cal_ds_iteration)
 
-        cal_ds = xr.merge(cal_ds_list)
+        # Concat only on data variables with ping_time dimension
+        cal_ds = xr.concat(cal_ds_list, dim="ping_time", data_vars="minimal")
     else:
         # Create an echodata copy
         echodata_copy = echodata.copy()

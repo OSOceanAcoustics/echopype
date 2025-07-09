@@ -602,7 +602,7 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
     ed_copy["Vendor_specific"] = vendor_specific_ds
 
     # Calibrate for both echodata objects and when assume_filter_time=True
-    # and check that all 3 are equal
+    # and check that all 3 are equal (after filter_times is dropped)
     if compute_type == "Sv":
         ds_cal = ep.calibrate.compute_Sv(
             ed, waveform_mode="CW", encode_mode="complex"
@@ -627,5 +627,15 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
             encode_mode="complex",
             assume_single_filter_time=True
         )
-    assert ds_cal.equals(ds_cal_copy)
+    assert ds_cal.equals(ds_cal_copy.drop_vars("filter_time"))
     assert ds_cal.equals(ds_cal_assume_single_filter_time)
+
+    # Check filter_time values
+    expected_filter_time_np = np.full(len(ds_cal["ping_time"]), second_time)
+    expected_filter_time_np[:30] = first_time
+    expected_filter_time_da = xr.DataArray(
+        data=expected_filter_time_np,
+        coords={"ping_time": ds_cal["ping_time"]},
+        dims=["ping_time"]
+    )
+    assert ds_cal_copy["filter_time"].equals(expected_filter_time_da)
