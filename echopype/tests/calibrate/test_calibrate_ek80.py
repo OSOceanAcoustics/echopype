@@ -478,6 +478,7 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
     ("filename"),
     [
         ("hake2024_08152300-Phase0-D20240815-T234514-4.raw"),
+        ("hake2024_08152300-Phase0-D20240815-T233359-3.raw"),
         ("ooi_multiplex.zarr"),
     ],
 )
@@ -595,10 +596,10 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
         dim="filter_time"
     )
     first_time = vendor_specific_ds.coords["filter_time"].values[0]
-    new_times = [first_time, pd.to_datetime(first_time) + pd.Timedelta(seconds=10)]
+    second_time = ed["Sonar/Beam_group1"]["ping_time"].values[30]
+    new_times = [first_time, second_time]
     vendor_specific_ds = vendor_specific_ds.assign_coords(filter_time=("filter_time", new_times))
     ed_copy["Vendor_specific"] = vendor_specific_ds
-    ed_copy_copy = ed_copy.copy()
 
     # Calibrate for both echodata objects and when assume_filter_time=True
     # and check that all 3 are equal
@@ -610,7 +611,7 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
             ed_copy, waveform_mode="CW", encode_mode="complex"
         )
         ds_cal_assume_single_filter_time = ep.calibrate.compute_Sv(
-            ed_copy_copy, waveform_mode="CW",
+            ed_copy, waveform_mode="CW",
             encode_mode="complex",
             assume_single_filter_time=True
         )
@@ -622,7 +623,7 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
             ed_copy, waveform_mode="CW", encode_mode="complex"
         )
         ds_cal_assume_single_filter_time = ep.calibrate.compute_TS(
-            ed_copy_copy, waveform_mode="CW",
+            ed_copy, waveform_mode="CW",
             encode_mode="complex",
             assume_single_filter_time=True
         )
