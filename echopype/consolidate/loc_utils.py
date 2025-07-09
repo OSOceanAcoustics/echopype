@@ -109,9 +109,7 @@ def check_loc_vars_validity(
 
 def check_loc_time_dim_duplicates(da: xr.DataArray, time_dim_name: str) -> None:
     """Check if there are duplicates in time_dim_name"""
-    if len(np.unique(da[time_dim_name].data)) != len(
-        da[time_dim_name].data
-    ):
+    if len(np.unique(da[time_dim_name].data)) != len(da[time_dim_name].data):
         raise ValueError(
             f'The ``da["{time_dim_name}"]`` array contains duplicate values. '
             "Downstream interpolation on the position variables requires unique time values."
