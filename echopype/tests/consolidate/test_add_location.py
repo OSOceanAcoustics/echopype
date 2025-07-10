@@ -6,8 +6,7 @@ import xarray as xr
 
 import echopype as ep
 from echopype.consolidate.loc_utils import sel_nmea
-
-TEST_DATA_DIR = "../../test_data/"
+from echopype.testing import TEST_DATA_FOLDER
 
 @pytest.mark.unit
 def test_sel_nmea_value_error():
@@ -37,9 +36,9 @@ def test_add_location_datagram_type_specified_not_ek_error():
     """
     # Compute raw and compute Sv
     ed = ep.open_raw(
-        os.path.abspath(TEST_DATA_DIR + "azfp/17082117.01A"),
+        os.path.abspath(TEST_DATA_FOLDER / "azfp/17082117.01A"),
         sonar_model="AZFP",
-        xml_path=os.path.abspath(TEST_DATA_DIR + "azfp/23081211.XML")
+        xml_path=os.path.abspath(TEST_DATA_FOLDER / "azfp/23081211.XML")
     )
     avg_temperature = ed["Environment"]['temperature'].values.mean()
     env_params = {
@@ -190,7 +189,7 @@ def test_add_location(
     ("raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs"),
     [
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/D20170912-T234910.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/D20170912-T234910.raw"),
             "EK80",
             None,
             False,
@@ -201,7 +200,7 @@ def test_add_location(
             }
         ),
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/RL2407_ADCP-D20240709-T150437.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/RL2407_ADCP-D20240709-T150437.raw"),
             "EK80",
             "MRU1",
             False,
@@ -212,7 +211,7 @@ def test_add_location(
             }
         ),
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/idx_bot/Hake-D20230711-T181910.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/idx_bot/Hake-D20230711-T181910.raw"),
             "EK80",
             "IDX",
             True,
@@ -248,7 +247,7 @@ def test_add_location_time_duplicates_value_error(
 
     # Check if the specific error message is in the logs
     assert (
-        f'The ``da["{time_dim_name}"]`` array contains duplicate values. '
+        f'Data contains duplicate time values in time_dim_name "{time_dim_name}". '
         "Downstream interpolation on the position variables requires unique time values."
     ) == str(exc_info.value)
 
@@ -258,7 +257,7 @@ def test_add_location_time_duplicates_value_error(
     ("raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, error_type, expected_error_message"),
     [
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/D20170912-T234910.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/D20170912-T234910.raw"),
             "EK80",
             None,
             False,
@@ -270,7 +269,7 @@ def test_add_location_time_duplicates_value_error(
             "Coordinate variables not present.",
         ),
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/RL2407_ADCP-D20240709-T150437.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/RL2407_ADCP-D20240709-T150437.raw"),
             "EK80",
             "MRU1",
             False,
@@ -282,7 +281,7 @@ def test_add_location_time_duplicates_value_error(
             "Coordinate variables are all NaN.",
         ),
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/idx_bot/Hake-D20230711-T181910.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/idx_bot/Hake-D20230711-T181910.raw"),
             "EK80",
             "IDX",
             True,
@@ -339,7 +338,7 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
     ("raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_warnings"),
     [
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/D20170912-T234910.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/D20170912-T234910.raw"),
             "EK80",
             "NMEA",
             False,
@@ -361,7 +360,7 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
             ]
         ),
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/RL2407_ADCP-D20240709-T150437.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/RL2407_ADCP-D20240709-T150437.raw"),
             "EK80",
             "MRU1",
             False,
@@ -383,7 +382,7 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
             ]
         ),
         (
-            os.path.abspath(TEST_DATA_DIR + "ek80/idx_bot/Hake-D20230711-T181910.raw"),
+            os.path.abspath(TEST_DATA_FOLDER / "ek80/idx_bot/Hake-D20230711-T181910.raw"),
             "EK80",
             "IDX",
             True,
