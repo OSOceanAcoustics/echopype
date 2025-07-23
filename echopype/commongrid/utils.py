@@ -613,7 +613,7 @@ def _groupby_x_along_channels(
     # bin and average along ping_time or distance_nmi and echo_range or depth
     sv_mean = xarray_reduce(
         sv,
-        ds_Sv[dim_0], # generic: not always 'channel'
+        ds_Sv[dim_0],  # generic: not always 'channel'
         ds_Sv[x_var],
         ds_Sv[range_var],
         expected_groups=(None, x_interval, range_interval),
