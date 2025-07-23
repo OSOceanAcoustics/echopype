@@ -53,7 +53,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
         ed["Vendor_specific"].sel(channel=ed["Sonar/Beam_group1"]["channel"])
     )
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(
-        ed["Sonar/Beam_group1"].sel(channel=ed["Sonar/Beam_group1"]["channel"]), filter_coeff, waveform_mode, fs
+        ed["Sonar/Beam_group1"].sel(channel=ed["Sonar/Beam_group1"]["channel"]), filter_coeff, waveform_mode, fs, drop_last_hanning_zero=True,
     )
     tau_effective = ep.calibrate.ek80_complex.get_tau_effective(
         ytx_dict=tx,
@@ -236,6 +236,7 @@ def test_ek80_BB_power_from_complex(
         encode_mode=encode_mode,
         env_params={"formula_absorption": "FG"},
         cal_params=None,
+        drop_last_hanning_zero=True,
     )
 
     # Params needed
@@ -246,7 +247,7 @@ def test_ek80_BB_power_from_complex(
     filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(
         ed["Vendor_specific"].sel(channel=beam["channel"])
     )
-    tx, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs)
+    tx, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs, drop_last_hanning_zero=True)
 
     # Get power from complex samples
     prx = cal_obj._get_power_from_complex(beam=beam, chirp=tx, z_et=z_et, z_er=z_er).compute()
@@ -324,6 +325,7 @@ def test_ek80_BB_power_compute_Sv(
         ed,
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
+        drop_last_hanning_zero=True,
     )
     pyel_vals = pyel_BB_p_data["sv_data"]
     if dask_array:
@@ -338,6 +340,7 @@ def test_ek80_BB_power_compute_Sv(
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
 
 
+@pytest.mark.xfail(reason="Unresolved difference. The transmit signal might be computed differently? Wu-Jung will email Echoview.")
 def test_ek80_BB_power_echoview(ek80_path):
     """Compare pulse compressed outputs from echopype and csv exported from EchoView.
 

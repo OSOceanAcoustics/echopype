@@ -15,6 +15,7 @@ def tapered_chirp(
     slope,
     transmit_frequency_start,
     transmit_frequency_stop,
+    drop_last_hanning_zero=False,
 ):
     """
     Create the chirp replica following implementation from Lars Anderson.
@@ -35,7 +36,10 @@ def tapered_chirp(
     w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
     N = len(y)
     w1 = w[0 : int(len(w) / 2)]
-    w2 = w[int(len(w) / 2) : -1]
+    if drop_last_hanning_zero:
+        w2 = w[int(len(w) / 2) : -1]
+    else:
+        w2 = w[int(len(w) / 2) :]
     i0 = 0
     i1 = len(w1)
     i2 = N - len(w2)
@@ -206,6 +210,7 @@ def get_transmit_signal(
     coeff: Dict,
     waveform_mode: str,
     fs: Union[float, xr.DataArray],
+    drop_last_hanning_zero: bool = False,
 ):
     """Reconstruct transmit signal and compute effective pulse length.
 
@@ -219,6 +224,10 @@ def get_transmit_signal(
     waveform_mode : str
         ``CW`` for CW-mode samples, either recorded as complex or power samples
         ``BB`` for BB-mode samples, recorded as complex samples
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
 
     Return
     ------
@@ -260,6 +269,7 @@ def get_transmit_signal(
             if tx_params[p].size != 1:
                 raise TypeError("File contains changing %s!" % p)
         tx_params["fs"] = fs_chan
+        tx_params["drop_last_hanning_zero"] = drop_last_hanning_zero
         y_ch, _ = tapered_chirp(**tx_params)
         # Filter and decimate chirp template
         y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)

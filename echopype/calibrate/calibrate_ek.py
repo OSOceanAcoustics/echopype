@@ -207,6 +207,7 @@ class CalibrateEK80(CalibrateEK):
         waveform_mode,
         encode_mode,
         ecs_file=None,
+        drop_last_hanning_zero=False,
         **kwargs,
     ):
         super().__init__(echodata, env_params, cal_params, ecs_file)
@@ -219,6 +220,9 @@ class CalibrateEK80(CalibrateEK):
         self.waveform_mode = waveform_mode
         self.encode_mode = encode_mode
         self.echodata = echodata
+
+        # Set boolean to drop/keep the last hanning window zero value
+        self.drop_last_hanning_zero = drop_last_hanning_zero
 
         # Get the right ed_beam_group given waveform and encode mode
         self.ed_beam_group = retrieve_correct_beam_group(
@@ -445,7 +449,9 @@ class CalibrateEK80(CalibrateEK):
         fs = self.cal_params["receiver_sampling_frequency"]
 
         # Switch to use Andersen implementation for transmit chirp starting v0.6.4
-        tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
+        tx, tx_time = get_transmit_signal(
+            beam, tx_coeff, self.waveform_mode, fs, self.drop_last_hanning_zero
+        )
 
         # Params to clarity in use below
         z_er = self.cal_params["impedance_transceiver"]

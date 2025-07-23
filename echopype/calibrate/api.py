@@ -29,6 +29,7 @@ def _compute_cal(
     waveform_mode=None,
     encode_mode=None,
     assume_single_filter_time=None,
+    drop_last_hanning_zero=False,
 ):
     # Make waveform_mode "FM" equivalent to "BB"
     waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
@@ -66,6 +67,7 @@ def _compute_cal(
             ecs_file=ecs_file,
             waveform_mode=waveform_mode,
             encode_mode=encode_mode,
+            drop_last_hanning_zero=drop_last_hanning_zero,
         )
 
         # Check Echodata Backscatter Size
@@ -265,6 +267,11 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         filter time. If false, all filter times will be used.
         This can only be used for complex EK80 calibration.
 
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
+
     Returns
     -------
     xr.Dataset
@@ -357,6 +364,11 @@ def compute_TS(echodata: EchoData, **kwargs):
     assume_single_filter_time : boolean, optional
         If true, filter coefficients and decimation values will be used from the first
         filter time. If false, all filter times will be used.
+
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
 
     Returns
     -------
