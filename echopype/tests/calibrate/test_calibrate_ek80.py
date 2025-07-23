@@ -340,7 +340,6 @@ def test_ek80_BB_power_compute_Sv(
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
 
 
-@pytest.mark.xfail(reason="Unresolved difference. The transmit signal might be computed differently? Wu-Jung will email Echoview.")
 def test_ek80_BB_power_echoview(ek80_path):
     """Compare pulse compressed outputs from echopype and csv exported from EchoView.
 
@@ -360,6 +359,7 @@ def test_ek80_BB_power_echoview(ek80_path):
         cal_params=None,
         waveform_mode="BB",
         encode_mode="complex",
+        drop_last_hanning_zero=True,
     )
     beam = echodata["Sonar/Beam_group1"]
 
@@ -371,6 +371,7 @@ def test_ek80_BB_power_echoview(ek80_path):
         coeff,
         "BB",
         cal_obj.cal_params["receiver_sampling_frequency"],
+        drop_last_hanning_zero=True,
     )
 
     pc = ep.calibrate.ek80_complex.compress_pulse(
