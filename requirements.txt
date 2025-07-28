@@ -7,7 +7,7 @@ fsspec
 geopy
 jinja2
 netCDF4>1.6,<1.7.1
-numpy
+numpy<2
 pandas
 psutil>=5.9.1
 pynmea2
