@@ -138,7 +138,7 @@ def compute_MVBS(
     )
 
     # Generalize the first dimension name to support multiple like channel and frequency_nominal
-    dim_0 = list(raw_MVBS.dims.keys())[0]
+    dim_0 = list(raw_MVBS.sizes.keys())[0]
 
     # create MVBS dataset
     # by transforming the binned dimensions to regular coords

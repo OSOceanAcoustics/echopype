@@ -608,7 +608,7 @@ def _groupby_x_along_channels(
             )
 
     # Use the first dimension as the grouping dimension for generality
-    dim_0 = list(ds_Sv.dims.keys())[0]
+    dim_0 = list(ds_Sv.sizes.keys())[0]
 
     # bin and average along ping_time or distance_nmi and echo_range or depth
     sv_mean = xarray_reduce(
