@@ -407,7 +407,7 @@ def test_add_depth_errors(ek80_path):
 )
 def test_add_depth_EK_with_platform_vertical_offsets(relpath, sonar_model, compute_Sv_kwargs, ek60_path, ek80_path):
     """Test `depth` values when using EK Platform vertical offset values to compute it."""
-    
+
     base = ek60_path if sonar_model == "EK60" else ek80_path
     raw_file = base / relpath
     if not os.path.isfile(raw_file):
@@ -415,7 +415,7 @@ def test_add_depth_EK_with_platform_vertical_offsets(relpath, sonar_model, compu
 
     ed = ep.open_raw(raw_file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
-    
+
     # Subset ds_Sv to include only first 5 `range_sample` coordinates
     # since the test takes too long to iterate through every value
     ds_Sv = ds_Sv.isel(range_sample=slice(0,5))
@@ -489,9 +489,6 @@ def test_add_depth_EK_with_platform_angles(subpath, sonar_model, compute_Sv_kwar
         equal_nan=True
     )
 
-
-import os
-import pytest
 
 @pytest.mark.integration
 @pytest.mark.parametrize("subpath, sonar_model, compute_Sv_kwargs", [
@@ -590,6 +587,48 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(raw_file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
+
+    # Compute `depth` using beam angle values
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+
+    # Check history attribute
+    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute_without_time = history_attribute[32:]
+    assert history_attribute_without_time == (
+        f". `depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."
+    )
+
+@pytest.mark.integration
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs, expected_beam_group_name", [
+    (
+        "Summer2018--D20180905-T033113.raw",
+        "EK80",
+        {"waveform_mode":"BB", "encode_mode":"complex"},
+        "Beam_group1"
+    ),
+    (
+        "Summer2018--D20180905-T033113.raw",
+        "EK80",
+        {"waveform_mode":"CW", "encode_mode":"power"},
+        "Beam_group2"
+    )
+])
+def test_add_depth_EK_with_beam_angles_with_different_beam_groups_and_dim_swap(
+    file, sonar_model, compute_Sv_kwargs, expected_beam_group_name, ek80_path
+):
+    """
+    Test `depth` channel when using EK Beam angles from two separate calibrated
+    Sv datasets (that are from the same raw file) using two differing pairs of
+    calibration key word arguments. The two tests should correspond to different
+    beam groups i.e. beam group 1 and beam group 2.
+    """
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
+
+    ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
+    for group in ed["Sonar"]['beam_group'].values:
+        ed[f"Sonar/{group}"] = ep.consolidate.swap_dims_channel_frequency(ed[f"Sonar/{group}"])
 
     # Compute `depth` using beam angle values
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
