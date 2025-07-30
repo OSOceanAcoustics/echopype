@@ -462,7 +462,9 @@ def add_splitbeam_angle(
     if dim_0 in ["channel", "frequency_nominal"]:
         ds_beam = echodata[ed_beam_group].sel({dim_0: source_Sv[dim_0].values})
     else:
-        raise ValueError("The input source_Sv Dataset must have a channel or frequency_nominal dimension!")
+        raise ValueError(
+            "The input source_Sv Dataset must have a channel or frequency_nominal dimension!"
+        )
 
     # Assemble angle param dict
     angle_param_list = [
@@ -481,8 +483,7 @@ def add_splitbeam_angle(
     # fail if source_Sv and ds_beam do not have the same lengths
     # for ping_time, range_sample, and channel
     same_size_lens = [
-        ds_beam.sizes[dim] == source_Sv.sizes[dim]
-        for dim in [dim_0, "ping_time", "range_sample"]
+        ds_beam.sizes[dim] == source_Sv.sizes[dim] for dim in [dim_0, "ping_time", "range_sample"]
     ]
     if not same_size_lens:
         raise ValueError(
