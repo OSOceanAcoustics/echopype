@@ -24,7 +24,7 @@ def _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms=0)
         jitter = (
             np.random.randint(ping_time_jitter_max_ms, size=ping_time_len) / 1000
         )  # convert to seconds
-        ping_time = pd.to_datetime(ping_time.astype(int) / 1e9 + jitter, unit="s")
+        ping_time = pd.to_datetime(ping_time.astype("int64") / 1e9 + jitter, unit="s")
     return ping_time
 
 
