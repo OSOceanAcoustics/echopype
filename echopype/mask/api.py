@@ -11,6 +11,13 @@ import xarray as xr
 
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+
+# for seafloor detection
+from .detect_basic import (
+    _check_bottom_inputs,
+    _detect_bottom_on_selected_channel,
+    _validate_threshold,
+)
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
 
 # lookup table with key string operator and value as corresponding Python operator
@@ -658,3 +665,37 @@ def frequency_differencing(
     da = da.assign_attrs(xr_dataarray_attrs)
 
     return da
+
+
+# detect and mask seafloor
+
+
+def seafloor_mask_basic(
+    ds: xr.Dataset,
+    *,
+    channel: int | str,
+    var_name: str = "Sv",
+    threshold: float | tuple[float, float] = -50.0,
+    offset_m: float = 0.3,
+    surface_skip: int = 200,
+) -> xr.DataArray:
+    """Return a boolean mask (True = above bottom) for all channels,
+    bottom detected on `channel`."""
+    Sv_sel, depth_sel, Sv_all, depth_all = _check_bottom_inputs(ds, var_name, channel)
+    tmin, tmax = _validate_threshold(threshold)
+
+    bottom_depth = _detect_bottom_on_selected_channel(
+        Sv_sel, depth_sel, surface_skip=surface_skip, tmin=tmin, tmax=tmax, offset_m=offset_m
+    )
+    mask = (depth_all < bottom_depth).fillna(False).astype(bool).rename("mask")
+
+    return mask.assign_attrs(
+        {
+            "mask_type": "seafloor_basic",
+            "detector_channel": str(Sv_sel.coords["channel"].item()),
+            "threshold_min": float(tmin),
+            "threshold_max": float(tmax),
+            "offset_m": float(offset_m),
+            "surface_skip_samples": int(surface_skip),
+        }
+    )
