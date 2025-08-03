@@ -1,30 +1,35 @@
-import numpy as np
 import xarray as xr
 
 
-def mask_below_seafloor(ds: xr.Dataset, varname: str = "Sv") -> xr.Dataset:
-    ds_masked = ds.copy(deep=True)
+def _check_inputs(ds: xr.Dataset, var_name: str, channel: str):
+    """Validate dataset and select the reference channel for bottom detection."""
+    if var_name not in ds:
+        raise KeyError(f"{var_name!r} not found in dataset")
+    if "depth" not in ds:
+        raise KeyError("'depth' variable not found in dataset")
+    if "channel" not in ds.coords:
+        raise ValueError("Dataset must have 'channel' coordinate")
 
-    if varname not in ds_masked:
-        raise ValueError(f"Dataset must contain '{varname}' variable.")
+    Sv_all = ds[var_name]
+    depth_all = ds["depth"]
+    Sv_sel = Sv_all.sel(channel=channel)
+    depth_sel = depth_all.sel(channel=channel)
 
-    ping_times = ds_masked["ping_time"].values
-    # range_sample = ds_masked["range_sample"].values
+    # Ensure uniform depth grid across pings
+    depth_ref = depth_sel.isel(ping_time=0)
+    is_uniform = (abs(depth_sel - depth_ref).max(dim="range_sample") < 1e-16).all()
+    if not bool(is_uniform):
+        raise ValueError("Depth grid varies across ping_time for the selected channel.")
 
-    for chan in ds_masked["channel"].values:
-        bottom_var = f"seafloor_sample_range_on_{chan}"
-        if bottom_var not in ds_masked:
-            print(f"No seafloor index found for channel '{chan}', skipping.")
-            continue
+    return Sv_sel, depth_sel
 
-        seafloor_idx = ds_masked[bottom_var].values.astype(float)
 
-        for i, idx in enumerate(seafloor_idx):
-            if np.isnan(idx):
-                continue
-            ping_val = ping_times[i]
-            ds_masked[varname].loc[
-                dict(channel=chan, ping_time=ping_val, range_sample=slice(int(idx) + 1, None))
-            ] = np.nan
-
-    return ds_masked
+def _validate_threshold(threshold):
+    """Ensure threshold is a valid tuple (tmin, tmax)."""
+    if isinstance(threshold, (int, float)):
+        tmin, tmax = float(threshold), float(threshold) + 10.0
+    else:
+        tmin, tmax = map(float, threshold)
+        if tmax <= tmin:
+            raise ValueError("threshold upper bound must be > lower bound")
+    return tmin, tmax
