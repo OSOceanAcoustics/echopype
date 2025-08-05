@@ -11,6 +11,7 @@ import xarray as xr
 
 # for seafloor detection
 from echopype.mask.seafloor_detection.detect_basic import detect_basic
+from echopype.mask.seafloor_detection.detect_blackwell import detect_blackwell
 
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
@@ -667,6 +668,7 @@ def frequency_differencing(
 # Registry of supported methods
 METHODS = {
     "basic": detect_basic,
+    "blackwell": detect_blackwell,
 }
 
 
@@ -681,7 +683,7 @@ def detect_seafloor(
     Parameters
     ----------
     ds : xr.Dataset
-        Sv dataset with dimensions including ping_time and depth.
+        Sv dataset including ping_time and depth.
     method : str
         Name of the detection method to use (e.g., "basic", "blackwell").
     params : dict
