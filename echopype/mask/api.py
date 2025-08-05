@@ -2,12 +2,16 @@ import datetime
 import operator as op
 import pathlib
 import sys
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import dask
 import dask.array
 import numpy as np
 import xarray as xr
+
+# for seafloor detection
+from echopype.mask.seafloor_detection.detect_basic import detect_basic
+from echopype.mask.seafloor_detection.detect_blackwell import detect_blackwell
 
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
@@ -658,3 +662,39 @@ def frequency_differencing(
     da = da.assign_attrs(xr_dataarray_attrs)
 
     return da
+
+
+# detect seafloor
+# Registry of supported methods
+METHODS = {
+    "basic": detect_basic,
+    "blackwell": detect_blackwell,
+}
+
+
+def detect_seafloor(
+    ds: xr.Dataset,
+    method: str,
+    params: Dict,
+) -> xr.DataArray:
+    """
+    Detect seafloor using the selected method and return a bottom line.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Sv dataset including ping_time and depth.
+    method : str
+        Name of the detection method to use (e.g., "basic", "blackwell").
+    params : dict
+        Parameters for the detection function (method-specific).
+
+    Returns
+    -------
+    xr.DataArray
+        1D DataArray of bottom depth per ping_time (no channel dimension).
+    """
+    if method not in METHODS:
+        raise ValueError(f"Unsupported bottom detection method: {method}")
+
+    return METHODS[method](ds, **params)
