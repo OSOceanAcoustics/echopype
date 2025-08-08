@@ -2,7 +2,7 @@ import datetime
 import operator as op
 import pathlib
 import sys
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import dask
 import dask.array
@@ -12,6 +12,9 @@ import xarray as xr
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
+
+# for schoals detection
+from .shoal_detection.detect_echoview import detect_echoview
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -658,3 +661,37 @@ def frequency_differencing(
     da = da.assign_attrs(xr_dataarray_attrs)
 
     return da
+
+
+# detect shoals
+SHOAL_METHODS = {
+    "echoview": detect_echoview,
+}
+
+
+def detect_shoals(
+    ds: xr.Dataset,
+    method: str,
+    params: Dict,
+) -> xr.DataArray:
+    """
+    Detect shoals using the selected method and return a 2D boolean mask.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Sv dataset including ping_time and range_sample.
+    method : str
+        Name of the detection method to use (e.g., "echoview", "will").
+    params : dict
+        Parameters for the detection function (method-specific).
+
+    Returns
+    -------
+    xr.DataArray
+        2D boolean DataArray of shoal mask (True = inside).
+    """
+    if method not in SHOAL_METHODS:
+        raise ValueError(f"Unsupported shoal detection method: {method}")
+
+    return SHOAL_METHODS[method](ds, **params)
