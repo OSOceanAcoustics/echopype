@@ -30,7 +30,7 @@ POSITION_VARIABLES = ["latitude", "longitude"]
 
 def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.Dataset:
     """
-    Use frequency_nominal in place of channel to be dataset dimension and coorindate.
+    Use frequency_nominal in place of channel to be dataset dimension and coordinate.
 
     This is useful because the nominal transducer frequencies are commonly used to
     refer to data collected from a specific transducer.
@@ -350,6 +350,7 @@ def add_splitbeam_angle(
     pulse_compression: bool = False,
     storage_options: dict = {},
     to_disk: bool = True,
+    use_frequency_nominal: bool = False,
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
@@ -391,6 +392,9 @@ def add_splitbeam_angle(
         If ``False``, ``to_disk`` with split-beam angles added will be returned.
         ``to_disk=True`` is useful when ``source_Sv`` is a path and
         users only want to write the split-beam angle data to this path.
+    use_frequency_nominal: bool, default=False
+        If ``True``, the split-beam angles will be calculated using the
+        ``frequency_nominal`` variable in ``source_Sv``.
 
     Returns
     -------
@@ -460,7 +464,11 @@ def add_splitbeam_angle(
     if "channel" not in source_Sv.variables:
         raise ValueError("The input source_Sv Dataset must have a channel dimension!")
 
-    # Select ds_beam channels from source_Sv
+    # Swap the dimension to frequency_nominal if use_frequency_nominal is True
+    if use_frequency_nominal:
+        source_Sv = swap_dims_channel_frequency(source_Sv)
+
+    # Select ds_beam dimension from source_Sv
     ds_beam = echodata[ed_beam_group].sel(channel=source_Sv["channel"].values)
 
     # Assemble angle param dict
