@@ -20,6 +20,9 @@ import numpy as np
 
 from utils import get_mock_echodata, check_consolidated
 
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path["EK60"]
 
 @pytest.fixture(scope="module")
 def legacy_datatree(test_path):
@@ -726,10 +729,10 @@ def test_update_platform_latlon_notimestamp(test_path):
         ({"time1": 10, "time2": 10}),
     ],
 )
-def test_echodata_chunk(chunk_dict):
+def test_echodata_chunk(chunk_dict, ek60_path):
     # Parse Raw File
     ed = echopype.open_raw(
-        "echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw", sonar_model="EK60"
+        ek60_path / "DY1801_EK60-D20180211-T164025.raw", sonar_model="EK60"
     )
 
     # Chunk Echodata object

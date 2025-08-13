@@ -21,17 +21,6 @@ def ek60_missing_channel_power_path(test_path):
 def es60_path(test_path):
     return test_path["ES60"]
 
-
-# raw_paths = ['./echopype/test_data/ek60/set1/' + file
-#  for file in os.listdir('./echopype/test_data/ek60/set1')]    # 2 range lengths
-# raw_path = ['./echopype/test_data/ek60/set2/' + file
-#                  for file in os.listdir('./echopype/test_data/ek60/set2')]    # 3 range lengths
-# Other data files
-# raw_filename = 'data_zplsc/OceanStarr_2017-D20170725-T004612.raw'  # OceanStarr 2 channel EK60
-# raw_filename = '../data/DY1801_EK60-D20180211-T164025.raw'  # Dyson 5 channel EK60
-# raw_filename = 'data_zplsc/D20180206-T000625.raw   # EK80
-
-
 def test_convert_ek60_matlab_raw(ek60_path):
     """Compare parsed Beam group data with Matlab outputs."""
     ek60_raw_path = str(

@@ -3,7 +3,7 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 import xarray as xr
-import zarr
+from zarr.codecs import BloscCodec
 from dask.array.core import auto_chunks
 from dask.utils import parse_bytes
 from xarray import coding
@@ -16,12 +16,11 @@ DEFAULT_TIME_ENCODING = {
 
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
-    # zarr compressors were chosen based on xarray results
     "zarr": {
-        "float": {"compressor": zarr.Blosc(cname="zstd", clevel=3, shuffle=2)},
-        "int": {"compressor": zarr.Blosc(cname="lz4", clevel=5, shuffle=1, blocksize=0)},
-        "string": {"compressor": zarr.Blosc(cname="lz4", clevel=5, shuffle=1, blocksize=0)},
-        "time": {"compressor": zarr.Blosc(cname="lz4", clevel=5, shuffle=1, blocksize=0)},
+        "float": {"compressor": BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")},
+        "int": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
+        "string": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
+        "time": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
     },
 }
 

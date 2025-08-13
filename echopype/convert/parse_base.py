@@ -173,7 +173,7 @@ class ParseEK(ParseBase):
             zarr_store = create_temp_zarr_store()
             # Setup zarr store
             zarr_root = zarr.group(
-                store=zarr_store, overwrite=True, synchronizer=zarr.ThreadSynchronizer()
+                store=zarr_store.root, overwrite=True
             )
 
         for raw_type in self.raw_types:
@@ -199,12 +199,13 @@ class ParseEK(ParseBase):
     ) -> dask.array.Array:
         if shape == arr.shape:
             z_arr = zarr_root.array(
+                shape=shape,
                 name=path,
                 data=arr,
                 fill_value=np.nan,
                 chunks=chunks,
                 dtype="f8",
-                write_empty_chunks=False,
+                config={'write_empty_chunks': False},
             )
         else:
             # Figure out current data region

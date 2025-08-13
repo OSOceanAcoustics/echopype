@@ -21,6 +21,9 @@ def ek80_cal_path(test_path):
 def ek80_ext_path(test_path):
     return test_path["EK80_EXT"]
 
+@pytest.fixture
+def ek80_multiplex_path(test_path):
+    return test_path["EK80_MULTIPLEX"]
 
 def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     """
@@ -417,9 +420,9 @@ def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ],
 )
 @pytest.mark.integration
-def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_channel_ping_pattern):
+def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_channel_ping_pattern, ek80_multiplex_path):
     # Extract bb complex multiplex EK80 data
-    ed = ep.open_raw(f"echopype/test_data/ek80_bb_complex_multiplex/{raw_data_path}", sonar_model="EK80")
+    ed = ep.open_raw(ek80_multiplex_path / raw_data_path, sonar_model="EK80")
 
     # Compute Sv
     ds_Sv = ep.calibrate.compute_Sv(ed,waveform_mode='BB',encode_mode='complex')
