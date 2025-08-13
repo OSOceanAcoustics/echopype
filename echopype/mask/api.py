@@ -2,13 +2,16 @@ import datetime
 import operator as op
 import pathlib
 import sys
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import dask
 import dask.array
 import numpy as np
+import pandas as pd
 import xarray as xr
+from flox.xarray import xarray_reduce
 
+from ..commongrid.utils import _convert_bins_to_interval_index, _parse_x_bin
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
@@ -658,3 +661,178 @@ def frequency_differencing(
     da = da.assign_attrs(xr_dataarray_attrs)
 
     return da
+
+
+def regrid_mask(
+    mask: xr.DataArray,
+    range_var: str = "depth",
+    range_bin: str = "20m",
+    ping_time_bin: str = "20s",
+    func: Literal["logical-AND", "logical-OR"] = "logical-AND",
+    method: str = "map-reduce",
+    reindex: bool = False,
+    closed: Literal["left", "right"] = "right",
+    **flox_kwargs,
+) -> xr.DataArray:
+    """
+    Regrid mask through downsampling via a logical AND operation.
+
+    Parameters
+    ----------
+    mask : xr.DataArray
+        Mask DataArray. Must be binary 0/1 or True/False.
+        Must have two dimensions: 'range_var' and 'ping_time'.
+    range_var: str, default ``depth``
+        The variable to use for range binning.
+    range_bin : str, default '20m'
+        bin size along 'range_sample' or 'depth' in meters.
+    ping_time_bin : str, default '20s'
+        bin size along 'ping_time'
+    func: {'logical-AND', 'logical-OR'}, default 'logical-AND'
+        When func == 'logical-AND', the output value is set to 1/True only if all corresponding
+        values in the regrid bin are 1/True.
+        When func == 'logical-OR', the output value is set to 1/True if any value in the regrid
+        bin is 1/True.
+    method: str, default 'map-reduce'
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    reindex: bool, default False
+        If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
+        Generally, `reindex=False` results in less memory at the cost of computation speed.
+        Can only be used when method='map-reduce'.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    closed: {'left', 'right'}, default 'left'
+        Which side of bin interval is closed.
+    **flox_kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function.
+
+    Returns
+    -------
+    A DataArray containing a regridded mask.
+    """
+
+    if method != "map-reduce" and reindex is not None:
+        raise ValueError(f"Passing in reindex={reindex} is only allowed when method='map_reduce'.")
+
+    if not isinstance(ping_time_bin, str):
+        raise TypeError("ping_time_bin must be a string")
+
+    if len(mask.dims) != 2 or range_var not in mask.dims or "ping_time" not in mask.dims:
+        raise ValueError("Mask must only have (range_var, ping_time) dimensions.")
+
+    # Check if mask is binary (True/False or 1/0)
+    if not np.isin(mask.data, [1, 0]).all():
+        raise ValueError("Mask must be binary True/False or 1/0.")
+
+    # Set strictness of aggregation output being 1/True based on `func`:
+    # When func == 'logical-AND', the output value is set to 1/True only if all corresponding
+    # values in the regrid bin are 1/True.
+    # When func == 'logical-OR', the output value is set to 1/True if any value in the regrid
+    # bin is 1/True.
+    if func == "logical-AND":
+        func_xarray = "mean"
+    elif func == "logical-OR":
+        func_xarray = "nanmean"
+    else:
+        raise ValueError("'func' must be 'logical-AND' or 'logical-OR'.")
+
+    # Create bin information for the range variable
+    range_bin = _parse_x_bin(range_bin)
+    range_var_max = mask[range_var].max(skipna=True)
+    range_interval = np.arange(0, range_var_max + range_bin, range_bin)
+    range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
+
+    # Create bin information needed for ping_time
+    d_index = (
+        mask["ping_time"]
+        .resample(ping_time=ping_time_bin, skipna=True)
+        .first()
+        .indexes["ping_time"]
+    )
+    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)]).values
+    ping_interval = _convert_bins_to_interval_index(ping_interval, closed=closed)
+
+    # Set all False/0 to NaN. This also turns all True to 1.
+    mask_copy = mask.copy()
+    mask_copy = mask_copy.where(mask_copy != 0)
+
+    # Set interval index for groups
+    mask_regridded_da = xarray_reduce(
+        mask_copy,
+        mask_copy["ping_time"],
+        mask_copy[range_var],
+        expected_groups=(ping_interval, range_interval),
+        isbin=[True, True],
+        method=method,
+        reindex=reindex,
+        func=func_xarray,
+        skipna=False,
+        fill_value=np.nan,
+        **flox_kwargs,
+    )
+
+    # Replace `ping_time_bin` and `range_var_bin` with `ping_time` and `range_var`
+    mask_regridded_da = (
+        xr.DataArray(
+            data=mask_regridded_da.data,
+            dims=["ping_time", range_var],
+            coords={
+                "ping_time": np.array([v.left for v in mask_regridded_da.ping_time_bins.values]),
+                range_var: np.array(
+                    [v.left for v in mask_regridded_da[f"{range_var}_bins"].values]
+                ),
+            },
+        )
+        .fillna(0)
+        .astype(dtype=mask.dtype)
+    )
+
+    # ping_time_bin parsing and conversions
+    # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
+    # https://xarray.pydata.org/en/stable/generated/xarray.Dataset.resample.html
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.resample.html
+    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.html
+    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.resolution_string.html
+    # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
+    # https://numpy.org/devdocs/reference/arrays.datetime.html#datetime-units
+    timedelta_units = {
+        "d": {"nptd64": "D", "unitstr": "day"},
+        "h": {"nptd64": "h", "unitstr": "hour"},
+        "t": {"nptd64": "m", "unitstr": "minute"},
+        "min": {"nptd64": "m", "unitstr": "minute"},
+        "s": {"nptd64": "s", "unitstr": "second"},
+        "l": {"nptd64": "ms", "unitstr": "millisecond"},
+        "ms": {"nptd64": "ms", "unitstr": "millisecond"},
+        "u": {"nptd64": "us", "unitstr": "microsecond"},
+        "us": {"nptd64": "ms", "unitstr": "millisecond"},
+        "n": {"nptd64": "ns", "unitstr": "nanosecond"},
+        "ns": {"nptd64": "ms", "unitstr": "millisecond"},
+    }
+    ping_time_bin_td = pd.Timedelta(ping_time_bin)
+    # res = resolution (most granular time unit)
+    ping_time_bin_resunit = ping_time_bin_td.resolution_string.lower()
+    ping_time_bin_resvalue = int(
+        ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]["nptd64"])
+    )
+    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
+
+    # Attach attributes
+    mask_regridded_da[range_var].attrs = {"long_name": "Range distance", "units": "m"}
+    mask_regridded_da = mask_regridded_da.assign_attrs(
+        {
+            "cell_methods": (
+                f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "  # noqa
+                "comment: ping_time is the interval start) "
+                f"{range_var}: mean (interval: {range_bin} meter "
+                f"comment: {range_var} is the interval start)"
+            ),
+            "binning_mode": "physical units",
+            "range_meter_interval": str(range_bin) + "m",
+            "ping_time_interval": ping_time_bin,
+        }
+    )
+
+    return mask_regridded_da

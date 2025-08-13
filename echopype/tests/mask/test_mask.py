@@ -1,23 +1,22 @@
-import pathlib
-
-import pytest
-
-import numpy as np
-import xarray as xr
-import dask.array
+from typing import List, Union, Optional
 import tempfile
+import pathlib
 import os
+
+import pandas as pd
+import xarray as xr
+import numpy as np
+import dask.array
+import pytest
 
 import echopype as ep
 import echopype.mask
+from echopype.mask import regrid_mask
 from echopype.mask.api import _check_mask_dim_alignment, _validate_and_collect_mask_input, _check_var_name_fill_value
 from echopype.mask.freq_diff import (
     _parse_freq_diff_eq,
     _check_freq_diff_source_Sv,
 )
-
-from typing import List, Union, Optional
-
 
 def get_mock_freq_diff_data(
     n: int,
@@ -1632,3 +1631,181 @@ def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_
                 f"actual_range min doesn't match data min for {test_description}"
             assert actual_range[1] == actual_max_from_data, \
                 f"actual_range max doesn't match data max for {test_description}"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("dtype", "func"),
+    [
+        ("int", "logical-AND"),
+        ("int", "logical-OR"),
+        ("bool", "logical-AND"),
+        ("bool", "logical-OR"),
+    ]
+)
+def test_regrid_mask(dtype, func):
+    """
+    Tests for logical-AND and logical-OR outputs.
+    """
+    # Create mask
+    input_array = np.array(
+        [
+            [True, True, False, False],
+            [True, True, False, False],
+            [False, False, True, True],
+            [False, False, True, False],
+        ]
+    )
+    if func == "logical-AND":
+        expected_array = np.array(
+            [
+                [True,  False],
+                [False, False],
+            ]
+        )
+    elif func == "logical-OR":
+        expected_array = np.array(
+            [
+                [True,  False],
+                [False, True],
+            ]
+        )
+    if dtype == "int":
+        input_array = input_array.astype(np.int64)
+        expected_array = expected_array.astype(np.int64)
+    mask = xr.DataArray(
+        input_array,
+        dims=("ping_time", "depth"),
+    )
+    mask = mask.assign_coords(
+        {
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:10.000000000",
+                    "2020-01-01T01:00:20.000000000",
+                    "2020-01-01T01:00:30.000000000",
+                    "2020-01-01T01:00:39.000000000",
+                ]
+            ),
+            "depth": [10, 20, 30, 39]
+        }
+    )
+
+    # Regrid mask
+    mask_regridded_da = regrid_mask(
+        mask,
+        range_var = "depth",
+        range_bin="20m",
+        ping_time_bin="20s",
+        func=func,
+    )
+
+    # Check that expected result is what is received
+    mask_expected_da = xr.DataArray(
+        expected_array,
+        dims=("ping_time", "depth"),
+    )
+    mask_expected_da = mask_expected_da.assign_coords(
+        {
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:00.000000000",
+                    "2020-01-01T01:00:20.000000000",
+                ]
+            ),
+            "depth": [0, 20]
+        }
+    )
+    assert mask_regridded_da.equals(mask_expected_da)
+
+
+@pytest.mark.integration
+def test_regrid_mask_errors():
+    "Test that errors are raised correctly."
+
+    # Create valid mask
+    input_array = np.array(
+        [
+            [True, True, False, False],
+            [True, True, False, False],
+            [False, False, True, True],
+            [False, False, True, False],
+        ]
+    )
+    mask = xr.DataArray(
+        input_array,
+        dims=("ping_time", "depth"),
+    )
+    mask = mask.assign_coords(
+        {
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:10.000000000",
+                    "2020-01-01T01:00:20.000000000",
+                    "2020-01-01T01:00:30.000000000",
+                    "2020-01-01T01:00:39.000000000",
+                ]
+            ),
+            "depth": [10, 20, 30, 39]
+        }
+    )
+
+    # Test errors
+
+    with pytest.raises(ValueError, match = "Passing in reindex=.*only allowed when method='map_reduce'"):
+        regrid_mask(
+            mask,
+            method = "blockwise",
+            reindex = False
+        )
+
+    with pytest.raises(TypeError, match = "ping_time_bin must be a string"):
+        regrid_mask(
+            mask,
+            ping_time_bin = 20
+        )
+
+    with pytest.raises(ValueError, match = r"Mask must only have \(range_var, ping_time\) dimensions\."):
+        regrid_mask(
+            mask,
+            range_var = "invalid_range_var",
+        )
+
+    with pytest.raises(ValueError, match = "'func' must be 'logical-AND' or 'logical-OR'."):
+        regrid_mask(
+            mask,
+            func = "invalid_func"
+        )
+
+    # Create invalid mask
+    input_invalid_array = np.array(
+        [
+            [1, 1, 0, 5], # 5 is invalid for binary mask
+            [1, 1, 0, 0],
+            [0, 0, 1, 1],
+            [0, 0, 1, np.nan], # NaN also invalid for binary mask
+        ]
+    )
+    invalid_mask = xr.DataArray(
+        input_invalid_array,
+        dims=("ping_time", "depth"),
+    )
+    invalid_mask = invalid_mask.assign_coords(
+        {
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:10.000000000",
+                    "2020-01-01T01:00:20.000000000",
+                    "2020-01-01T01:00:30.000000000",
+                    "2020-01-01T01:00:39.000000000",
+                ]
+            ),
+            "depth": [10, 20, 30, 39]
+        }
+    )
+
+    # Test invalid mask
+    with pytest.raises(ValueError, match = "Mask must be binary True/False or 1/0."):
+        regrid_mask(
+            invalid_mask,
+        )
