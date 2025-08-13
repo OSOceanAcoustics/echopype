@@ -487,7 +487,6 @@ def add_splitbeam_angle(
         raise ValueError(
             "The 'source_Sv' dataset does not have the same dimensions as data in 'echodata'!"
         )
-
     # obtain split-beam angles from
     # CW mode data
     if waveform_mode == "CW":
@@ -495,6 +494,7 @@ def add_splitbeam_angle(
             theta, phi = get_angle_power_samples(ds_beam, angle_params)
         else:  # complex data
             # operation is identical with BB complex data
+
             theta, phi = get_angle_complex_samples(ds_beam, angle_params)
     # BB mode data
     else:
