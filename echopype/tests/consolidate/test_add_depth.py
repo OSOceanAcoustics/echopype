@@ -11,6 +11,18 @@ from echopype.consolidate.ek_depth_utils import (
     ek_use_platform_vertical_offsets, ek_use_platform_angles, ek_use_beam_angles
 )
 
+@pytest.fixture
+def azfp_path(test_path):
+    return test_path["AZFP"]
+
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path["EK80"]
+
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path["EK60"]
+
 
 def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     return xr.Dataset(
@@ -177,33 +189,37 @@ def test_warning_zero_vector(caplog):
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
-        "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
+        "NBP_B050N-D20180118-T090228.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170620-T021537.raw",
+        "ncei-wcsd/Summer2017-D20170620-T021537.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
+        "ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
         "EK80",
         {"waveform_mode":"BB", "encode_mode":"complex"}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         "EK80",
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwargs):
+def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
     """
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
     `ek_use_beam_angles` for correct dimensions.
     """
     # Open EK Raw file and Compute Sv
-    ed = ep.open_raw(file, sonar_model=sonar_model)
+    if sonar_model == "EK60":
+        ed = ep.open_raw(ek60_path / file, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
+
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Check dimensions for using EK platform vertical offsets to compute
@@ -228,7 +244,7 @@ def test_ek_depth_utils_dims(file, sonar_model, compute_Sv_kwargs):
 
 
 @pytest.mark.integration
-def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
+def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog, ek80_path):
     """
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
     `ek_use_beam_angles` for correct logger warnings when NaNs exist in group
@@ -236,7 +252,7 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
     """
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        ek80_path / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         sonar_model="EK80"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
@@ -285,14 +301,14 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog):
 
 
 @pytest.mark.integration
-def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog):
+def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog, ek80_path):
     """
     Tests warnings when `tilt` and `depth_offset` are being passed in when other
     `use_*` arguments are passed in as `True`.
     """
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        ek80_path / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         sonar_model="EK80"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
@@ -359,11 +375,11 @@ def test_add_depth_without_echodata():
 
 
 @pytest.mark.integration
-def test_add_depth_errors():
+def test_add_depth_errors(ek80_path):
     """Check if all `add_depth` errors are raised appropriately."""
     # Open EK80 Raw file and Compute Sv
     ed = ep.open_raw(
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        ek80_path / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         sonar_model="EK80"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
@@ -390,30 +406,34 @@ def test_add_depth_errors():
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
-        "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
+        "NBP_B050N-D20180118-T090228.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170620-T021537.raw",
+        "ncei-wcsd/Summer2017-D20170620-T021537.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
+        "ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
         "EK80",
         {"waveform_mode":"BB", "encode_mode":"complex"}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         "EK80",
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_Sv_kwargs):
+def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
     """Test `depth` values when using EK Platform vertical offset values to compute it."""
     # Open EK Raw file and Compute Sv
-    ed = ep.open_raw(file, sonar_model=sonar_model)
+    if sonar_model == "EK60":
+        ed = ep.open_raw(ek60_path / file, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
+
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Subset ds_Sv to include only first 5 `range_sample` coordinates
@@ -450,30 +470,34 @@ def test_add_depth_EK_with_platform_vertical_offsets(file, sonar_model, compute_
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
-        "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
+        "NBP_B050N-D20180118-T090228.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170620-T021537.raw",
+        "ncei-wcsd/Summer2017-D20170620-T021537.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
+        "ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
         "EK80",
         {"waveform_mode":"BB", "encode_mode":"complex"}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         "EK80",
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs):
+def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
     """Test `depth` values when using EK Platform angles to compute it."""
     # Open EK Raw file and Compute Sv
-    ed = ep.open_raw(file, sonar_model=sonar_model)
+    if sonar_model == "EK60":
+        ed = ep.open_raw(ek60_path / file, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
+
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Replace any Beam Angle NaN values with 0
@@ -504,30 +528,34 @@ def test_add_depth_EK_with_platform_angles(file, sonar_model, compute_Sv_kwargs)
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     (
-        "echopype/test_data/ek60/NBP_B050N-D20180118-T090228.raw",
+        "NBP_B050N-D20180118-T090228.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170620-T021537.raw",
+        "ncei-wcsd/Summer2017-D20170620-T021537.raw",
         "EK60",
         {}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
+        "ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
         "EK80",
         {"waveform_mode":"BB", "encode_mode":"complex"}
     ),
     (
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         "EK80",
         {"waveform_mode":"CW", "encode_mode":"power"}
     )
 ])
-def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
+def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
     """Test `depth` values when using EK Beam angles to compute it."""
     # Open EK Raw file and Compute Sv
-    ed = ep.open_raw(file, sonar_model=sonar_model)
+    if sonar_model == "EK60":
+        ed = ep.open_raw(ek60_path / file, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
+
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     # Replace Beam Angle NaN values
@@ -559,20 +587,20 @@ def test_add_depth_EK_with_beam_angles(file, sonar_model, compute_Sv_kwargs):
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs, expected_beam_group_name", [
     (
-        "echopype/test_data/ek80/Summer2018--D20180905-T033113.raw",
+        "Summer2018--D20180905-T033113.raw",
         "EK80",
         {"waveform_mode":"BB", "encode_mode":"complex"},
         "Beam_group1"
     ),
     (
-        "echopype/test_data/ek80/Summer2018--D20180905-T033113.raw",
+        "Summer2018--D20180905-T033113.raw",
         "EK80",
         {"waveform_mode":"CW", "encode_mode":"power"},
         "Beam_group2"
     )
 ])
 def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
-    file, sonar_model, compute_Sv_kwargs, expected_beam_group_name
+    file, sonar_model, compute_Sv_kwargs, expected_beam_group_name, ek80_path
 ):
     """
     Test `depth` channel when using EK Beam angles from two separate calibrated
@@ -581,8 +609,50 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
     beam groups i.e. beam group 1 and beam group 2.
     """
     # Open EK Raw file and Compute Sv
-    ed = ep.open_raw(file, sonar_model=sonar_model)
+    ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
+
+    # Compute `depth` using beam angle values
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+
+    # Check history attribute
+    history_attribute = ds_Sv["depth"].attrs["history"]
+    history_attribute_without_time = history_attribute[32:]
+    assert history_attribute_without_time == (
+        f". `depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."
+    )
+
+@pytest.mark.integration
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs, expected_beam_group_name", [
+    (
+        "Summer2018--D20180905-T033113.raw",
+        "EK80",
+        {"waveform_mode":"BB", "encode_mode":"complex"},
+        "Beam_group1"
+    ),
+    (
+        "Summer2018--D20180905-T033113.raw",
+        "EK80",
+        {"waveform_mode":"CW", "encode_mode":"power"},
+        "Beam_group2"
+    )
+])
+def test_add_depth_EK_with_beam_angles_with_different_beam_groups_and_dim_swap(
+    file, sonar_model, compute_Sv_kwargs, expected_beam_group_name, ek80_path
+):
+    """
+    Test `depth` channel when using EK Beam angles from two separate calibrated
+    Sv datasets (that are from the same raw file) using two differing pairs of
+    calibration key word arguments. The two tests should correspond to different
+    beam groups i.e. beam group 1 and beam group 2.
+    """
+    # Open EK Raw file and Compute Sv
+    ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
+
+    ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
+    for group in ed["Sonar"]['beam_group'].values:
+        ed[f"Sonar/{group}"] = ep.consolidate.swap_dims_channel_frequency(ed[f"Sonar/{group}"])
 
     # Compute `depth` using beam angle values
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
@@ -596,20 +666,20 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
 
 
 @pytest.mark.integration
-def test_add_depth_with_external_glider_depth_and_tilt_array():
+def test_add_depth_with_external_glider_depth_and_tilt_array(azfp_path):
     """
     Test add_depth with external glider depth offset and tilt array data.
     """
     # Open RAW
     ed = ep.open_raw(
-        raw_file="echopype/test_data/azfp/rutgers_glider_external_nc/18011107.01A",
-        xml_path="echopype/test_data/azfp/rutgers_glider_external_nc/18011107.XML",
+        raw_file=azfp_path / "rutgers_glider_external_nc/18011107.01A",
+        xml_path=azfp_path / "rutgers_glider_external_nc/18011107.XML",
         sonar_model="azfp"
     )
 
     # Open external glider dataset
     glider_ds = xr.open_dataset(
-        "echopype/test_data/azfp/rutgers_glider_external_nc/ru32-20180109T0531-profile-sci-delayed-subset.nc",
+        azfp_path / "rutgers_glider_external_nc/ru32-20180109T0531-profile-sci-delayed-subset.nc",
         engine="netcdf4"
     )
 
@@ -663,7 +733,7 @@ def test_add_depth_with_external_glider_depth_and_tilt_array():
 
 
 @pytest.mark.unit
-def test_multi_dim_depth_offset_and_tilt_array_error():
+def test_multi_dim_depth_offset_and_tilt_array_error(ek80_path):
     """
     Test that the correct `ValueError`s are raised when a multi-dimensional
     array is passed into `add_depth` for the `depth_offset` and `tilt`
@@ -671,7 +741,7 @@ def test_multi_dim_depth_offset_and_tilt_array_error():
     """
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(
-        "echopype/test_data/ek80/ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        ek80_path / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
         sonar_model="EK80"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed, **{"waveform_mode":"CW", "encode_mode":"power"})
