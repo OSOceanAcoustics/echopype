@@ -1643,9 +1643,9 @@ def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_
         ("bool", "logical-OR"),
     ]
 )
-def test_regrid_mask(dtype, func):
+def test_regrid_mask_2D(dtype, func):
     """
-    Tests for logical-AND and logical-OR outputs.
+    Test mask regridding for a 2D array by checking logical-AND and logical-OR outputs.
     """
     # Create mask
     input_array = np.array(
@@ -1720,6 +1720,87 @@ def test_regrid_mask(dtype, func):
 
 
 @pytest.mark.integration
+def test_regrid_mask_3D():
+    """
+    Test mask regridding for a 3D array.
+    """
+    # Create mask
+    mask = xr.DataArray(
+        np.array(
+            [
+                [
+                    [True, True, False, False],
+                    [True, True, False, False],
+                    [False, False, True, True],
+                    [False, False, True, False],
+                ],
+                [
+                    [False, True, False, False],
+                    [True, True, False, False],
+                    [False, False, True, True],
+                    [False, False, True, True],
+                ]
+            ]
+        ),
+        dims=("region_id", "ping_time", "depth"),
+    )
+    mask = mask.assign_coords(
+        {
+            "region_id": [1, 2],
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:10.000000000",
+                    "2020-01-01T01:00:20.000000000",
+                    "2020-01-01T01:00:30.000000000",
+                    "2020-01-01T01:00:39.000000000",
+                ]
+            ),
+            "depth": [10, 20, 30, 39],
+        }
+    )
+
+    # Regrid mask
+    mask_regridded_da = regrid_mask(
+        mask,
+        range_var = "depth",
+        range_bin="20m",
+        ping_time_bin="20s",
+        third_dim="region_id",
+        func="logical-AND",
+    )
+
+    # Check that expected result is what is received
+    mask_expected_da = xr.DataArray(
+        np.array(
+            [
+                [
+                    [True, False],
+                    [False, False],
+                ],
+                [
+                    [False, False],
+                    [False, True],
+                ]
+            ]
+        ),
+        dims=("region_id", "ping_time", "depth"),
+    )
+    mask_expected_da = mask_expected_da.assign_coords(
+        {
+            "region_id": [1, 2],
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:00.000000000",
+                    "2020-01-01T01:00:20.000000000",
+                ]
+            ),
+            "depth": [0, 20]
+        }
+    )
+    assert mask_regridded_da.equals(mask_expected_da)
+
+
+@pytest.mark.integration
 def test_regrid_mask_errors():
     "Test that errors are raised correctly."
 
@@ -1765,7 +1846,7 @@ def test_regrid_mask_errors():
             ping_time_bin = 20
         )
 
-    with pytest.raises(ValueError, match = r"Mask must only have \(range_var, ping_time\) dimensions\."):
+    with pytest.raises(ValueError, match = r"Mask must contain \(range_var, ping_time\) dimensions\."):
         regrid_mask(
             mask,
             range_var = "invalid_range_var",
@@ -1775,6 +1856,24 @@ def test_regrid_mask_errors():
         regrid_mask(
             mask,
             func = "invalid_func"
+        )
+
+    with pytest.raises(ValueError, match = "Mask must have only 2 dimensions unless 'third_dim' is specified."):
+        regrid_mask(
+            mask.expand_dims("region_id"),
+            third_dim = None,
+        )
+    
+    with pytest.raises(ValueError, match = f"Mask must contain 'region_id' as dimension."):
+        regrid_mask(
+            mask,
+            third_dim = "region_id",
+        )
+
+    with pytest.raises(ValueError, match = f"Mask must have only 3 dimensions."):
+        regrid_mask(
+            mask.expand_dims("region_id_1").expand_dims("region_id_2"),
+            third_dim = "region_id_1",
         )
 
     # Create invalid mask
