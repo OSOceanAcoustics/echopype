@@ -31,7 +31,7 @@ jobs:
           - 8080:80
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags.
       - name: Set up Python
@@ -70,13 +70,8 @@ jobs:
       - name: Print Changed files
         run: echo "${{ steps.files.outputs.added_modified_renamed }}"
       - name: Running all Tests
-        if: contains(github.event.pull_request.title, '[all tests ci]')
         run: |
           pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
-      - name: Running Tests
-        if: ${{ !contains(github.event.pull_request.title, '[all tests ci]') }}
-        run: |
-          python .ci_helpers/run-test.py --pytest-args="--log-cli-level=WARNING,-vvv,-rx,--numprocesses=${{ env.NUM_WORKERS }},--max-worker-restart=3,--disable-warnings" --include-cov ${{ steps.files.outputs.added_modified_renamed }}
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
