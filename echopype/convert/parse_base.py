@@ -172,9 +172,7 @@ class ParseEK(ParseBase):
             # Setup temp store
             zarr_store = create_temp_zarr_store()
             # Setup zarr store
-            zarr_root = zarr.group(
-                store=zarr_store.root, overwrite=True
-            )
+            zarr_root = zarr.group(store=zarr_store.root, overwrite=True)
 
         for raw_type in self.raw_types:
             data_type_shapes = expanded_data_shapes[raw_type]
@@ -205,7 +203,7 @@ class ParseEK(ParseBase):
                 fill_value=np.nan,
                 chunks=chunks,
                 dtype="f8",
-                config={'write_empty_chunks': False},
+                config={"write_empty_chunks": False},
             )
         else:
             # Figure out current data region

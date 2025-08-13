@@ -3,10 +3,10 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 import xarray as xr
-from zarr.codecs import BloscCodec
 from dask.array.core import auto_chunks
 from dask.utils import parse_bytes
 from xarray import coding
+from zarr.codecs import BloscCodec
 
 DEFAULT_TIME_ENCODING = {
     "units": "nanoseconds since 1970-01-01T00:00:00Z",
