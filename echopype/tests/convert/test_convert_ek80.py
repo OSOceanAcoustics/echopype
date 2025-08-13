@@ -13,6 +13,7 @@ from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 from echopype.utils import log
 from echopype.convert.utils.ek_duplicates import check_unique_ping_time_duplicates
+from pathlib import Path
 
 
 @pytest.fixture
@@ -647,3 +648,22 @@ def test_ek80_sequence_filter_coeff():
     ds_Sv = compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
     assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel")["channel"])
     assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel")["channel"])
+
+@pytest.fixture
+def ek80VesselSpeed_path(test_path):  
+    folder = test_path["EK80_Spd_Ovr_Grnd"]
+    raw_files = [f for f in folder.glob("*.raw")]
+    assert len(raw_files) == 1, "Expected exactly one .raw file"
+    return raw_files[0]        
+
+def test_ek80_speed_over_ground(ek80VesselSpeed_path):
+    ed = open_raw(
+        raw_file = ek80VesselSpeed_path,
+        sonar_model = "EK80"
+        )
+
+    actual = ed['Platform']['speed_over_ground'].values.tolist()
+
+    expected = 'None,8.2,8.2,None,8.1,8.1,None,8.2,8.2,None,8.1,8.1,None,8.1,8.1,None,8.1,8.1,None,8.1,8.1,None,8.1,8.1,None,8.0,8.0,None,8.0,8.0,None,8.0,8.0,None,8.1,8.1,None,8.0,8.0,None,8.0,8.0,None,8.1,8.1,None,8.0,8.0,None,8.0,8.0,None,8.0,8.0,None,8.0,8.0,None,8.0,8.0,None,8.0,8.0,None,8.1,8.1,None,8.0,8.0,None,8.0,8.0,None,8.0,8.0,None,8.1,8.1,None,8.2,8.2,None,8.2,8.2,None,8.2,8.2,None,8.3,8.3,None,8.4,8.4,None,8.3,8.3,None,8.2,8.2,None,8.2,8.2,None,8.3,8.3,None,8.4,8.4,None,8.4,8.4,None,8.5,8.5,None,8.3,8.3,None,8.4,8.4,None,8.5,8.5,None,8.5,8.5,None,8.5,8.5,None,8.5,8.5,None,8.6,8.6,None,8.7,8.7,None,8.7,8.7,None,8.7,8.7,None,8.7,8.7,None,8.7,8.7,None,8.7,8.7,None,8.7,8.7,None,8.7,8.7,None,8.8,8.8,None,8.8,8.8,None,8.8,8.8,None,8.8,8.8,None,8.9,8.9,None,8.8,8.8,None,8.8,8.8,None,8.8,8.8,None,8.9,8.9,None,8.8,8.8,None,8.9,8.9,None,8.9,8.9,None,8.9,8.9,None,8.9,8.9,None,8.9,8.9,None,8.9,8.9,None,8.9,8.9,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,8.9,8.9,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,8.9,8.9,None,9.0,9.0,None,9.0,9.0,None,8.9,8.9,None,8.9,8.9,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.1,9.1,None,9.0,9.0,None,9.0,9.0,None,9.1,9.1,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.0,9.0,None,9.1,9.1,None,9.2,9.2,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.2,9.2,None,9.2,9.2,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1,None,9.2,9.2,None,9.0,9.0,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.0,9.0,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,8.9,8.9,None,9.0,9.0,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.1,9.1,None,9.0,9.0,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1,None,9.1,9.1,None,9.2,9.2,None,9.1,9.1'
+    
+    assert  actual == expected.split(',')
