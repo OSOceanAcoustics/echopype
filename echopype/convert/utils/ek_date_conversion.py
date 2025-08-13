@@ -40,7 +40,7 @@ def nt_to_unix(nt_timestamp_tuple, return_datetime=True):
     The timestamp is a 64bit count of 100ns intervals since the NT epoch
     broken into two 32bit longs, least significant first:
 
-    >>> dt = nt_to_unix((19496896L, 30196149L))
+    >>> dt = nt_to_unix((19496896, 30196149))
     >>> match_dt = datetime.datetime(2011, 12, 23, 20, 54, 3, 964000, pytz_utc)
     >>> assert abs(dt - match_dt) <= dt.resolution
     """
@@ -63,7 +63,7 @@ def unix_to_nt(unix_timestamp):
 
     #Simple conversion
     >>> dt = datetime.datetime(2011, 12, 23, 20, 54, 3, 964000, pytz_utc)
-    >>> assert (19496896L, 30196149L) == unix_to_nt(dt)
+    >>> assert (19496896, 30196149) == unix_to_nt(dt)
 
     #Converting back and forth between the two standards:
     >>> orig_dt = datetime.datetime.now(tz=pytz_utc)

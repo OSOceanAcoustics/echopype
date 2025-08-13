@@ -18,6 +18,9 @@ def azfp_path(test_path):
 def ek60_path(test_path):
     return test_path['EK60']
 
+@pytest.fixture
+def ek60_cal_chunks_path(test_path):
+    return test_path['EK60_CAL_CHUNKS']
 
 @pytest.fixture
 def ek80_path(test_path):
@@ -270,7 +273,7 @@ def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
 
 
 @pytest.mark.integration
-def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
+def test_compute_Sv_combined_ed_ping_time_extend_past_time1(ek80_path):
     """
     Test computing combined Echodata object when ping time dimension in Beam group
     extends past time1 dimension in Environment group.
@@ -280,8 +283,8 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
     """
     # Parse RAW files and combine Echodata objects
     raw_list = [
-        "echopype/test_data/ek80/pifsc_saildrone/SD_TPOS2023_v03-Phase0-D20230530-T001150-0.raw",
-        "echopype/test_data/ek80/pifsc_saildrone/SD_TPOS2023_v03-Phase0-D20230530-T002350-0.raw",
+        ek80_path / "pifsc_saildrone/SD_TPOS2023_v03-Phase0-D20230530-T001150-0.raw",
+        ek80_path / "pifsc_saildrone/SD_TPOS2023_v03-Phase0-D20230530-T002350-0.raw",
     ]
     ed_list = []
     for raw_file in raw_list:
@@ -321,11 +324,11 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1():
 @pytest.mark.parametrize(
     "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
     [
-        ("azfp/17031001.01A", "AZFP", "azfp/17030815.XML", None, None),
-        ("ek60/DY1801_EK60-D20180211-T164025.raw", "EK60", None, None, None),
-        ("ek80/D20170912-T234910.raw", "EK80", None, "BB", "complex"),
-        ("ek80/D20230804-T083032.raw", "EK80", None, "CW", "complex"),
-        ("ek80/Summer2018--D20180905-T033113.raw", "EK80", None, "CW", "power")
+        ("17031001.01A", "AZFP", "17030815.XML", None, None),
+        ("DY1801_EK60-D20180211-T164025.raw", "EK60", None, None, None),
+        ("D20170912-T234910.raw", "EK80", None, "BB", "complex"),
+        ("D20230804-T083032.raw", "EK80", None, "CW", "complex"),
+        ("Summer2018--D20180905-T033113.raw", "EK80", None, "CW", "power")
     ]
 )
 def test_check_echodata_backscatter_size(
@@ -334,15 +337,29 @@ def test_check_echodata_backscatter_size(
     xml_path,
     waveform_mode,
     encode_mode,
-    caplog
+    caplog,
+    azfp_path,
+    ek60_path,
+    ek80_path
 ):
     """Tests for _check_echodata_backscatter_size warning."""
     # Parse Echodata Object
-    ed = ep.open_raw(
-        raw_file=f"echopype/test_data/{raw_path}",
-        sonar_model=sonar_model,
-        xml_path=f"echopype/test_data/{xml_path}",
-    )
+    if sonar_model == "AZFP":
+        ed = ep.open_raw(
+            raw_file=azfp_path / raw_path,
+            sonar_model=sonar_model,
+            xml_path=azfp_path / xml_path,
+        )
+    elif sonar_model == "EK60":
+        ed = ep.open_raw(
+            raw_file=ek60_path / raw_path,
+            sonar_model=sonar_model,
+        )
+    else: # EK80
+        ed = ep.open_raw(
+            raw_file=ek80_path / raw_path,
+            sonar_model=sonar_model,
+        )
 
     # Compute environment parameters if AZFP
     env_params = None
@@ -420,10 +437,10 @@ def test_check_echodata_backscatter_size(
 
 
 @pytest.mark.integration
-def test_fm_equals_bb():
+def test_fm_equals_bb(ek80_path):
     """Check that waveform_mode='BB' and waveform_mode='FM' result in the same Sv/TS."""
     # Open Raw and Compute both Sv and both TS
-    ed = ep.open_raw("echopype/test_data/ek80/D20170912-T234910.raw", sonar_model = "EK80")
+    ed = ep.open_raw(ek80_path / "D20170912-T234910.raw", sonar_model = "EK80")
     ds_Sv_bb = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
     ds_Sv_fm = ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
     ds_TS_bb = ep.calibrate.compute_TS(ed, waveform_mode="BB", encode_mode="complex")
@@ -435,16 +452,15 @@ def test_fm_equals_bb():
 
 
 @pytest.mark.integration
-def test_calibrate_ek60_chunks():
+def test_calibrate_ek60_chunks(ek60_cal_chunks_path):
     """
     Tests that the correct chunks are generated in the intermediate 'get_vend_cal_params_power'
     output and in the final 'compute_Sv' output.
     """
     # Lazy-load the Zarr stores
-    test_dir = "echopype/test_data/ek60_calibrate_chunks"
-    ed = ep.open_converted(f"{test_dir}/ed_ek60_chunk_test.zarr", chunks={})
-    beam = xr.open_zarr(f"{test_dir}/beam_ek60_chunk_test.zarr", chunks={})
-    vend = xr.open_zarr(f"{test_dir}/vend_ek60_chunk_test.zarr", chunks={})
+    ed = ep.open_converted(ek60_cal_chunks_path / "ed_ek60_chunk_test.zarr", chunks={})
+    beam = xr.open_zarr(ek60_cal_chunks_path / "beam_ek60_chunk_test.zarr", chunks={})
+    vend = xr.open_zarr(ek60_cal_chunks_path / "vend_ek60_chunk_test.zarr", chunks={})
 
     # Get gain correction parameters stored in the Vendor_specific group
     da_param = get_vend_cal_params_power(beam=beam, vend=vend, param="gain_correction")

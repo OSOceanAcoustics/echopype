@@ -11,7 +11,7 @@ import fsspec
 import numpy as np
 import xarray as xr
 from xarray import DataTree, open_datatree, open_groups
-from zarr.errors import GroupNotFoundError, PathNotFoundError
+from zarr.errors import GroupNotFoundError
 
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
@@ -341,7 +341,7 @@ class EchoData:
                 node.dataset = __newvalue
                 return self.__get_dataset(node)
             except KeyError:
-                raise GroupNotFoundError(__key)
+                raise GroupNotFoundError(self.converted_raw_path, __key)
         else:
             raise ValueError("Datatree not found!")
 
@@ -538,7 +538,7 @@ class EchoData:
                     raw_path,
                     group=value["ep_group"],
                 )
-            except (OSError, GroupNotFoundError, PathNotFoundError):
+            except (OSError, GroupNotFoundError):
                 # Skips group not found errors for EK80 and ADCP
                 ...
             if group == "top" and hasattr(ds, "keywords"):
