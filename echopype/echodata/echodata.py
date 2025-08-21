@@ -94,8 +94,8 @@ class EchoData:
                     ]
                     if len(zarr_stores) > 0:
                         # Grab the first associated file since there is only one unique file
-                        # Can check using zarr_stores[0].path
-                        fs = zarr_stores[0].fs
+                        # Can check using zarr_stores[0]
+                        fs = zarr_stores[0]
                         from ..utils.io import delete_zarr_store
 
                         for store in zarr_stores:

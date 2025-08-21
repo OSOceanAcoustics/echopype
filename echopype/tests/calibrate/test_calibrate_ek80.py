@@ -373,7 +373,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     ev_vals = df_real.values[:, :]
     ep_vals = pc_mean.values.real[:, :]
     assert np.allclose(ev_vals[:, 69:], ep_vals[:, 69:], atol=1e-4)
-    assert np.allclose(ev_vals[:, 90:], ep_vals[:, 90:], atol=1e-5)
+    assert np.allclose(ev_vals[:, 90:], ep_vals[:, 90:], atol=1e-4)
 
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))

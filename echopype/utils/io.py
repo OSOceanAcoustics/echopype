@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import fsspec
 import xarray as xr
+import zarr.storage
 from dask.array import Array as DaskArray
 from fsspec import AbstractFileSystem, FSMap
 from fsspec.implementations.local import LocalFileSystem
@@ -472,7 +473,7 @@ def create_temp_zarr_store() -> FSMap:
         return fsspec.get_mapper(zarr_path)
 
 
-def delete_zarr_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] = None) -> None:
+def delete_zarr_store(store: "FSStore | str", fs: Optional[zarr.storage.LocalStore] = None) -> None:
     """
     Delete the zarr store and all its contents.
 
@@ -497,16 +498,12 @@ def delete_zarr_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] =
             raise ValueError("Must provide fs if store is a path string")
         store_path = store
     else:
-        # Get the file system, this should already have the
-        # correct storage options
-        fs = store.fs
-
         # Get the string path to the store
-        store_path: str = store.dir_path()
+        store_path: str = str(store.root)
 
     if fs.exists(store_path):
         # Delete the store when it exists
-        fs.rm(store_path, recursive=True)
+        fs.delete(store_path)
 
 
 # End of utilities for creating temporary swap zarr files ------------------------------

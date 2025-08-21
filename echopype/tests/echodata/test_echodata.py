@@ -798,13 +798,13 @@ def test_convert_legacy_versions_ek80(legacy_datatree, legacy_datatree_filename)
 
 
 @pytest.mark.unit
-def test_echodata_delete(caplog):
+def test_echodata_delete(caplog, ek60_path):
     """
     Check for correct removal behavior and no warnings captured in echodata delete.
     """
     # Open raw using swap file
     ed = open_raw(
-        "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
+        ek60_path / "ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
         sonar_model="EK60",
         use_swap=True
     )
@@ -827,7 +827,7 @@ def test_echodata_delete(caplog):
                 ]
                 if len(zarr_stores) > 0:
                     # Break at the first associated file since there is only one unique file
-                    temp_zarr_path = zarr_stores[0].path
+                    temp_zarr_path = zarr_stores[0].root
                     break
         
         if temp_zarr_path:
