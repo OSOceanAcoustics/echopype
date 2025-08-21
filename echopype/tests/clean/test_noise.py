@@ -13,6 +13,9 @@ from echopype.clean.utils import (
 )
 from echopype.utils.compute import _lin2log, _log2lin
 
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path["EK60"]
 
 @pytest.mark.unit
 def test_extract_dB():
@@ -43,11 +46,11 @@ def test_extract_dB():
         ("echo_range"),
     ],
 )
-def test_mask_functions_with_no_vertical_range_variables(range_var):
+def test_mask_functions_with_no_vertical_range_variables(range_var, ek60_path):
     """Test mask functions when no vertical range variables are in `ds_Sv`."""
     # Open raw and calibrate
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -67,11 +70,11 @@ def test_mask_functions_with_no_vertical_range_variables(range_var):
 
 
 @pytest.mark.integration
-def test_mask_functions_dimensions():
+def test_mask_functions_dimensions(ek60_path):
     """Test mask functions' output dimensions."""
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -91,11 +94,11 @@ def test_mask_functions_dimensions():
 
 
 @pytest.mark.integration
-def test_transient_mask_noise_func_error_and_warnings(caplog):
+def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
     """Check if appropriate warnings and errors are raised for transient noise mask func input."""
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -155,14 +158,14 @@ def test_transient_mask_noise_func_error_and_warnings(caplog):
         (True, np.nanmedian),
     ],
 )
-def test_pool_Sv_values(chunk, func):
+def test_pool_Sv_values(chunk, func, ek60_path):
     """
     Manually check if the pooled Sv for transient noise masking contains 
     the correct nan boundary and the correct bin aggregate values.
     """
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -258,11 +261,11 @@ def test_pool_Sv_values(chunk, func):
         (True, "nanmedian"),
     ],
 )
-def test_transient_noise_mask_values(chunk, func):
+def test_transient_noise_mask_values(chunk, func, ek60_path):
     """Manually check if impulse noise mask removes transient noise values."""
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -336,7 +339,7 @@ def test_transient_noise_mask_values(chunk, func):
         (True, np.nanmedian),
     ],
 )
-def test_index_binning_pool_Sv_values(chunk, func):
+def test_index_binning_pool_Sv_values(chunk, func, ek60_path):
     """
     Manually check if the index binning pooled Sv for transient noise masking does the
     correct reflection computation. This is tested using `np.pad` to extend the Sv boundary
@@ -344,7 +347,7 @@ def test_index_binning_pool_Sv_values(chunk, func):
     based off of this extended Sv.
     """
     # Open raw, calibrate, and add depth
-    ed = ep.open_raw("echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
+    ed = ep.open_raw(ek60_path / "from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
     ds_Sv = ep.calibrate.compute_Sv(ed)
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
@@ -449,10 +452,10 @@ def test_index_binning_pool_Sv_values(chunk, func):
         (True, "nanmedian"),
     ],
 )
-def test_index_binning_transient_noise_mask_values(chunk, func):
+def test_index_binning_transient_noise_mask_values(chunk, func, ek60_path):
     """Manually check if impulse noise mask removes transient noise values when using index binning."""
     # Open raw, calibrate, and add depth
-    ed = ep.open_raw("echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
+    ed = ep.open_raw(ek60_path / "from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
     ds_Sv = ep.calibrate.compute_Sv(ed)
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
 
@@ -544,11 +547,11 @@ def test_index_binning_transient_noise_mask_values(chunk, func):
         (True),
     ],
 )
-def test_downsample_upsample_along_depth(chunk):
+def test_downsample_upsample_along_depth(chunk, ek60_path):
     """Test downsample bins and upsample repeating values"""
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -610,11 +613,11 @@ def test_downsample_upsample_along_depth(chunk):
         (True),
     ],
 )
-def test_index_binning_downsample_upsample_along_depth(chunk):
+def test_index_binning_downsample_upsample_along_depth(chunk, ek60_path):
     """Test index binning downsampled-upsampled values."""
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -690,11 +693,11 @@ def test_index_binning_downsample_upsample_along_depth(chunk):
         (True, True),
     ],
 )
-def test_impulse_noise_mask_values(chunk, use_index_binning):
+def test_impulse_noise_mask_values(chunk, use_index_binning, ek60_path):
     """Manually check if impulse noise mask removes impulse noise values."""
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "from_echopy/JR230-D20091215-T121917.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -766,11 +769,11 @@ def test_impulse_noise_mask_values(chunk, use_index_binning):
 
 
 @pytest.mark.integration
-def test_mask_attenuated_signal_limit_error():
+def test_mask_attenuated_signal_limit_error(ek60_path):
     """Test `mask_attenuated_signal` limit error."""
     # Parse, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
+        ek60_path / "from_echopy/JR161-D20061118-T010645.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -786,11 +789,11 @@ def test_mask_attenuated_signal_limit_error():
 
 
 @pytest.mark.integration
-def test_mask_attenuated_signal_outside_searching_range():
+def test_mask_attenuated_signal_outside_searching_range(ek60_path):
     """Test `mask_attenuated_signal` values errors."""
     # Parse, calibrate, and add_depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
+        ek60_path / "from_echopy/JR161-D20061118-T010645.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -820,11 +823,11 @@ def test_mask_attenuated_signal_outside_searching_range():
         (True),
     ],
 )
-def test_mask_attenuated_signal_against_echopy(chunk):
+def test_mask_attenuated_signal_against_echopy(chunk, ek60_path):
     """Test `attenuated_signal` to see if Echopype output matches echopy output mask."""
     # Parse, calibrate, and add depth
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645.raw",
+        ek60_path / "from_echopy/JR161-D20061118-T010645.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -848,7 +851,7 @@ def test_mask_attenuated_signal_against_echopy(chunk):
 
     # Grab echopy attenuated signal mask
     echopy_attenuated_mask = xr.open_dataset(
-        "echopype/test_data/ek60/from_echopy/JR161-D20061118-T010645_echopy_attenuated_masks.zarr",
+        ek60_path / "from_echopy/JR161-D20061118-T010645_echopy_attenuated_masks.zarr",
         engine="zarr"
     )
 
@@ -860,11 +863,11 @@ def test_mask_attenuated_signal_against_echopy(chunk):
 
 
 @pytest.mark.unit
-def test_estimate_background_noise_upsampling():
+def test_estimate_background_noise_upsampling(ek60_path):
     """Test for the correct upsampling behavior in `estimate_background_noise`"""
     # Open Raw and Calibrate
     ed = ep.open_raw(
-        "echopype/test_data/ek60/ncei-wcsd/Summer2017-D20170615-T190214.raw",
+        ek60_path / "ncei-wcsd/Summer2017-D20170615-T190214.raw",
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)

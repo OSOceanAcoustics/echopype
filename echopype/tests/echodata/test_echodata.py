@@ -20,6 +20,9 @@ import numpy as np
 
 from utils import get_mock_echodata, check_consolidated
 
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path["EK60"]
 
 @pytest.fixture(scope="module")
 def legacy_datatree(test_path):
@@ -726,10 +729,10 @@ def test_update_platform_latlon_notimestamp(test_path):
         ({"time1": 10, "time2": 10}),
     ],
 )
-def test_echodata_chunk(chunk_dict):
+def test_echodata_chunk(chunk_dict, ek60_path):
     # Parse Raw File
     ed = echopype.open_raw(
-        "echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw", sonar_model="EK60"
+        ek60_path / "DY1801_EK60-D20180211-T164025.raw", sonar_model="EK60"
     )
 
     # Chunk Echodata object
@@ -795,13 +798,13 @@ def test_convert_legacy_versions_ek80(legacy_datatree, legacy_datatree_filename)
 
 
 @pytest.mark.unit
-def test_echodata_delete(caplog):
+def test_echodata_delete(caplog, ek60_path):
     """
     Check for correct removal behavior and no warnings captured in echodata delete.
     """
     # Open raw using swap file
     ed = open_raw(
-        "echopype/test_data/ek60/ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
+        ek60_path / "ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
         sonar_model="EK60",
         use_swap=True
     )
@@ -824,7 +827,7 @@ def test_echodata_delete(caplog):
                 ]
                 if len(zarr_stores) > 0:
                     # Break at the first associated file since there is only one unique file
-                    temp_zarr_path = zarr_stores[0].path
+                    temp_zarr_path = zarr_stores[0].root
                     break
         
         if temp_zarr_path:
