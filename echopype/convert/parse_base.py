@@ -216,7 +216,7 @@ class ParseEK(ParseBase):
                 chunks=chunks,
                 dtype="f8",
                 fill_value=np.nan,  # same as float64
-                config={'write_empty_chunks': False},
+                config={"write_empty_chunks": False},
             )
 
             # Fill zarr array with actual data
