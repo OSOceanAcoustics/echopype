@@ -15,6 +15,7 @@ from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
 
 # for schoals detection
 from .shoal_detection.detect_echoview import detect_echoview
+from .shoal_detection.detect_weill import detect_weill
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -666,6 +667,7 @@ def frequency_differencing(
 # detect shoals
 SHOAL_METHODS = {
     "echoview": detect_echoview,
+    "will": detect_weill,
 }
 
 
