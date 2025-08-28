@@ -196,13 +196,11 @@ class ParseEK(ParseBase):
         chunks: Tuple[int],
     ) -> dask.array.Array:
         if shape == arr.shape:
-            z_arr = zarr_root.array(
-                shape=shape,
+            z_arr = zarr_root.create_array(
                 name=path,
-                data=arr,
+                data=arr.astype(np.float64),
                 fill_value=np.nan,
                 chunks=chunks,
-                dtype="f8",
                 config={"write_empty_chunks": False},
             )
         else:

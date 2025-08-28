@@ -317,27 +317,21 @@ class TestEchoData:
         assert result is None
         assert isinstance(ed_result, xr.Dataset)
 
-    @pytest.mark.parametrize("consolidated", [True, False])
-    def test_to_zarr_consolidated(self, mock_echodata, consolidated):
+    def test_to_zarr_created(self, mock_echodata):
         """
-        Tests to_zarr consolidation. Currently, this test uses a mock EchoData object that only
-        has attributes. The consolidated flag provided will be used in every to_zarr call (which
-        is used to write each EchoData group to zarr_path).
+        Tests to_zarr creation. Currently, this test uses a mock EchoData object that only
+        has attributes.
         """
         zarr_path = Path("test.zarr")
-        mock_echodata.to_zarr(str(zarr_path), consolidated=consolidated, overwrite=True)
+        mock_echodata.to_zarr(str(zarr_path), overwrite=True)
+        json_path = zarr_path / "zarr.json"
 
-        check = True if consolidated else False
-        zmeta_path = zarr_path / ".zmetadata"
-
-        assert zmeta_path.exists() is check
-
-        if check is True:
-            check_consolidated(mock_echodata, zmeta_path)
+        assert json_path.exists()
 
         # clean up the zarr file
         shutil.rmtree(zarr_path)
 
+# TODO: Add test_open_converted with zarr v3 test data since format changed. open_converted works but needs a test.
 
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):

@@ -633,7 +633,7 @@ class EchoData:
         overwrite: bool = False,
         parallel: bool = False,
         output_storage_options: Dict[str, str] = {},
-        consolidated: bool = True,
+        consolidated: bool = False,
         **kwargs,
     ):
         """Save content of EchoData to zarr.
@@ -654,7 +654,8 @@ class EchoData:
             Additional keywords to pass to the filesystem class.
         consolidated : bool
             Flag to consolidate zarr metadata.
-            Defaults to ``True``
+            Defaults to ``False``
+            Deprecated in zarr v3
         **kwargs : dict, optional
             Extra arguments to `xr.Dataset.to_zarr`: refer to
             xarray's documentation for a list of all possible arguments.
