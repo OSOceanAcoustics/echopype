@@ -5,6 +5,7 @@ echopype utilities for file handling
 import os
 import pathlib
 import platform
+import shutil
 import sys
 import tempfile
 import uuid
@@ -14,7 +15,6 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 import fsspec
 import xarray as xr
 import zarr.storage as zs
-import shutil
 from dask.array import Array as DaskArray
 from fsspec import AbstractFileSystem, FSMap
 from fsspec.implementations.local import LocalFileSystem
@@ -504,7 +504,7 @@ def delete_zarr_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] =
 
     if os.path.exists(store_path):
         if isinstance(fs, zs.FsspecStore):
-                fs.delete(store_path)
+            fs.delete(store_path)
         elif isinstance(fs, zs.LocalStore):
             shutil.rmtree(store_path)
 
