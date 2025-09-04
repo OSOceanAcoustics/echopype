@@ -456,9 +456,13 @@ def add_splitbeam_angle(
     # and obtain the echodata group path corresponding to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
-    dim_0 = list(source_Sv.sizes.keys())[0]
+    dim_0 = None
+    for dim in list(source_Sv.sizes.keys()):
+        if dim in ["channel", "frequency_nominal"]:
+            dim_0 = dim
+            break
 
-    if dim_0 in ["channel", "frequency_nominal"]:
+    if dim_0:
         ds_beam = echodata[ed_beam_group].sel({dim_0: source_Sv[dim_0].values})
     else:
         raise ValueError(
