@@ -770,8 +770,8 @@ def regrid_mask(
 
     # Set all False/0 to NaN. This also turns all True to 1.
     # TODO fix this
-    mask_copy = mask_da#.copy()
-    #mask_copy = xr.where(mask_copy != 0, mask_copy, np.nan)
+    mask_copy = mask_da  # .copy()
+    # mask_copy = xr.where(mask_copy != 0, mask_copy, np.nan)
 
     # Set interval index for groups
     if third_dim is not None:
@@ -802,7 +802,7 @@ def regrid_mask(
             },
         )
     else:
-        #mask_copy = mask_copy.transpose("ping_time", range_var)
+        # mask_copy = mask_copy.transpose("ping_time", range_var)
         mask_regridded_da = xarray_reduce(
             mask_copy,
             mask_copy["ping_time"],
