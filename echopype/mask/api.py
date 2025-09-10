@@ -673,6 +673,7 @@ def regrid_mask(
     method: str = "map-reduce",
     reindex: bool = False,
     closed: Literal["left", "right"] = "right",
+    range_var_max: str = None,
     **flox_kwargs,
 ) -> xr.DataArray:
     """
@@ -709,6 +710,8 @@ def regrid_mask(
         for more details.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
+    range_var_mask: str, default None
+        TODO add this.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -754,7 +757,13 @@ def regrid_mask(
 
     # Create bin information for the range variable
     range_bin = _parse_x_bin(range_bin)
-    range_var_max = range_da.max(skipna=True)
+    if range_var_max is None:
+        # This computes the range variable max since there might be NaNs in the data
+        range_var_max = range_da.max(skipna=True)
+    else:
+        # Parse string and small increase to ensure that we get the bin
+        # corresponding to range_var_max
+        range_var_max = _parse_x_bin(range_var_max) + 1e-8
     range_interval = np.arange(0, range_var_max + range_bin, range_bin)
     range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
 
