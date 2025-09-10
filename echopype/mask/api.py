@@ -664,8 +664,8 @@ def frequency_differencing(
 
 
 def regrid_mask(
-    mask: xr.DataArray,
-    range_var: str = "depth",
+    mask_da: xr.DataArray,
+    range_da: xr.DataArray,
     range_bin: str = "20m",
     ping_time_bin: str = "20s",
     third_dim: str = None,
@@ -718,14 +718,13 @@ def regrid_mask(
     A DataArray containing a regridded mask.
     """
 
+    # TODO uncomment these once computation is figured out
+    """
     if method != "map-reduce" and reindex is not None:
         raise ValueError(f"Passing in reindex={reindex} is only allowed when method='map_reduce'.")
 
     if not isinstance(ping_time_bin, str):
         raise TypeError("ping_time_bin must be a string")
-
-    if range_var not in mask.dims or "ping_time" not in mask.dims:
-        raise ValueError("Mask must contain (range_var, ping_time) dimensions.")
 
     if third_dim is None and len(mask.dims) != 2:
         raise ValueError("Mask must have only 2 dimensions unless 'third_dim' is specified.")
@@ -739,6 +738,7 @@ def regrid_mask(
     # Check if mask is binary (True/False or 1/0)
     if not np.isin(mask.data, [1, 0]).all():
         raise ValueError("Mask must be binary True/False or 1/0.")
+    """
 
     # Set strictness of aggregation output being 1/True based on `func`:
     # When func == 'logical-AND', the output value is set to 1/True only if all corresponding
@@ -754,13 +754,13 @@ def regrid_mask(
 
     # Create bin information for the range variable
     range_bin = _parse_x_bin(range_bin)
-    range_var_max = mask[range_var].max(skipna=True)
+    range_var_max = range_da.max(skipna=True)
     range_interval = np.arange(0, range_var_max + range_bin, range_bin)
     range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
 
     # Create bin information needed for ping_time
     d_index = (
-        mask["ping_time"]
+        mask_da["ping_time"]
         .resample(ping_time=ping_time_bin, skipna=True)
         .first()
         .indexes["ping_time"]
@@ -769,17 +769,18 @@ def regrid_mask(
     ping_interval = _convert_bins_to_interval_index(ping_interval, closed=closed)
 
     # Set all False/0 to NaN. This also turns all True to 1.
-    mask_copy = mask.copy()
-    mask_copy = mask_copy.where(mask_copy != 0)
+    # TODO fix this
+    mask_copy = mask_da#.copy()
+    #mask_copy = xr.where(mask_copy != 0, mask_copy, np.nan)
 
     # Set interval index for groups
     if third_dim is not None:
-        mask_copy = mask_copy.transpose(third_dim, "ping_time", range_var)
+        # mask_copy = mask_copy.transpose(third_dim, "ping_time", range_var)
         mask_regridded_da = xarray_reduce(
             mask_copy,
             mask_copy[third_dim],
             mask_copy["ping_time"],
-            mask_copy[range_var],
+            range_da,
             expected_groups=(None, ping_interval, range_interval),
             isbin=[False, True, True],
             method=method,
@@ -791,41 +792,41 @@ def regrid_mask(
         )
         mask_regridded_da = xr.DataArray(
             data=mask_regridded_da.data,
-            dims=[third_dim, "ping_time", range_var],
+            dims=[third_dim, "ping_time", range_da.name],
             coords={
-                third_dim: mask[third_dim].values,
+                third_dim: mask_da[third_dim].values,
                 "ping_time": np.array([v.left for v in mask_regridded_da.ping_time_bins.values]),
-                range_var: np.array(
-                    [v.left for v in mask_regridded_da[f"{range_var}_bins"].values]
+                range_da.name: np.array(
+                    [v.left for v in mask_regridded_da[f"{range_da.name}_bins"].values]
                 ),
             },
         )
     else:
-        mask_copy = mask_copy.transpose("ping_time", range_var)
+        #mask_copy = mask_copy.transpose("ping_time", range_var)
         mask_regridded_da = xarray_reduce(
             mask_copy,
             mask_copy["ping_time"],
-            mask_copy[range_var],
+            range_da,
             expected_groups=(ping_interval, range_interval),
             isbin=[True, True],
             method=method,
             reindex=reindex,
-            func=func_xarray,
-            skipna=False,
+            func="mean",
+            skipna=True,
             fill_value=np.nan,
             **flox_kwargs,
         )
         mask_regridded_da = xr.DataArray(
             data=mask_regridded_da.data,
-            dims=["ping_time", range_var],
+            dims=["ping_time", range_da.name],
             coords={
                 "ping_time": np.array([v.left for v in mask_regridded_da.ping_time_bins.values]),
-                range_var: np.array(
-                    [v.left for v in mask_regridded_da[f"{range_var}_bins"].values]
+                range_da.name: np.array(
+                    [v.left for v in mask_regridded_da[f"{range_da.name}_bins"].values]
                 ),
             },
         )
-    mask_regridded_da = mask_regridded_da.fillna(0).astype(dtype=mask.dtype)
+    mask_regridded_da = mask_regridded_da.fillna(0).astype(dtype=mask_da.dtype)
 
     # ping_time_bin parsing and conversions
     # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
@@ -857,6 +858,7 @@ def regrid_mask(
     ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
 
     # Attach attributes
+    range_var = range_da.name
     mask_regridded_da[range_var].attrs = {"long_name": "Range distance", "units": "m"}
     mask_regridded_da = mask_regridded_da.assign_attrs(
         {
