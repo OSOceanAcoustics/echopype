@@ -1,4 +1,3 @@
-import numpy as np
 import xarray as xr
 
 
@@ -63,43 +62,3 @@ def _parse_blackwell_thresholds(threshold):
         raise TypeError("`threshold` must be float or tuple/list of 1–3 floats")
 
     return float(tSv), float(ttheta), float(tphi)
-
-
-def lin(variable):
-    """
-    Turn variable into the linear domain.
-
-    Args:
-        variable (float): array of elements to be transformed.
-
-    Returns:
-        float:array of elements transformed
-    """
-
-    lin = 10 ** (variable / 10)
-    return lin
-
-
-def log(variable):
-    """
-    Turn variable into the logarithmic domain. This function will return -999
-    in the case of values less or equal to zero (undefined logarithm). -999 is
-    the convention for empty water or vacant sample in fisheries acoustics.
-
-    Args:
-        variable (float): array of elements to be transformed.
-
-    Returns:
-        float: array of elements transformed
-    """
-    if not isinstance(variable, (np.ndarray)):
-        variable = np.array([variable])
-
-    if isinstance(variable, int):
-        variable = np.float64(variable)
-
-    mask = np.ma.masked_less_equal(variable, 0).mask
-    variable[mask] = np.nan
-    log = 10 * np.log10(variable)
-    log[mask] = -999
-    return log
