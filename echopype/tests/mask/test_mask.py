@@ -16,6 +16,9 @@ from echopype.mask.freq_diff import (
     _check_freq_diff_source_Sv,
 )
 
+# for seafloor
+from echopype.mask import detect_seafloor
+
 from typing import List, Union, Optional
 
 
@@ -1632,3 +1635,189 @@ def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_
                 f"actual_range min doesn't match data min for {test_description}"
             assert actual_range[1] == actual_max_from_data, \
                 f"actual_range max doesn't match data max for {test_description}"
+                
+
+### add test for seafloor
+
+def _make_ds_Sv_depth(n_ping=100, n_range=40, channel="chan1", dz=1.0, var_name="Sv_corrected"):
+    """Build a dataset with Sv and a channelized depth grid."""
+    ping = np.arange(n_ping)
+    rs   = np.arange(n_range)
+    depth_1d = rs * dz  # depth increases with range_sample
+    depth_2d = np.tile(depth_1d, (n_ping, 1))  # (ping_time, range_sample)
+
+    ds = xr.Dataset()
+    ds[var_name] = xr.DataArray(
+        data=np.full((1, n_ping, n_range), -120.0, dtype=float),
+        dims=("channel", "ping_time", "range_sample"),
+        coords={"channel": [channel], "ping_time": ping, "range_sample": rs},
+    )
+    # make depth have a channel dimension so .sel(channel=...) works
+    ds["depth"] = xr.DataArray(
+        data=depth_2d,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": ping, "range_sample": rs},
+    ).expand_dims({"channel": [channel]}).transpose("channel", "ping_time", "range_sample")
+
+    return ds
+
+@pytest.mark.unit
+def test_detect_basic_return():
+    ds = _make_ds_Sv_depth()
+
+    # make a sloped bottom band that gets shallower with time
+    n_ping = ds.sizes["ping_time"]
+    thickness = 3
+    start0 = 22
+    slope = -0.02  # bins per ping (negative = shallower with time)
+
+    starts = np.clip(
+        start0 + np.round(slope * np.arange(n_ping)).astype(int),
+        0,
+        ds.sizes["range_sample"] - thickness
+    )
+
+    # fill fake depth with a little noise
+    rng = np.random.default_rng(42)
+    sigma = 0.7
+    for j, s in enumerate(starts):
+        noise = rng.normal(0.0, sigma, size=thickness)
+        ds["Sv_corrected"].isel(
+            channel=0, ping_time=j, range_sample=slice(s, s + thickness)
+        )[:] = -35.0 + noise
+
+    # Call dispatcher (basic)
+    basic_depth = detect_seafloor(
+        ds,
+        method="basic",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "chan1",
+            "threshold": (-50.0, -20.0),
+            "offset_m": 0.3,
+            "bin_skip_from_surface": 2,
+        },
+    )
+
+    # Assertions
+    assert isinstance(basic_depth, xr.DataArray)
+    assert basic_depth.name == "bottom_depth"
+    assert basic_depth.dims == ("ping_time",)
+    assert np.array_equal(basic_depth["ping_time"], ds["ping_time"])
+
+    idx = xr.DataArray(
+        starts, 
+        dims=["ping_time"], 
+        coords={"ping_time": ds["ping_time"]}
+    )
+
+    # Depth at those first bright bins, one value per ping
+    depth_at_starts = ds["depth"].isel(range_sample=idx)
+
+    # Expected detector output (subtract the offset in meters)
+    expected_depth = depth_at_starts.values - 0.3
+
+    # Compare to the algorithm’s result
+    assert np.allclose(basic_depth.values, expected_depth, atol=1e-6)
+
+@pytest.mark.unit
+def test_detect_basic_no_detection_defaults_to_bin_skip():
+    ds = _make_ds_Sv_depth(n_ping=50, n_range=30, channel="chan1", dz=1.0, var_name="Sv_corrected")
+    ds["Sv_corrected"][:] = -120.0  # nothing within (-50, -20) => no detection
+
+    out = detect_seafloor(
+        ds,
+        method="basic",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "chan1",
+            "threshold": (-50.0, -20.0),
+            "offset_m": 0.3,
+            "bin_skip_from_surface": 10,
+        },
+    )
+
+    assert out.dims == ("ping_time",)
+
+    # Expected = depth at bin 10 (1 sample_range/bin) minus offset, constant across pings
+    expected_const = ds["depth"].isel(ping_time=0, range_sample=10).item() - 0.3
+    expected = np.full(ds.sizes["ping_time"], expected_const)
+    np.testing.assert_allclose(out.values, expected, atol=1e-6)
+
+
+@pytest.mark.xfail(strict=False, reason="Method may not be implemented yet (#1522)")
+def test_detect_seafloor_unknown_method_raises():
+    """Expect a ValueError for an unknown method (via dispatcher, if present)."""
+    from importlib import import_module
+
+    api = import_module("echopype.mask.seafloor_detection.api")  # will raise if not present
+    ds = _make_ds_Sv_depth()
+    with pytest.raises(ValueError, match="Unsupported.*method"):
+        api.detect_seafloor(
+            ds,
+            method="__bad_method__",
+            params={"var_name": "Sv_corrected", "channel": "59006-125-2"},
+        )
+
+@pytest.mark.unit
+def test_blackwell_vs_basic_close_local():
+    """Blackwell vs basic using local test data"""
+
+    raw_path = "../test_data_extracted/test_data/ek80/ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
+
+    if not os.path.isfile(raw_path):
+        pytest.skip(f"Missing local EK80 RAW: {raw_path}")
+
+    ed = ep.open_raw(raw_path, sonar_model="EK80")
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, depth_offset=9.8)
+
+    # Pick an available channel
+    sel_channel = "WBT 400142-15 ES70-7C_ES"
+
+    # attach angles (required by Blackwell)
+    angle_along = ed["Sonar/Beam_group1"]["angle_alongship"]
+    angle_athwart = ed["Sonar/Beam_group1"]["angle_athwartship"]
+    ds_Sv = ds_Sv.assign(
+        angle_alongship=angle_along,
+        angle_athwartship=angle_athwart,
+    )
+    
+    blackwell_depth = detect_seafloor(
+        ds=ds_Sv,
+        method="blackwell",
+        params={
+            "channel": sel_channel,
+            "threshold": [-40, 702, 282],
+            "offset": 0.3,
+            "r0": 10,
+            "r1": 1000,
+            "wtheta": 28,
+            "wphi": 52,
+        },
+    )
+
+    basic_depth = detect_seafloor(
+        ds_Sv,
+        method="basic",
+        params={
+            "var_name": "Sv",
+            "channel": sel_channel,
+            "threshold": (-40, -20),
+            "offset_m": 0.3,
+            "bin_skip_from_surface": 200,
+        },
+    )
+
+    assert isinstance(blackwell_depth, xr.DataArray)
+    assert blackwell_depth.dims == ("ping_time",)
+    assert basic_depth.dims == ("ping_time",)
+    assert np.array_equal(blackwell_depth["ping_time"], basic_depth["ping_time"])
+
+    b = blackwell_depth.values
+    c = basic_depth.values
+    m = np.isfinite(b) & np.isfinite(c)
+    assert m.any(), "No overlapping finite detections to compare."
+    mad = np.median(np.abs(b[m] - c[m]))
+    assert mad < 5.0, f"Median abs diff too large: {mad:.2f} m"
+
