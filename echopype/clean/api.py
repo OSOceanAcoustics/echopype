@@ -11,6 +11,8 @@ from ..commongrid.utils import _parse_x_bin
 from ..utils.compute import _lin2log, _log2lin
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from .transient_noise.transient_fielding import mask_transient_noise_fielding
+from .transient_noise.transient_matecho import mask_transient_noise_matecho
 from .utils import (
     add_remove_background_noise_attrs,
     downsample_upsample_along_depth,
@@ -507,3 +509,37 @@ def remove_background_noise(
     ds_Sv = insert_input_processing_level(ds_Sv, input_ds=ds_Sv)
 
     return ds_Sv
+
+
+# ############# changing the api style to just host the dispatcher for transient noise
+
+# Registry of supported methods
+METHODS_TRANSIENT = {
+    "fielding": mask_transient_noise_fielding,
+    "matecho": mask_transient_noise_matecho,
+}
+
+
+def mask_transient_noise_dispatch(ds: xr.Dataset, method: str, params: dict) -> xr.DataArray:
+    """
+    Mask transient noise using the selected method.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Acoustic dataset (e.g., Sv), must include 'ping_time' and 'range_sample'.
+    method : str
+        Transient masking method to apply (e.g., "fielding", "ryan").
+    params : dict
+        Dictionary of method-specific parameters.
+
+    Returns
+    -------
+    xr.DataArray
+        Boolean mask with dimensions (ping_time, range_sample),
+        where True = valid, False = transient noise.
+    """
+    if method not in METHODS_TRANSIENT:
+        raise ValueError(f"Unsupported transient noise removal method: {method}")
+
+    return METHODS_TRANSIENT[method](ds, **params)

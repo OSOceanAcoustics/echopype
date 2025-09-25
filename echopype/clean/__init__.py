@@ -3,6 +3,7 @@ from .api import (
     mask_attenuated_signal,
     mask_impulse_noise,
     mask_transient_noise,
+    mask_transient_noise_dispatch,
     remove_background_noise,
 )
 
@@ -12,4 +13,5 @@ __all__ = [
     "mask_impulse_noise",
     "mask_transient_noise",
     "remove_background_noise",
+    "mask_transient_noise_dispatch",
 ]
