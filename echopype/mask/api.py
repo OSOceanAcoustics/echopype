@@ -14,8 +14,8 @@ from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
 
 # for schoals detection
-from .shoal_detection.detect_echoview import detect_echoview
-from .shoal_detection.detect_weill import detect_weill
+from .shoal_detection.shoal_echoview import shoal_echoview
+from .shoal_detection.shoal_weill import shoal_weill
 
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
@@ -666,12 +666,12 @@ def frequency_differencing(
 
 # detect shoals
 METHODS_SHOAL = {
-    "echoview": detect_echoview,
-    "weill": detect_weill,
+    "echoview": shoal_echoview,
+    "will": shoal_weill,
 }
 
 
-def detect_shoals(
+def detect_shoal(
     ds: xr.Dataset,
     method: str,
     params: Dict,
@@ -693,7 +693,7 @@ def detect_shoals(
     xr.DataArray
         2D boolean DataArray of shoal mask (True = inside).
     """
-    if method not in SHOAL_METHODS:
+    if method not in METHODS_SHOAL:
         raise ValueError(f"Unsupported shoal detection method: {method}")
 
-    return SHOAL_METHODS[method](ds, **params)
+    return METHODS_SHOAL[method](ds, **params)

@@ -4,7 +4,7 @@ import scipy.ndimage as ndima
 import xarray as xr
 
 
-def detect_echoview(
+def shoal_echoview(
     ds: xr.Dataset,
     var_name: str,
     channel: str,

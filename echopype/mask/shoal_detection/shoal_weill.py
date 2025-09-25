@@ -3,7 +3,7 @@ import scipy.ndimage as ndi
 import xarray as xr
 
 
-def detect_weill(
+def shoal_weill(
     ds: xr.Dataset,
     var_name: str,
     channel: str | None = None,
@@ -16,7 +16,7 @@ def detect_weill(
     """
     Detects and masks shoals following the algorithm described in:
 
-        "Weill et al. (1993): MOVIES-B — an acoustic detection description
+        "Will et al. (1993): MOVIES-B — an acoustic detection description
         software . Application to shoal species' classification".
 
     Steps (on (range, ping) matrix):
