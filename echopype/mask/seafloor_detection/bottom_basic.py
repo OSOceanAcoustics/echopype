@@ -38,7 +38,7 @@ def bottom_basic(
         Channel identifier to process (must match an entry in `ds['channel']`).
     threshold : float or tuple(float, float), default -50.0
         Sv threshold(s) in dB. If a single float is given, it is treated as the
-        lower bound and the upper bound is set to 10 dB above the lower 
+        lower bound and the upper bound is set to 10 dB above the lower
         bound. If a 2-tuple `(tmin, tmax)` is provided, both the lower
         and upper bounds are used directly.
     offset_m : float, default 0.5
