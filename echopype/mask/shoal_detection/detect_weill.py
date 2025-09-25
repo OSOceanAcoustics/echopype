@@ -16,7 +16,7 @@ def detect_weill(
     """
     Detects and masks shoals following the algorithm described in:
 
-        "Will et al. (1993): MOVIES-B — an acoustic detection description
+        "Weill et al. (1993): MOVIES-B — an acoustic detection description
         software . Application to shoal species' classification".
 
     Steps (on (range, ping) matrix):

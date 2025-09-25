@@ -665,9 +665,9 @@ def frequency_differencing(
 
 
 # detect shoals
-SHOAL_METHODS = {
+METHODS_SHOAL = {
     "echoview": detect_echoview,
-    "will": detect_weill,
+    "weill": detect_weill,
 }
 
 
