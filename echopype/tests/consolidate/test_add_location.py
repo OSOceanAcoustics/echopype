@@ -252,8 +252,6 @@ def test_add_location_with_dim_swap(
     ds = ep.calibrate.compute_Sv(echodata=ed, env_params=env_params)
 
     ds = ep.consolidate.swap_dims_channel_frequency(ds)
-    for group in ed["Sonar"]['beam_group'].values:
-        ed[f"Sonar/{group}"] = ep.consolidate.swap_dims_channel_frequency(ed[f"Sonar/{group}"])
 
     ds_all = ep.consolidate.add_location(ds=ds, echodata=ed)
 
