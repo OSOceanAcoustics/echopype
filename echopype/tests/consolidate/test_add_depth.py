@@ -616,8 +616,6 @@ def test_add_depth_with_dim_swap(file, sonar_model, compute_Sv_kwargs, ek80_path
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
-    for group in ed["Sonar"]['beam_group'].values:
-        ed[f"Sonar/{group}"] = ep.consolidate.swap_dims_channel_frequency(ed[f"Sonar/{group}"])
 
     # Replace Beam Angle NaN values
     ed["Sonar/Beam_group1"]["beam_direction_x"].values = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0).values
