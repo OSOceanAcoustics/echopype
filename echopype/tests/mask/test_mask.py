@@ -1872,7 +1872,7 @@ def test_weill_basic_gaps_and_sizes():
     # detect
     mask = detect_shoal(
         ds,
-        method="will",
+        method="weill",
         params={
             "var_name": "Sv_corrected",
             "channel": "59006-125-2",
@@ -1910,7 +1910,7 @@ def test_weill_basic_gaps_and_sizes():
     
     mask = detect_shoal(
         ds,
-        method="will",
+        method="weill",
         params={
             "var_name": "Sv_corrected",
             "channel": "59006-125-2",
@@ -1934,7 +1934,7 @@ def test_weill_dispatcher_and_coords():
 
     mask = detect_shoal(
         ds,
-        method="will",
+        method="weill",
         params={
             "var_name": "Sv_corrected",
             "channel": "59006-125-2",
