@@ -220,10 +220,7 @@ def add_depth(
                         f"Could not identify beam group for dimension `{dim_0}`. "
                         "Defaulting to `Beam_group1`."
                     )
-                    if (
-                        "channel" not in list(echodata[f"Sonar/Beam_group1"].sizes)
-                        and dim_0 != "frequency_nominal"
-                    ):
+                    if "channel" not in list(echodata["Sonar/Beam_group1"].sizes) and dim_0 != "frequency_nominal":
                         raise ValueError(
                             "Could not identify beam group for dimension "
                             f"`{dim_0}` and `Beam_group1` does not have a "
@@ -231,9 +228,7 @@ def add_depth(
                         )
                     else:
                         # Swap beam group dims if necessary
-                        echodata[f"Sonar/Beam_group1"] = swap_dims_channel_frequency(
-                            echodata[f"Sonar/Beam_group1"]
-                        )
+                        echodata["Sonar/Beam_group1"] = swap_dims_channel_frequency(echodata["Sonar/Beam_group1"])
 
             # Compute echo range scaling in EK systems using beam angle data
             echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"])
