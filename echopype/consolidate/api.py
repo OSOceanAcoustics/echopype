@@ -208,19 +208,22 @@ def add_depth(
             # Check beam groups to find which one contains the matching dimension
             dim_0 = list(ds.sizes.keys())[0]
             beam_group_name = None
-            for idx in range(echodata["Sonar"].sizes['beam_group']):
+            for idx in range(echodata["Sonar"].sizes["beam_group"]):
                 if dim_0 in list(echodata[f"Sonar/Beam_group{idx + 1}"].sizes):
                     beam_group_name = f"Beam_group{idx + 1}"
                     break
 
             if not beam_group_name:
-                if echodata["Sonar"].sizes['beam_group'] >= 1:
+                if echodata["Sonar"].sizes["beam_group"] >= 1:
                     beam_group_name = "Beam_group1"
                     logger.warning(
                         f"Could not identify beam group for dimension `{dim_0}`. "
                         "Defaulting to `Beam_group1`."
                     )
-                    if "channel" not in list(echodata[f"Sonar/Beam_group1"].sizes) and dim_0 != "frequency_nominal":
+                    if (
+                        "channel" not in list(echodata[f"Sonar/Beam_group1"].sizes)
+                        and dim_0 != "frequency_nominal"
+                    ):
                         raise ValueError(
                             "Could not identify beam group for dimension "
                             f"`{dim_0}` and `Beam_group1` does not have a "
@@ -228,7 +231,9 @@ def add_depth(
                         )
                     else:
                         # Swap beam group dims if necessary
-                        echodata[f"Sonar/Beam_group1"] = swap_dims_channel_frequency(echodata[f"Sonar/Beam_group1"])
+                        echodata[f"Sonar/Beam_group1"] = swap_dims_channel_frequency(
+                            echodata[f"Sonar/Beam_group1"]
+                        )
 
             # Compute echo range scaling in EK systems using beam angle data
             echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"])
@@ -481,7 +486,9 @@ def add_splitbeam_angle(
             break
 
     if dim_0:
-        if dim_0 not in list(echodata[ed_beam_group].sizes) and "channel" in list(echodata[ed_beam_group].sizes):
+        if dim_0 not in list(echodata[ed_beam_group].sizes) and "channel" in list(
+            echodata[ed_beam_group].sizes
+        ):
             echodata[ed_beam_group] = swap_dims_channel_frequency(echodata[ed_beam_group])
         ds_beam = echodata[ed_beam_group].sel({dim_0: source_Sv[dim_0].values})
     else:
