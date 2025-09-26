@@ -105,7 +105,7 @@ def _fielding_core_numpy(
     return mask_bad_full, mask_aux_full
 
 
-def mask_transient_noise_fielding(
+def transient_noise_fielding(
     ds_Sv: xr.Dataset,
     var_name: str = "Sv",
     range_var: str = "depth",

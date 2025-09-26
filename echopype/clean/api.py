@@ -11,8 +11,8 @@ from ..commongrid.utils import _parse_x_bin
 from ..utils.compute import _lin2log, _log2lin
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
-from .transient_noise.transient_fielding import mask_transient_noise_fielding
-from .transient_noise.transient_matecho import mask_transient_noise_matecho
+from .transient_noise.transient_fielding import transient_noise_fielding
+from .transient_noise.transient_matecho import transient_noise_matecho
 from .utils import (
     add_remove_background_noise_attrs,
     downsample_upsample_along_depth,
@@ -515,8 +515,8 @@ def remove_background_noise(
 
 # Registry of supported methods
 METHODS_TRANSIENT = {
-    "fielding": mask_transient_noise_fielding,
-    "matecho": mask_transient_noise_matecho,
+    "fielding": transient_noise_fielding,
+    "matecho": transient_noise_matecho,
 }
 
 

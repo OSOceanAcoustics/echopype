@@ -5,7 +5,7 @@ from scipy.ndimage import binary_dilation
 from echopype.utils.compute import _lin2log, _log2lin
 
 
-def mask_transient_noise_matecho_core(
+def _matecho_core_numpy(
     Sv,
     r,
     bottom_depth=None,
@@ -108,7 +108,7 @@ def mask_transient_noise_matecho_core(
     return mask_bad, aux_2d  # True = BAD
 
 
-def mask_transient_noise_matecho(
+def transient_noise_matecho(
     ds: xr.Dataset,
     var_name: str = "Sv",
     range_var: str = "depth",
@@ -217,14 +217,17 @@ def mask_transient_noise_matecho(
     if t_1d.ndim != 1:
         t_1d = t_1d.squeeze()
 
-    # minimal: no bottom info (core will fallback to r[-1])
-    bottom_1d = np.full(t_1d.shape, np.nan, dtype=float)
+    # if provided, use ds[bottom_var] (1D per ping); else NaN → core falls back to r[-1]
+    if bottom_var is not None and bottom_var in ds:
+        bottom_1d = ds[bottom_var].transpose(..., time_var).astype(float)
+    else:
+        bottom_1d = xr.DataArray(np.full(ds[var_name][time_var].shape, np.nan), dims=(time_var,))
 
     # ensure Sv’s last two dims are (range, time) for the core (keep leading dims like channel)
     Sv_core = Sv_da.transpose(..., rng_dim, time_var)
 
     mask_bad, _ = xr.apply_ufunc(
-        mask_transient_noise_matecho_core,
+        _matecho_core_numpy,
         Sv_core,
         r_1d,
         bottom_1d,
