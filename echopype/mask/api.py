@@ -764,3 +764,38 @@ def detect_seafloor(
         raise ValueError(f"Unsupported bottom detection method: {method}")
 
     return METHODS_BOTTOM[method](ds, **params)
+
+
+# Registry of supported methods for shoal detection
+METHODS_SHOAL = {
+    "echoview": shoal_echoview,
+    "weill": shoal_weill,
+}
+
+
+def detect_shoal(
+    ds: xr.Dataset,
+    method: str,
+    params: Dict,
+) -> xr.DataArray:
+    """
+    Detect shoals using the selected method and return a 2D boolean mask.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Sv dataset including ping_time and range_sample.
+    method : str
+        Name of the detection method to use (e.g., "echoview", "weill").
+    params : dict
+        Parameters for the detection function (method-specific).
+
+    Returns
+    -------
+    xr.DataArray
+        2D boolean DataArray of shoal mask (True = inside).
+    """
+    if method not in METHODS_SHOAL:
+        raise ValueError(f"Unsupported shoal detection method: {method}")
+
+    return METHODS_SHOAL[method](ds, **params)
