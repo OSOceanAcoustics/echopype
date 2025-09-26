@@ -1,8 +1,16 @@
 import pytest
 
 import numpy as np
-from echopype.utils.misc import depth_from_pressure
+from echopype.utils.misc import depth_from_pressure, camelcase2snakecase, is_package_installed
 
+def test_is_package_installed():
+    assert is_package_installed("iris")
+    assert not is_package_installed("nonexistent_package")
+
+def test_camelcase2snakecase():
+    assert camelcase2snakecase("HelloWorld") == "hello_world"
+    assert camelcase2snakecase("MyNameIs") == "my_name_is"
+    assert camelcase2snakecase("PythonProgramming") == "python_programming"
 
 def test_depth_from_pressure():
     # A single pressure value and defaults for the other arguments
