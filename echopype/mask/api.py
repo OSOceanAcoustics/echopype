@@ -2,12 +2,16 @@ import datetime
 import operator as op
 import pathlib
 import sys
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import dask
 import dask.array
 import numpy as np
 import xarray as xr
+
+# for seafloor detection
+from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
+from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
@@ -658,3 +662,101 @@ def frequency_differencing(
     da = da.assign_attrs(xr_dataarray_attrs)
 
     return da
+
+
+# Registry of supported methods for bottom detection
+METHODS_BOTTOM = {
+    "basic": bottom_basic,
+    "blackwell": bottom_blackwell,
+}
+
+
+def detect_seafloor(
+    ds: xr.Dataset,
+    method: str,
+    params: Dict,
+) -> xr.DataArray:
+    """
+    Dispatch seafloor detection to a chosen method and return a 1-D bottom line.
+
+    This function forwards ``ds`` and ``params`` to the selected implementation
+    (e.g., ``"basic"``, ``"blackwell"``). Any optional arguments omitted in
+    ``params`` are filled by that method's defaults.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing calibrated Sv and required coordinates (at minimum
+        ``ping_time`` and a vertical coordinate such as ``depth``), plus any
+        extra variables required by the chosen method.
+    method : str
+        Name of the detection method to use. Supported:
+          - ``"basic"``  → threshold-only detector
+          - ``"blackwell"`` → Sv + split-beam angle detector
+    params : dict
+        Method-specific keyword arguments (see below). Unspecified keys use
+        the method's defaults.
+
+    Method-specific arguments
+    -------------------------
+    basic
+        var_name : str
+            Name of Sv variable (dB), e.g. ``"Sv"``.
+        channel : str
+            Channel identifier to select (e.g., ``"GPT  38 kHz ..."``).
+        threshold : float, default -50.0
+            Sv threshold(s) in dB. If a single float is given, it is treated as the
+            lower bound and the upper bound is set to 10 dB above the lower
+            bound. If a 2-tuple `(tmin, tmax)` is provided, both the lower and
+            upper bounds are used directly.
+        offset_m : float, default 0.5
+            Meters subtracted from the detected crossing.
+        bin_skip_from_surface : int, default 200
+            Number of shallow range bins to ignore before searching.
+
+    blackwell
+        var_name : str
+            Name of the Sv variable to use (e.g., ``"Sv"``).
+        channel : str
+            Channel identifier to select.
+        threshold : float | list | tuple, default -75
+            Either a single Sv dB threshold (angle thresholds use defaults),
+            or a 3-tuple/list ``(tSv_dB, ttheta, tphi)`` after angle smoothing.
+        offset : float, default 0.3
+            Meters subtracted from the detected bottom.
+        r0 : float, default 0
+            Shallow bound (m) of the detection range.
+        r1 : float, default 500
+            Deep bound (m) of the detection range.
+        wtheta : int, default 28
+            Square smoothing window (pixels) for along-ship angle.
+        wphi : int, default 52
+            Square smoothing window (pixels) for athwart-ship angle.
+
+    Returns
+    -------
+    xr.DataArray
+        1-D bottom depth per ``ping_time`` (no ``channel`` dimension). The
+        output name and attributes are set by the called method.
+
+    Raises
+    ------
+    ValueError
+        If ``method`` is not supported.
+
+    Examples
+    --------
+    >>> detect_seafloor(ds, "basic", {
+    ...     "var_name": "Sv", "channel": "GPT  38 kHz ...",
+    ...     "threshold": -50, "offset_m": 0.5, "bin_skip_from_surface": 200
+    ... })
+
+    >>> detect_seafloor(ds, "blackwell", {
+    ...     "channel": "GPT  38 kHz ...", "threshold": (-75, 0.02, 0.02),
+    ...     "offset": 0.3, "r0": 0, "r1": 600, "wtheta": 28, "wphi": 52
+    ... })
+    """
+    if method not in METHODS_BOTTOM:
+        raise ValueError(f"Unsupported bottom detection method: {method}")
+
+    return METHODS_BOTTOM[method](ds, **params)
