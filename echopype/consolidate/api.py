@@ -205,11 +205,35 @@ def add_depth(
             # Compute echo range scaling in EK systems using platform angle data
             echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
         elif use_beam_angles:
-            # Identify beam group name by checking channel values of `ds`
-            if echodata["Sonar/Beam_group1"]["channel"].equals(ds["channel"]):
-                beam_group_name = "Beam_group1"
-            else:
-                beam_group_name = "Beam_group2"
+            # Check beam groups to find which one contains the matching dimension
+            dim_0 = list(ds.sizes.keys())[0]
+            beam_group_name = None
+            for idx in range(echodata["Sonar"].sizes["beam_group"]):
+                if dim_0 in list(echodata[f"Sonar/Beam_group{idx + 1}"].sizes):
+                    beam_group_name = f"Beam_group{idx + 1}"
+                    break
+
+            if not beam_group_name:
+                if echodata["Sonar"].sizes["beam_group"] >= 1:
+                    beam_group_name = "Beam_group1"
+                    logger.warning(
+                        f"Could not identify beam group for dimension `{dim_0}`. "
+                        "Defaulting to `Beam_group1`."
+                    )
+                    if (
+                        "channel" not in list(echodata["Sonar/Beam_group1"].sizes)
+                        and dim_0 != "frequency_nominal"
+                    ):
+                        raise ValueError(
+                            "Could not identify beam group for dimension "
+                            f"`{dim_0}` and `Beam_group1` does not have a "
+                            "`channel` or `frequency_nominal` dimension to swap."
+                        )
+                    else:
+                        # Swap beam group dims if necessary
+                        echodata["Sonar/Beam_group1"] = swap_dims_channel_frequency(
+                            echodata["Sonar/Beam_group1"]
+                        )
 
             # Compute echo range scaling in EK systems using beam angle data
             echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"])
@@ -456,12 +480,22 @@ def add_splitbeam_angle(
     # and obtain the echodata group path corresponding to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
-    # check that source_Sv at least has a channel dimension
-    if "channel" not in source_Sv.variables:
-        raise ValueError("The input source_Sv Dataset must have a channel dimension!")
+    dim_0 = None
+    for dim in list(source_Sv.sizes.keys()):
+        if dim in ["channel", "frequency_nominal"]:
+            dim_0 = dim
+            break
 
-    # Select ds_beam channels from source_Sv
-    ds_beam = echodata[ed_beam_group].sel(channel=source_Sv["channel"].values)
+    if dim_0:
+        if dim_0 not in list(echodata[ed_beam_group].sizes) and "channel" in list(
+            echodata[ed_beam_group].sizes
+        ):
+            echodata[ed_beam_group] = swap_dims_channel_frequency(echodata[ed_beam_group])
+        ds_beam = echodata[ed_beam_group].sel({dim_0: source_Sv[dim_0].values})
+    else:
+        raise ValueError(
+            "The input source_Sv Dataset must have a channel or frequency_nominal dimension!"
+        )
 
     # Assemble angle param dict
     angle_param_list = [
@@ -478,10 +512,9 @@ def add_splitbeam_angle(
             raise ValueError(f"source_Sv does not contain the necessary parameter {p_name}!")
 
     # fail if source_Sv and ds_beam do not have the same lengths
-    # for ping_time, range_sample, and channel
+    # for dim_0, ping_time, range_sample
     same_size_lens = [
-        ds_beam.sizes[dim] == source_Sv.sizes[dim]
-        for dim in ["channel", "ping_time", "range_sample"]
+        ds_beam.sizes[dim] == source_Sv.sizes[dim] for dim in [dim_0, "ping_time", "range_sample"]
     ]
     if not same_size_lens:
         raise ValueError(
@@ -501,7 +534,7 @@ def add_splitbeam_angle(
         if pulse_compression:  # with pulse compression
             # put receiver fs into the same dict for simplicity
             pc_params = get_filter_coeff(
-                echodata["Vendor_specific"].sel(channel=source_Sv["channel"].values)
+                echodata["Vendor_specific"].sel({dim_0: source_Sv[dim_0].values})
             )
             pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
             theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params)
