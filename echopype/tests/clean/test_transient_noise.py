@@ -30,7 +30,7 @@ def ds_small_chunked(ds_small, request):
 @pytest.mark.unit
 def test_dispatcher_rejects_unsupported_method(ds_small):
     with pytest.raises(ValueError, match="Unsupported transient noise removal method"):
-        ep.clean.mask_transient_noise_dispatch(
+        ep.clean.detect_transient(
             ds_small, method="not_a_method", params={}
         )
 
@@ -45,7 +45,7 @@ def test_dispatcher_returns_named_boolean_mask(ds_small, method, expected_name):
         # generic minimal args that both methods accept
         "range_var": "depth",
     }
-    mask = ep.clean.mask_transient_noise_dispatch(ds_small, method=method, params=params)
+    mask = ep.clean.detect_transient(ds_small, method=method, params=params)
     assert isinstance(mask, xr.DataArray)
     assert mask.dtype == bool
     assert mask.name == expected_name
@@ -64,8 +64,8 @@ def test_fielding_dimensions_and_determinism(ds_small_chunked):
         range_var="depth",
         r0=900, r1=1000, n=30, thr=(3, 1), roff=20, jumps=5, maxts=-35, start=0,
     )
-    m1 = ep.clean.mask_transient_noise_dispatch(ds_small_chunked, "fielding", params)
-    m2 = ep.clean.mask_transient_noise_dispatch(ds_small_chunked, "fielding", params)
+    m1 = ep.clean.detect_transient(ds_small_chunked, "fielding", params)
+    m2 = ep.clean.detect_transient(ds_small_chunked, "fielding", params)
     # Dims equal Sv
     Sv = ds_small_chunked["Sv"]
     assert tuple(m1.dims) == tuple(Sv.dims)
@@ -78,11 +78,11 @@ def test_fielding_invalid_inputs_raise(ds_small):
     # missing var_name
     bad_ds = ds_small.drop_vars("Sv")
     with pytest.raises(ValueError):
-        ep.clean.mask_transient_noise_dispatch(bad_ds, "fielding", dict(range_var="depth"))
+        ep.clean.detect_transient(bad_ds, "fielding", dict(range_var="depth"))
     # missing range_var
     bad_ds2 = ds_small.drop_vars("depth")
     with pytest.raises(ValueError):
-        ep.clean.mask_transient_noise_dispatch(bad_ds2, "fielding", dict(range_var="depth"))
+        ep.clean.detect_transient(bad_ds2, "fielding", dict(range_var="depth"))
 
 
 # ---------- Matecho method tests
@@ -99,8 +99,8 @@ def test_matecho_dimensions_and_determinism(ds_small_chunked):
         extend_ping=0,
         min_window=20,
     )
-    m1 = ep.clean.mask_transient_noise_dispatch(ds_small_chunked, "matecho", params)
-    m2 = ep.clean.mask_transient_noise_dispatch(ds_small_chunked, "matecho", params)
+    m1 = ep.clean.detect_transient(ds_small_chunked, "matecho", params)
+    m2 = ep.clean.detect_transient(ds_small_chunked, "matecho", params)
     Sv = ds_small_chunked["Sv"]
     assert tuple(m1.dims) == tuple(Sv.dims)
     xr.testing.assert_identical(m1, m2)
@@ -121,8 +121,8 @@ def test_matecho_threshold_monotonicity(ds_small):
         extend_ping=0,
         min_window=20,
     )
-    m_low  = ep.clean.mask_transient_noise_dispatch(ds_small, "matecho", dict(delta_db=8,  **base_params))
-    m_high = ep.clean.mask_transient_noise_dispatch(ds_small, "matecho", dict(delta_db=16, **base_params))
+    m_low  = ep.clean.detect_transient(ds_small, "matecho", dict(delta_db=8,  **base_params))
+    m_high = ep.clean.detect_transient(ds_small, "matecho", dict(delta_db=16, **base_params))
 
     # Masks are True=VALID. A higher threshold should yield >= number of True.
     valid_low  = np.count_nonzero(m_low.values)
@@ -137,7 +137,7 @@ def test_matecho_bottom_var_optional(ds_small):
     If a (shallow) bottom is provided, it must not crash and must keep dims.
     """
     # Run without bottom (default path in your wrapper)
-    m_nob = ep.clean.mask_transient_noise_dispatch(
+    m_nob = ep.clean.detect_transient(
         ds_small, "matecho",
         dict(range_var="depth", start_depth=220, window_meter=450, window_ping=50, delta_db=12)
     )
@@ -154,7 +154,7 @@ def test_matecho_bottom_var_optional(ds_small):
     ds_btm = ds_small.assign(bottom_var=shallow)
     
     # Your current wrapper ignores bottom_var argument; here we at least ensure it doesn't explode
-    m_btm = ep.clean.mask_transient_noise_dispatch(
+    m_btm = ep.clean.detect_transient(
         ds_btm, "matecho",
         dict(range_var="depth", start_depth=220, window_meter=450, window_ping=50, delta_db=12)
     )
@@ -167,8 +167,8 @@ def test_matecho_bottom_var_optional(ds_small):
 def test_methods_return_boolean_and_same_shape(ds_small_chunked):
     params_fielding = dict(range_var="depth")
     params_matecho  = dict(range_var="depth")
-    mf = ep.clean.mask_transient_noise_dispatch(ds_small_chunked, "fielding", params_fielding)
-    mm = ep.clean.mask_transient_noise_dispatch(ds_small_chunked, "matecho",  params_matecho)
+    mf = ep.clean.detect_transient(ds_small_chunked, "fielding", params_fielding)
+    mm = ep.clean.detect_transient(ds_small_chunked, "matecho",  params_matecho)
     Sv = ds_small_chunked["Sv"]
     assert mf.dtype == bool and mm.dtype == bool
     assert tuple(mf.dims) == tuple(Sv.dims) == tuple(mm.dims)
