@@ -17,6 +17,10 @@ from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
 
+# for schoals detection
+from .shoal_detection.shoal_echoview import shoal_echoview
+from .shoal_detection.shoal_weill import shoal_weill
+
 # lookup table with key string operator and value as corresponding Python operator
 str2ops = {
     ">": op.gt,
@@ -760,3 +764,38 @@ def detect_seafloor(
         raise ValueError(f"Unsupported bottom detection method: {method}")
 
     return METHODS_BOTTOM[method](ds, **params)
+
+
+# Registry of supported methods for shoal detection
+METHODS_SHOAL = {
+    "echoview": shoal_echoview,
+    "weill": shoal_weill,
+}
+
+
+def detect_shoal(
+    ds: xr.Dataset,
+    method: str,
+    params: Dict,
+) -> xr.DataArray:
+    """
+    Detect shoals using the selected method and return a 2D boolean mask.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Sv dataset including ping_time and range_sample.
+    method : str
+        Name of the detection method to use (e.g., "echoview", "weill").
+    params : dict
+        Parameters for the detection function (method-specific).
+
+    Returns
+    -------
+    xr.DataArray
+        2D boolean DataArray of shoal mask (True = inside).
+    """
+    if method not in METHODS_SHOAL:
+        raise ValueError(f"Unsupported shoal detection method: {method}")
+
+    return METHODS_SHOAL[method](ds, **params)
