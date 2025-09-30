@@ -69,7 +69,9 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
 
     # Allows saving both NetCDF and Zarr files from an xarray dataset
     if engine == "netcdf4":
-        ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, **kwargs)
+        ds.to_netcdf(
+            path=path, mode=mode, group=group, encoding=encoding, engine="netcdf4", **kwargs
+        )
     elif engine == "zarr":
         # Ensure that encoding and chunks match
         for var, enc in encoding.items():
