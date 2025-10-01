@@ -137,13 +137,16 @@ def compute_MVBS(
         **flox_kwargs,
     )
 
+    # Generalize the first dimension name to support multiple like channel and frequency_nominal
+    dim_0 = list(raw_MVBS.sizes.keys())[0]
+
     # create MVBS dataset
     # by transforming the binned dimensions to regular coords
     ds_MVBS = xr.Dataset(
-        data_vars={"Sv": (["channel", "ping_time", range_var], raw_MVBS["Sv"].data)},
+        data_vars={"Sv": ([dim_0, "ping_time", range_var], raw_MVBS["Sv"].data)},
         coords={
             "ping_time": np.array([v.left for v in raw_MVBS.ping_time_bins.values]),
-            "channel": raw_MVBS.channel.values,
+            dim_0: getattr(raw_MVBS, dim_0).values,
             range_var: np.array([v.left for v in raw_MVBS[f"{range_var}_bins"].values]),
         },
     )
@@ -206,6 +209,7 @@ def compute_MVBS(
     prov_dict["processing_function"] = "commongrid.compute_MVBS"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
     ds_MVBS["frequency_nominal"] = ds_Sv["frequency_nominal"]  # re-attach frequency_nominal
+    ds_MVBS["channel"] = ds_Sv["channel"]  # re-attach channel
 
     ds_MVBS = insert_input_processing_level(ds_MVBS, input_ds=ds_Sv)
 

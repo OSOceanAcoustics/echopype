@@ -11,6 +11,8 @@ from ..commongrid.utils import _parse_x_bin
 from ..utils.compute import _lin2log, _log2lin
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from .transient_noise.transient_fielding import transient_noise_fielding
+from .transient_noise.transient_matecho import transient_noise_matecho
 from .utils import (
     add_remove_background_noise_attrs,
     downsample_upsample_along_depth,
@@ -507,3 +509,147 @@ def remove_background_noise(
     ds_Sv = insert_input_processing_level(ds_Sv, input_ds=ds_Sv)
 
     return ds_Sv
+
+
+# Registry of supported methods
+METHODS_TRANSIENT = {
+    "fielding": transient_noise_fielding,
+    "matecho": transient_noise_matecho,
+}
+
+
+def detect_transient(ds: xr.Dataset, method: str, params: dict) -> xr.DataArray:
+    """
+    Dispatch transient-noise detection to a chosen method and return a boolean mask.
+
+    This dispatcher forwards ``ds`` and ``params`` to the selected implementation
+    (e.g. ``"fielding"``, ``"matecho"``). Any optional arguments omitted in
+    ``params`` are filled by that method’s own defaults.
+
+    Common expectations
+    -------------------
+    - ``ds`` must contain Sv in dB (default variable name ``"Sv"``).
+    - Sv should include at least ``ping_time`` and a vertical/range coordinate
+      (e.g. ``range_sample`` or a ``depth``).
+    - Returned mask is aligned to Sv (same dims/order) with semantics
+      **True = VALID (keep)**, **False = transient noise**.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Acoustic dataset with Sv and required coordinates.
+    method : str
+        Name of the detection method. Supported:
+          - ``"fielding"``  → modified Fielding-style deep transient detector
+          - ``"matecho"``   → Matecho-style column detector using local percentile
+          - ``"ryan"``      → to be implemented **TODO**
+    params : dict
+        Method-specific keyword arguments (see below). Omitted keys fall back to
+        the method’s defaults.
+
+    Method-specific arguments
+    -------------------------
+    fielding
+        var_name : str, default "Sv"
+            Name of the Sv variable (dB).
+        range_var : str, default "depth"
+            Name of the vertical coordinate. Can be 1-D (range) or 2-D (time×range).
+        r0, r1 : float, default 900, 1000
+            Upper/lower bounds of the vertical window (m).
+        n : int, default 30
+            Half-width of the temporal neighbourhood (pings) for the block median.
+        thr : (float, float), default (3, 1)
+            Two-stage dB thresholds for detection/propagation.
+        roff : float, default 20
+            Stop depth (m) for upward propagation (don’t propagate above this).
+        jumps : float, default 5
+            Vertical step (m) when iteratively moving the window upward.
+        maxts : float, default -35
+            Max 75th-percentile Sv (dB) for a ping to be considered “quiet”.
+        start : int, default 0
+            Number of initial pings treated as uncomputable in the auxiliary mask
+            (note: they are still kept/VALID unless you decide otherwise).
+
+    matecho
+        var_name : str, default "Sv"
+            Name of the Sv variable (dB).
+        range_var : str, default "depth"
+            Vertical coordinate; reduced to 1-D per leading dim if 2-D.
+        time_var : str, default "ping_time"
+            Time/ping dimension name.
+        bottom_var : str | None, default None
+            Optional bottom depth per ping (m). If None/NaN, uses max range.
+        start_depth : float, default 220
+            Top of the vertical detection window (m).
+        window_meter : float, default 450
+            Vertical window thickness (m).
+        window_ping : int, default 100
+            Temporal window width (pings) for local reference stats.
+        percentile : float, default 25
+            Reference percentile (dB) of the local window.
+        delta_db : float, default 12
+            Excess over percentile (dB) required to flag a ping column.
+        extend_ping : int, default 0
+            Optional horizontal dilation (pings) of flagged columns.
+        min_window : float, default 20
+            Minimum usable window height (m); skip if smaller.
+
+    ryan (**TODO**)
+
+
+    Returns
+    -------
+    xr.DataArray
+        Boolean mask aligned to ``ds[var_name]`` (same dims and order), where
+        **True = VALID (keep)** and **False = transient noise**. The name/attrs
+        are set by the called method.
+
+    Raises
+    ------
+    ValueError
+        If ``method`` is not supported.
+
+    Examples
+    --------
+    >>> from echopype.clean import detect_transient
+    >>> mask_fielding = detect_transient(
+    ...     ds=ds_Sv_trimmed,
+    ...     method="fielding",
+    ...     params={
+    ...         "var_name": "Sv",
+    ...         "range_var": "depth",
+    ...         "r0": 900,
+    ...         "r1": 1000,
+    ...         "n": 10,
+    ...         "thr": (3, 1),
+    ...         "roff": 20,
+    ...         "jumps": 5,
+    ...         "maxts": -35,
+    ...         "start": 0,
+    ...     },
+    ... )
+
+    or
+
+    >>> from echopype.clean import detect_transient
+    >>> mask_matecho = detect_transient(
+    ...     ds=ds_Sv,
+    ...     method="matecho",
+    ...     params={
+    ...         "var_name": "Sv",
+    ...         "range_var": "depth",
+    ...         "bottom_var": None,
+    ...         "start_depth": 700,
+    ...         "window_meter": 300,
+    ...         "window_ping": 50,
+    ...         "percentile": 25,
+    ...         "delta_db": 8,
+    ...         "extend_ping": 0,
+    ...         "min_window": 5,
+    ...     },
+    ... )
+    """
+    if method not in METHODS_TRANSIENT:
+        raise ValueError(f"Unsupported transient noise removal method: {method}")
+
+    return METHODS_TRANSIENT[method](ds, **params)
