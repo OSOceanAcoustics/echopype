@@ -472,9 +472,8 @@ class EchoData:
                 ext_var = mappings_expanded[platform_var]["external_var"]
                 platform_var_attrs = platform[platform_var].attrs.copy()
 
-                # Create new (replaced) variable using dataset "update"
                 # With update, dropping the variable first is not needed
-                platform = platform.update({platform_var: (time_dim, ext_ds[ext_var].data)})
+                platform.update({platform_var: (time_dim, ext_ds[ext_var].data)})
 
                 # Assign attributes to newly created (replaced) variables
                 var_attrs = platform_var_attrs
