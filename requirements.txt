@@ -17,4 +17,4 @@ s3fs
 scipy
 typing-extensions
 xarray>=2024.11.0
-zarr
+zarr>=3
