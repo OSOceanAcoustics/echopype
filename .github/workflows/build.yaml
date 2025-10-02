@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
         runs-on: [ubuntu-latest]
         experimental: [false]
     services:
@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
       - name: Set up Python
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v5.5.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Upgrade pip
