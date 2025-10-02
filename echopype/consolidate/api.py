@@ -210,8 +210,9 @@ def add_depth(
             beam_group_name = None
             for idx in range(echodata["Sonar"].sizes["beam_group"]):
                 if dim_0 in list(echodata[f"Sonar/Beam_group{idx + 1}"].sizes):
-                    beam_group_name = f"Beam_group{idx + 1}"
-                    break
+                    if echodata[f"Sonar/Beam_group{idx + 1}"][dim_0].equals(ds[dim_0]):
+                        beam_group_name = f"Beam_group{idx + 1}"
+                        break
 
             if not beam_group_name:
                 if echodata["Sonar"].sizes["beam_group"] >= 1:
