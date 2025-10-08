@@ -123,13 +123,29 @@ def transient_noise_matecho(
     min_window: float = 20,
 ) -> xr.DataArray:
     """
-    Build a Matecho-style (adapted from Matecho) transient-noise mask from an xarray Dataset.
+    Matecho-style transient-noise mask (column-wise).
 
-    This wrapper prepares the vertical coordinate and optional bottom, then calls a
-    NumPy core via `apply_ufunc`, vectorized across leading dims (e.g., channel).
-    The method flags entire ping columns as transient when the ping’s mean Sv
-    (computed in linear units) exceeds a local percentile + delta_db within a
-    deep window.
+    Overview
+    --------
+    Flags entire pings as transient when, within a deep window, the ping’s
+    mean Sv (computed in linear units, then converted back to dB) exceeds a
+    local reference percentile by `delta_db`.
+
+    1) Deep window: Use a vertical slice from `start_depth` to
+       `start_depth + window_meter`, limited by a local bottom (if provided;
+       otherwise r[-1]). Skip if usable height < `min_window`.
+    2) Local reference: For ping j, form a temporal neighborhood
+       [j - window_ping/2, j + window_ping/2] and compute the chosen `percentile`
+       (in dB) over that neighborhood within the deep window.
+    3) Ping statistic: Convert the ping’s Sv in the deep window to linear,
+       take the mean, and convert back to dB.
+    4) Decision: If `ping_mean_db > percentile + delta_db`, mark ping j as BAD.
+       Optionally dilate flagged pings horizontally by `extend_ping`
+       (binary dilation).
+
+    This wrapper prepares the vertical coordinate (and optional bottom), then
+    calls a NumPy core via `xarray.apply_ufunc`, vectorized across leading dims
+    (e.g., `channel`).
 
     Parameters
     ----------
@@ -165,11 +181,6 @@ def transient_noise_matecho(
         Boolean mask aligned to `ds[var_name]` with the **same dims and order**,
         where **True = VALID (keep)** and **False = transient noise**.
         Name: "matecho_mask_valid". Dtype: bool.
-
-    Notes
-    -----
-    - Core operates on (range, ping). Wrapper transposes Sv as needed.
-    - Bottom handling currently defaults to r[-1] when `bottom_var` is missing/NaN.
 
     Examples to use with dispatcher
     --------

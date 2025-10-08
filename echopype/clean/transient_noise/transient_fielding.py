@@ -119,11 +119,29 @@ def transient_noise_fielding(
     start: int = 0,
 ) -> xr.DataArray:
     """
-    Build a Fielding-style (modified from Echopy) transient-noise mask from an xarray Dataset.
+    Transient noise detector modified from the "fielding"
+    function in `mask_transient.py`, originally written by
+    Alejandro ARIZA for the Echopy library (C) 2020.
 
-    This wrapper extracts a 1-D vertical coordinate, then applies a NumPy core
-    over the last two dims using `apply_ufunc` (vectorized across leading dims,
-    e.g., channel). The result is returned as a boolean mask aligned to `Sv`.
+    Overview
+    -------------------
+    This algorithm identifies deep transient noise in echosounder
+    data by comparing the echo level of each ping with its local
+    temporal neighbourhood in a deep water window.
+    It operates in linear Sv space and uses a two-stage decision:
+
+    1. Deep window test – In a specified depth interval (e.g., 900–1000 m),
+    compute the ping median and the median over neighbouring pings.
+    If the ping’s deep-window 75th percentile is below maxts (i.e.,
+    the window is not broadly high), and the ping median exceeds the
+    neighborhood median by more than thr[0], mark the ping as potentially
+    transient.
+
+    2. Upward propagation – Move the vertical window upward in fixed steps
+    (e.g., 5 m). Continue masking shallower ranges until the difference
+    between the ping and block medians drops below the second threshold
+    (thr[1]). This limits the mask to the part of the column affected
+    by the transient.
 
     Parameters
     ----------
@@ -157,12 +175,6 @@ def transient_noise_fielding(
         Boolean mask aligned to `ds_Sv[var_name]` with the **same dims and order**,
         where **True = VALID (keep)** and **False = transient noise**.
         Name: "fielding_mask_valid". Dtype: bool.
-
-    Notes
-    -----
-    - The algorithm operates in linear units for statistics, converting to/from dB.
-    - The core runs over (range_sample, ping_time); leading dims (e.g., channel) are
-      vectorized by xarray.
 
     Examples, to be used with dispatcher
     --------

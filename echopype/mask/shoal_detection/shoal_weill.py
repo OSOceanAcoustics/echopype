@@ -14,16 +14,24 @@ def shoal_weill(
     minhlen: int = 0,
 ) -> xr.DataArray:
     """
+    Transient noise detector modified from the "weill"
+    function in `mask_shoals.py`, originally written by
+    Alejandro ARIZA for the Echopy library (C) 2020.
+
     Detects and masks shoals following the algorithm described in:
 
-        "Will et al. (1993): MOVIES-B — an acoustic detection description
+        "Weill et al. (1993): MOVIES-B — an acoustic detection description
         software . Application to shoal species' classification".
 
-    Steps (on (range, ping) matrix):
-      1) Threshold: mask = Sv <= thr
-      2) Fill short vertical gaps within each ping (<= maxvgap)
-      3) Fill short horizontal gaps within each depth (<= maxhgap)
-      4) Remove features smaller than (minvlen, minhlen)
+    Contiguous regions of Sv above a given threshold are grouped
+    as a single shoal, following the contiguity rules of Weill et al. (1993):s
+
+    - Vertical contiguity: Gaps along the ping are tolerated
+    up to roughly half the pulse length.
+
+    - Horizontal contiguity: Features in consecutive pings are
+    considered part of the same shoal if at least one sample
+    occurs at the same range depth.
 
     Parameters
     ----------
