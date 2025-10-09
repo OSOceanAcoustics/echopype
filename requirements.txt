@@ -6,7 +6,7 @@ flox>=0.7.2
 fsspec
 geopy
 jinja2
-netCDF4>1.6,<1.7.1
+netCDF4>1.6
 numpy
 pandas
 psutil>=5.9.1
