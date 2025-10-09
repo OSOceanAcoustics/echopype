@@ -133,18 +133,14 @@ def check_consolidated(echodata: EchoData, zmeta_path: Path) -> None:
     """
     # Check that every group is in
     # the zmetadata if consolidated
-    expected_zgroups = [
-        os.path.join(p, '.zgroup') if p != 'Top-level' else '.zgroup'
-        for p in echodata.group_paths
-    ]
+    expected_zgroups = echodata.group_paths[1:]
 
     with open(zmeta_path) as f:
         meta_json = json.load(f)
 
     file_groups = [
-        k
-        for k in meta_json['metadata'].keys()
-        if k.endswith('.zgroup')
+        key for key, value in meta_json['consolidated_metadata']['metadata'].items()
+        if value.get('node_type') == 'group'
     ]
 
     for g in expected_zgroups:

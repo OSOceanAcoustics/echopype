@@ -19,6 +19,25 @@ from echopype.convert.utils.ek_duplicates import check_unique_ping_time_duplicat
 def ek80_path(test_path):
     return test_path["EK80"]
 
+@pytest.fixture
+def ek80_dupe_ping_path(test_path):
+    return test_path["EK80_DUPE_PING"]
+
+@pytest.fixture
+def ek80_missing_sound_path(test_path):
+    return test_path["EK80_MISSING_SOUND"]
+
+@pytest.fixture
+def ek80_invalid_env_path(test_path):
+    return test_path["EK80_INVALID_ENV"]
+
+@pytest.fixture
+def ek80_sequence_path(test_path):
+    return test_path["EK80_SEQUENCE"]
+
+@pytest.fixture
+def ek80_new_path(test_path):
+    return test_path["EK80_NEW"]
 
 def pytest_generate_tests(metafunc):
     ek80_new_path = TEST_DATA_FOLDER / "ek80_new"
@@ -32,14 +51,6 @@ def pytest_generate_tests(metafunc):
 @pytest.fixture
 def ek80_new_file(request):
     return request.param
-
-
-# raw_path_simrad  = ['./echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T090935.raw',
-#                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091004.raw',
-#                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091034.raw',
-#                     './echopype/test_data/ek80/simrad/EK80_SimradEcho_WC381_Sequential-D20150513-T091105.raw']
-# raw_paths = ['./echopype/test_data/ek80/Summer2018--D20180905-T033113.raw',
-#              './echopype/test_data/ek80/Summer2018--D20180905-T033258.raw']  # Multiple files (CW and BB)
 
 def check_env_xml(echodata):
     # check environment xml datagram
@@ -491,19 +502,19 @@ def test_parse_mru0_mru1(ek80_path):
 
 
 @pytest.mark.unit
-def test_parse_missing_sound_velocity_profile():
+def test_parse_missing_sound_velocity_profile(ek80_missing_sound_path):
     """
     Tests that RAW files that are missing sound velocity profile values can be
     converted, saved to Zarr, and opened again.
     """
     # Open RAW
     ed = open_raw(
-        "echopype/test_data/ek80_missing_sound_velocity_profile/Hake-D20230701-T073658.raw",
+        ek80_missing_sound_path / "Hake-D20230701-T073658.raw",
         sonar_model="EK80"
     )
 
     # Save RAW to Zarr
-    save_path = "echopype/test_data/ek80_missing_sound_velocity_profile/test_save.zarr"
+    save_path = ek80_missing_sound_path / "test_save.zarr"
     ed.to_zarr(save_path,overwrite=True)
 
     # Open Converted
@@ -518,7 +529,7 @@ def test_parse_missing_sound_velocity_profile():
 
 
 @pytest.mark.unit
-def test_duplicate_ping_times(caplog):
+def test_duplicate_ping_times(caplog, ek80_dupe_ping_path):
     """
     Tests that RAW file with duplicate ping times can be parsed and that the correct warning has been raised.
     """
@@ -526,7 +537,7 @@ def test_duplicate_ping_times(caplog):
     log.verbose(override=False)
 
     # Open RAW
-    ed = open_raw("echopype/test_data/ek80_duplicate_ping_times/Hake-D20210913-T130612.raw", sonar_model="EK80")
+    ed = open_raw(ek80_dupe_ping_path / "Hake-D20210913-T130612.raw", sonar_model="EK80")
 
     # Check that there are no ping time duplicates in Beam group
     assert ed["Sonar/Beam_group1"].equals(
@@ -542,7 +553,7 @@ def test_duplicate_ping_times(caplog):
 
 
 @pytest.mark.unit
-def test_check_unique_ping_time_duplicates(caplog):
+def test_check_unique_ping_time_duplicates(caplog, ek80_dupe_ping_path):
     """
     Checks that `check_unique_ping_time_duplicates` raises a warning when the data for duplicate ping times is not unique.
     """
@@ -553,7 +564,7 @@ def test_check_unique_ping_time_duplicates(caplog):
     log.verbose(override=False)
 
     # Open duplicate ping time beam dataset
-    ds_data = xr.open_zarr("echopype/test_data/ek80_duplicate_ping_times/duplicate_beam_ds.zarr")
+    ds_data = xr.open_zarr(ek80_dupe_ping_path / "duplicate_beam_ds.zarr")
 
     # Modify a single entry to ensure that there exists duplicate ping times that do not share the same backscatter data
     ds_data["backscatter_r"][0,0,0] = 0
@@ -574,7 +585,7 @@ def test_check_unique_ping_time_duplicates(caplog):
 
 
 @pytest.mark.unit
-def test_parse_ek80_with_invalid_env_datagrams():
+def test_parse_ek80_with_invalid_env_datagrams(ek80_invalid_env_path):
     """
     Tests parsing EK80 RAW file with invalid environment datagrams. Checks that the EchoData object
     contains the necessary environment variables for calibration.
@@ -582,7 +593,7 @@ def test_parse_ek80_with_invalid_env_datagrams():
 
     # Parse RAW
     ed = open_raw(
-        "echopype/test_data/ek80_invalid_env_datagrams/SH24-replay-D20240705-T070536.raw",
+        ek80_invalid_env_path / "SH24-replay-D20240705-T070536.raw",
         sonar_model="EK80",
     )
 
@@ -593,14 +604,14 @@ def test_parse_ek80_with_invalid_env_datagrams():
 
 
 @pytest.mark.unit
-def test_ek80_sonar_all_channel():
+def test_ek80_sonar_all_channel(ek80_new_path):
     """
     Checks that when an EK80 raw file has 2 beam groups, the converted Echodata object contains
     all channels in the 'channel_all' dimension of the Sonar group.
     """
     # Convert EK80 Raw File
     ed = open_raw(
-        raw_file="echopype/test_data/ek80_new/echopype-test-D20211004-T235714.raw",
+        raw_file= ek80_new_path / "echopype-test-D20211004-T235714.raw",
         sonar_model="EK80"
     )
 
@@ -616,14 +627,14 @@ def test_ek80_sonar_all_channel():
 
 
 @pytest.mark.unit
-def test_ek80_sequence_filter_coeff():
+def test_ek80_sequence_filter_coeff(ek80_sequence_path):
     """
     Checks that filter coefficients are stored properly for EK80 raw files
     generated with ping sequence.
     """
     # Convert EK80 Raw File
     ed = open_raw(
-        raw_file="echopype/test_data/ek80_sequence/three_ensemble-Phase0-D20240506-T053349-0.raw",
+        raw_file= ek80_sequence_path / "three_ensemble-Phase0-D20240506-T053349-0.raw",
         sonar_model="EK80"
     )
 
