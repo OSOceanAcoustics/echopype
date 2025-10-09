@@ -474,7 +474,7 @@ def create_temp_zarr_store() -> FSMap:
         return fsspec.get_mapper(zarr_path)
 
 
-def delete_zarr_store(store: "zs | str", fs: Optional[AbstractFileSystem] = None) -> None:
+def delete_zarr_store(store: "zs.LocalStore | str", fs: Optional[AbstractFileSystem] = None) -> None:
     """
     Delete the zarr store and all its contents.
 
@@ -503,9 +503,7 @@ def delete_zarr_store(store: "zs | str", fs: Optional[AbstractFileSystem] = None
         store_path: str = str(store.root)
 
     if os.path.exists(store_path):
-        if isinstance(fs, zs.FsspecStore):
-            fs.delete(store_path)
-        elif isinstance(fs, zs.LocalStore):
+        if isinstance(fs, zs.LocalStore):
             shutil.rmtree(store_path)
 
 

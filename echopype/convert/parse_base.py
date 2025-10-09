@@ -172,6 +172,9 @@ class ParseEK(ParseBase):
             # Setup temp store
             zarr_store = create_temp_zarr_store()
             # Setup zarr store
+            # synchronizer not supported yet in zarr v3
+            # TODO: add back synchronizer when supported see #1558
+            # zarr_root = zarr.group(store=zarr_store.root, overwrite=True, synchronizer=zarr.ThreadSynchronizer())
             zarr_root = zarr.group(store=zarr_store.root, overwrite=True)
 
         for raw_type in self.raw_types:
