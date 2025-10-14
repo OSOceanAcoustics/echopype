@@ -319,7 +319,7 @@ class Ad2cpDataPacket:
         Calculates and returns the timestamp of the packet
         """
 
-        year = self.data["year"] + 1900
+        year = self.data["year"].astype(np.uint16) + 1900
         month = self.data["month"] + 1
         day = self.data["day"]
         hour = self.data["hour"]

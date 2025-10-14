@@ -146,7 +146,7 @@ class SetGroupsEK60(SetGroupsBase):
             ds_env.append(ds_tmp)
 
         # Merge data from all channels
-        ds = xr.merge(ds_env)
+        ds = xr.merge(ds_env, compat="no_conflicts", join="outer")
 
         return set_time_encodings(ds)
 
@@ -308,7 +308,7 @@ class SetGroupsEK60(SetGroupsBase):
         # TODO: for current test data we see all
         #  pitch/roll/heave are the same for all freq channels
         #  consider only saving those from the first channel
-        ds_plat = xr.merge(ds_plat)
+        ds_plat = xr.merge(ds_plat, compat="no_conflicts", join="outer")
         ds_plat["channel"] = ds_plat["channel"].assign_attrs(
             self._varattrs["beam_coord_default"]["channel"]
         )
