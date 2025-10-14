@@ -137,7 +137,7 @@ def transient_noise_matecho(
     2) Local reference: For ping j, form a temporal neighborhood
        [j - window_ping/2, j + window_ping/2] and compute the chosen `percentile`
        (in dB) over that neighborhood within the deep window.
-    3) Mean Sv within the depth window (`ping_mean_db`): 
+    3) Mean Sv within the depth window (`ping_mean_db`):
     Compute the mean Sv (in the linear domain and converted back to dB).
     4) Decision: If `ping_mean_db > percentile + delta_db`, mark ping j as BAD.
        Optionally dilate flagged pings horizontally by `extend_ping`

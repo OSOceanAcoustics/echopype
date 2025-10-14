@@ -125,22 +125,22 @@ def transient_noise_fielding(
 
     Overview
     ---------
-    This algorithm identifies transient noise in echosounder data at deeper 
-    part of echogram by comparing the echo level of each ping within 
-    its local temporal neighbourhood in a deep water window. 
+    This algorithm identifies transient noise in echosounder data at deeper
+    part of echogram by comparing the echo level of each ping within
+    its local temporal neighbourhood in a deep water window.
     It operates in linear Sv space and in a two-stage process:
 
-    1) Depth window: In the specified depth interval (`r0`-`r1`, e.g., 900–1000 m), 
+    1) Depth window: In the specified depth interval (`r0`-`r1`, e.g., 900–1000 m),
     compute the ping median and the median over neighbouring pings.
     If the ping’s deep-window 75th percentile is below `maxts` (i.e.,
     the window is not broadly high), and the ping median exceeds the
     neighborhood median by more than `thr[0]`, mark the ping as potentially
     transient.
 
-    2) Upward propagation: Move the vertical window upward in fixed steps 
+    2) Upward propagation: Move the vertical window upward in fixed steps
     (`jumps`, e.g., 5 m, ). Continue masking shallower ranges until the difference
     between the ping median and the median over neighbouring pings drops
-    below `thr[1])`. This limits the mask to only the part of the water column 
+    below `thr[1])`. This limits the mask to only the part of the water column
     affected by the transient.
 
     Parameters
