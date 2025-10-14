@@ -19,14 +19,31 @@ def bottom_blackwell(
     wphi: int = 52,
 ) -> xr.DataArray:
     """
-    Seafloor detection from Sv + split-beam angles (Blackwell et al., 2019).
+    Shoal detector modified from the "blackwell" function
+    in `mask_seabed.py`, originally written by
+    Alejandro ARIZA for the Echopy library © 2020.
 
-    Briefly: along-ship and athwart-ship angle fields are smoothed with square
-    windows (``wtheta``, ``wphi``). Pixels with large angle activity are flagged,
-    an Sv threshold is set from the median Sv within those pixels (or from the
-    user-provided value), and connected Sv patches above that threshold are kept.
-    The shallowest range of each kept patch per ping is taken as the bottom; an
-    ``offset`` (m) is subtracted to place the line slightly above it.
+    Based on: "Blackwell et al (2019), Aliased seabed detection in fisheries acoustic
+    data". (https://arxiv.org/abs/1904.10736)
+
+    Overview
+    ---------
+    1) Range crop: restrict processing to r ∈ [r0, r1].
+
+    2) Angle smoothing: convolve along-ship (θ) and athwart-ship (ϕ) angles
+        with square kernels of size wtheta and wphi (mean filters).
+
+    3) Angle activity mask: flag pixels where the smoothed angles’ squared values
+        exceed thresholds (θ > ttheta or ϕ > tphi), then take the union.
+
+    4) Adaptive Sv threshold: compute the median Sv over the angle mask in linear
+        units (then convert to dB), clamp to at least tSv, and threshold Sv > Sv_median.
+
+    5) Connected components: label Sv above threshold patches and keep only those
+        intersecting the angle mask.
+
+    6) Bottom pick: for each ping, take the shallowest range of the kept patch and
+    subtract an `offset` (m) to place the bottom line slightly above it.
 
     Parameters
     ----------
@@ -60,11 +77,6 @@ def bottom_blackwell(
         1-D bottom depth per ``ping_time`` with attributes:
         ``detector='blackwell'``, ``threshold_Sv``, ``threshold_angle_major``,
         ``threshold_angle_minor``, ``offset_m``, and ``channel``.
-
-    Notes
-    -----
-    Based on: Blackwell et al., 2019, ICES J. Mar. Sci., “An automated method for
-    seabed detection using split-beam echosounders.”
     """
 
     # Validate input variables and structure

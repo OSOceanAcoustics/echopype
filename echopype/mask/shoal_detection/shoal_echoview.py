@@ -7,38 +7,60 @@ import xarray as xr
 def shoal_echoview(
     ds: xr.Dataset,
     var_name: str,
-    channel: str,
-    idim: int,
-    jdim: int,
-    thr: float = -70,
-    mincan: tuple[int, int] = (3, 10),
-    maxlink: tuple[int, int] = (3, 15),
-    minsho: tuple[int, int] = (3, 15),
-) -> np.ndarray:
+    channel: str | None,
+    idim: np.ndarray,
+    jdim: np.ndarray,
+    thr: float = -70.0,
+    mincan: tuple[float, float] = (3.0, 10.0),
+    maxlink: tuple[float, float] = (3.0, 15.0),
+    minsho: tuple[float, float] = (3.0, 15.0),
+) -> xr.DataArray:
     """
+    Shoal detector modified from the "echoview" function
+    in `mask_shoals.py`, originally written by
+    Alejandro ARIZA for the Echopy library © 2020.
+
+    Overview
+    ---------
     Perform shoal detection on a Sv matrix using Echoview-like algorithm.
+
+    1) Threshold (candidates): mark samples where Sv > `thr`.
+
+    2) Minimum candidate size: remove connected components whose
+        height < `mincan[0]` (in idim units) or width < `mincan[1]` (in jdim units).
+
+    3) Linking: for each remaining component, search a surrounding box expanded
+        by `maxlink` (height, width) and link neighbouring components by assigning
+        them the same label.
+
+    4) Minimum shoal size: after linking, remove shoals whose height < `minsho[0]`
+        or width < `minsho[1]`.
 
     Parameters
     ----------
-    Sv : np.ndarray
-        2D array of Sv values (range, ping).
+    ds : xr.Dataset
+        Dataset containing `var_name` (Sv in dB).
+    var_name : str
+        Name of the Sv variable in `ds`.
+    channel : str | None
+        If a "channel" dimension exists, select this channel.
     idim : np.ndarray
-        Depth/range axis (length = number of rows + 1).
+        Vertical axis coordinates (length = n_rows + 1).
     jdim : np.ndarray
-        Time/ping axis (length = number of columns + 1).
+        Horizontal axis coordinates (length = n_cols + 1).
     thr : float
-        Threshold in dB for initial detection.
-    mincan : tuple[int, int]
+        Threshold in dB for initial detection (detect values > `thr`).
+    mincan : tuple[float, float]
         Minimum candidate size (height, width).
-    maxlink : tuple[int, int]
+    maxlink : tuple[float, float]
         Maximum linking distance (height, width).
-    minsho : tuple[int, int]
+    minsho : tuple[float, float]
         Minimum shoal size (height, width) after linking.
 
     Returns
     -------
-    np.ndarray
-        Boolean mask of detected shoals (same shape as Sv).
+    xr.DataArray
+        Boolean mask of detected shoals (dims: "ping_time", "range_sample"; True = detected).
     """
 
     # Validate variable
@@ -55,7 +77,7 @@ def shoal_echoview(
     if np.isnan(idim).any() or np.isnan(jdim).any():
         raise ValueError("idim and jdim must not contain NaN")
 
-    Sv = var.values.T  # shape: (range, ping)
+    Sv = var.transpose("range_sample", "ping_time").values  # (range, ping)
 
     # 1. Thresholding
     mask = np.ma.masked_greater(Sv, thr).mask

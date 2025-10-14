@@ -14,26 +14,30 @@ def shoal_weill(
     minhlen: int = 0,
 ) -> xr.DataArray:
     """
-    Transient noise detector modified from the "weill"
-    function in `mask_shoals.py`, originally written by
-    Alejandro ARIZA for the Echopy library (C) 2020.
+    Shoal detector modified from the "weill" function
+    in `mask_shoals.py`, originally written by
+    Alejandro ARIZA for the Echopy library © 2020.
 
     Detects and masks shoals following the algorithm described in:
 
         "Weill et al. (1993): MOVIES-B — an acoustic detection description
-        software . Application to shoal species' classification".
+        software. Application to shoal species' classification".
 
     Overview
     ---------
     Groups contiguous regions of Sv above a given threshold as a single shoal,
     following the contiguity rules of Weill et al. (1993) in the following steps:
 
-    - Vertical contiguity: Gaps along the ping are tolerated
-    up to roughly half the pulse length.
+    1) Threshold: mark samples where Sv > `thr`.
 
-    - Horizontal contiguity: Features in consecutive pings are
-    considered part of the same shoal if at least one sample
-    occurs at the same range depth.
+    2) Vertical contiguity: within each ping, fill short gaps (≤ `maxvgap` range samples),
+        ignoring gaps that touch the top/bottom boundaries.
+
+    3) Horizontal contiguity: at each range, fill short gaps across pings (≤ `maxhgap` pings),
+        ignoring gaps that touch the left/right boundaries.
+
+    4) Size filter: remove features whose vertical length < `minvlen` (range samples) or
+        horizontal length < `minhlen` (pings).
 
     Parameters
     ----------
@@ -44,7 +48,7 @@ def shoal_weill(
     channel : str | None
         If a "channel" dimension exists, select this channel.
     thr : float
-        Threshold in dB (keep values <= thr).
+        Threshold in dB (detect values > `thr`).
     maxvgap : int
         Max vertical gap (in range samples) to fill.
     maxhgap : int
@@ -80,7 +84,7 @@ def shoal_weill(
     # Arrange as (range, ping) for processing, similar to echopy
     Sv = var.transpose("range_sample", "ping_time").values
 
-    # --- 1) Thresholding: keep (mask=True) where Sv <= thr
+    # --- 1) Thresholding: keep (mask=True) where Sv > thr
     mask = np.ma.masked_greater(Sv, thr).mask
     if np.isscalar(mask):
         mask = np.zeros_like(Sv, dtype=bool)

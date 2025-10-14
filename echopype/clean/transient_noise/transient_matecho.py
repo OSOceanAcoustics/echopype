@@ -123,7 +123,14 @@ def transient_noise_matecho(
     min_window: float = 20,
 ) -> xr.DataArray:
     """
-    Matecho-style transient-noise mask that masks the entire water column for noisy pings.
+    Transient noise detector modified from the "DeepSpikeDetection"
+    function in `DeepSpikeDetection.m`, originally written by
+    Yannick PERROT for the Matecho open-source tool for processing
+    fisheries acoustics data © 2018.
+
+    Perrot, Y., Brehmer, P., Habasque, J., Roudaut, G., Behagle, N., Sarré, A.
+    and Lebourges-Dhaussy, A., 2018. Matecho: an open-source tool for processing
+    fisheries acoustics data. Acoustics Australia, 46(2), pp.241-248.
 
     Overview
     --------
@@ -132,16 +139,20 @@ def transient_noise_matecho(
     local reference percentile by `delta_db`.
 
     1) Depth window: Use a vertical slice from `start_depth` to
-       `start_depth + window_meter`, limited by a local bottom (if provided;
-       otherwise r[-1]). Skip if usable height < `min_window`.
+        `start_depth + window_meter`, limited by a local bottom (if provided;
+        otherwise will use the maximum depth of the echogram).
+        Skip if usable height < `min_window`.
+
     2) Local reference: For ping j, form a temporal neighborhood
-       [j - window_ping/2, j + window_ping/2] and compute the chosen `percentile`
-       (in dB) over that neighborhood within the deep window.
+        [j - window_ping/2, j + window_ping/2] and compute the chosen `percentile`
+        over that neighborhood within the deep window.
+
     3) Mean Sv within the depth window (`ping_mean_db`):
-    Compute the mean Sv (in the linear domain and converted back to dB).
+        Compute the mean Sv (in the linear domain and converted back to dB).
+
     4) Decision: If `ping_mean_db > percentile + delta_db`, mark ping j as BAD.
-       Optionally dilate flagged pings horizontally by `extend_ping`
-       (binary dilation).
+        Optionally dilate flagged pings horizontally by `extend_ping`
+        (binary dilation).
 
     This function prepares the vertical coordinate (and optional bottom), then
     calls a NumPy core via `xarray.apply_ufunc`, vectorized across leading dims

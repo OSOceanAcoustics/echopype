@@ -28,7 +28,7 @@ def _fielding_core_numpy(
     r0, r1 : float
         Vertical window bounds (m). If invalid/outside data, returns all-False mask.
     n : int
-        Half-width of temporal neighborhood (pings).
+        Half-width of temporal neighbourhood (pings).
     thr : tuple[float, float]
         Thresholds (dB) for decision stages.
     roff : float
@@ -121,27 +121,27 @@ def transient_noise_fielding(
     """
     Transient noise detector modified from the "fielding"
     function in `mask_transient.py`, originally written by
-    Alejandro ARIZA for the Echopy library (C) 2020.
+    Alejandro ARIZA for the Echopy library © 2020.
 
     Overview
     ---------
     This algorithm identifies transient noise in echosounder data at deeper
-    part of echogram by comparing the echo level of each ping within
+    part of the echogram by comparing the echo level of each ping within
     its local temporal neighbourhood in a deep water window.
     It operates in linear Sv space and in a two-stage process:
 
     1) Depth window: In the specified depth interval (`r0`-`r1`, e.g., 900–1000 m),
-    compute the ping median and the median over neighbouring pings.
-    If the ping’s deep-window 75th percentile is below `maxts` (i.e.,
-    the window is not broadly high), and the ping median exceeds the
-    neighborhood median by more than `thr[0]`, mark the ping as potentially
-    transient.
+        compute the ping median and the median over neighbouring pings.
+        If the ping’s deep-window 75th percentile is below `maxts` (i.e.,
+        the window is not broadly high), and the ping median exceeds the
+        neighbourhood median by more than `thr[0]`, mark the ping as potentially
+        transient.
 
     2) Upward propagation: Move the vertical window upward in fixed steps
-    (`jumps`, e.g., 5 m, ). Continue masking shallower ranges until the difference
-    between the ping median and the median over neighbouring pings drops
-    below `thr[1])`. This limits the mask to only the part of the water column
-    affected by the transient.
+        (`jumps`, e.g., 5 m). Continue masking shallower ranges until the difference
+        between the ping median and the median over neighbouring pings drops
+        below `thr[1]`. This limits the mask to only the part of the water column
+        affected by the transient.
 
     Parameters
     ----------
@@ -157,7 +157,7 @@ def transient_noise_fielding(
         Upper/lower bounds of the vertical window (meters). If the window is invalid
         or outside the data range, nothing is masked.
     n : int
-        Half-width of the temporal neighborhood (pings) used to compute the block median.
+        Half-width of the temporal neighbourhood (pings) used to compute the block median.
     thr : tuple[float, float], default (3, 1)
         Thresholds (dB) used in the two-stage decision.
     roff : float
