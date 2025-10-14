@@ -194,6 +194,73 @@ def test_add_location(
             ds_sel = ep.consolidate.add_location(ds=ds, echodata=ed, nmea_sentence="GGA")
             _tests(ds_sel, location_type, nmea_sentence="GGA")
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ["sonar_model", "path_model", "raw_and_xml_paths", "lat_lon_name_dict", "extras"],
+    [
+        (
+            "AZFP",
+            "AZFP",
+            ("17082117.01A", "17041823.XML"),
+            {"lat_name": "latitude", "lon_name": "longitude"},
+            {'longitude': -60.0, 'latitude': 45.0, 'salinity': 27.9, 'pressure': 59},
+        ),
+    ],
+)
+def test_add_location_with_dim_swap(
+        sonar_model,
+        path_model,
+        raw_and_xml_paths,
+        lat_lon_name_dict,
+        extras,
+        test_path
+):
+    """
+        Test adding location to Sv dataset after swapping dimension/coordinate
+        from channel to frequency_nominal.
+        Asserts that the output dataset has swapped channel dim to frequency_nominal
+        and contains the latitude and longitude variable.
+    """
+
+    raw_path = test_path[path_model] / raw_and_xml_paths[0]
+    xml_path = test_path[path_model] / raw_and_xml_paths[1]
+
+    ed = ep.open_raw(raw_path, xml_path=xml_path, sonar_model=sonar_model)
+    point_ds = xr.Dataset(
+        {
+            lat_lon_name_dict["lat_name"]: (["time"], np.array([float(extras['latitude'])])),
+            lat_lon_name_dict["lon_name"]: (["time"], np.array([float(extras['longitude'])])),
+        },
+        coords={
+            "time": (["time"], np.array([ed["Sonar/Beam_group1"]["ping_time"].values.min()]))
+        },
+    )
+    ed.update_platform(
+        point_ds,
+        variable_mappings={
+            lat_lon_name_dict["lat_name"]: lat_lon_name_dict["lat_name"],
+            lat_lon_name_dict["lon_name"]: lat_lon_name_dict["lon_name"]
+        }
+    )
+
+    env_params = {
+        "temperature": ed["Environment"]["temperature"].values.mean(),
+        "salinity": extras["salinity"],
+        "pressure": extras["pressure"],
+    }
+
+    ds = ep.calibrate.compute_Sv(echodata=ed, env_params=env_params)
+
+    ds = ep.consolidate.swap_dims_channel_frequency(ds)
+
+    ds_all = ep.consolidate.add_location(ds=ds, echodata=ed)
+
+    # Check that channel dim has been swapped to frequency_nominal
+    assert "channel" not in ds_all.sizes
+    assert "frequency_nominal" in ds_all.sizes
+    # Check that latitude and longitude have been added
+    assert "latitude" in ds_all.data_vars
+    assert "longitude" in ds_all.data_vars
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
