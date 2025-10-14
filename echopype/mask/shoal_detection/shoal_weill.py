@@ -23,8 +23,10 @@ def shoal_weill(
         "Weill et al. (1993): MOVIES-B — an acoustic detection description
         software . Application to shoal species' classification".
 
-    Contiguous regions of Sv above a given threshold are grouped
-    as a single shoal, following the contiguity rules of Weill et al. (1993):s
+    Overview
+    ---------
+    Groups contiguous regions of Sv above a given threshold as a single shoal,
+    following the contiguity rules of Weill et al. (1993) in the following steps:
 
     - Vertical contiguity: Gaps along the ping are tolerated
     up to roughly half the pulse length.

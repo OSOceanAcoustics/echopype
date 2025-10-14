@@ -123,7 +123,7 @@ def transient_noise_matecho(
     min_window: float = 20,
 ) -> xr.DataArray:
     """
-    Matecho-style transient-noise mask (column-wise).
+    Matecho-style transient-noise mask that masks the entire water column for noisy pings.
 
     Overview
     --------
@@ -131,19 +131,19 @@ def transient_noise_matecho(
     mean Sv (computed in linear units, then converted back to dB) exceeds a
     local reference percentile by `delta_db`.
 
-    1) Deep window: Use a vertical slice from `start_depth` to
+    1) Depth window: Use a vertical slice from `start_depth` to
        `start_depth + window_meter`, limited by a local bottom (if provided;
        otherwise r[-1]). Skip if usable height < `min_window`.
     2) Local reference: For ping j, form a temporal neighborhood
        [j - window_ping/2, j + window_ping/2] and compute the chosen `percentile`
        (in dB) over that neighborhood within the deep window.
-    3) Ping statistic: Convert the ping’s Sv in the deep window to linear,
-       take the mean, and convert back to dB.
+    3) Mean Sv within the depth window (`ping_mean_db`): 
+    Compute the mean Sv (in the linear domain and converted back to dB).
     4) Decision: If `ping_mean_db > percentile + delta_db`, mark ping j as BAD.
        Optionally dilate flagged pings horizontally by `extend_ping`
        (binary dilation).
 
-    This wrapper prepares the vertical coordinate (and optional bottom), then
+    This function prepares the vertical coordinate (and optional bottom), then
     calls a NumPy core via `xarray.apply_ufunc`, vectorized across leading dims
     (e.g., `channel`).
 
