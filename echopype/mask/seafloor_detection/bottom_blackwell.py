@@ -35,9 +35,8 @@ def bottom_blackwell(
 
     3) Angle activity mask: flag pixels where the smoothed angles’ squared values
         exceed thresholds (θ > ttheta or ϕ > tphi), then take the union.
-
-    4) Adaptive Sv threshold: compute the median Sv over the angle mask in linear
-        units (then convert to dB), ensure it is not lower than tSv, and threshold Sv > Sv_median.
+   4) Adaptive Sv threshold: compute the median Sv over the angle mask in linear
+        units (then convert to dB), set it to tSv if lower, and threshold Sv > Sv_median.
 
     5) Connected components: label Sv above threshold patches and keep only those
         intersecting the angle mask.
