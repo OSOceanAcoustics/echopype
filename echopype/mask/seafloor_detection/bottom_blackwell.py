@@ -37,13 +37,13 @@ def bottom_blackwell(
         exceed thresholds (θ > ttheta or ϕ > tphi), then take the union.
 
     4) Adaptive Sv threshold: compute the median Sv over the angle mask in linear
-        units (then convert to dB), clamp to at least tSv, and threshold Sv > Sv_median.
+        units (then convert to dB), ensure it is not lower than tSv, and threshold Sv > Sv_median.
 
     5) Connected components: label Sv above threshold patches and keep only those
         intersecting the angle mask.
 
     6) Bottom pick: for each ping, take the shallowest range of the kept patch and
-    subtract an `offset` (m) to place the bottom line slightly above it.
+        subtract an `offset` (m) to place the bottom line slightly above it.
 
     Parameters
     ----------
