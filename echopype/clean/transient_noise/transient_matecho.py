@@ -123,13 +123,40 @@ def transient_noise_matecho(
     min_window: float = 20,
 ) -> xr.DataArray:
     """
-    Build a Matecho-style (adapted from Matecho) transient-noise mask from an xarray Dataset.
+    Transient noise detector modified from the "DeepSpikeDetection"
+    function in `DeepSpikeDetection.m`, originally written by
+    Yannick PERROT for the Matecho open-source tool for processing
+    fisheries acoustics data © 2018.
 
-    This wrapper prepares the vertical coordinate and optional bottom, then calls a
-    NumPy core via `apply_ufunc`, vectorized across leading dims (e.g., channel).
-    The method flags entire ping columns as transient when the ping’s mean Sv
-    (computed in linear units) exceeds a local percentile + delta_db within a
-    deep window.
+    Perrot, Y., Brehmer, P., Habasque, J., Roudaut, G., Behagle, N., Sarré, A.
+    and Lebourges-Dhaussy, A., 2018. Matecho: an open-source tool for processing
+    fisheries acoustics data. Acoustics Australia, 46(2), pp.241-248.
+
+    Overview
+    --------
+    Flags entire pings as transient when, within a deep window, the ping’s
+    mean Sv (computed in linear units, then converted back to dB) exceeds a
+    local reference percentile by `delta_db`.
+
+    1) Depth window: Use a vertical slice from `start_depth` to
+        `start_depth + window_meter`, limited by a local bottom (if provided;
+        otherwise will use the maximum depth of the echogram).
+        Skip if usable height < `min_window`.
+
+    2) Local reference: For ping j, form a temporal neighborhood
+        [j - window_ping/2, j + window_ping/2] and compute the chosen `percentile`
+        over that neighborhood within the deep window.
+
+    3) Mean Sv within the depth window (`ping_mean_db`):
+        Compute the mean Sv (in the linear domain and converted back to dB).
+
+    4) Decision: If `ping_mean_db > percentile + delta_db`, mark ping j as BAD.
+        Optionally dilate flagged pings horizontally by `extend_ping`
+        (binary dilation).
+
+    This function prepares the vertical coordinate (and optional bottom), then
+    calls a NumPy core via `xarray.apply_ufunc`, vectorized across leading dims
+    (e.g., `channel`).
 
     Parameters
     ----------
@@ -165,11 +192,6 @@ def transient_noise_matecho(
         Boolean mask aligned to `ds[var_name]` with the **same dims and order**,
         where **True = VALID (keep)** and **False = transient noise**.
         Name: "matecho_mask_valid". Dtype: bool.
-
-    Notes
-    -----
-    - Core operates on (range, ping). Wrapper transposes Sv as needed.
-    - Bottom handling currently defaults to r[-1] when `bottom_var` is missing/NaN.
 
     Examples to use with dispatcher
     --------

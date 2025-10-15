@@ -14,16 +14,30 @@ def shoal_weill(
     minhlen: int = 0,
 ) -> xr.DataArray:
     """
+    Shoal detector modified from the "weill" function
+    in `mask_shoals.py`, originally written by
+    Alejandro ARIZA for the Echopy library © 2020.
+
     Detects and masks shoals following the algorithm described in:
 
-        "Will et al. (1993): MOVIES-B — an acoustic detection description
-        software . Application to shoal species' classification".
+        "Weill et al. (1993): MOVIES-B — an acoustic detection description
+        software. Application to shoal species' classification".
 
-    Steps (on (range, ping) matrix):
-      1) Threshold: mask = Sv <= thr
-      2) Fill short vertical gaps within each ping (<= maxvgap)
-      3) Fill short horizontal gaps within each depth (<= maxhgap)
-      4) Remove features smaller than (minvlen, minhlen)
+    Overview
+    ---------
+    Groups contiguous regions of Sv above a given threshold as a single shoal,
+    following the contiguity rules of Weill et al. (1993) in the following steps:
+
+    1) Threshold: mark samples where Sv > `thr`.
+
+    2) Vertical contiguity: within each ping, fill short gaps (≤ `maxvgap` range samples),
+        ignoring gaps that touch the top/bottom boundaries.
+
+    3) Horizontal contiguity: at each range, fill short gaps across pings (≤ `maxhgap` pings),
+        ignoring gaps that touch the left/right boundaries.
+
+    4) Size filter: remove features whose vertical length < `minvlen` (range samples) or
+        horizontal length < `minhlen` (pings).
 
     Parameters
     ----------
@@ -34,7 +48,7 @@ def shoal_weill(
     channel : str | None
         If a "channel" dimension exists, select this channel.
     thr : float
-        Threshold in dB (keep values <= thr).
+        Threshold in dB (detect values > `thr`).
     maxvgap : int
         Max vertical gap (in range samples) to fill.
     maxhgap : int
@@ -70,7 +84,7 @@ def shoal_weill(
     # Arrange as (range, ping) for processing, similar to echopy
     Sv = var.transpose("range_sample", "ping_time").values
 
-    # --- 1) Thresholding: keep (mask=True) where Sv <= thr
+    # --- 1) Thresholding: keep (mask=True) where Sv > thr
     mask = np.ma.masked_greater(Sv, thr).mask
     if np.isscalar(mask):
         mask = np.zeros_like(Sv, dtype=bool)

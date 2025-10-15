@@ -19,52 +19,63 @@ def bottom_blackwell(
     wphi: int = 52,
 ) -> xr.DataArray:
     """
-    Seafloor detection from Sv + split-beam angles (Blackwell et al., 2019).
+     Shoal detector modified from the "blackwell" function
+     in `mask_seabed.py`, originally written by
+     Alejandro ARIZA for the Echopy library © 2020.
 
-    Briefly: along-ship and athwart-ship angle fields are smoothed with square
-    windows (``wtheta``, ``wphi``). Pixels with large angle activity are flagged,
-    an Sv threshold is set from the median Sv within those pixels (or from the
-    user-provided value), and connected Sv patches above that threshold are kept.
-    The shallowest range of each kept patch per ping is taken as the bottom; an
-    ``offset`` (m) is subtracted to place the line slightly above it.
+     Based on: "Blackwell et al (2019), Aliased seabed detection in fisheries acoustic
+     data". (https://arxiv.org/abs/1904.10736)
 
-    Parameters
-    ----------
-    ds : xr.Dataset
-        Dataset containing:
-          • ``var_name`` (Sv in dB) with dims typically
-            (``channel``, ``ping_time``, ``range_sample``),
-          • ``angle_alongship`` and ``angle_athwartship`` with compatible dims,
-          • a vertical coordinate (e.g., ``depth``) aligned with ``range_sample``.
-    var_name : str
-        Name of the Sv variable to use (e.g., ``"Sv"``).
-    channel : str
-        Channel identifier to process (must match an entry in ``ds['channel']``).
-    threshold : float | list | tuple, default -75
-        Either a single Sv threshold in dB (angle thresholds use defaults), or a
-        3-tuple/list ``(tSv_dB, ttheta, tphi)`` where ``ttheta`` and ``tphi`` are
-        post-smoothing angle activity thresholds (same units as the squared,
-        smoothed angles in your pipeline).
-    offset : float, default 0.3
-        Meters subtracted from the detected range to place the bottom line slightly
-        above the echo maximum.
-    r0, r1 : float, default 0, 500
-        Shallow and deep bounds (meters) of the search interval.
-    wtheta, wphi : int, default 28, 52
-        Side length (pixels) of the square smoothing windows for the along-ship
-        and athwart-ship angle fields.
+     Overview
+     ---------
+     1) Range crop: restrict processing to r ∈ [r0, r1].
 
-    Returns
-    -------
-    xr.DataArray
-        1-D bottom depth per ``ping_time`` with attributes:
-        ``detector='blackwell'``, ``threshold_Sv``, ``threshold_angle_major``,
-        ``threshold_angle_minor``, ``offset_m``, and ``channel``.
+     2) Angle smoothing: convolve along-ship (θ) and athwart-ship (ϕ) angles
+         with square kernels of size wtheta and wphi (mean filters).
 
-    Notes
-    -----
-    Based on: Blackwell et al., 2019, ICES J. Mar. Sci., “An automated method for
-    seabed detection using split-beam echosounders.”
+     3) Angle activity mask: flag pixels where the smoothed angles’ squared values
+         exceed thresholds (θ > ttheta or ϕ > tphi), then take the union.
+    4) Adaptive Sv threshold: compute the median Sv over the angle mask in linear
+         units (then convert to dB), set it to tSv if lower, and threshold Sv > Sv_median.
+
+     5) Connected components: label Sv above threshold patches and keep only those
+         intersecting the angle mask.
+
+     6) Bottom pick: for each ping, take the shallowest range of the kept patch and
+         subtract an `offset` (m) to place the bottom line slightly above it.
+
+     Parameters
+     ----------
+     ds : xr.Dataset
+         Dataset containing:
+           • ``var_name`` (Sv in dB) with dims typically
+             (``channel``, ``ping_time``, ``range_sample``),
+           • ``angle_alongship`` and ``angle_athwartship`` with compatible dims,
+           • a vertical coordinate (e.g., ``depth``) aligned with ``range_sample``.
+     var_name : str
+         Name of the Sv variable to use (e.g., ``"Sv"``).
+     channel : str
+         Channel identifier to process (must match an entry in ``ds['channel']``).
+     threshold : float | list | tuple, default -75
+         Either a single Sv threshold in dB (angle thresholds use defaults), or a
+         3-tuple/list ``(tSv_dB, ttheta, tphi)`` where ``ttheta`` and ``tphi`` are
+         post-smoothing angle activity thresholds (same units as the squared,
+         smoothed angles in your pipeline).
+     offset : float, default 0.3
+         Meters subtracted from the detected range to place the bottom line slightly
+         above the echo maximum.
+     r0, r1 : float, default 0, 500
+         Shallow and deep bounds (meters) of the search interval.
+     wtheta, wphi : int, default 28, 52
+         Side length (pixels) of the square smoothing windows for the along-ship
+         and athwart-ship angle fields.
+
+     Returns
+     -------
+     xr.DataArray
+         1-D bottom depth per ``ping_time`` with attributes:
+         ``detector='blackwell'``, ``threshold_Sv``, ``threshold_angle_major``,
+         ``threshold_angle_minor``, ``offset_m``, and ``channel``.
     """
 
     # Validate input variables and structure
