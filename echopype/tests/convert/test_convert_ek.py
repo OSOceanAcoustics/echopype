@@ -61,7 +61,7 @@ def test_convert_ek_with_bot_file(file, sonar_model, ek60_path, ek80_path):
     # Open Raw and Parse BOT
     path = ek60_path if sonar_model == "EK60" else ek80_path
     file = path / file
-    ed = open_raw(path / file, sonar_model=sonar_model, include_bot=True)
+    ed = open_raw(file, sonar_model=sonar_model, include_bot=True)
 
     # Check data variable shape
     seafloor_depth_da = ed["Vendor_specific"]["detected_seafloor_depth"]

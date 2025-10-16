@@ -7,9 +7,6 @@ import xarray as xr
 
 from .utils.compute import _lin2log, _log2lin
 
-HERE = Path(__file__).parent.absolute()
-TEST_DATA_FOLDER = HERE / "test_data"
-
 # Data length for each data type
 _DATA_LEN = {
     "power": 1,

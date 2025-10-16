@@ -14,13 +14,15 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from echopype import open_raw, open_converted
-from echopype.testing import TEST_DATA_FOLDER
 
+
+@pytest.fixture(scope="session")
+def ad2cp_path(test_path):
+    return test_path["AD2CP"]
 
 @pytest.fixture
 def ocean_contour_export_dir(test_path):
     return test_path["AD2CP"] / "ocean-contour"
-
 
 @pytest.fixture
 def ocean_contour_export_076_dir(ocean_contour_export_dir):
@@ -38,13 +40,17 @@ def output_dir():
 
 
 def pytest_generate_tests(metafunc):
-    ad2cp_path = TEST_DATA_FOLDER / "ad2cp"
-    test_file_dir = (
-        ad2cp_path / "normal"
-    )  # "normal" files do not have IQ samples
-    raw_test_file_dir = ad2cp_path / "raw"  # "raw" files contain IQ samples
-    ad2cp_files = test_file_dir.glob("**/*.ad2cp")
-    raw_ad2cp_files = raw_test_file_dir.glob("**/*.ad2cp")
+    # Import the module echopype.tests
+    # not the fixture as they are not meant to be called directly,
+    from echopype.tests import conftest as ct 
+
+    ad2cp_root = ct.TEST_DATA_FOLDER / "ad2cp"
+    test_file_dir = ad2cp_root / "normal"   # no IQ samples
+    raw_test_file_dir = ad2cp_root / "raw"  # has IQ samples
+
+    ad2cp_files = sorted(test_file_dir.glob("**/*.ad2cp"))
+    raw_ad2cp_files = sorted(raw_test_file_dir.glob("**/*.ad2cp"))
+    
     if "filepath" in metafunc.fixturenames:
         metafunc.parametrize(
             argnames="filepath",
