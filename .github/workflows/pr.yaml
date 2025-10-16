@@ -5,7 +5,7 @@ on:
     paths-ignore: ["**/docker.yaml", "docs"]
   push:
     branches:
-      - update_github_assets
+      - github_assets_pooch
   workflow_dispatch:
 
 env:
