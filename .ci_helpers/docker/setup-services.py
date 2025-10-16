@@ -6,6 +6,7 @@ Script to help bring up docker services for testing.
 
 import argparse
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -14,7 +15,6 @@ from typing import Dict, List
 
 import fsspec
 import pooch
-import os
 
 logger = logging.getLogger("setup-services")
 streamHandler = logging.StreamHandler(sys.stdout)
@@ -27,6 +27,7 @@ HERE = Path(".").absolute()
 BASE = Path(__file__).parent.absolute()
 COMPOSE_FILE = BASE / "docker-compose.yaml"
 
+
 def get_pooch_data_path() -> Path:
     """Return path to the Pooch test data cache."""
     ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.0")
@@ -37,6 +38,7 @@ def get_pooch_data_path() -> Path:
             "Make sure test data was fetched via conftest.py"
         )
     return cache_dir
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Setup services for testing")
@@ -105,13 +107,12 @@ def load_s3(*args, **kwargs) -> None:
         fs.mkdir(bucket_name)
 
     for d in pooch_path.iterdir():
-        if d.suffix == ".zip": # skip zip archives to cut redundant I/O
+        if d.suffix == ".zip":  # skip zip archives to cut redundant I/O
             continue
         source_path = str(d)
         target_path = f"{test_data}/{d.name}"
         logger.info(f"Uploading {source_path} → {target_path}")
         fs.put(source_path, target_path, recursive=True)
-
 
 
 if __name__ == "__main__":
