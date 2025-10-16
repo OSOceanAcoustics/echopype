@@ -81,12 +81,14 @@ jobs:
         run: python -m pip list
 
       - name: Finding changed files
+        if: ${{ github.event_name == 'pull_request' }}
         id: files
         uses: Ana06/get-changed-files@v2.3.0
         with:
           format: 'csv'
 
       - name: Print Changed files
+        if: ${{ github.event_name == 'pull_request' }}
         run: echo "${{ steps.files.outputs.added_modified_renamed }}"
 
       - name: Pre-fetch Pooch test data
