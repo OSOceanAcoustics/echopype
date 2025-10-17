@@ -1082,10 +1082,10 @@ class SetGroupsEK80(SetGroupsBase):
     def merge_save(ds_combine: List[xr.Dataset], ds_invariant: xr.Dataset) -> xr.Dataset:
         """Merge data from all complex or all power/angle channels"""
         # Combine all channels into one Dataset
-        ds_combine = xr.concat(ds_combine, dim="channel")
+        ds_combine = xr.concat(ds_combine, dim="channel", join="outer")
 
         ds_combine = xr.merge(
-            [ds_invariant, ds_combine], combine_attrs="override"
+            [ds_invariant, ds_combine], combine_attrs="override", join="outer"
         )  # override keeps the Dataset attributes
         return set_time_encodings(ds_combine)
 
@@ -1377,7 +1377,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "long_name"
             ] = "ID of channels containing broadband calibration information"
             ds_cal.append(ds_ch)
-        ds_cal = xr.merge(ds_cal)
+        ds_cal = xr.merge(ds_cal, join="outer")
 
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})

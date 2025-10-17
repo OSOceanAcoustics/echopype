@@ -107,13 +107,11 @@ def check_loc_vars_validity(
             logger.warning(output_message)
 
 
-def check_loc_time_dim_duplicates(echodata: EchoData, time_dim_name: str) -> None:
+def check_loc_time_dim_duplicates(da: xr.DataArray, time_dim_name: str) -> None:
     """Check if there are duplicates in time_dim_name"""
-    if len(np.unique(echodata["Platform"][time_dim_name].data)) != len(
-        echodata["Platform"][time_dim_name].data
-    ):
+    if len(np.unique(da[time_dim_name].data)) != len(da[time_dim_name].data):
         raise ValueError(
-            f'The ``echodata["Platform"]["{time_dim_name}"]`` array contains duplicate values. '
+            f'Data contains duplicate time values in time_dim_name "{time_dim_name}". '
             "Downstream interpolation on the position variables requires unique time values."
         )
 

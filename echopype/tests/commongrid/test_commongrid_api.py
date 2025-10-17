@@ -256,6 +256,22 @@ def test_compute_MVBS_invalid_range_var(ds_Sv_echo_range_regular, range_var):
     else:
         pass
 
+@pytest.mark.integration
+def test_compute_MVBS_w_dim_swapped(request):
+    """
+    Test swapping dim from "channel" to "frequency_nominal" then computing MVBS
+    """
+    ds_Sv = request.getfixturevalue("mock_Sv_dataset_regular")
+    ping_time_bin = "20s"
+    sv_swapped = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
+    ds_MVBS = ep.commongrid.compute_MVBS(sv_swapped, ping_time_bin=ping_time_bin)
+    assert ds_MVBS is not None
+
+    # Test to see if ping_time was resampled correctly
+    expected_ping_time = (
+        ds_Sv["ping_time"].resample(ping_time=ping_time_bin, skipna=True).asfreq().indexes["ping_time"]
+    )
+    assert np.array_equal(ds_MVBS.ping_time.data, expected_ping_time.values)
 
 @pytest.mark.integration
 def test_compute_MVBS(test_data_samples):
@@ -318,8 +334,8 @@ def test_compute_MVBS_range_output(request, er_type):
     if er_type == "regular":
         expected_len = (
             ds_Sv["channel"].size,  # channel
-            np.ceil(np.diff(ds_Sv["ping_time"][[0, -1]].astype(int)) / 1e9 / 10),  # ping_time
-            np.ceil(ds_Sv["echo_range"].max() / 5),  # depth
+            int(np.ceil(int(np.diff(ds_Sv["ping_time"][[0, -1]])) / 1e9 / 10)),  # ping_time
+            int(np.ceil(ds_Sv["echo_range"].max() / 5)),  # depth
         )
         assert ds_MVBS["Sv"].shape == expected_len
     else:

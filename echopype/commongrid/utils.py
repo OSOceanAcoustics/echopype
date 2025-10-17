@@ -35,6 +35,7 @@ def compute_raw_MVBS(
         with coordinates ``channel``, ``ping_time``, and ``range_sample``
         at bare minimum.
         Or this can contain ``Sv`` and ``depth`` data with similar coordinates.
+        ``frequency_nominal`` is supported as an alternative to ``channel``
     range_interval: pd.IntervalIndex or np.ndarray
         1D array or interval index representing
         the bins required for ``range_var``
@@ -530,6 +531,8 @@ def _groupby_x_along_channels(
 
         For NASC computatioon this must contain ``Sv`` and ``depth`` data
         with coordinates ``channel``, ``distance_nmi``, and ``range_sample``.
+
+        ``frequency_nominal`` is supported as an alternative to ``channel``
     range_interval: pd.IntervalIndex or np.ndarray
         1D array or interval index representing
         the bins required for ``range_var``
@@ -604,12 +607,13 @@ def _groupby_x_along_channels(
                 f"The ```{array_name}``` coordinate array contain NaNs. {aggregation_msg}"
             )
 
-    # reduce along ping_time or distance_nmi
-    # and echo_range or depth
-    # by binning and averaging
+    # Use the first dimension as the grouping dimension for generality
+    dim_0 = list(ds_Sv.sizes.keys())[0]
+
+    # bin and average along ping_time or distance_nmi and echo_range or depth
     sv_mean = xarray_reduce(
         sv,
-        ds_Sv["channel"],
+        ds_Sv[dim_0],  # generic: not always 'channel'
         ds_Sv[x_var],
         ds_Sv[range_var],
         expected_groups=(None, x_interval, range_interval),

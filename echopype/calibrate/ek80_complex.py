@@ -27,7 +27,7 @@ def tapered_chirp(
     f0 = transmit_frequency_start
     f1 = transmit_frequency_stop
 
-    nsamples = int(np.floor(tau * fs)[0])
+    nsamples = int(np.floor(tau * np.float32(fs))[0])
     t = np.linspace(0, nsamples - 1, num=nsamples) * 1 / fs
     a = np.pi * (f1 - f0) / tau
     b = 2 * np.pi * f0

@@ -5,6 +5,7 @@ echopype utilities for file handling
 import os
 import pathlib
 import platform
+import shutil
 import sys
 import tempfile
 import uuid
@@ -13,10 +14,10 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 import fsspec
 import xarray as xr
+import zarr.storage as zs
 from dask.array import Array as DaskArray
 from fsspec import AbstractFileSystem, FSMap
 from fsspec.implementations.local import LocalFileSystem
-from zarr.storage import FSStore
 
 from ..echodata import EchoData
 from ..echodata.api import open_converted
@@ -69,13 +70,13 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
 
     # Allows saving both NetCDF and Zarr files from an xarray dataset
     if engine == "netcdf4":
-        ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, **kwargs)
+        ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, engine=engine, **kwargs)
     elif engine == "zarr":
         # Ensure that encoding and chunks match
         for var, enc in encoding.items():
             if isinstance(ds[var].data, DaskArray):
                 ds[var] = ds[var].chunk(enc.get("chunks", {}))
-        ds.to_zarr(store=path, mode=mode, group=group, encoding=encoding, **kwargs)
+        ds.to_zarr(store=path.root, mode=mode, group=group, encoding=encoding, **kwargs)
     else:
         raise ValueError(f"{engine} is not a supported save format")
 
@@ -473,13 +474,15 @@ def create_temp_zarr_store() -> FSMap:
         return fsspec.get_mapper(zarr_path)
 
 
-def delete_zarr_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] = None) -> None:
+def delete_zarr_store(
+    store: "zs.LocalStore | str", fs: Optional[AbstractFileSystem] = None
+) -> None:
     """
     Delete the zarr store and all its contents.
 
     Parameters
     ----------
-    store : FSStore or str
+    store : Zarr.Storage or str
         The store or store path to delete.
     fs : AbstractFileSystem, optional
         The fsspec file system to use
@@ -498,16 +501,12 @@ def delete_zarr_store(store: "FSStore | str", fs: Optional[AbstractFileSystem] =
             raise ValueError("Must provide fs if store is a path string")
         store_path = store
     else:
-        # Get the file system, this should already have the
-        # correct storage options
-        fs = store.fs
-
         # Get the string path to the store
-        store_path: str = store.dir_path()
+        store_path: str = str(store.root)
 
-    if fs.exists(store_path):
-        # Delete the store when it exists
-        fs.rm(store_path, recursive=True)
+    if os.path.exists(store_path):
+        if isinstance(fs, zs.LocalStore):
+            shutil.rmtree(store_path)
 
 
 # End of utilities for creating temporary swap zarr files ------------------------------
