@@ -3,10 +3,6 @@ name: Test PR
 on:
   pull_request:
     paths-ignore: ["**/docker.yaml", "docs"]
-  push:
-    branches:
-      - github_assets_pooch
-  workflow_dispatch:
 
 env:
   NUM_WORKERS: 2
