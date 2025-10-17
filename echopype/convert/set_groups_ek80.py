@@ -1,9 +1,8 @@
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import List
 
 import numpy as np
 import xarray as xr
-from numpy.typing import NDArray
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
@@ -1383,67 +1382,11 @@ class SetGroupsEK80(SetGroupsBase):
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
-        # TODO: use xr.merge across FIL1 time and channel in case
-        #       not all channels are updated so FIL1 at a particular timestamp
-        #       only contains a subset of channels
-        # TODO: factor these into a separate function!
-        # Save filter coefficients and decimation factors for:
-        # - stage 1: wide band transceiver (WBT)
-        # - stage 2: pulse compression (PC)
-        stage_type = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
-        param_type = [FILTER_REAL, FILTER_IMAG, DECIMATION]
-        coeffs_and_decimation = {t: {p: [] for p in param_type} for t in list(stage_type.values())}
-
-        def pad_vec(x):
-            max_len = np.max([len(xx) for xx in x])
-            return [
-                np.pad(xx, (0, max_len - len(xx)), "constant", constant_values=np.nan) for xx in x
-            ]
-
-        fil = self.parser_obj.fil
-        # Go across channels
-        for ch in self.sorted_channel["all"]:
-            # WBT and PC
-            for stage_num, filter_type in stage_type.items():
-                ch_stage_str = f"{ch}__stage{stage_num}"
-                # Coefficients
-                full_str = f"{ch_stage_str}__coeffs"
-                if full_str in fil.keys():  # if filter info exists
-                    val_real = np.real(pad_vec(fil[full_str]))
-                    val_imag = np.imag(pad_vec(fil[full_str]))
-                else:
-                    val_real, val_imag = np.array([]), np.array([])
-                coeffs_and_decimation[filter_type]["coeffs_real"].append(val_real)
-                coeffs_and_decimation[filter_type]["coeffs_imag"].append(val_imag)
-                # Decimation factor
-                coeffs_and_decimation[filter_type]["deci_fac"].append(
-                    np.array(fil[ch_stage_str + "__deci_fac"], dtype=np.float64)
-                )
-
-        # Pad nans across channel
-        for filter_type in stage_type.values():
-            for param in param_type:
-                # if "coeffs" in param:
-                x = coeffs_and_decimation[filter_type][param]
-                max_len = np.max([xx.shape[-1] for xx in x])
-                if max_len > 0:
-                    coeffs_and_decimation[filter_type][param] = [
-                        np.pad(
-                            np.atleast_2d(xx),
-                            ((0, 0), (0, max_len - xx.shape[-1])),
-                            "constant",
-                            constant_values=np.nan,
-                        )
-                        for xx in x
-                    ]
-
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
 
-        # Add the coeffs and decimation
-        ds = ds.assign_coords({"filter_time": np.unique(fil["timestamp"])})
-
-        ds = ds.pipe(self._add_filter_params, coeffs_and_decimation)
+        # Add filter coefficients and decimation factors
+        ds = self._add_filter_params(ds)
 
         # Save the entire config XML in vendor group in case of info loss
         ds["config_xml"] = self.parser_obj.config_datagram["xml"]
@@ -1458,65 +1401,110 @@ class SetGroupsEK80(SetGroupsBase):
 
         return set_time_encodings(ds)
 
-    @staticmethod
-    def _add_filter_params(
-        dataset: xr.Dataset,
-        coeffs_and_decimation: Dict[str, Dict[str, List[Union[int, NDArray]]]],
-    ) -> xr.Dataset:
+    def _add_filter_params(self, ds: xr.Dataset) -> xr.Dataset:
         """
         Assembles filter coefficient and decimation factors and add to the dataset
 
         Parameters
         ----------
-        dataset : xr.Dataset
-            xarray dataset where the filter coefficient and decimation factors will be added
-        coeffs_and_decimation : dict
-            dictionary holding the filter coefficient and decimation factors
+        ds : xr.Dataset
+            Xarray Dataset where the filter coefficient and decimation factors will be added.
 
         Returns
         -------
         xr.Dataset
-            The modified dataset with filter coefficient and decimation factors included
+            The modified dataset with filter coefficient and decimation factors included.
         """
 
-        attrs_dict = {
-            FILTER_REAL: "filter coefficients (real part)",
-            FILTER_IMAG: "filter coefficients (imaginary part)",
-            DECIMATION: "decimation factor",
-            WIDE_BAND_TRANS: "Wideband transceiver",
-            PULSE_COMPRESS: "Pulse compression",
+        # Define stage types and grab filter from parser
+        stage_type = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
+        fil = self.parser_obj.fil
+
+        # Add filter time coordinates
+        ds = ds.assign_coords({"filter_time": np.unique(fil["timestamp"])})
+
+        # Create empty coefficient DataArrays
+        coeffs_stage_num_max_length_dict = {1: 0, 2: 0}
+        for filter_time in fil["timestamp"]:
+            for ch in self.sorted_channel["all"]:
+                for stage_num in stage_type.keys():
+                    coeff_length = len(fil.get((ch, stage_num, "coeffs", filter_time), []))
+                    if coeff_length > coeffs_stage_num_max_length_dict[stage_num]:
+                        coeffs_stage_num_max_length_dict[stage_num] = coeff_length
+        empty_WBT_coeffs_da = xr.DataArray(
+            np.full(
+                (len(ds["channel"]), len(ds["filter_time"]), coeffs_stage_num_max_length_dict[1]),
+                np.nan,
+            ),
+            dims=("channel", "filter_time", "WBT_filter_n"),
+            coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
+        )
+        empty_PC_coeffs_da = xr.DataArray(
+            np.full(
+                (len(ds["channel"]), len(ds["filter_time"]), coeffs_stage_num_max_length_dict[2]),
+                np.nan,
+            ),
+            dims=("channel", "filter_time", "PC_filter_n"),
+            coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
+        )
+        ds["WBT_coeffs_real"] = empty_WBT_coeffs_da.copy()
+        ds["WBT_coeffs_imag"] = empty_WBT_coeffs_da.copy()
+        ds["PC_coeffs_real"] = empty_PC_coeffs_da.copy()
+        ds["PC_coeffs_imag"] = empty_PC_coeffs_da.copy()
+
+        # Create empty decimation DataArrays
+        empty_deci_fac_da = xr.DataArray(
+            np.full((len(ds["channel"]), len(ds["filter_time"])), np.nan),
+            dims=("channel", "filter_time"),
+            coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
+        )
+        ds["WBT_deci_fac"] = empty_deci_fac_da.copy()
+        ds["PC_deci_fac"] = empty_deci_fac_da.copy()
+
+        # Insert values into empty DataArrays
+        for filter_time in fil["timestamp"]:
+            for ch in self.sorted_channel["all"]:
+                for stage_num in stage_type.keys():
+                    # Find coeffs, pad, and set in DataArray
+                    coeffs = fil.get((ch, stage_num, "coeffs", filter_time), None)
+                    if coeffs is not None:
+                        coeffs = np.pad(
+                            coeffs,
+                            (0, coeffs_stage_num_max_length_dict[stage_num] - len(coeffs)),
+                            mode="constant",
+                            constant_values=np.nan,
+                        )
+                        ds[f"{stage_type[stage_num]}_coeffs_real"].loc[
+                            dict(channel=ch, filter_time=filter_time)
+                        ] = np.real(coeffs)
+                        ds[f"{stage_type[stage_num]}_coeffs_imag"].loc[
+                            dict(channel=ch, filter_time=filter_time)
+                        ] = np.imag(coeffs)
+
+                    # Find decimation factor and set in DataArray
+                    deci_fac_value = fil.get((ch, stage_num, "deci_fac", filter_time), None)
+                    if deci_fac_value is not None:
+                        ds[f"{stage_type[stage_num]}_deci_fac"].loc[
+                            dict(channel=ch, filter_time=filter_time)
+                        ] = deci_fac_value
+
+        # Assign attributes
+        attr_dict = {
+            "real": "filter coefficients (real part)",
+            "imag": "filter coefficients (imaginary part)",
+            "deci": "decimation factor",
+            "WBT": "Wideband transceiver",
+            "PC": "Pulse compression",
         }
+        for stage_name in ["WBT", "PC"]:
+            for coeff_type in ["real", "imag"]:
+                var_name = f"{stage_name}_coeffs_{coeff_type}"
+                ds[var_name] = ds[var_name].assign_attrs(
+                    long_name=f"{attr_dict[stage_name]} {attr_dict[coeff_type]}"
+                )
+            deci_var = f"{stage_name}_deci_fac"
+            ds[deci_var] = ds[deci_var].assign_attrs(
+                long_name=f"{attr_dict[stage_name]} {attr_dict['deci']}"
+            )
 
-        coeffs_xr_data = {}
-        for filter_type, filter_info in coeffs_and_decimation.items():
-            for key, data in filter_info.items():
-                if data:
-                    data = np.array(np.broadcast_arrays(*data))
-                    if "coeffs" in key:
-                        dims = ["channel", "filter_time", f"{filter_type}_filter_n"]
-                        if (dataset.sizes[dims[0]] * dataset.sizes[dims[1]]) != 0:
-                            filter_type_size = int(
-                                data.size / (dataset.sizes[dims[0]] * dataset.sizes[dims[1]])
-                            )
-                        else:
-                            filter_type_size = 0
-                        data = data.reshape(
-                            dataset.sizes[dims[0]], dataset.sizes[dims[1]], filter_type_size
-                        )
-                        attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
-                        coeffs_xr_data[f"{filter_type}_{key}"] = (
-                            dims,
-                            data,
-                            attrs,
-                        )
-                    else:
-                        dims = ["channel", "filter_time"]
-                        data = data.reshape(dataset.sizes[dims[0]], dataset.sizes[dims[1]])
-                        attrs = {"long_name": f"{attrs_dict[filter_type]} {attrs_dict[key]}"}
-                        coeffs_xr_data[f"{filter_type}_{key}"] = (
-                            dims,
-                            data,
-                            attrs,
-                        )
-
-        return dataset.assign(coeffs_xr_data)
+        return ds

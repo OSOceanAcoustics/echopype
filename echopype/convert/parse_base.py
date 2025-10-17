@@ -492,6 +492,10 @@ class ParseEK(ParseBase):
                 new_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
 
+            # Remove \00t from channel_id
+            if "channel_id" in new_datagram:
+                new_datagram["channel_id"] = new_datagram["channel_id"].replace("\00t", "")
+
             # # For debugging EC150 datagrams
             # if new_datagram["type"].startswith("XML") and "subtype" in new_datagram:
             #     print(f"{new_datagram['type']} - {new_datagram['subtype']}")
@@ -594,21 +598,25 @@ class ParseEK(ParseBase):
                 self.mru1["timestamp"].append(new_datagram["timestamp"])
 
             # FIL datagrams contain filters for processing baskcatter data for EK80
-            # TODO: need to append each set of coeffs since they can vary ping by
-            # ping for FM/CW interleaving transmissions
             elif new_datagram["type"].startswith("FIL"):
                 if "EC150" not in new_datagram["channel_id"]:
-                    # print(new_datagram["channel_id"],
-                    #   new_datagram["stage"],
-                    #   new_datagram["decimation_factor"]
-                    # )
-                    # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
                     self.fil["timestamp"].append(new_datagram["timestamp"])
-                    ch_stage_str = f"{new_datagram['channel_id']}__stage{new_datagram['stage']}"
-                    self.fil[ch_stage_str + "__coeffs"].append(new_datagram["coefficients"])
-                    self.fil[ch_stage_str + "__deci_fac"].append(new_datagram["decimation_factor"])
-                # else:
-                #     print(f"{new_datagram['channel_id']} from FIL")
+                    self.fil[
+                        (
+                            new_datagram["channel_id"],
+                            new_datagram["stage"],
+                            "coeffs",
+                            new_datagram["timestamp"],
+                        )
+                    ] = new_datagram["coefficients"]
+                    self.fil[
+                        (
+                            new_datagram["channel_id"],
+                            new_datagram["stage"],
+                            "deci_fac",
+                            new_datagram["timestamp"],
+                        )
+                    ] = new_datagram["decimation_factor"]
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):
