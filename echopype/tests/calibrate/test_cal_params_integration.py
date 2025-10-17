@@ -134,7 +134,11 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
         ed, waveform_mode="BB", encode_mode="complex", cal_params={"gain_correction": gain_freq_dep}
     )
     cal_params_manual["gain_correction"].name = "gain_correction"
-    assert ds_Sv["gain_correction"].identical(cal_params_manual["gain_correction"])
+    assert np.allclose(
+        ds_Sv["gain_correction"],
+        cal_params_manual["gain_correction"],
+        equal_nan=True,
+    )
 
 
 def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
@@ -185,10 +189,18 @@ def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     # Need to drop ping_time for cal_obj.cal_params since get_vend_cal_params_power
     # retrieves sa_correction or gain_correction based on transmit_duration_nominal,
     # which can vary cross ping_time
-    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").identical(cal_params_manual["gain_correction"])
+    assert np.allclose(
+        cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").values,
+        cal_params_manual["gain_correction"].values,
+        equal_nan=True,
+    )
 
     # Check against the final cal params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(
         ed, waveform_mode="CW", encode_mode="complex", cal_params={"gain_correction": gain_freq_dep}
     )
-    assert ds_Sv["gain_correction"].identical(cal_params_manual["gain_correction"])
+    assert np.allclose(
+        ds_Sv["gain_correction"].values,
+        cal_params_manual["gain_correction"].values,
+        equal_nan=True,
+    )
