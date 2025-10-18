@@ -8,7 +8,7 @@ import xarray as xr
 
 from echopype import open_raw, open_converted
 from echopype.calibrate import compute_Sv
-from echopype.testing import TEST_DATA_FOLDER
+# from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 from echopype.utils import log
@@ -40,11 +40,18 @@ def ek80_new_path(test_path):
     return test_path["EK80_NEW"]
 
 def pytest_generate_tests(metafunc):
-    ek80_new_path = TEST_DATA_FOLDER / "ek80_new"
-    ek80_new_files = ek80_new_path.glob("**/*.raw")
+    """Dynamically parameterize tests for EK80 .raw files."""
+    from echopype.tests import conftest as ct
+    
+    ek80_new_root = ct.TEST_DATA_FOLDER / "ek80_new"
+    ek80_new_files = sorted(ek80_new_root.glob("**/*.raw"))
+
+    ek80_new_files = sorted(ek80_new_root.glob("**/*.raw"))
     if "ek80_new_file" in metafunc.fixturenames:
         metafunc.parametrize(
-            "ek80_new_file", ek80_new_files, ids=lambda f: str(f.name)
+            "ek80_new_file",
+            ek80_new_files,
+            ids=[f.name for f in ek80_new_files],
         )
 
 
