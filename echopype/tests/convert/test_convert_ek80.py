@@ -8,7 +8,6 @@ import xarray as xr
 
 from echopype import open_raw, open_converted
 from echopype.calibrate import compute_Sv
-# from echopype.testing import TEST_DATA_FOLDER
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION
 from echopype.utils import log

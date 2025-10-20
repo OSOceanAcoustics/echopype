@@ -25,6 +25,7 @@ jobs:
         experimental: [false]
 
     services:
+      # TODO: figure out how to update tag when there's a new one
       minio:
         image: cormorack/minioci:latest
         ports:
@@ -38,7 +39,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Fetch all history for all branches and tags.
 
       - name: Set up Python
         uses: actions/setup-python@v6.0.0
