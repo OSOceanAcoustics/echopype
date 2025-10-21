@@ -220,12 +220,6 @@ def test_add_location(
                 "waveform_mode": "CW",
                 "encode_mode": "complex"
             },
-            marks=pytest.mark.skipif(
-                sys.version_info[0] == 3 and sys.version_info[1] == 10,
-                reason="The CI test only fails with Python 3.10 from an attempted import of cftime: " \
-                "https://github.com/OSOceanAcoustics/echopype/actions/runs/16092648567/job/45411361883?pr=1508. " \
-                "The CI test passes for Python 3.11 and 3.12."
-            )
         ),
         (
             "idx_bot/Hake-D20230711-T181910.raw",
