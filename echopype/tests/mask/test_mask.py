@@ -28,6 +28,10 @@ from typing import List, Union, Optional
 def ek60_path(test_path):
     return test_path["EK60"]
 
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path["EK80"]
+
 def get_mock_freq_diff_data(
     n: int,
     n_chan_freq: int,
@@ -1766,13 +1770,13 @@ def test_detect_seafloor_unknown_method_raises():
         )
 
 @pytest.mark.unit
-def test_blackwell_vs_basic_close_local():
+def test_blackwell_vs_basic_close_local(ek80_path):
     """Blackwell vs basic using local test data"""
 
-    raw_path = "../test_data_extracted/test_data/ek80/ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
+    raw_path = ek80_path / "ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
 
-    if not os.path.isfile(raw_path):
-        pytest.skip(f"Missing local EK80 RAW: {raw_path}")
+    if not raw_path.is_file():
+        pytest.skip(f"Missing EK80 RAW: {raw_path}")
 
     ed = ep.open_raw(raw_path, sonar_model="EK80")
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
@@ -1856,7 +1860,7 @@ def test_detect_shoals_unknown_method_raises():
 @pytest.mark.unit
 def test_weill_basic_gaps_and_sizes():
     """
-    Will: thresholding + vertical/horizontal gap filling in index space.
+    Weill: thresholding + vertical/horizontal gap filling in index space.
     """
     ds = _make_ds_Sv(n_ping=20, n_range=8, channels=("59006-125-2",))
 
