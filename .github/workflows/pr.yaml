@@ -1,8 +1,12 @@
-name: Test PR
+name: Tests
 
 on:
   pull_request:
     paths-ignore: ["**/docker.yaml", "docs"]
+  push:
+    branches:
+      - main
+    paths-ignore: ["docs"]
 
 env:
   NUM_WORKERS: 2
