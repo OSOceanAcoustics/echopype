@@ -132,6 +132,13 @@ def _compute_cal(
                 ping_time=slice(start_time, end_time)
             )
 
+            # Grab channels that have non-nan transmit duration nominal values. These are the channels
+            # that are not pinging in the multiplexing cycle.
+            valid_channels = echodata_copy[ed_beam_group]["transmit_duration_nominal"].dropna(
+                dim="channel", how="all"
+            )["channel"]
+            echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(channel=valid_channels)
+
             # Calibrate and broadcast filter time onto ping time dimension, and convert it from
             # coordinate to data variable
             cal_ds_iteration = _compute_cal_ds(echodata_copy)
@@ -142,7 +149,7 @@ def _compute_cal(
             cal_ds_list.append(cal_ds_iteration)
 
         # Concat only on data variables with ping_time dimension
-        cal_ds = xr.concat(cal_ds_list, dim="ping_time", data_vars="minimal")
+        cal_ds = xr.merge(cal_ds_list)
     else:
         # Create an echodata copy
         echodata_copy = echodata.copy()
