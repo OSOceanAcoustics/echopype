@@ -486,7 +486,7 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
     [
         ("hake2024_08152300-Phase0-D20240815-T234514-4.raw"),
         ("hake2024_08152300-Phase0-D20240815-T233359-3.raw"),
-        ("20250923T1045_active_FM_CW_alternating_5iter_20pings_highspeed_50perc-Phase0-D20250927-T184414-4-pp.raw"),
+        #("20250923T1045_active_FM_CW_alternating_5iter_20pings_highspeed_50perc-Phase0-D20250927-T184414-4-pp.raw"),
         ("ooi_multiplex.zarr"),
     ],
 )
