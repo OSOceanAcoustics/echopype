@@ -3,10 +3,6 @@ name: Tests
 on:
   pull_request:
     paths-ignore: ["**/docker.yaml", "docs"]
-  push:
-    branches:
-      - main
-    paths-ignore: ["docs"]
 
 env:
   NUM_WORKERS: 2
@@ -99,7 +95,10 @@ jobs:
         run: |
           python .ci_helpers/docker/setup-services.py --deploy --data-only --http-server ${{ job.services.httpserver.id }}
 
-      - name: Running all Tests
+          # Check data endpoint
+          curl http://localhost:8080/data/
+
+      - name: Running all tests
         run: |
           pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
           --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
