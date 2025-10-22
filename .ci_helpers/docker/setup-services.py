@@ -96,7 +96,7 @@ def load_s3(*args, **kwargs) -> None:
         key="minioadmin",
         secret="minioadmin",
     )
-    bucket_name = "ooi-raw-data"
+    bucket_name = "echo-test-data"
     fs = fsspec.filesystem("s3", **common_storage_options)
     test_data = "data"
 
