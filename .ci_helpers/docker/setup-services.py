@@ -6,13 +6,14 @@ Script to help bring up docker services for testing.
 
 import argparse
 import logging
-import shutil
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List
 
 import fsspec
+import pooch
 
 logger = logging.getLogger("setup-services")
 streamHandler = logging.StreamHandler(sys.stdout)
@@ -24,7 +25,18 @@ logger.setLevel(level=logging.INFO)
 HERE = Path(".").absolute()
 BASE = Path(__file__).parent.absolute()
 COMPOSE_FILE = BASE / "docker-compose.yaml"
-TEST_DATA_PATH = HERE / "echopype" / "test_data"
+
+
+def get_pooch_data_path() -> Path:
+    """Return path to the Pooch test data cache."""
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.0")
+    cache_dir = Path(pooch.os_cache("echopype")) / ver
+    if not cache_dir.exists():
+        raise FileNotFoundError(
+            f"Pooch cache directory not found: {cache_dir}\n"
+            "Make sure test data was fetched via conftest.py"
+        )
+    return cache_dir
 
 
 def parse_args():
@@ -77,36 +89,38 @@ def run_commands(commands: List[Dict]) -> None:
 
 
 def load_s3(*args, **kwargs) -> None:
+    """Populate MinIO with test data from the Pooch cache (skip .zip files)."""
+    pooch_path = get_pooch_data_path()
     common_storage_options = dict(
         client_kwargs=dict(endpoint_url="http://localhost:9000/"),
         key="minioadmin",
         secret="minioadmin",
     )
-    bucket_name = "ooi-raw-data"
-    fs = fsspec.filesystem(
-        "s3",
-        **common_storage_options,
-    )
+    bucket_name = "echo-test-data"
+    fs = fsspec.filesystem("s3", **common_storage_options)
     test_data = "data"
+
     if not fs.exists(test_data):
         fs.mkdir(test_data)
-
     if not fs.exists(bucket_name):
         fs.mkdir(bucket_name)
 
-    # Load test data into bucket
-    for d in TEST_DATA_PATH.iterdir():
-        source_path = f"echopype/test_data/{d.name}"
-        fs.put(source_path, f"{test_data}/{d.name}", recursive=True)
+    for d in pooch_path.iterdir():
+        if d.suffix == ".zip":  # skip zip archives to cut redundant I/O
+            continue
+        source_path = str(d)
+        target_path = f"{test_data}/{d.name}"
+        logger.info(f"Uploading {source_path} → {target_path}")
+        fs.put(source_path, target_path, recursive=True)
 
 
 if __name__ == "__main__":
     args = parse_args()
     commands = []
+
     if all([args.deploy, args.tear_down]):
         print("Cannot have both --deploy and --tear-down. Exiting.")
         sys.exit(1)
-
     if not any([args.deploy, args.tear_down]):
         print("Please provide either --deploy or --tear-down flags. For more help use --help flag.")
         sys.exit(0)
@@ -136,33 +150,21 @@ if __name__ == "__main__":
                 }
             )
 
-        if TEST_DATA_PATH.exists():
-            commands.append(
-                {
-                    "msg": f"Deleting old test folder at {TEST_DATA_PATH} ...",
-                    "cmd": shutil.rmtree,
-                    "args": TEST_DATA_PATH,
-                }
-            )
+        pooch_path = get_pooch_data_path()
+        commands.append({"msg": f"Using Pooch test data at {pooch_path}", "cmd": None})
+
         commands.append(
             {
-                "msg": "Copying new test folder from http service ...",
-                "cmd": [
-                    "docker",
-                    "cp",
-                    "-L",
-                    f"{args.http_server}:/usr/local/apache2/htdocs/data",
-                    TEST_DATA_PATH,
-                ],
+                "msg": "Setting up MinIO S3 bucket with Pooch test data ...",
+                "cmd": load_s3,
             }
         )
-
-        commands.append({"msg": "Setting up minio s3 bucket ...", "cmd": load_s3})
 
     if args.tear_down:
         command = ["docker-compose", "-f", COMPOSE_FILE, "down", "--remove-orphans", "--volumes"]
         if args.images:
-            command = command + ["--rmi", "all"]
+            command += ["--rmi", "all"]
         commands.append({"msg": "Stopping test services deployment ...", "cmd": command})
+
     commands.append({"msg": "Done.", "cmd": ["docker", "ps", "--last", "2"]})
     run_commands(commands)

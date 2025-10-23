@@ -6,16 +6,18 @@ import pytest
 # ---------- Fixtures
 
 @pytest.fixture(scope="module")
-def ds_small():
+def ek60_path(test_path):
+    return test_path["EK60"]
+
+@pytest.fixture(scope="module")
+def ds_small(ek60_path):
     """Open raw, calibrate to Sv, add depth, and take a small deterministic slice."""
     ed = ep.open_raw(
-        "echopype/test_data/ek60/from_echopy/JR230-D20091215-T121917.raw",
+        ek60_path / "DY1801_EK60-D20180211-T164025.raw",
         sonar_model="EK60",
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
     ds_Sv = ep.consolidate.add_depth(ds_Sv)
-
-    # could return a smaller object
     return ds_Sv
 
 # don t know if useful at the moment with code implementation

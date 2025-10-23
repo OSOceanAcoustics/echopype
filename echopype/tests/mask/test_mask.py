@@ -22,8 +22,15 @@ from echopype.mask import detect_seafloor
 # for schoals
 from echopype.mask import detect_shoal
 from scipy import ndimage as ndi
-
 from typing import List, Union, Optional
+
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path["EK60"]
+
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path["EK80"]
 
 def get_mock_freq_diff_data(
     n: int,
@@ -1284,14 +1291,14 @@ def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
         ("depth", False),
     ]
 )
-def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
+def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask, ek60_path):
     """
     Check for correct values and dimensions when using `apply_mask` to apply
     frequency differencing masks to MVBS.
     """
     # Parse Raw File
     ed = ep.open_raw(
-        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        raw_file=ek60_path / "DY1801_EK60-D20180211-T164025.raw",
         sonar_model="EK60"
     )
 
@@ -1364,13 +1371,13 @@ def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
 
 
 @pytest.mark.unit
-def test_validate_source_ds_and_check_mask_dim_alignment():
+def test_validate_source_ds_and_check_mask_dim_alignment(ek60_path):
     """
     Tests that ValueErrors are raised for `_validate_source_ds_and_check_mask_dim_alignment`.
     """
     # Parse Raw File
     ed = ep.open_raw(
-        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        raw_file=ek60_path / "DY1801_EK60-D20180211-T164025.raw",
         sonar_model="EK60"
     )
 
@@ -1763,13 +1770,13 @@ def test_detect_seafloor_unknown_method_raises():
         )
 
 @pytest.mark.unit
-def test_blackwell_vs_basic_close_local():
+def test_blackwell_vs_basic_close_local(ek80_path):
     """Blackwell vs basic using local test data"""
 
-    raw_path = "../test_data_extracted/test_data/ek80/ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
+    raw_path = ek80_path / "ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
 
-    if not os.path.isfile(raw_path):
-        pytest.skip(f"Missing local EK80 RAW: {raw_path}")
+    if not raw_path.is_file():
+        pytest.skip(f"Missing EK80 RAW: {raw_path}")
 
     ed = ep.open_raw(raw_path, sonar_model="EK80")
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
@@ -1853,7 +1860,7 @@ def test_detect_shoals_unknown_method_raises():
 @pytest.mark.unit
 def test_weill_basic_gaps_and_sizes():
     """
-    Will: thresholding + vertical/horizontal gap filling in index space.
+    Weill: thresholding + vertical/horizontal gap filling in index space.
     """
     ds = _make_ds_Sv(n_ping=20, n_range=8, channels=("59006-125-2",))
 
