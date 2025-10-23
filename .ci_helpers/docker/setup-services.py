@@ -96,7 +96,7 @@ def load_s3(*args, **kwargs) -> None:
         key="minioadmin",
         secret="minioadmin",
     )
-    bucket_name = "ooi-raw-data"
+    bucket_name = "echo-test-data"
     fs = fsspec.filesystem("s3", **common_storage_options)
     test_data = "data"
 
@@ -105,6 +105,13 @@ def load_s3(*args, **kwargs) -> None:
     if not fs.exists(bucket_name):
         fs.mkdir(bucket_name)
 
+    for d in pooch_path.iterdir():
+        if d.suffix == ".zip":  # skip zip archives to cut redundant I/O
+            continue
+        source_path = str(d)
+        target_path = f"{test_data}/{d.name}"
+        logger.info(f"Uploading {source_path} → {target_path}")
+        fs.put(source_path, target_path, recursive=True)
     for d in pooch_path.iterdir():
         if d.suffix == ".zip":  # skip zip archives to cut redundant I/O
             continue
