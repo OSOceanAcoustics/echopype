@@ -3,9 +3,9 @@ name: Test PR
 on:
   pull_request:
     paths-ignore: ["**/docker.yaml", "docs"]
-    push:
-      branches:
-        - ci/*
+  push:
+    branches:
+      - ci/*
   workflow_dispatch:
 
 
