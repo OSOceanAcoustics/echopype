@@ -152,11 +152,7 @@ def test_direct_to_zarr_integration(
             del ed_no_zarr[grp].attrs["conversion_time"]
 
         # Compare angle, power, complex, if zarr drop the zarr variables and compare datasets
-        if grp == "Sonar/Beam_group2":
-            var_to_comp = ["angle_athwartship", "angle_alongship", "backscatter_r"]
-            ed_zarr, ed_no_zarr = compare_zarr_vars(ed_zarr, ed_no_zarr, var_to_comp, grp)
-
-        if grp == "Sonar/Beam_group1":
+        if grp in ["Sonar/Beam_group1", "Sonar/Beam_group2"]:
             if "backscatter_i" in ed_zarr[grp]:
                 var_to_comp = ["backscatter_r", "backscatter_i"]
             else:
