@@ -127,3 +127,57 @@ def minio_bucket():
         key="minioadmin",
         secret="minioadmin",
     )
+
+# recap of the errors, and failures
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    tr = terminalreporter
+    # Counts
+    sections = [
+        ("passed",   "green"),
+        ("xfailed",  "yellow"),
+        ("xpassed",  "yellow"),
+        ("skipped",  "yellow"),
+        ("failed",   "red"),
+        ("error",    "red"),
+    ]
+
+    tr.write_line("\n─ Test Outcome Summary ─", bold=True)
+    for key, color in sections:
+        reports = tr.getreports(key) or []
+        if reports:
+            tr.write_line(f"{key:>8}: {len(reports)}",
+                          **{color: True})
+
+    # Warnings count (pytest already prints a warnings summary block)
+    w_reports = tr.stats.get("warnings", [])
+    if w_reports:
+        tr.write_line(f"{'warnings':>8}: {len(w_reports)}", yellow=True)
+
+    # List skipped with reasons (short)
+    skipped = tr.stats.get("skipped", [])
+    if skipped:
+        tr.write_line("\nSkipped tests:", yellow=True, bold=True)
+        for rep in skipped[:20]:
+            reason = ""
+            try:
+                # Best effort to extract reason text
+                reason = getattr(rep, "longrepr", "") or ""
+                reason = getattr(reason, "reprcrash", None) and reason.reprcrash.message or str(reason)
+            except Exception:
+                pass
+            tr.write_line(f"  • {rep.nodeid}" + (f"  — {reason}" if reason else ""))
+
+        if len(skipped) > 20:
+            tr.write_line(f"  … and {len(skipped) - 20} more", yellow=True)
+
+    # List xfailed (expected fails)
+    xfailed = tr.stats.get("xfailed", [])
+    if xfailed:
+        tr.write_line("\nExpected failures (xfail):", yellow=True, bold=True)
+        for rep in xfailed[:20]:
+            tr.write_line(f"  • {rep.nodeid}")
+        if len(xfailed) > 20:
+            tr.write_line(f"  … and {len(xfailed) - 20} more", yellow=True)
+
+    tr.write_line("")  # trailing newline
+

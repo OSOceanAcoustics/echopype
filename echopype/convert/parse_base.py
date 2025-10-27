@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import sys
 from collections import defaultdict
 from typing import Any, Dict, Literal, Optional, Tuple
@@ -23,6 +24,15 @@ FILENAME_DATETIME_EK60 = (
 INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
 
 logger = _init_logger(__name__)
+
+
+# --- Windows-safe path component sanitizer (also harmless on POSIX) ---
+_INVALID_FS_CHARS = r'[<>:"/\\|?*]'
+
+
+def _sanitize_component(s: str) -> str:
+    """Replace filesystem-invalid characters in path components."""
+    return re.sub(_INVALID_FS_CHARS, "_", str(s))
 
 
 class ParseBase:
@@ -317,32 +327,31 @@ class ParseEK(ParseBase):
 
             # SWAP --------------------------------------------------------------
             if data_shape[0] != len(self.ping_time[ch_id]):
-                # Let's ensure that the ping time dimension is the same
-                # as the original data shape when written to zarr array
-                # since this will become the coordinate dimension
-                # of the channel data when set in set_groups operation
+                # Ensure ping-time dimension matches original length
                 data_shape = (len(self.ping_time[ch_id]),) + data_shape[1:]
-            # Write to temp zarr for swap
-            # then assign the dask array to the dictionary
+
+            # Build safe path components (handles Windows-illegal chars like "|")
+            safe_ch = _sanitize_component(ch_id)
+
+            # Write to temp zarr for swap, then assign the dask array to the dict
             if data_type == "complex":
                 # Save real and imaginary components separately
                 ping_data_dict[data_type][ch_id] = {}
-                # Go through real and imaginary components
                 for complex_part, arr in padded_arr.items():
+                    safe_part = _sanitize_component(complex_part)
                     d_arr = self._write_to_temp_zarr(
                         arr,
                         zarr_root,
-                        os.path.join(raw_type, data_type, str(ch_id), complex_part),
+                        os.path.join(raw_type, data_type, safe_ch, safe_part),
                         data_shape,
                         chunks,
                     )
                     ping_data_dict[data_type][ch_id][complex_part] = d_arr
-
             else:
                 d_arr = self._write_to_temp_zarr(
                     padded_arr,
                     zarr_root,
-                    os.path.join(raw_type, data_type, str(ch_id)),
+                    os.path.join(raw_type, data_type, safe_ch),
                     data_shape,
                     chunks,
                 )

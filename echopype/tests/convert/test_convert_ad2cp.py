@@ -81,12 +81,11 @@ def absolute_tolerance():
     return 1e-6
 
 
-def test_convert(filepath, output_dir):
-    with TemporaryDirectory() as tmpdir:
-        output_dir = Path(tmpdir + output_dir)
-        print("converting", filepath)
-        echodata = open_raw(raw_file=str(filepath), sonar_model="AD2CP")
-        echodata.to_netcdf(save_path=output_dir)
+def test_convert(filepath, output_dir, tmp_path):
+    output_dir = tmp_path / output_dir.strip("/")
+    print("converting", filepath)
+    echodata = open_raw(raw_file=str(filepath), sonar_model="AD2CP")
+    echodata.to_netcdf(save_path=output_dir)
 
 
 def test_convert_raw(
@@ -95,22 +94,21 @@ def test_convert_raw(
     ocean_contour_export_090_dir,
     ocean_contour_export_076_dir,
     absolute_tolerance,
+    tmp_path,
 ):
-    with TemporaryDirectory() as tmpdir:
-        output_dir = Path(tmpdir + output_dir)
+    output_dir = tmp_path / output_dir.strip("/")
 
-        print("converting raw", filepath_raw)
-        echodata = open_raw(raw_file=str(filepath_raw), sonar_model="AD2CP")
-        echodata.to_netcdf(save_path=output_dir)
+    print("converting raw", filepath_raw)
+    echodata = open_raw(raw_file=str(filepath_raw), sonar_model="AD2CP")
+    echodata.to_netcdf(save_path=output_dir)
 
-        _check_raw_output(
-            filepath_raw,
-            output_dir,
-            ocean_contour_export_090_dir,
-            ocean_contour_export_076_dir,
-            absolute_tolerance,
-        )
-
+    _check_raw_output(
+        filepath_raw,
+        output_dir,
+        ocean_contour_export_090_dir,
+        ocean_contour_export_076_dir,
+        absolute_tolerance,
+    )
 
 def _check_raw_output(
     filepath_raw,
