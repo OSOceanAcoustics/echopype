@@ -1649,7 +1649,6 @@ def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_
                 f"actual_range max doesn't match data max for {test_description}"
 
 
-@pytest.mark.integration
 @pytest.mark.parametrize(
     ("dtype", "func"),
     [
@@ -1703,14 +1702,14 @@ def test_regrid_mask_2D(dtype, func):
                     "2020-01-01T01:00:39.000000000",
                 ]
             ),
-            "depth": [10, 20, 30, 39]
+            "depth": [10.0, 20.0, 30.0, 39.0]
         }
     )
 
     # Regrid mask
     mask_regridded_da = regrid_mask(
         mask,
-        range_var = "depth",
+        range_da=mask["depth"],
         range_bin="20m",
         ping_time_bin="20s",
         func=func,
@@ -1729,7 +1728,7 @@ def test_regrid_mask_2D(dtype, func):
                     "2020-01-01T01:00:20.000000000",
                 ]
             ),
-            "depth": [0, 20]
+            "depth": [0.0, 20.0]
         }
     )
     assert mask_regridded_da.equals(mask_expected_da)
@@ -1771,14 +1770,14 @@ def test_regrid_mask_3D():
                     "2020-01-01T01:00:39.000000000",
                 ]
             ),
-            "depth": [10, 20, 30, 39],
+            "depth": [10.0, 20.0, 30.0, 39.0],
         }
     )
 
     # Regrid mask
     mask_regridded_da = regrid_mask(
         mask,
-        range_var = "depth",
+        range_da=mask["depth"],
         range_bin="20m",
         ping_time_bin="20s",
         third_dim="region_id",
@@ -1810,7 +1809,7 @@ def test_regrid_mask_3D():
                     "2020-01-01T01:00:20.000000000",
                 ]
             ),
-            "depth": [0, 20]
+            "depth": [0.0, 20.0]
         }
     )
     assert mask_regridded_da.equals(mask_expected_da)
@@ -1852,6 +1851,7 @@ def test_regrid_mask_errors():
     with pytest.raises(ValueError, match = "Passing in reindex=.*only allowed when method='map_reduce'"):
         regrid_mask(
             mask,
+            range_da=mask["depth"],
             method = "blockwise",
             reindex = False
         )
@@ -1859,36 +1859,35 @@ def test_regrid_mask_errors():
     with pytest.raises(TypeError, match = "ping_time_bin must be a string"):
         regrid_mask(
             mask,
+            range_da=mask["depth"],
             ping_time_bin = 20
-        )
-
-    with pytest.raises(ValueError, match = r"Mask must contain \(range_var, ping_time\) dimensions\."):
-        regrid_mask(
-            mask,
-            range_var = "invalid_range_var",
         )
 
     with pytest.raises(ValueError, match = "'func' must be 'logical-AND' or 'logical-OR'."):
         regrid_mask(
             mask,
+            range_da=mask["depth"],
             func = "invalid_func"
         )
 
     with pytest.raises(ValueError, match = "Mask must have only 2 dimensions unless 'third_dim' is specified."):
         regrid_mask(
             mask.expand_dims("region_id"),
+            range_da=mask["depth"],
             third_dim = None,
         )
     
     with pytest.raises(ValueError, match = f"Mask must contain 'region_id' as dimension."):
         regrid_mask(
             mask,
+            range_da=mask["depth"],
             third_dim = "region_id",
         )
 
     with pytest.raises(ValueError, match = f"Mask must have only 3 dimensions."):
         regrid_mask(
             mask.expand_dims("region_id_1").expand_dims("region_id_2"),
+            range_da=mask["depth"],
             third_dim = "region_id_1",
         )
 
@@ -1923,6 +1922,7 @@ def test_regrid_mask_errors():
     with pytest.raises(ValueError, match = "Mask must be binary True/False or 1/0."):
         regrid_mask(
             invalid_mask,
+            range_da=mask["depth"],
         )
                 
 

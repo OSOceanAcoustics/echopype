@@ -718,8 +718,9 @@ def regrid_mask(
         for more details.
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
-    range_var_mask: str, default None
-        TODO add this.
+    range_var_max: str, default None
+        Maximum value of range variable. If this value is known, the user should input it as
+        it will skip the maximum computation and this keeps this function lazy.
     **flox_kwargs
         Additional keyword arguments to be passed
         to flox reduction function.
@@ -729,38 +730,27 @@ def regrid_mask(
     A DataArray containing a regridded mask.
     """
 
-    # TODO uncomment these once computation is figured out
-    """
     if method != "map-reduce" and reindex is not None:
         raise ValueError(f"Passing in reindex={reindex} is only allowed when method='map_reduce'.")
 
     if not isinstance(ping_time_bin, str):
         raise TypeError("ping_time_bin must be a string")
 
-    if third_dim is None and len(mask.dims) != 2:
+    if third_dim is None and len(mask_da.dims) != 2:
         raise ValueError("Mask must have only 2 dimensions unless 'third_dim' is specified.")
 
-    if third_dim is not None and third_dim not in mask.dims:
+    if third_dim is not None and third_dim not in mask_da.dims:
         raise ValueError(f"Mask must contain '{third_dim}' as dimension.")
 
-    if third_dim is not None and len(mask.dims) != 3:
+    if third_dim is not None and len(mask_da.dims) != 3:
         raise ValueError("Mask must have only 3 dimensions.")
 
     # Check if mask is binary (True/False or 1/0)
-    if not np.isin(mask.data, [1, 0]).all():
+    if not np.isin(mask_da.data, [1, 0]).all():
         raise ValueError("Mask must be binary True/False or 1/0.")
-    """
 
-    # Set strictness of aggregation output being 1/True based on `func`:
-    # When func == 'logical-AND', the output value is set to 1/True only if all corresponding
-    # values in the regrid bin are 1/True.
-    # When func == 'logical-OR', the output value is set to 1/True if any value in the regrid
-    # bin is 1/True.
-    if func == "logical-AND":
-        func_xarray = "mean"
-    elif func == "logical-OR":
-        func_xarray = "nanmean"
-    else:
+    # Check aggregation function
+    if func != "logical-AND" and func != "logical-OR":
         raise ValueError("'func' must be 'logical-AND' or 'logical-OR'.")
 
     # Create bin information for the range variable
@@ -769,7 +759,7 @@ def regrid_mask(
         # This computes the range variable max since there might be NaNs in the data
         range_var_max = range_da.max(skipna=True)
     else:
-        # Parse string and small increase to ensure that we get the bin
+        # Parse string and add small value to ensure that we grab the bin
         # corresponding to range_var_max
         range_var_max = _parse_x_bin(range_var_max) + 1e-8
     range_interval = np.arange(0, range_var_max + range_bin, range_bin)
@@ -785,10 +775,8 @@ def regrid_mask(
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)]).values
     ping_interval = _convert_bins_to_interval_index(ping_interval, closed=closed)
 
-    # Set all False/0 to NaN. This also turns all True to 1.
-    # TODO fix this
-    mask_copy = mask_da  # .copy()
-    # mask_copy = xr.where(mask_copy != 0, mask_copy, np.nan)
+    # Copy mask
+    mask_copy = mask_da.copy()
 
     # Set interval index for groups
     if third_dim is not None:
@@ -802,7 +790,7 @@ def regrid_mask(
             isbin=[False, True, True],
             method=method,
             reindex=reindex,
-            func=func_xarray,
+            func="mean",
             skipna=False,
             fill_value=np.nan,
             **flox_kwargs,
@@ -843,7 +831,16 @@ def regrid_mask(
                 ),
             },
         )
-    mask_regridded_da = mask_regridded_da.fillna(0).astype(dtype=mask_da.dtype)
+
+    # For logical-AND, if output is not strictly 1, then the value becomes 0.
+    # For logical-OR, if output is not strictly 0, then the value becomes 1.
+    if func == "logical-AND":
+        mask_regridded_da = xr.where(mask_regridded_da == 1.0, 1, 0)
+    elif func == "logical-OR":
+        mask_regridded_da = xr.where(mask_regridded_da != 0.0, 1, 0)
+
+    # Set to the original data type
+    mask_regridded_da = mask_regridded_da.astype(mask_da.dtype)
 
     # ping_time_bin parsing and conversions
     # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
