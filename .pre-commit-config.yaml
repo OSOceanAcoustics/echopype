@@ -18,13 +18,13 @@ repos:
         args: ["--autofix", "--indent=2", "--no-sort-keys"]
 
   - repo: https://github.com/PyCQA/isort
-    rev: 6.0.1
+    rev: 7.0.0
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
 
-  - repo: https://github.com/psf/black
-    rev: 25.1.0
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.9.0
     hooks:
       - id: black
 
@@ -39,4 +39,4 @@ repos:
       - id: codespell
         # Checks spelling in `docs/source` and `echopype` dirs ONLY
         # Ignores `.ipynb` files and `_build` folders
-        args: ["-L", "soop,anc,indx", "--skip=*.ipynb,docs/source/_build,echopype/test_data", "-w", "docs/source", "echopype"]
+        args: ["-L", "soop,anc,indx,weill", "--skip=*.ipynb,docs/source/_build,echopype/test_data", "-w", "docs/source", "echopype"]

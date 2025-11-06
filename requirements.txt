@@ -6,8 +6,8 @@ flox>=0.7.2
 fsspec
 geopy
 jinja2
-netCDF4>1.6,<1.7.1
-numpy<2
+netCDF4>1.6
+numpy
 pandas
 psutil>=5.9.1
 pynmea2
@@ -17,4 +17,4 @@ s3fs
 scipy
 typing-extensions
 xarray>=2024.11.0
-zarr>=2,<3
+zarr>=3

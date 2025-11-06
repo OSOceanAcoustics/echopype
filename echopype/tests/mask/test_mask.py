@@ -18,6 +18,22 @@ from echopype.mask.freq_diff import (
     _check_freq_diff_source_Sv,
 )
 
+# for seafloor
+from echopype.mask import detect_seafloor
+
+# for schoals
+from echopype.mask import detect_shoal
+from scipy import ndimage as ndi
+from typing import List, Union, Optional
+
+@pytest.fixture
+def ek60_path(test_path):
+    return test_path["EK60"]
+
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path["EK80"]
+
 def get_mock_freq_diff_data(
     n: int,
     n_chan_freq: int,
@@ -1277,14 +1293,14 @@ def test_apply_mask_channel_variation(source_has_ch, mask, truth_da):
         ("depth", False),
     ]
 )
-def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
+def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask, ek60_path):
     """
     Check for correct values and dimensions when using `apply_mask` to apply
     frequency differencing masks to MVBS.
     """
     # Parse Raw File
     ed = ep.open_raw(
-        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        raw_file=ek60_path / "DY1801_EK60-D20180211-T164025.raw",
         sonar_model="EK60"
     )
 
@@ -1357,13 +1373,13 @@ def test_apply_mask_dims_using_MVBS(range_var, use_multi_channel_mask):
 
 
 @pytest.mark.unit
-def test_validate_source_ds_and_check_mask_dim_alignment():
+def test_validate_source_ds_and_check_mask_dim_alignment(ek60_path):
     """
     Tests that ValueErrors are raised for `_validate_source_ds_and_check_mask_dim_alignment`.
     """
     # Parse Raw File
     ed = ep.open_raw(
-        raw_file="echopype/test_data/ek60/DY1801_EK60-D20180211-T164025.raw",
+        raw_file=ek60_path / "DY1801_EK60-D20180211-T164025.raw",
         sonar_model="EK60"
     )
 
@@ -1908,3 +1924,364 @@ def test_regrid_mask_errors():
         regrid_mask(
             invalid_mask,
         )
+                
+
+### add test for seafloor
+
+def _make_ds_Sv_depth(n_ping=100, n_range=40, channel="chan1", dz=1.0, var_name="Sv_corrected"):
+    """Build a dataset with Sv and a channelized depth grid."""
+    ping = np.arange(n_ping)
+    rs   = np.arange(n_range)
+    depth_1d = rs * dz  # depth increases with range_sample
+    depth_2d = np.tile(depth_1d, (n_ping, 1))  # (ping_time, range_sample)
+
+    ds = xr.Dataset()
+    ds[var_name] = xr.DataArray(
+        data=np.full((1, n_ping, n_range), -120.0, dtype=float),
+        dims=("channel", "ping_time", "range_sample"),
+        coords={"channel": [channel], "ping_time": ping, "range_sample": rs},
+    )
+    # make depth have a channel dimension so .sel(channel=...) works
+    ds["depth"] = xr.DataArray(
+        data=depth_2d,
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": ping, "range_sample": rs},
+    ).expand_dims({"channel": [channel]}).transpose("channel", "ping_time", "range_sample")
+
+    return ds
+
+@pytest.mark.unit
+def test_detect_basic_return():
+    ds = _make_ds_Sv_depth()
+
+    # make a sloped bottom band that gets shallower with time
+    n_ping = ds.sizes["ping_time"]
+    thickness = 3
+    start0 = 22
+    slope = -0.02  # bins per ping (negative = shallower with time)
+
+    starts = np.clip(
+        start0 + np.round(slope * np.arange(n_ping)).astype(int),
+        0,
+        ds.sizes["range_sample"] - thickness
+    )
+
+    # fill fake depth with a little noise
+    rng = np.random.default_rng(42)
+    sigma = 0.7
+    for j, s in enumerate(starts):
+        noise = rng.normal(0.0, sigma, size=thickness)
+        ds["Sv_corrected"].isel(
+            channel=0, ping_time=j, range_sample=slice(s, s + thickness)
+        )[:] = -35.0 + noise
+
+    # Call dispatcher (basic)
+    basic_depth = detect_seafloor(
+        ds,
+        method="basic",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "chan1",
+            "threshold": (-50.0, -20.0),
+            "offset_m": 0.3,
+            "bin_skip_from_surface": 2,
+        },
+    )
+
+    # Assertions
+    assert isinstance(basic_depth, xr.DataArray)
+    assert basic_depth.name == "bottom_depth"
+    assert basic_depth.dims == ("ping_time",)
+    assert np.array_equal(basic_depth["ping_time"], ds["ping_time"])
+
+    idx = xr.DataArray(
+        starts, 
+        dims=["ping_time"], 
+        coords={"ping_time": ds["ping_time"]}
+    )
+
+    # Depth at those first bright bins, one value per ping
+    depth_at_starts = ds["depth"].isel(range_sample=idx)
+
+    # Expected detector output (subtract the offset in meters)
+    expected_depth = depth_at_starts.values - 0.3
+
+    # Compare to the algorithm’s result
+    assert np.allclose(basic_depth.values, expected_depth, atol=1e-6)
+
+@pytest.mark.unit
+def test_detect_basic_no_detection_defaults_to_bin_skip():
+    ds = _make_ds_Sv_depth(n_ping=50, n_range=30, channel="chan1", dz=1.0, var_name="Sv_corrected")
+    ds["Sv_corrected"][:] = -120.0  # nothing within (-50, -20) => no detection
+
+    out = detect_seafloor(
+        ds,
+        method="basic",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "chan1",
+            "threshold": (-50.0, -20.0),
+            "offset_m": 0.3,
+            "bin_skip_from_surface": 10,
+        },
+    )
+
+    assert out.dims == ("ping_time",)
+
+    # Expected = depth at bin 10 (1 sample_range/bin) minus offset, constant across pings
+    expected_const = ds["depth"].isel(ping_time=0, range_sample=10).item() - 0.3
+    expected = np.full(ds.sizes["ping_time"], expected_const)
+    np.testing.assert_allclose(out.values, expected, atol=1e-6)
+
+
+@pytest.mark.xfail(strict=False, reason="Method may not be implemented yet (#1522)")
+def test_detect_seafloor_unknown_method_raises():
+    """Expect a ValueError for an unknown method (via dispatcher, if present)."""
+    from importlib import import_module
+
+    api = import_module("echopype.mask.seafloor_detection.api")  # will raise if not present
+    ds = _make_ds_Sv_depth()
+    with pytest.raises(ValueError, match="Unsupported.*method"):
+        api.detect_seafloor(
+            ds,
+            method="__bad_method__",
+            params={"var_name": "Sv_corrected", "channel": "59006-125-2"},
+        )
+
+@pytest.mark.unit
+def test_blackwell_vs_basic_close_local(ek80_path):
+    """Blackwell vs basic using local test data"""
+
+    raw_path = ek80_path / "ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
+
+    if not raw_path.is_file():
+        pytest.skip(f"Missing EK80 RAW: {raw_path}")
+
+    ed = ep.open_raw(raw_path, sonar_model="EK80")
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
+    ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, depth_offset=9.8)
+
+    # Pick an available channel
+    sel_channel = "WBT 400142-15 ES70-7C_ES"
+
+    # attach angles (required by Blackwell)
+    angle_along = ed["Sonar/Beam_group1"]["angle_alongship"]
+    angle_athwart = ed["Sonar/Beam_group1"]["angle_athwartship"]
+    ds_Sv = ds_Sv.assign(
+        angle_alongship=angle_along,
+        angle_athwartship=angle_athwart,
+    )
+    
+    blackwell_depth = detect_seafloor(
+        ds=ds_Sv,
+        method="blackwell",
+        params={
+            "channel": sel_channel,
+            "threshold": [-40, 702, 282],
+            "offset": 0.3,
+            "r0": 10,
+            "r1": 1000,
+            "wtheta": 28,
+            "wphi": 52,
+        },
+    )
+
+    basic_depth = detect_seafloor(
+        ds_Sv,
+        method="basic",
+        params={
+            "var_name": "Sv",
+            "channel": sel_channel,
+            "threshold": (-40, -20),
+            "offset_m": 0.3,
+            "bin_skip_from_surface": 200,
+        },
+    )
+
+    assert isinstance(blackwell_depth, xr.DataArray)
+    assert blackwell_depth.dims == ("ping_time",)
+    assert basic_depth.dims == ("ping_time",)
+    assert np.array_equal(blackwell_depth["ping_time"], basic_depth["ping_time"])
+
+    b = blackwell_depth.values
+    c = basic_depth.values
+    m = np.isfinite(b) & np.isfinite(c)
+    assert m.any(), "No overlapping finite detections to compare."
+    mad = np.median(np.abs(b[m] - c[m]))
+    assert mad < 5.0, f"Median abs diff too large: {mad:.2f} m"
+
+
+### add test for schoal
+
+def _make_ds_Sv(n_ping=6, n_range=8, channels=("chan1",)):
+    coords = {"ping_time": np.arange(n_ping), "range_sample": np.arange(n_range)}
+    if channels is None:
+        da = xr.DataArray(np.zeros((n_ping, n_range), float),
+                          dims=("ping_time", "range_sample"), coords=coords,
+                          name="Sv_corrected")
+    else:
+        da = xr.DataArray(np.zeros((len(channels), n_ping, n_range), float),
+                          dims=("channel", "ping_time", "range_sample"),
+                          coords={**coords, "channel": list(channels)},
+                          name="Sv_corrected")
+    return da.to_dataset()
+
+@pytest.mark.unit
+@pytest.mark.xfail(reason="Unknown-method, raises an error")
+def test_detect_shoals_unknown_method_raises():
+    ds = _make_ds_Sv(n_ping=2, n_range=2, channels=("59006-125-2",))
+    detect_shoal(
+        ds,
+        method="__error__",
+        params={"var_name": "Sv_corrected", "channel": "59006-125-2"},
+    )
+
+@pytest.mark.unit
+def test_weill_basic_gaps_and_sizes():
+    """
+    Weill: thresholding + vertical/horizontal gap filling in index space.
+    """
+    ds = _make_ds_Sv(n_ping=20, n_range=8, channels=("59006-125-2",))
+
+    # Background below threshold
+    ds["Sv_corrected"][:] = -90.0
+
+    # Vertical pillar at ping 2 with a vertical gap of size 2 (missing 3 and 4)
+    ds["Sv_corrected"].loc[dict(channel="59006-125-2", ping_time=2, range_sample=[1,2,5,6])] = -60.0
+
+    # Horizontal bar deeper at range=7
+    ds["Sv_corrected"].loc[dict(channel="59006-125-2", ping_time=[0,1,3,4], range_sample=7)] = -55.0
+
+    # 2x2 at top-left corner, far from both features
+    ds["Sv_corrected"].loc[dict(channel="59006-125-2", ping_time=[14,15], range_sample=[0,1])] = -57.0
+
+    # detect
+    mask = detect_shoal(
+        ds,
+        method="weill",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "59006-125-2",
+            "thr": -70,
+            "maxvgap": 2,
+            "maxhgap": 1,
+            "minvlen": 2,
+            "minhlen": 2,
+        },
+    )
+
+    # shape/dtype/dims
+    n_ping = ds.sizes["ping_time"]
+    n_range = ds.sizes["range_sample"]
+
+    assert mask.dims == ("ping_time", "range_sample")
+    assert mask.dtype == bool
+    assert mask.sizes["ping_time"] == n_ping and mask.sizes["range_sample"] == n_range
+
+    # Vertical column at ping=2: expect True from range 1..7 now (row-7 fill bridges at j=2)
+    col2 = mask.sel(ping_time=2).values
+    expected_col2 = np.zeros(n_range, dtype=bool)
+    expected_col2[1:8] = True
+    np.testing.assert_array_equal(col2, expected_col2)
+
+    # Horizontal row at range=7: expect True at pings 0..4 (with ping 2 filled)
+    row7 = mask.sel(range_sample=7).values
+    expected_row7 = np.zeros(n_ping, dtype=bool)
+    expected_row7[[0, 1, 2, 3, 4]] = True
+    np.testing.assert_array_equal(row7, expected_row7)
+
+    # The far 2x2 at (ping 14..15, range 0..1) detected with vlen = 2
+    blob = mask.sel(ping_time=[14, 15], range_sample=[0, 1]).values
+    assert blob.any()
+    
+    mask = detect_shoal(
+        ds,
+        method="weill",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "59006-125-2",
+            "thr": -70,
+            "maxvgap": 2,
+            "maxhgap": 1,
+            "minvlen": 3, # to not detect the 2*2
+            "minhlen": 3, # to not detect the 2*2
+        },
+    )
+        
+    blob = mask.sel(ping_time=[14, 15], range_sample=[0, 1]).values
+    assert not blob.any()
+    
+
+@pytest.mark.unit
+def test_weill_dispatcher_and_coords():
+    ds = _make_ds_Sv(n_ping=8, n_range=8, channels=("59006-125-2",))
+    ds["Sv_corrected"][:] = -90.0
+    ds["Sv_corrected"].loc[dict(channel="59006-125-2", ping_time=[1,2], range_sample=[1,2])] = -60.0
+
+    mask = detect_shoal(
+        ds,
+        method="weill",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "59006-125-2",
+            "thr": -70,
+            "maxvgap": 1,
+            "maxhgap": 1,
+            "minvlen": 1,
+            "minhlen": 1,
+        },
+    )
+
+    assert mask.dims == ("ping_time", "range_sample")
+    assert np.array_equal(mask.coords["ping_time"], ds["ping_time"])
+    assert np.array_equal(mask.coords["range_sample"], ds["range_sample"])
+
+    expected = np.zeros((ds.sizes["ping_time"], ds.sizes["range_sample"]), dtype=bool)
+    expected[1:3, 1:3] = True
+    np.testing.assert_array_equal(mask.values, expected)
+
+@pytest.mark.unit
+def test_echoview_mincan_no_linking():
+    """
+    Basic Echoview mask test: create two bright blocks, run detection, check
+    both are found and remain separate (two connected components).
+    """
+    ds = _make_ds_Sv(n_ping=15, n_range=12, channels=("59006-125-2",))
+    ds["Sv_corrected"][:] = -90.0  # background < thr (not kept)
+
+    # Small 2x2
+    ds["Sv_corrected"].loc[dict(channel="59006-125-2", ping_time=[1,2], range_sample=[1,2])] = -60.0
+    # Large 3x3 moved to range 4..6 (gap at range=3)
+    ds["Sv_corrected"].loc[dict(channel="59006-125-2", ping_time=[2,3,4], range_sample=[4,5,6])] = -60.0
+
+    mask = detect_shoal(
+        ds,
+        method="echoview",
+        params={
+            "var_name": "Sv_corrected",
+            "channel": "59006-125-2",
+            "idim": np.arange(ds.sizes["range_sample"] + 1),   # 0..6 (range edges)
+            "jdim": np.arange(ds.sizes["ping_time"] + 1),      # 0..6 (ping edges)
+            "thr": -70,
+            "mincan": (2, 2),
+            "maxlink": (1, 1),
+            "minsho": (2, 2),
+        },
+    )
+    
+    ####### asserts 
+    assert mask.dims == ("ping_time", "range_sample")
+
+    # 3x3 block must be fully present (pings 2..4, ranges 4..6)
+    for p in [2, 3, 4]:
+        for r in [4, 5, 6]:
+            assert bool(mask.sel(ping_time=p, range_sample=r)), f"Expected True at ({p},{r})"
+
+    # 2x2 block must also be present (pings 1..2, ranges 1..2)
+    for p in [1, 2]:
+        for r in [1, 2]:
+            assert bool(mask.sel(ping_time=p, range_sample=r)), f"Expected True at ({p},{r})"
+
+    # Label the mask and confirm they are separate components (not connected)
+    _, nlab = ndi.label(mask.values, structure=np.ones((3, 3), dtype=bool))
+    assert nlab == 2
