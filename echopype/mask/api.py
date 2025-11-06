@@ -691,9 +691,7 @@ def regrid_mask(
     ----------
     mask : xr.DataArray
         Mask DataArray. Must be binary 0/1 or True/False.
-        Must have two dimensions: 'range_var' and 'ping_time'.
-    range_var: str, default ``depth``
-        The variable to use for range binning.
+        Must have two dimensions: 'depth' and 'ping_time'.
     range_bin : str, default '20m'
         bin size along 'range_sample' or 'depth' in meters.
     ping_time_bin : str, default '20s'
@@ -780,7 +778,7 @@ def regrid_mask(
 
     # Set interval index for groups
     if third_dim is not None:
-        # mask_copy = mask_copy.transpose(third_dim, "ping_time", range_var)
+        mask_copy = mask_copy.transpose(third_dim, "ping_time", "depth")
         mask_regridded_da = xarray_reduce(
             mask_copy,
             mask_copy[third_dim],
@@ -807,7 +805,7 @@ def regrid_mask(
             },
         )
     else:
-        # mask_copy = mask_copy.transpose("ping_time", range_var)
+        mask_copy = mask_copy.transpose("ping_time", "depth")
         mask_regridded_da = xarray_reduce(
             mask_copy,
             mask_copy["ping_time"],
