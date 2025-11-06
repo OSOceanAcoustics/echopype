@@ -2,8 +2,7 @@ import datetime
 import operator as op
 import pathlib
 import sys
-from typing import List, Literal, Optional, Union
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import dask
 import dask.array
@@ -12,11 +11,11 @@ import pandas as pd
 import xarray as xr
 from flox.xarray import xarray_reduce
 
-from ..commongrid.utils import _convert_bins_to_interval_index, _parse_x_bin
 # for seafloor detection
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 
+from ..commongrid.utils import _convert_bins_to_interval_index, _parse_x_bin
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
@@ -893,6 +892,8 @@ def regrid_mask(
     )
 
     return mask_regridded_da
+
+
 # Registry of supported methods for bottom detection
 METHODS_BOTTOM = {
     "basic": bottom_basic,
