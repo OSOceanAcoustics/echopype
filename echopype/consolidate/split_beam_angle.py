@@ -185,6 +185,7 @@ def get_angle_complex_samples(
             coeff=pc_params,  # this is filter_coeff with fs added
             waveform_mode="BB",
             fs=pc_params["receiver_sampling_frequency"],  # this is the added fs
+            drop_last_hanning_zero=pc_params["drop_last_hanning_zero"],
         )
         bs = compress_pulse(backscatter=bs, chirp=tx)  # has beam dim
         bs = bs / get_norm_fac(chirp=tx)  # normalization for each channel
