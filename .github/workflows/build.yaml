@@ -30,13 +30,9 @@ jobs:
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
-        image: minio/minio
+        image: cormorack/minioci:latest
         ports:
           - 9000:9000
-        options: --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1" --health-interval=10s --health-timeout=5s --health-retries=3
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
       httpserver:
         image: httpd:2.4
         ports:
