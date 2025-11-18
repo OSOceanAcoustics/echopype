@@ -112,13 +112,26 @@ def load_s3(*args, **kwargs) -> None:
         target_path = f"{test_data}/{d.name}"
         logger.info(f"Uploading {source_path} → {target_path}")
         fs.put(source_path, target_path, recursive=True)
+
+
+def load_http_server(http_server_id: str) -> None:
+    """Copy test data from Pooch cache to HTTP server container."""
+    pooch_path = get_pooch_data_path()
+    
+    # Copy data to HTTP server container
+    logger.info(f"Copying test data to HTTP server container {http_server_id}...")
     for d in pooch_path.iterdir():
-        if d.suffix == ".zip":  # skip zip archives to cut redundant I/O
+        if d.suffix == ".zip":  # skip zip archives
             continue
         source_path = str(d)
-        target_path = f"{test_data}/{d.name}"
-        logger.info(f"Uploading {source_path} → {target_path}")
-        fs.put(source_path, target_path, recursive=True)
+        target_path = f"/usr/local/apache2/htdocs/data/{d.name}"
+        cmd = ["docker", "cp", source_path, f"{http_server_id}:{target_path}"]
+        logger.info(f"Copying {d.name} to HTTP server...")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"Failed to copy {d.name}: {result.stderr}")
+        else:
+            logger.info(f"Successfully copied {d.name}")
 
 
 if __name__ == "__main__":
@@ -164,6 +177,14 @@ if __name__ == "__main__":
             {
                 "msg": "Setting up MinIO S3 bucket with Pooch test data ...",
                 "cmd": load_s3,
+            }
+        )
+        
+        commands.append(
+            {
+                "msg": f"Copying test data to HTTP server container {args.http_server} ...",
+                "cmd": load_http_server,
+                "args": args.http_server,
             }
         )
 
