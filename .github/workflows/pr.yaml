@@ -33,14 +33,19 @@ jobs:
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
-        image: cormorack/minioci:latest
+        image: minio/minio
         ports:
           - 9000:9000
+        options: --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1" --health-interval=10s --health-timeout=5s --health-retries=3
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        # Command is passed via options since GitHub Actions services don't support 'command' directly
+        # The default minio/minio entrypoint handles 'server /data'
       httpserver:
-        image: cormorack/http:latest
+        image: httpd:2.4
         ports:
           - 8080:80
-
 
     steps:
       - name: Checkout repo
