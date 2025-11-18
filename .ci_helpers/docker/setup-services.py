@@ -139,15 +139,13 @@ def load_http_server(http_server_id) -> None:
         dataset_name = d.name
         
         # Copy directly to the data directory
-        target = f"/usr/local/apache2/htdocs/data/{dataset_name}"
-        cmd = ["docker", "cp", source_path, f"{http_server_id}:{target}"]
-        logger.info(f"Copying {dataset_name}...")
+        target_path = f"/usr/local/apache2/htdocs/data/{dataset_name}"
+        cmd = ["docker", "cp", source_path, f"{http_server_id}:{target_path}"]
+        logger.info(f"Uploading {source_path} → {target_path}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
             logger.error(f"Failed to copy {dataset_name}: {result.stderr}")
-        else:
-            logger.info(f"Successfully copied {dataset_name}")
 
 
 if __name__ == "__main__":
