@@ -118,12 +118,9 @@ def load_http_server(http_server_id) -> None:
     """Copy test data from Pooch cache to HTTP server container."""
     pooch_path = get_pooch_data_path()
     
-    # Copy data to HTTP server container
-    # Strategy: copy each dataset directory to /usr/local/apache2/htdocs/
-    # then move it into a 'data' subdirectory using shell commands
-    logger.info(f"Copying test data to HTTP server container {http_server_id}...")
+    logger.info(f"Setting up HTTP server container {http_server_id}...")
     
-    # First, create the data directory in the container
+    # Create the data directory in the container
     mkdir_result = subprocess.run(
         ["docker", "exec", http_server_id, "sh", "-c", "mkdir -p /usr/local/apache2/htdocs/data"],
         capture_output=True,
@@ -134,32 +131,23 @@ def load_http_server(http_server_id) -> None:
     else:
         logger.warning(f"mkdir warning (may be harmless): {mkdir_result.stderr}")
     
-    # Copy each dataset directory
+    # Copy all dataset directories directly to /usr/local/apache2/htdocs/data/
     for d in pooch_path.iterdir():
         if d.suffix == ".zip":  # skip zip archives
             continue
         source_path = str(d)
         dataset_name = d.name
         
-        # Copy to htdocs first (which definitely exists)
-        temp_target = f"/usr/local/apache2/htdocs/{dataset_name}"
-        cmd = ["docker", "cp", source_path, f"{http_server_id}:{temp_target}"]
+        # Copy directly to the data directory
+        target = f"/usr/local/apache2/htdocs/data/{dataset_name}"
+        cmd = ["docker", "cp", source_path, f"{http_server_id}:{target}"]
         logger.info(f"Copying {dataset_name}...")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
             logger.error(f"Failed to copy {dataset_name}: {result.stderr}")
-            continue
-            
-        # Move it into the data subdirectory
-        move_cmd = ["docker", "exec", http_server_id, "sh", "-c", 
-                    f"mv /usr/local/apache2/htdocs/{dataset_name} /usr/local/apache2/htdocs/data/"]
-        move_result = subprocess.run(move_cmd, capture_output=True, text=True)
-        
-        if move_result.returncode == 0:
-            logger.info(f"Successfully copied {dataset_name}")
         else:
-            logger.error(f"Failed to move {dataset_name}: {move_result.stderr}")
+            logger.info(f"Successfully copied {dataset_name}")
 
 
 if __name__ == "__main__":
