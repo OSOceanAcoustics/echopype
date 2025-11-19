@@ -110,15 +110,13 @@ def load_s3(*args, **kwargs) -> None:
             continue
         source_path = str(d)
         target_path = f"{test_data}/{d.name}"
-        logger.info(f"Uploading {source_path} → {target_path}")
+        logger.info(f"Copying {source_path} → {target_path}")
         fs.put(source_path, target_path, recursive=True)
 
 
 def load_http_server(http_server_id) -> None:
     """Copy test data from Pooch cache to HTTP server container."""
     pooch_path = get_pooch_data_path()
-    
-    logger.info(f"Setting up HTTP server container {http_server_id}...")
     
     # Create the data directory in the container
     mkdir_result = subprocess.run(
@@ -141,7 +139,7 @@ def load_http_server(http_server_id) -> None:
         # Copy directly to the data directory
         target_path = f"/usr/local/apache2/htdocs/data/{dataset_name}"
         cmd = ["docker", "cp", source_path, f"{http_server_id}:{target_path}"]
-        logger.info(f"Uploading {source_path} → {target_path}")
+        logger.info(f"Copying {source_path} → {target_path}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
