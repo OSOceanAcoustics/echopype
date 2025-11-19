@@ -194,7 +194,7 @@ if __name__ == "__main__":
         
         commands.append(
             {
-                "msg": f"Copying test data to HTTP server container {args.http_server} ...",
+                "msg": f"Setting up HTTP server {args.http_server} with Pooch test data ...",
                 "cmd": load_http_server,
                 "args": args.http_server,
             }
