@@ -13,6 +13,10 @@ import xarray as xr
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 
+# for single_target_detection
+from echopype.mask.single_target_detection.detect_esp3 import detect_esp3
+from echopype.mask.single_target_detection.detect_matecho import detect_matecho
+
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
@@ -799,3 +803,40 @@ def detect_shoal(
         raise ValueError(f"Unsupported shoal detection method: {method}")
 
     return METHODS_SHOAL[method](ds, **params)
+
+
+# Registry of supported methods for single_target_detection
+METHODS_SINGLE_TARGET = {
+    "esp3": detect_esp3,
+    "matecho": detect_matecho,
+}
+
+
+def detect_single_targets(
+    ds: xr.Dataset,
+    method: str,
+    params: dict | None = None,
+):
+    """
+    Run single-target detection using the selected method.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Sv dataset (must contain what's needed by the method).
+    method : str
+        Name of the detection method to use (e.g., "esp3").
+    params : dict, optional
+        Parameters for the detection function (method-specific).
+
+    Returns
+    -------
+    Whatever the method returns (e.g., dict or xr.Dataset).
+    """
+    if method not in METHODS_SINGLE_TARGET:
+        raise ValueError(f"Unsupported single-target method: {method}")
+
+    if params is None:
+        raise ValueError("No parameters given.")
+
+    return METHODS_SINGLE_TARGET[method](ds, params)
