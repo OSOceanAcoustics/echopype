@@ -106,14 +106,15 @@ def test_ecs_intake_ek80_CW_power(ek80_path, ecs_path):
     # Check the final stored params (which are those used in calibration operations)
     # For those pulled from ECS
     for p_name in ["sound_speed", "temperature", "salinity", "pressure", "pH"]:
-        assert ds_Sv[p_name].identical(ecs_env_params[p_name])
+        assert ds_Sv[p_name].equals(ecs_env_params[p_name])
+        # replaced identical() with equals() because newer xarray versions check attrs
     for p_name in [
             "sa_correction", "gain_correction", "equivalent_beam_angle",
             "beamwidth_alongship", "beamwidth_athwartship",
             "angle_offset_alongship", "angle_offset_athwartship",
             "angle_sensitivity_alongship", "angle_sensitivity_athwartship"
         ]:
-        assert ds_Sv[p_name].identical(ecs_cal_params[p_name])
+        assert ds_Sv[p_name].equals(ecs_cal_params[p_name])
     # For those computed from values in ECS file
     assert np.all(ds_Sv["sound_absorption"].values == assimilated_env_params["sound_absorption"].values)
 
