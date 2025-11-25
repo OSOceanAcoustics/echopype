@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        image_name: ["minioci", "http"]
+        image_name: ["minioci"]
     steps:
       - name: Checkout
         uses: actions/checkout@v5

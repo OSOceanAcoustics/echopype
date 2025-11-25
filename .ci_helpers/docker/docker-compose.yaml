@@ -10,12 +10,7 @@ services:
     volumes:
       - echopype_miniodata:/data
   httpserver:
-    # NOTE ====================================
-    # For httpserver test data,
-    # it needs to be copied to the docker container
-    # docker cp -L docker_httpserver_1:/usr/local/apache2/htdocs/data ./echopype/test_data
-    # =====================================
-    image: cormorack/http:latest
+    image: httpd:2.4
     ports:
       - 8080:80
     networks:

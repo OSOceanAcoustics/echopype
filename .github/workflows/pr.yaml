@@ -37,10 +37,9 @@ jobs:
         ports:
           - 9000:9000
       httpserver:
-        image: cormorack/http:latest
+        image: httpd:2.4
         ports:
           - 8080:80
-
 
     steps:
       - name: Checkout repo
