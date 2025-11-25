@@ -18,7 +18,7 @@ jobs:
         image_name: ["minioci"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: df -h
       - name: Free disk space
