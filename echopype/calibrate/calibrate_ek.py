@@ -313,13 +313,32 @@ class CalibrateEK80(CalibrateEK):
         """
         # Use center frequency for each ping to select BB or CW channels
         # when all samples are encoded as complex samples
-        if not np.all(beam["transmit_type"] == "CW"):
+
+        transmit_type = beam["transmit_type"]
+
+        # treat string "nan" as missing
+        transmit_type_clean = transmit_type.where(
+            transmit_type.notnull() & (transmit_type != "nan")
+        )
+
+        # add warning if NaN values detected
+        missing_mask = transmit_type_clean.isnull() | (transmit_type == "nan")
+        if bool(missing_mask.any()):
+            logger.warning(
+                "NaN values detected in 'transmit_type'; ignoring them when determining CW/BB mode."
+            )
+
+        # create boolean
+        valid = transmit_type_clean.dropna(dim="ping_time", how="all")
+        all_cw = bool((valid == "CW").where(valid.notnull(), True).all())
+
+        if not all_cw:
             # At least 1 BB ping exists -- this is analogous to what we had from before
             # Before: when at least 1 BB ping exists, frequency_start and frequency_end will exist
 
             # assume transmit_type identical for all pings in a channel
             first_ping_transmit_type = (
-                beam["transmit_type"].isel(ping_time=0).drop_vars("ping_time")
+                transmit_type_clean.isel(ping_time=0).drop_vars("ping_time")
             ).compute()  # noqa
             return {
                 # For BB: Keep only non-CW channels (LFM or FMD) based on transmit_type
