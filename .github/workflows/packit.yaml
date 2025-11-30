@@ -14,7 +14,7 @@ jobs:
     if: github.repository == 'OSOceanAcoustics/echopype'
     steps:
     - name: Checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         # fetch all history so that setuptools-scm works
         fetch-depth: 0
@@ -42,7 +42,7 @@ jobs:
         echo ""
         echo "Generated files:"
         ls -lh dist/
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       with:
         name: releases
         path: dist
@@ -56,7 +56,7 @@ jobs:
       name: Install Python
       with:
         python-version: 3.12
-    - uses: actions/download-artifact@v5
+    - uses: actions/download-artifact@v6
       with:
         name: releases
         path: dist

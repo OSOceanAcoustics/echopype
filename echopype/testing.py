@@ -1,14 +1,10 @@
 from collections import defaultdict
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 from .utils.compute import _lin2log, _log2lin
-
-HERE = Path(__file__).parent.absolute()
-TEST_DATA_FOLDER = HERE / "test_data"
 
 # Data length for each data type
 _DATA_LEN = {
