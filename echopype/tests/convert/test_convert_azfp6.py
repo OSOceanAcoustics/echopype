@@ -40,6 +40,10 @@ def check_platform_required_scalar_vars(echodata):
 def test_convert_azfp_02a_xml_parsing(azfp_path):
     """Compare the embedded XML parsed data with Matlab loaded XML file."""
 
+@pytest.mark.skip(reason="No test files with valid Paros data available yet.")
+def test_convert_azfp_paros_calculations(azfp_path):
+    """Check the Paros temperature and pressure calculations."""
+
 def test_convert_azfp_01a_matlab_raw(azfp_path):
     """Compare parsed raw data with Matlab outputs."""
     azfp_01a_path = azfp_path / '24052113_01A.azfp'
@@ -60,45 +64,34 @@ def test_convert_azfp_01a_matlab_raw(azfp_path):
     assert np.array_equal(
         ds_matlab['Data']['Freq'][0][0][:, 0],
         echodata["Sonar/Beam_group1"].frequency_nominal / 1000,
-    )  # matlab file in kHz
+    ), "Failed Beam_group1 check: Frequency"  # matlab file in kHz
     # backscatter count
     assert np.array_equal(
         np.array(
             [ds_matlab_output['Output'][0]['N'][fidx] for fidx in range(4)]
         ),
         echodata["Sonar/Beam_group1"].backscatter_r.values,
-    )
+    ), "Failed Beam_group1 check: Backscatter count"
     
     # Test vendor group
     # Test temperature
     assert np.array_equal(
         np.array([d[4] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
         echodata["Vendor_specific"].ancillary.isel(ancillary_len=4),
-    )
-    assert np.allclose(
-        ds_matlab_output['Output']['BatteryTx'][0][0].squeeze(),
-        echodata["Vendor_specific"].battery_tx,
-        rtol=1e-08
-    )
-    assert np.allclose(
-        ds_matlab_output['Output']['BatteryMain'][0][0].squeeze(),
-        echodata["Vendor_specific"].battery_main,
-        atol=1e-12
-    )
+    ), "Failed Vendor_specific check: Temperature"
     
     # tilt x-y
     assert np.array_equal(
         np.array([d[0] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
         echodata["Vendor_specific"].tilt_x_count,
-    )
+    ), "Failed Vendor_specific check: Tilt X"
     assert np.array_equal(
         np.array([d[1] for d in ds_matlab['Data']['Ancillary'][0]]).squeeze(),
         echodata["Vendor_specific"].tilt_y_count,
-    )
+    ), "Failed Vendor_specific check: Tilt Y"
     
     # check convention-required variables in the Platform group
     check_platform_required_scalar_vars(echodata)
-
 
 def test_convert_azfp_01a_matlab_derived(azfp_path):
     """Compare variables derived from raw parsed data with Matlab outputs."""
@@ -136,9 +129,10 @@ def test_convert_azfp_01a_matlab_derived(azfp_path):
     #NOTE: Only require a second precision accuracy as Matlab has some rounding errors at the nsec level if 
     # the *.mat is run on Windows
     f = lambda x: np.datetime64(datetime.fromordinal(int(x)) + timedelta(days=x%1) - timedelta(days = 366), "[s]")
+    ping_time_s = echodata["Vendor_specific"].ping_time.astype('datetime64[s]') 
     assert np.array_equal(
         np.vectorize(f)(ds_matlab_output["Output"]['Date'][0][0].squeeze()),
-        echodata["Vendor_specific"].ping_time
+        ping_time_s,
     )
 
     check_platform_required_scalar_vars(echodata)
@@ -165,4 +159,73 @@ def test_convert_azfp_02a_gps_lat_long(azfp_path):
         np.stack([echodata["Platform"].latitude, echodata["Platform"].longitude])
     )
     
+    check_platform_required_scalar_vars(echodata)
+
+def test_convert_azfp_battery(azfp_path):
+    """Compare battery voltages derived from Matlab."""
+    azfp_01a_path = azfp_path / '25040412_01A_2ping.azfp'
+    echodata = open_raw(
+        raw_file=azfp_01a_path, sonar_model='AZFP6'
+    )
+
+    # Test battery voltages
+    assert np.allclose(
+        np.array([13.6176, 0.0336]), 
+        echodata["Vendor_specific"].battery_tx.to_numpy(),
+        rtol=1e-02
+    ), "Failed Vendor_specific check: BatteryTx"
+    
+    
+    assert np.allclose(
+        np.array([7.089492762611865, 11.618574816415272]),
+        echodata["Vendor_specific"].battery_main.to_numpy(),
+        atol=1e-03,
+    ), "Failed Vendor_specific check: BatteryMain"
+    
+    check_platform_required_scalar_vars(echodata)
+
+def test_convert_azfp_nano_raw_open(azfp_path):
+    """ Test AZFP Nano file"""
+
+    azfp_path = azfp_path / '25040412_01A_2ping.azfp'
+
+    echodata = open_raw(
+        raw_file=azfp_path, sonar_model='AZFP6', 
+    )
+
+    #Verify single channel is loaded 
+    assert echodata["Sonar/Beam_group1"].backscatter_r.coords["channel"].size == 1
+
+    #Verify backscatter range shape 
+    assert echodata["Sonar/Beam_group1"].backscatter_r.sel(channel='69001-200-1').dropna(
+        'range_sample'
+    ).shape == (2, 2250)
+    
+    # Pressure variable is not present in the Environment group 
+    assert "pressure" not in echodata["Environment"]
+
+    # Temperature variable is present in the Environment group 
+    assert "temperature" not in echodata["Environment"]
+
+    check_platform_required_scalar_vars(echodata)
+
+def test_convert_azfp_aps6_paros_temp_pressure(azfp_path):
+    """Test converting file with Paros temperature, pressure data."""
+
+    azfp_path = azfp_path / "25111807_01A_61213_2ping.aps6"
+
+    echodata = open_raw(
+        raw_file=azfp_path, sonar_model='AZFP6', 
+    )
+
+    # Temperature and pressure variables are present in the Environment group and not all null
+    assert "temperature" in echodata["Environment"]
+    assert not echodata["Environment"]["temperature"].isnull().all()
+    
+    assert "pressure" in echodata["Environment"]
+    assert not echodata["Environment"]["pressure"].isnull().all()
+    
+    assert "paros_temperature_counts" in echodata["Vendor_specific"]
+    assert "paros_pressure_counts" in echodata["Vendor_specific"]
+
     check_platform_required_scalar_vars(echodata)

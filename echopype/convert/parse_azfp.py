@@ -51,6 +51,10 @@ SV_OFFSET = {
         250: 1.3,
         **SV_OFFSET_HF,
     },
+    417000.0: {
+        **SV_OFFSET_HF,
+        68: 0,  # NOTE: Not official offset, Matlab code defaults to 0 in this scenario
+    },
     455000.0: {
         250: 1.3,
         **SV_OFFSET_HF,
@@ -121,6 +125,8 @@ class ParseAZFP(ParseBase):
     HEADER_FORMAT = ">HHHHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHBBBBHBBBBBBBBHHHHHHHHHHHHHHHHHHHH"
     FILE_TYPE = 64770
 
+    BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
+
     def __init__(
         self,
         file,
@@ -139,6 +145,7 @@ class ParseAZFP(ParseBase):
         self.parameters = defaultdict(list)
         self.unpacked_data = defaultdict(list)
         self.sonar_type = "AZFP"
+        self.sonar_firmware = "ULS5"
 
     def load_AZFP_xml(self):
         """
@@ -181,9 +188,19 @@ class ParseAZFP(ParseBase):
             if len(val) == 1:
                 self.parameters[key] = val[0]
 
-    def _compute_temperature(self, ping_num, is_valid):
+        # The last phase can be a Repeat phase, which switches back to the first phase
+        phase_number = self.parameters["phase_number"][-1]
+        if self.parameters[f"phase_type_svalue_phase{phase_number}"] == "Repeat":
+            items = list(self.parameters.items())
+            for k, v in items:
+                if "_phase1" in k:
+                    new_key = k.replace("_phase1", f"_phase{phase_number}")
+                    if new_key not in self.parameters.keys():
+                        self.parameters[new_key] = v
+
+    def _compute_analog_temperature(self, ping_num, is_valid):
         """
-        Compute temperature in celsius.
+        Compute temperature in celsius from analog sensor.
 
         Parameters
         ----------
@@ -197,7 +214,14 @@ class ParseAZFP(ParseBase):
 
         counts = self.unpacked_data["ancillary"][ping_num][4]
         v_in = 2.5 * (counts / 65535)
+
+        # Sept 2007, use linear equation if ka < -98 for use with linear sensors
+        if self.parameters["ka"] < -98:
+            return self.parameters["A"] * v_in + self.parameters["B"]
+
         R = (self.parameters["ka"] + self.parameters["kb"] * v_in) / (self.parameters["kc"] - v_in)
+        if R <= 0:
+            return -99.0
 
         # fmt: off
         T = 1 / (
@@ -243,18 +267,19 @@ class ParseAZFP(ParseBase):
         type
             either "main" or "tx"
         """
-        USL5_BAT_CONSTANT = (2.5 / 65536.0) * (86.6 + 475.0) / 86.6
-
         if battery_type == "main":
             N = self.unpacked_data["ancillary"][ping_num][2]
         elif battery_type == "tx":
-            N = self.unpacked_data["ad"][ping_num][0]
+            if self.sonar_firmware == "ULS5":
+                N = self.unpacked_data["ad"][ping_num][0]
+            else:
+                N = self.unpacked_data["ancillary"][ping_num][-2]
 
-        return N * USL5_BAT_CONSTANT
+        return N * self.BAT_CONSTANT
 
-    def _compute_pressure(self, ping_num, is_valid):
+    def _compute_analog_pressure(self, ping_num, is_valid):
         """
-        Compute pressure in decibar
+        Compute pressure in decibar from analog sensor
 
         Parameters
         ----------
@@ -271,13 +296,89 @@ class ParseAZFP(ParseBase):
         P = v_in * self.parameters["a1"] + self.parameters["a0"] - 10.125
         return P
 
+    def _compute_paros_pressure(self, ping_num, is_valid):
+        """
+        Compute pressure in decibar from Paros sensor if installed
+
+        Parameters
+        ----------
+        ping_num
+            ping number
+        is_valid
+            whether the associated parameters have valid values
+        """
+        if not is_valid or self.parameters["sensors_flag_paros_installed"] == "no":
+            return np.nan
+
+        Eclk = self.parameters["eclock"]
+
+        counts = self.unpacked_data["paros_press_temp_raw"][ping_num][0]
+        PP = counts * (Eclk / 32.0) / 4.0
+        U = PP - self.parameters["U0"]
+        U2 = U**2
+        U3 = U**3
+        U4 = U**4
+
+        C = self.parameters["C1"] + (self.parameters["C2"] * U) + (self.parameters["C3"] * U2)
+
+        D = self.parameters["D1"] + (self.parameters["D2"] * U)
+
+        Tau = PP * 1000000.0
+
+        T0 = (
+            self.parameters["T1"]
+            + (self.parameters["T2"] * U)
+            + (self.parameters["T3"] * U2)
+            + (self.parameters["T4"] * U3)
+            + (self.parameters["T5"] * U4)
+        )
+
+        return C * (1.0 - (T0 * T0) / (Tau * Tau)) * (1.0 - D * (1.0 - (T0 * T0) / (Tau * Tau)))
+
+    def _compute_paros_temperature(self, ping_num, is_valid):
+        """
+        Compute pressure in decibar from Paros sensor if installed
+
+        Parameters
+        ----------
+        ping_num
+            ping number
+        is_valid
+            whether the associated parameters have valid values
+        """
+        if not is_valid or self.parameters["sensors_flag_paros_installed"] == "no":
+            return np.nan
+        counts = self.unpacked_data["paros_press_temp_raw"][ping_num][1]
+        n = counts / 4.0
+        TP = (n * (self.parameters["eclock"] * 12.0) / 128.0) * 1000000.0
+
+        U = TP - self.parameters["U0"]
+        U2 = U**2
+        U3 = U**3
+
+        return (
+            (self.parameters["Y1"] * U)
+            + (self.parameters["Y2"] * U2)
+            + (self.parameters["Y3"] * U3)
+        )
+
+    def _parse_header(self, file):
+        header_chunk = file.read(self.HEADER_SIZE)
+        if header_chunk:
+            header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
+
+            # Reading will stop if the file contains an unexpected flag
+            return self._split_header(file, header_unpacked)
+        return False
+
     def parse_raw(self):
         """
         Parse raw data file from AZFP echosounder.
         """
 
         # Read xml file into dict
-        self.load_AZFP_xml()
+        if self.sonar_firmware == "ULS5":
+            self.load_AZFP_xml()
         fmap = fsspec.get_mapper(self.source_file, **self.storage_options)
 
         # Set flags for presence of valid parameters for temperature and tilt
@@ -287,64 +388,94 @@ class ParseAZFP(ParseBase):
             else:
                 return True
 
-        temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
-        pressure_is_valid = _test_valid_params(["a0", "a1"])
-        tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
-        tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
-
         with fmap.fs.open(fmap.root, "rb") as file:
+
+            if self.sonar_firmware == "ULS6":
+                if (
+                    unpack("<I", file.read(4))[0] == self.XML_FILE_TYPE
+                ):  # first field should match hard-coded FILE_TYPE from manufacturer
+                    self.load_AZFP_xml(file)
+                else:
+                    raise ValueError("Unknown file type")
+
+            # Check if parameters are valid
+            paros_is_valid = _test_valid_params(
+                ["C1", "C2", "C3", "D1", "D2", "T1", "T2", "T3", "T4", "T5"]
+            )
+            temperature_is_valid = _test_valid_params(["ka", "kb", "kc"])
+            pressure_is_valid = _test_valid_params(["a0", "a1"])
+            tilt_x_is_valid = _test_valid_params(["X_a", "X_b", "X_c"])
+            tilt_y_is_valid = _test_valid_params(["Y_a", "Y_b", "Y_c"])
+
             ping_num = 0
             eof = False
             while not eof:
-                header_chunk = file.read(self.HEADER_SIZE)
-                if header_chunk:
-                    header_unpacked = unpack(self.HEADER_FORMAT, header_chunk)
-                    # Reading will stop if the file contains an unexpected flag
-                    if self._split_header(file, header_unpacked):
-                        # Appends the actual 'data values' to unpacked_data
-                        self._add_counts(file, ping_num)
-                        if ping_num == 0:
-                            # Display information about the file that was loaded in
-                            self._print_status()
-                        # Compute temperature from unpacked_data[ii]['ancillary][4]
-                        self.unpacked_data["temperature"].append(
-                            self._compute_temperature(ping_num, temperature_is_valid)
-                        )
-                        # Compute pressure from unpacked_data[ii]['ancillary'][3]
-                        self.unpacked_data["pressure"].append(
-                            self._compute_pressure(ping_num, pressure_is_valid)
-                        )
-                        # compute x tilt from unpacked_data[ii]['ancillary][0]
-                        self.unpacked_data["tilt_x"].append(
-                            self._compute_tilt(ping_num, "X", tilt_x_is_valid)
-                        )
-                        # Compute y tilt from unpacked_data[ii]['ancillary][1]
-                        self.unpacked_data["tilt_y"].append(
-                            self._compute_tilt(ping_num, "Y", tilt_y_is_valid)
-                        )
-                        # Compute cos tilt magnitude from tilt x and y values
-                        self.unpacked_data["cos_tilt_mag"].append(
-                            np.cos(
-                                (
-                                    np.sqrt(
-                                        self.unpacked_data["tilt_x"][ping_num] ** 2
-                                        + self.unpacked_data["tilt_y"][ping_num] ** 2
-                                    )
+                if self._parse_header(file):
+                    # Appends the actual 'data values' to unpacked_data
+                    self._add_counts(file, ping_num)
+
+                    if ping_num == 0:
+                        # Display information about the file that was loaded in
+                        self._print_status()
+
+                    # Compute pressure from unpacked_data[ii]['paros_press_temp_raw'][1]
+                    self.unpacked_data["paros_temperature"].append(
+                        self._compute_paros_temperature(ping_num, paros_is_valid)
+                    )
+                    # Compute pressure from unpacked_data[ii]['paros_press_temp_raw'][0]
+                    self.unpacked_data["paros_pressure"].append(
+                        self._compute_paros_pressure(ping_num, paros_is_valid)
+                    )
+
+                    # Compute temperature from unpacked_data[ii]['ancillary][4] or using Paros
+                    self.unpacked_data["temperature"].append(
+                        self._compute_analog_temperature(ping_num, temperature_is_valid)
+                    )
+                    # Compute pressure from unpacked_data[ii]['ancillary'][3]
+                    self.unpacked_data["pressure"].append(
+                        self._compute_analog_pressure(ping_num, pressure_is_valid)
+                    )
+
+                    # compute x tilt from unpacked_data[ii]['ancillary][0]
+                    self.unpacked_data["tilt_x"].append(
+                        self._compute_tilt(ping_num, "X", tilt_x_is_valid)
+                    )
+                    # Compute y tilt from unpacked_data[ii]['ancillary][1]
+                    self.unpacked_data["tilt_y"].append(
+                        self._compute_tilt(ping_num, "Y", tilt_y_is_valid)
+                    )
+                    # Compute cos tilt magnitude from tilt x and y values
+                    self.unpacked_data["cos_tilt_mag"].append(
+                        np.cos(
+                            (
+                                np.sqrt(
+                                    self.unpacked_data["tilt_x"][ping_num] ** 2
+                                    + self.unpacked_data["tilt_y"][ping_num] ** 2
                                 )
-                                * np.pi
-                                / 180
                             )
+                            * np.pi
+                            / 180
                         )
-                        # Calculate voltage of main battery pack
-                        self.unpacked_data["battery_main"].append(
-                            self._compute_battery(ping_num, battery_type="main")
-                        )
-                        # If there is a Tx battery pack
-                        self.unpacked_data["battery_tx"].append(
-                            self._compute_battery(ping_num, battery_type="tx")
-                        )
-                    else:
-                        break
+                    )
+                    # Calculate voltage of main battery pack
+                    self.unpacked_data["battery_main"].append(
+                        self._compute_battery(ping_num, battery_type="main")
+                    )
+                    # If there is a Tx battery pack
+                    self.unpacked_data["battery_tx"].append(
+                        self._compute_battery(ping_num, battery_type="tx")
+                    )
+
+                    if self.sonar_firmware == "ULS6":
+                        header_flag, num_data_bytes = unpack("<II", file.read(8))
+
+                        if header_flag != self.DATA_END_FLAG:
+                            logger.error("Invalid flag detected, possibly corrupted data file.")
+                            break
+                        if num_data_bytes != self.unpacked_data["num_data_bytes"][ping_num]:
+                            logger.error("Invalid data block size, possibly corrupted data file.")
+                            break
+                    # print(file.tell())
                 else:
                     # End of file
                     eof = True
@@ -358,17 +489,16 @@ class ParseAZFP(ParseBase):
         # cast unpacked_data values to np arrays, so they are easier to reference
         for key, val in self.unpacked_data.items():
             # if it is not a nested list, make the value into a ndarray
-            if isinstance(val, list) and (not isinstance(val[0], list)):
+            if isinstance(val, (list, tuple)) and (not isinstance(val[0], (tuple, list))):
                 self.unpacked_data[key] = np.asarray(val)
 
         # cast all list parameter values to np array, so they are easier to reference
         for key, val in self.parameters.items():
-            if isinstance(val, list):
+            if isinstance(val, (list, tuple)):
                 self.parameters[key] = np.asarray(val)
 
         # Get frequency values
         freq_old = self.unpacked_data["frequency"]
-
         # Obtain sorted frequency indices
         self.freq_ind_sorted = freq_old.argsort()
 
@@ -453,8 +583,23 @@ class ParseAZFP(ParseBase):
         return True
 
     def _add_counts(self, raw, ping_num):
+
+        if self.sonar_firmware == "ULS5":
+            endian = ">"
+        else:
+            endian = "<"
+
         """Unpacks the echosounder raw data. Modifies self.unpacked_data."""
         vv_tmp = [[]] * self.unpacked_data["num_chan"][ping_num]
+
+        # TODO: this is a bit hacky, convert the parameters to a numpy array and make a extra dim?
+        if self.unpacked_data["num_chan"][ping_num] == 1:
+            self.unpacked_data["num_bins"][ping_num] = [self.unpacked_data["num_bins"][ping_num]]
+            self.unpacked_data["data_type"][ping_num] = [self.unpacked_data["data_type"][ping_num]]
+            self.unpacked_data["range_samples_per_bin"][ping_num] = [
+                self.unpacked_data["range_samples_per_bin"][ping_num]
+            ]
+
         for freq_ch in range(self.unpacked_data["num_chan"][ping_num]):
             counts_byte_size = self.unpacked_data["num_bins"][ping_num][freq_ch]
             if self.unpacked_data["data_type"][ping_num][freq_ch]:
@@ -466,10 +611,10 @@ class ParseAZFP(ParseBase):
                 else:
                     divisor = self.unpacked_data["range_samples_per_bin"][ping_num][freq_ch]
                 ls = unpack(
-                    ">" + "I" * counts_byte_size, raw.read(counts_byte_size * 4)
+                    endian + "I" * counts_byte_size, raw.read(counts_byte_size * 4)
                 )  # Linear sum
                 lso = unpack(
-                    ">" + "B" * counts_byte_size, raw.read(counts_byte_size * 1)
+                    endian + "B" * counts_byte_size, raw.read(counts_byte_size * 1)
                 )  # linear sum overflow
                 v = (np.array(ls) + np.array(lso) * 4294967295) / divisor
                 v = (np.log10(v) - 2.5) * (8 * 65535) * self.parameters["DS"][freq_ch]
@@ -477,7 +622,7 @@ class ParseAZFP(ParseBase):
                 vv_tmp[freq_ch] = v
             else:
                 counts_chunk = raw.read(counts_byte_size * 2)
-                counts_unpacked = unpack(">" + "H" * counts_byte_size, counts_chunk)
+                counts_unpacked = unpack(endian + "H" * counts_byte_size, counts_chunk)
                 vv_tmp[freq_ch] = counts_unpacked
         self.unpacked_data["counts"].append(vv_tmp)
 
@@ -486,7 +631,9 @@ class ParseAZFP(ParseBase):
         if not self.unpacked_data:
             self.parse_raw()
 
-        if np.array(self.unpacked_data["profile_flag"]).size != 1:  # Only check uniqueness once.
+        profile_flag = "profile_flag" if self.sonar_firmware == "ULS5" else "profile_number"
+
+        if np.array(self.unpacked_data[profile_flag]).size != 1:  # Only check uniqueness once.
             # fields with num_freq data
             field_w_freq = (
                 "dig_rate",
@@ -498,10 +645,20 @@ class ParseAZFP(ParseBase):
                 "pulse_len",
                 "board_num",
                 "frequency",
+                "BP",  # for single channel data, these are stored as scalars
+                "DS",
+                "EL",
+                "TVR",
+                "VTX0",
+                "VTX1",
+                "VTX2",
+                "VTX3",
             )
             # fields to reduce size if the same for all pings
             field_include = (
                 "profile_flag",
+                "base_time",
+                "ping_period_counts",
                 "serial_number",
                 "burst_int",
                 "ping_per_profile",
@@ -510,19 +667,36 @@ class ParseAZFP(ParseBase):
                 "phase",
                 "num_chan",
                 "spare_chan",
+                "custom",
             )
+
             for field in field_w_freq:
+                if field not in self.unpacked_data:
+                    if field not in self.parameters:
+                        continue
+                    if not isinstance(self.parameters[field], (list, tuple)):
+                        self.parameters[field] = [self.parameters[field]]
+                    continue
+
                 uniq = np.unique(self.unpacked_data[field], axis=0)
                 if uniq.shape[0] == 1:
-                    self.unpacked_data[field] = uniq.squeeze()
+                    uniq = uniq.squeeze()
+                    if len(uniq.shape) == 0:
+                        self.unpacked_data[field] = np.asarray([uniq])
+                    else:
+                        self.unpacked_data[field] = uniq
                 else:
                     raise ValueError(f"Header value {field} is not constant for each ping")
+
             for field in field_include:
+                if field not in self.unpacked_data:
+                    continue
+
                 uniq = np.unique(self.unpacked_data[field])
                 if uniq.shape[0] == 1:
                     self.unpacked_data[field] = uniq.squeeze()
-                else:
-                    raise ValueError(f"Header value {field} is not constant for each ping")
+                # else:
+                #    raise ValueError(f"Header value {field} is not constant for each ping")
 
     def _get_ping_time(self):
         """Assemble ping time from parsed values."""
@@ -564,19 +738,25 @@ class ParseAZFP(ParseBase):
         """
         # Check if the specified freq is in the allowable Sv_offset dict
         if freq not in SV_OFFSET.keys():
-            raise ValueError(
+            # raise ValueError(
+            logger.warning(
                 f"Frequency {freq} Hz is not in the Sv offset dictionary! "
                 "Please contact AZFP Environmental Sciences "
                 "and raise an issue in the echopype repository."
+                "Defaulting Sv_offset to 0."
             )
+            return 0.0
 
         # Check if the specified freq-pulse length combination is in the allowable Sv_offset dict
         if pulse_len not in SV_OFFSET[freq]:
-            raise ValueError(
+            # raise ValueError(
+            logger.warning(
                 f"Pulse length {pulse_len} us is not in the Sv offset dictionary "
                 f"for the {freq} Hz channel! "  # add freq info
                 "Please contact AZFP Environmental Sciences "
                 "and raise an issue in the echopype repository."
+                "Defaulting Sv_offset to 0."
             )
+            return 0.0
 
         return SV_OFFSET[freq][pulse_len]

@@ -25,11 +25,19 @@ if TYPE_CHECKING:
 
 
 def validate_azfp_ext(test_ext: str):
-    if not re.fullmatch(r"\.\d{2}[a-zA-Z]", test_ext):
-        raise ValueError(
-            'Expecting a file in the form ".XXY" '
-            f"where XX is a number and Y is a letter but got {test_ext}"
-        )
+
+    err = ValueError(f"Expecting a aps6 or azfp file but got {test_ext}")
+    if test_ext.casefold() in (".azfp", ".aps6"):
+        return
+
+    err = ValueError(
+        'Expecting a file in the form ".XXY" '
+        f"where XX is a number and Y is a letter but got {test_ext}"
+    )
+    if re.fullmatch(r"\.\d{2}[a-zA-Z]", test_ext):
+        return
+
+    raise err
 
 
 def validate_ext(ext: str) -> Callable[[str], None]:
@@ -51,7 +59,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "set_groups": SetGroupsAZFP,
     },
     "AZFP6": {
-        "validate_ext": validate_ext(".azfp"),
+        "validate_ext": validate_azfp_ext,
         "xml": False,
         "accepts_bot": False,
         "accepts_idx": False,

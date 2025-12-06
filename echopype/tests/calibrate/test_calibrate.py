@@ -13,6 +13,9 @@ import dask.array as da
 def azfp_path(test_path):
     return test_path['AZFP']
 
+@pytest.fixture
+def azfp6_path(test_path):
+    return test_path['AZFP6']
 
 @pytest.fixture
 def ek60_path(test_path):
@@ -198,6 +201,46 @@ def test_compute_Sv_azfp(azfp_path):
 
     # Check TS
     check_output(base_path=azfp_matlab_TS_path, ds_cmp=ds_TS, cal_type='TS')
+
+def test_compute_sv_azfp6_matlab(azfp6_path):
+    azfp_asp_path = str(azfp6_path.joinpath('25040412_01A_2ping.azfp'))
+    azfp_matlab_sv_path = str(
+        azfp6_path.joinpath('from_matlab', '25040412_01A_2ping_sv.mat')
+    )
+    azfp_matlab_range_path = str(
+        azfp6_path.joinpath('from_matlab', '25040412_01A_2ping_range.mat')
+    )
+
+    # convert to .nc file
+    echodata = ep.open_raw(
+        raw_file=azfp_asp_path, sonar_model='azfp6'
+    )
+
+    # calibrate using identical env params as in matlab parametersazfp.m
+    # azfp matlab code uses average temperature
+    env_params = {
+        'temperature': 15,
+        'salinity': 30,
+        'pressure': 54.7,
+    }
+
+    ds_sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
+
+    ds_base = loadmat(azfp_matlab_sv_path)
+    ds_range = loadmat(azfp_matlab_range_path)
+    
+    assert np.allclose(
+        ds_sv.echo_range.isel(channel=0, ping_time=0).values[None, :],
+        ds_range['range'],
+        atol=1e-13,
+    )
+
+    assert np.allclose(
+        ds_sv["Sv"].isel(channel=0).values,
+        ds_base["sv"],
+        atol=1e-13,
+    )
+        
 
 
 def test_compute_Sv_ek80_CW_complex(ek80_path):
