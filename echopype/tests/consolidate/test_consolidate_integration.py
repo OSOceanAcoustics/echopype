@@ -293,13 +293,16 @@ def test_add_splitbeam_angle_BB_pc(test_path):
     ed = ep.open_raw(test_path["EK80_CAL"] / "2018115-D20181213-T094600.raw", sonar_model="EK80")
 
     # compute Sv as it is required for the split-beam angle calculation
-    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="BB", encode_mode="complex", drop_last_hanning_zero=True)
 
     # add the split-beam angles to Sv dataset
     ds_Sv = ep.consolidate.add_splitbeam_angle(
         source_Sv=ds_Sv, echodata=ed,
-        waveform_mode="BB", encode_mode="complex", pulse_compression=True,
-        to_disk=False
+        waveform_mode="BB",
+        encode_mode="complex",
+        pulse_compression=True,
+        to_disk=False,
+        drop_last_hanning_zero=True,
     )
 
     # Load pyecholab pickle
