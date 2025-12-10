@@ -27,7 +27,7 @@ def to_file(
     echodata: EchoData,
     engine: "EngineHint",
     save_path: Optional["PathHint"] = None,
-    compress: bool = True, # noqa
+    compress: bool = True,  # noqa
     overwrite: bool = False,
     parallel: bool = False,
     output_storage_options: Dict[str, str] = {},
@@ -91,7 +91,7 @@ def to_file(
                 file_path=output_file, storage_options=output_storage_options
             ),
             engine=engine,
-            #compress=compress,
+            # compress=compress,
             **kwargs,
         )
 
