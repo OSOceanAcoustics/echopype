@@ -76,11 +76,6 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
         for var, enc in encoding.items():
             if isinstance(ds[var].data, DaskArray):
                 ds[var] = ds[var].chunk(enc.get("chunks", {}))
-        print(kwargs)
-        print(encoding)
-        print(group)
-        print(mode)
-        print(path.root)
         ds.to_zarr(store=path.root, mode=mode, group=group, encoding=encoding, **kwargs)
     else:
         raise ValueError(f"{engine} is not a supported save format")
