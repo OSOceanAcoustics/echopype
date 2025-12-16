@@ -103,7 +103,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True, **kwargs)
     """Serialize all groups to file."""
     # TODO: in terms of chunking, would using rechunker at the end be faster and more convenient?
     # TODO: investigate chunking before we save Dataset to a file
-
     # Top-level group
     io.save_file(
         echodata["Top-level"],
