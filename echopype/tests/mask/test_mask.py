@@ -2098,13 +2098,11 @@ def test_detect_single_targets_returns_dataset_with_target_dim_zero():
     assert "target" in out.dims
     assert out.sizes["target"] == 0
 
-    # required coords exist and have the right dims
     assert "ping_time" in out.coords
     assert "ping_number" in out.coords
     assert out["ping_time"].dims == ("target",)
     assert out["ping_number"].dims == ("target",)
 
-    # scalar channel coord is OK (what your stub does)
     assert "channel" in out.coords
     assert out["channel"].ndim == 0  # scalar coordinate
 
@@ -2114,7 +2112,7 @@ def test_detect_single_targets_schema_variables_present_even_if_empty():
     ds = _make_ds_single_target_stub()
     out = detect_single_targets(ds, method="matecho", params={"channel": "chan1"})
 
-    # These are the variables your _matecho_struct_to_dataset currently creates
+    # Compare with the variables _matecho_struct_to_dataset currently creates
     expected_vars = [
         "TS_comp",
         "TS_uncomp",

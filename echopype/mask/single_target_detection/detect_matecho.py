@@ -132,7 +132,7 @@ def detect_matecho(ds: xr.Dataset, params: dict) -> xr.Dataset:
     if channel not in da["channel"].values:
         raise ValueError(f"Channel '{channel}' not found in {var_name}.")
 
-    # --- optional metadata warnings (kept for API clarity)
+    # --- metadata warnings
     _missing = []
     for v in [
         "angle_alongship",
