@@ -14,7 +14,6 @@ from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 
 # for single_target_detection
-from echopype.mask.single_target_detection.detect_esp3 import detect_esp3
 from echopype.mask.single_target_detection.detect_matecho import detect_matecho
 
 from ..utils.io import validate_source
@@ -807,7 +806,6 @@ def detect_shoal(
 
 # Registry of supported methods for single_target_detection
 METHODS_SINGLE_TARGET = {
-    "esp3": detect_esp3,
     "matecho": detect_matecho,
 }
 
@@ -815,23 +813,31 @@ METHODS_SINGLE_TARGET = {
 def detect_single_targets(
     ds: xr.Dataset,
     method: str,
-    params: dict | None = None,
-):
+    params: dict,
+) -> xr.Dataset:
     """
     Run single-target detection using the selected method.
 
     Parameters
     ----------
     ds : xr.Dataset
-        Sv dataset (must contain what's needed by the method).
+        Acoustic dataset containing the fields required by the selected method.
+        Typical dimensions include ``ping_time`` and ``range_sample`` (or ``depth``).
+        Depending on the method, this may require TS, Sv, and optionally split-beam
+        angles (e.g. alongship / athwartship angles).
     method : str
-        Name of the detection method to use (e.g., "esp3").
-    params : dict, optional
-        Parameters for the detection function (method-specific).
+        Name of the detection method to use (e.g., ``"matecho"``, ``"esp3"``, ...).
+    params : dict
+        Method-specific parameters. This argument is required and no defaults
+        are assumed.
 
     Returns
     -------
-    Whatever the method returns (e.g., dict or xr.Dataset).
+    xr.Dataset
+        Per-target results with dimension ``target`` and coordinates
+        ``ping_time`` and ``ping_number``. Variables include compensated and
+        uncompensated TS, range metrics, and optional
+        navigation/attitude fields when available.
     """
     if method not in METHODS_SINGLE_TARGET:
         raise ValueError(f"Unsupported single-target method: {method}")
@@ -839,4 +845,9 @@ def detect_single_targets(
     if params is None:
         raise ValueError("No parameters given.")
 
-    return METHODS_SINGLE_TARGET[method](ds, params)
+    out = METHODS_SINGLE_TARGET[method](ds, params)
+
+    if not isinstance(out, xr.Dataset) or "target" not in out.dims:
+        raise TypeError(f"{method} must return an xr.Dataset with a 'target' dimension.")
+
+    return out
