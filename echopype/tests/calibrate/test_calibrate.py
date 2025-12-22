@@ -6,6 +6,7 @@ import echopype as ep
 from echopype.calibrate.env_params_old import EnvParams
 from echopype.calibrate.cal_params import get_vend_cal_params_power
 import xarray as xr
+from xarray.testing import assert_identical
 import dask.array as da
 
 
@@ -189,6 +190,7 @@ def test_compute_Sv_azfp(azfp_path):
                 ds_cmp.echo_range.isel(channel=fidx, ping_time=0).values[None, :]
                 == ds_base['Output'][0]['Range'][fidx]
             )
+            
             assert np.allclose(
                 ds_cmp[cal_type_in_ds_cmp[cal_type]].isel(channel=fidx).values,
                 ds_base['Output'][0][cal_type][fidx],
@@ -201,6 +203,37 @@ def test_compute_Sv_azfp(azfp_path):
 
     # Check TS
     check_output(base_path=azfp_matlab_TS_path, ds_cmp=ds_TS, cal_type='TS')
+
+def test_compute_Sv_offset_azfp(azfp_path):
+    # Test frequency/pulse length combinations not in known Sv_offset dict
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(70000.0, 500) == 1.1
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(38000.0, 700) == 0.9
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(38000.0, 900) == 0.8
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(120000.0, 175) == 1.4
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(120000.0, 400) == 1.0
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(125000.0, 190) == 1.4
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(769000.0, 1000) == 0.3
+    assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(769000.0, 150) == 1.4
+    #assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(38000.0, 100) == 0.0
+    #assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(38000.0, 1001) == 0.0
+    
+    env_params = {
+        'temperature': 20.,
+        'salinity': 27.9,
+        'pressure': 59,
+    }
+
+    #Check loading an ULS5 file that has and pulse length not in dictionary 
+    azfp_01a_path = str(azfp_path.joinpath('Sv_offset/23110713_2ping.01A'))
+    azfp_xml_path = str(azfp_path.joinpath('Sv_offset/23110713.XML'))
+    echodata = ep.open_raw(
+        raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
+    )
+    
+    chan = echodata["Sonar/Beam_group1"]["channel"]
+    SV_ext = xr.DataArray([0.4, 0.4, 0., 0.], dims=["channel"], coords={"channel": chan}, name="Sv_offset")
+    ds_Sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
+    assert_identical(ds_Sv["Sv_offset"], SV_ext)
 
 def test_compute_sv_azfp6_matlab(azfp6_path):
     azfp_asp_path = str(azfp6_path.joinpath('25040412_01A_2ping.azfp'))

@@ -6,10 +6,10 @@ from fsspec.mapping import FSMap
 from typing_extensions import Literal
 
 from .convert.parse_ad2cp import ParseAd2cp
-from .convert.parse_azfp import ParseAZFP
-from .convert.parse_azfp6 import ParseAZFP6
 from .convert.parse_ek60 import ParseEK60
 from .convert.parse_ek80 import ParseEK80
+from .convert.parse_uls5 import ParseULS5
+from .convert.parse_uls6 import ParseULS6
 from .convert.set_groups_ad2cp import SetGroupsAd2cp
 from .convert.set_groups_azfp import SetGroupsAZFP
 from .convert.set_groups_azfp6 import SetGroupsAZFP6
@@ -54,7 +54,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "xml": True,
         "accepts_bot": False,
         "accepts_idx": False,
-        "parser": ParseAZFP,
+        "parser": ParseULS5,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP,
     },
@@ -63,7 +63,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "xml": False,
         "accepts_bot": False,
         "accepts_idx": False,
-        "parser": ParseAZFP6,
+        "parser": ParseULS6,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP6,
     },

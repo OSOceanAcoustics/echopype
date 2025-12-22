@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from scipy.io import loadmat
 from echopype import open_raw
 import pytest
-from echopype.convert.parse_azfp6 import ParseAZFP6
+from echopype.convert.parse_uls6 import ParseULS6
 
 
 @pytest.fixture

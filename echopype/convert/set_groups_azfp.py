@@ -593,7 +593,6 @@ class SetGroupsAZFP(SetGroupsBase):
         unpacked_data = self.parser_obj.unpacked_data
         parameters = self.parser_obj.parameters
         ping_time = self.parser_obj.ping_time
-        Sv_offset = self.parser_obj.Sv_offset
 
         phase_params = self.phase_params
         phase_freq_params = self.phase_freq_params
@@ -819,7 +818,6 @@ class SetGroupsAZFP(SetGroupsBase):
                     parameters["VTX3"][self.parser_obj.freq_ind_sorted],
                     {"long_name": "Amplified voltage 3 sent to the transducer"},
                 ),
-                "Sv_offset": (["channel"], Sv_offset),
                 "number_of_samples_digitized_per_pings": (
                     ["phase_number", "channel"],
                     parameters["range_samples"],
