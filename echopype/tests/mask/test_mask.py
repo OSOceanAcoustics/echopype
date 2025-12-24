@@ -2013,6 +2013,12 @@ def test_echoview_mincan_no_linking():
 
 # test for single target detections
 
+REQ = {
+    "channel": "chan1",
+    "pulse_length": 1e-3,             # 1 ms dummy
+    "timeSampleInterval_usec": 40.0,  # dummy
+}
+
 def _make_ds_single_target_stub(
     n_ping=5, n_range=10, channels=("chan1",), var_name="Sv"
 ) -> xr.Dataset:
@@ -2042,13 +2048,21 @@ def _make_ds_single_target_wrong_dims(
 def test_detect_single_targets_var_name_missing_in_ds_raises():
     ds = _make_ds_single_target_stub(var_name="Sv")  # dataset has Sv
     with pytest.raises(ValueError, match=r"var_name 'Sv_corrected' not found"):
-        detect_single_targets(ds, method="matecho", params={"channel": "chan1", "var_name": "Sv_corrected"})
+        detect_single_targets(
+            ds,
+            method="matecho",
+            params={**REQ, "var_name": "Sv_corrected"},
+        )
 
 
 @pytest.mark.unit
 def test_detect_single_targets_default_var_name_Sv_ok():
     ds = _make_ds_single_target_stub(var_name="Sv")
-    out = detect_single_targets(ds, method="matecho", params={"channel": "chan1"})  # no var_name -> default Sv
+    out = detect_single_targets(
+        ds,
+        method="matecho",
+        params=REQ,  # no var_name -> default Sv
+    )
     assert isinstance(out, xr.Dataset)
     assert "target" in out.dims
     assert out.sizes["target"] == 0
@@ -2058,21 +2072,29 @@ def test_detect_single_targets_default_var_name_Sv_ok():
 def test_detect_single_targets_var_name_wrong_dims_raises():
     ds = _make_ds_single_target_wrong_dims(var_name="Sv")
     with pytest.raises(ValueError, match=r"Sv must have dims"):
-        detect_single_targets(ds, method="matecho", params={"channel": "chan1", "var_name": "Sv"})
+        detect_single_targets(
+            ds,
+            method="matecho",
+            params={**REQ, "var_name": "Sv"},
+        )
 
 
 @pytest.mark.unit
 def test_detect_single_targets_channel_not_in_ds_raises():
     ds = _make_ds_single_target_stub(channels=("chan1",))
     with pytest.raises(ValueError, match=r"Channel 'chanX' not found"):
-        detect_single_targets(ds, method="matecho", params={"channel": "chanX", "var_name": "Sv"})
+        detect_single_targets(
+            ds,
+            method="matecho",
+            params={**REQ, "channel": "chanX", "var_name": "Sv"},
+        )
 
 
 @pytest.mark.unit
 def test_detect_single_targets_unknown_method_raises():
     ds = _make_ds_single_target_stub()
     with pytest.raises(ValueError, match="Unsupported single-target method"):
-        detect_single_targets(ds, method="__bad__", params={"channel": "chan1"})
+        detect_single_targets(ds, method="__bad__", params={**REQ})
 
 
 @pytest.mark.unit
@@ -2086,22 +2108,24 @@ def test_detect_single_targets_params_required_raises():
 def test_detect_single_targets_missing_channel_raises():
     ds = _make_ds_single_target_stub()
     with pytest.raises(ValueError, match=r"params\['channel'\] is required"):
-        detect_single_targets(ds, method="matecho", params={})
+        p = dict(REQ)
+        p.pop("channel", None)
+        detect_single_targets(ds, method="matecho", params=p)
 
 
 @pytest.mark.unit
 def test_detect_single_targets_returns_dataset_with_target_dim_zero():
     ds = _make_ds_single_target_stub(channels=("chan1",))
-    out = detect_single_targets(ds, method="matecho", params={"channel": "chan1"})
+    out = detect_single_targets(ds, method="matecho", params=REQ)
 
     assert isinstance(out, xr.Dataset)
     assert "target" in out.dims
     assert out.sizes["target"] == 0
 
-    assert "ping_time" in out.coords
-    assert "ping_number" in out.coords
-    assert out["ping_time"].dims == ("target",)
-    assert out["ping_number"].dims == ("target",)
+    assert "Time" in out.coords
+    assert "Ping_number" in out.coords
+    assert out["Time"].dims == ("target",)
+    assert out["Ping_number"].dims == ("target",)
 
     assert "channel" in out.coords
     assert out["channel"].ndim == 0  # scalar coordinate
@@ -2110,43 +2134,48 @@ def test_detect_single_targets_returns_dataset_with_target_dim_zero():
 @pytest.mark.unit
 def test_detect_single_targets_schema_variables_present_even_if_empty():
     ds = _make_ds_single_target_stub()
-    out = detect_single_targets(ds, method="matecho", params={"channel": "chan1"})
+    out = detect_single_targets(ds, method="matecho", params=REQ)
 
-    # Compare with the variables _matecho_struct_to_dataset currently creates
     expected_vars = [
         "TS_comp",
         "TS_uncomp",
-        "target_range",
-        "target_range_disp",
-        "target_range_min",
-        "target_range_max",
+        "Target_range",
+        "Target_range_disp",
+        "Target_range_min",
+        "Target_range_max",
         "idx_r",
         "idx_target_lin",
         "pulse_env_before_lin",
         "pulse_env_after_lin",
-        "pulse_length_normalized_pldl",
-        "transmitted_pulse_length",
-        "angle_minor_axis",
-        "angle_major_axis",
-        "std_angle_minor_axis",
-        "std_angle_major_axis",
-        "heave",
-        "roll",
-        "pitch",
-        "heading",
-        "dist",
+        "PulseLength_Normalized_PLDL",
+        "Transmitted_pulse_length",
+        "Angle_minor_axis",
+        "Angle_major_axis",
+        "StandDev_Angles_Minor_Axis",
+        "StandDev_Angles_Major_Axis",
+        "Heave",
+        "Roll",
+        "Pitch",
+        "Heading",
+        "Dist",
+        "TSfreq_matrix",
     ]
     for v in expected_vars:
         assert v in out.data_vars
-        assert out[v].dims == ("target",)
-        assert out[v].sizes["target"] == 0
+        # TSfreq_matrix is 2D even if empty; the rest are 1D on target
+        if v == "TSfreq_matrix":
+            assert out[v].dims[0] == "target"
+            assert out[v].sizes["target"] == 0
+        else:
+            assert out[v].dims == ("target",)
+            assert out[v].sizes["target"] == 0
 
 
 @pytest.mark.unit
 def test_detect_single_targets_concat_empty_is_stable():
     ds = _make_ds_single_target_stub()
-    out1 = detect_single_targets(ds, method="matecho", params={"channel": "chan1"})
-    out2 = detect_single_targets(ds, method="matecho", params={"channel": "chan1"})
+    out1 = detect_single_targets(ds, method="matecho", params=REQ)
+    out2 = detect_single_targets(ds, method="matecho", params=REQ)
 
     outc = xr.concat([out1, out2], dim="target")
     assert "target" in outc.dims
@@ -2156,10 +2185,5 @@ def test_detect_single_targets_concat_empty_is_stable():
 @pytest.mark.unit
 def test_detect_single_targets_missing_optional_metadata_warns():
     ds = _make_ds_single_target_stub()
-
-    with pytest.warns(UserWarning, match="Defaults will be used"):
-        detect_single_targets(
-            ds,
-            method="matecho",
-            params={"channel": "chan1"},
-        )
+    with pytest.warns(UserWarning, match=r"Missing beam metadata"):
+        detect_single_targets(ds, method="matecho", params=REQ)
