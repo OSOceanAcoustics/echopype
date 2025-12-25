@@ -8,7 +8,7 @@ if os.getenv("USE_POOCH") == "True":
     import pooch
 
     # Lock to the known-good assets release (can be overridden via env if needed)
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.0")
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a1")
     base = os.getenv(
         "ECHOPYPE_DATA_BASEURL",
         "https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/",
@@ -24,7 +24,7 @@ if os.getenv("USE_POOCH") == "True":
         "es60.zip", "es70.zip", "es80.zip", "legacy_datatree.zip",
     ]
 
-    # v0.11.0 checksums (GitHub release assets)
+    # v0.11.1a1 checksums (GitHub release assets)
     registry = {
         "ad2cp.zip": "sha256:78c634c7345991177b267c4cbb31f391990d2629b7f4a546da20d5126978b98a",
         "azfp.zip": "sha256:43976d3e6763c19278790bf39923b6827143ea3024c5ba5f46126addecf235de",
@@ -180,4 +180,3 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             tr.write_line(f"  … and {len(xfailed) - 20} more", yellow=True)
 
     tr.write_line("")  # trailing newline
-
