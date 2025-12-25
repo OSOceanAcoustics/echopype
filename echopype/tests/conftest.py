@@ -28,7 +28,7 @@ if os.getenv("USE_POOCH") == "True":
     registry = {
         "ad2cp.zip": "sha256:78c634c7345991177b267c4cbb31f391990d2629b7f4a546da20d5126978b98a",
         "azfp.zip": "sha256:43976d3e6763c19278790bf39923b6827143ea3024c5ba5f46126addecf235de",
-        "azfp6.zip": "sha256:81b4e5cc11ede8fc67af63a7c7688a63f30a35fcd78fd02b6d36ee4c1eb64404",
+        "azfp6.zip": "sha256:98228329333064fb4b44d3044296c79d58ac22f6d81f7f22cf770bacf0e882fd",
         "ea640.zip": "sha256:49f70bd6f2355cb3c4c7a5b31fc00f7ae8c8a9ae888f0df1efe759032f9580df",
         "ecs.zip": "sha256:dcc312baa1e9da4488f33bef625b1f86c8a92e3262e34fc90ccd0a4f90d1e313",
         "ek60.zip": "sha256:66735de0ac584ec8a150b54b1a54024a92195f64036134ffdc9d472d7e155bb2",
