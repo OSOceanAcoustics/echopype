@@ -8,7 +8,7 @@ if os.getenv("USE_POOCH") == "True":
     import pooch
 
     # Lock to the known-good assets release (can be overridden via env if needed)
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a1")
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     base = os.getenv(
         "ECHOPYPE_DATA_BASEURL",
         "https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/",
