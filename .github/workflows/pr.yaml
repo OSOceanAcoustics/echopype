@@ -99,6 +99,13 @@ jobs:
         run: |
           pytest --collect-only -q
 
+      - name: Debug - List AZFP folder contents
+        run: |
+          echo "=== Listing AZFP folder contents ==="
+          ls -laR ${{ env.XDG_CACHE_HOME }}/echopype/${{ env.ECHOPYPE_DATA_VERSION }}/azfp/ || echo "AZFP folder not found"
+          echo "=== Checking cache directory structure ==="
+          ls -la ${{ env.XDG_CACHE_HOME }}/echopype/${{ env.ECHOPYPE_DATA_VERSION }}/ || echo "Version folder not found"
+
       - name: Copy test data to MinIO and HTTP server
         run: |
           python .ci_helpers/docker/setup-services.py --deploy --data-only --http-server ${{ job.services.httpserver.id }}
