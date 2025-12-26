@@ -29,7 +29,7 @@ COMPOSE_FILE = BASE / "docker-compose.yaml"
 
 def get_pooch_data_path() -> Path:
     """Return path to the Pooch test data cache."""
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a1")
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     cache_dir = Path(pooch.os_cache("echopype")) / ver
     if not cache_dir.exists():
         raise FileNotFoundError(
