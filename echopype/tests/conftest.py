@@ -8,7 +8,7 @@ if os.getenv("USE_POOCH") == "True":
     import pooch
 
     # Lock to the known-good assets release (can be overridden via env if needed)
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a1")
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     base = os.getenv(
         "ECHOPYPE_DATA_BASEURL",
         "https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/",
@@ -24,10 +24,10 @@ if os.getenv("USE_POOCH") == "True":
         "es60.zip", "es70.zip", "es80.zip", "legacy_datatree.zip",
     ]
 
-    # v0.11.1a1 checksums (GitHub release assets)
+    # v0.11.1a2 checksums (GitHub release assets)
     registry = {
         "ad2cp.zip": "sha256:78c634c7345991177b267c4cbb31f391990d2629b7f4a546da20d5126978b98a",
-        "azfp.zip": "sha256:5f6a57c5dce323d4cb280c72f0d64c15f79be69b02f4f3a1228fc519d48b690f",
+        "azfp.zip": "sha256:fc75b48c81f266ce70d9db79a986fe8de4399c93bef35119acdc17a2d84aed49",
         "azfp6.zip": "sha256:98228329333064fb4b44d3044296c79d58ac22f6d81f7f22cf770bacf0e882fd",
         "ea640.zip": "sha256:49f70bd6f2355cb3c4c7a5b31fc00f7ae8c8a9ae888f0df1efe759032f9580df",
         "ecs.zip": "sha256:dcc312baa1e9da4488f33bef625b1f86c8a92e3262e34fc90ccd0a4f90d1e313",
