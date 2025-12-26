@@ -88,12 +88,10 @@ jobs:
 
       - name: Finding changed files
         id: files
-        uses: Ana06/get-changed-files@v2.3.0
-        with:
-          format: 'csv'
+        uses: tj-actions/changed-files@v45
 
       - name: Print Changed files
-        run: echo "${{ steps.files.outputs.added_modified_renamed }}"
+        run: echo "${{ steps.files.outputs.all_changed_files }}"
 
       - name: Pre-fetch Pooch test data
         run: |
