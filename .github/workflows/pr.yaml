@@ -12,7 +12,7 @@ on:
 env:
   NUM_WORKERS: 2
   USE_POOCH: "True"
-  ECHOPYPE_DATA_VERSION: v0.11.0
+  ECHOPYPE_DATA_VERSION: v0.11.1a2
   ECHOPYPE_DATA_BASEURL: https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
 
@@ -68,7 +68,7 @@ jobs:
 
 
       - name: Set up Python
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v6.1.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -87,7 +87,7 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
 
       - name: Cache echopype test data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.XDG_CACHE_HOME }}/echopype
           key: ep-data-${{ env.ECHOPYPE_DATA_VERSION }}
@@ -107,12 +107,10 @@ jobs:
 
       - name: Finding changed files
         id: files
-        uses: Ana06/get-changed-files@v2.3.0
-        with:
-          format: 'csv'
+        uses: tj-actions/changed-files@v45
 
       - name: Print Changed files
-        run: echo "${{ steps.files.outputs.added_modified_renamed }}"
+        run: echo "${{ steps.files.outputs.all_changed_files }}"
 
       - name: Disk usage (before test data)
         if: runner.os == 'Linux'
@@ -167,7 +165,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6.1.0
         with:
           python-version: ${{ matrix.python-version }}
 

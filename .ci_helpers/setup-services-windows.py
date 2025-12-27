@@ -38,7 +38,7 @@ MINIO_PASS = "minioadmin"
 
 def get_pooch_cache() -> pathlib.Path:
     """Return the Pooch cache dir for the configured dataset version."""
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.0")
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     root = pathlib.Path(pooch.os_cache("echopype"))
     path = root / ver
     path.mkdir(parents=True, exist_ok=True)
