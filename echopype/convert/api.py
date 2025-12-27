@@ -371,13 +371,13 @@ def open_raw(
         - ``ES70``: Kongsberg Simrad ES70 echosounder
         - ``EK80``: Kongsberg Simrad EK80 echosounder
         - ``EA640``: Kongsberg EA640 echosounder
-        - ``AZFP``: ASL Environmental Sciences AZFP echosounder
+        - ``AZFP``: ASL Environmental Sciences AZFP echosounder (ULS5)
         - ``AZFP6``: ASL Environmental Sciences AZFP echosounder (ULS6)
         - ``AD2CP``: Nortek Signature series ADCP
           (tested with Signature 500 and Signature 1000)
 
     xml_path : str
-        path to XML config file used by AZFP
+        path to XML config file used by AZFP (ULS5 only)
     include_bot : bool, default `False`
         Include bottom depth file in parsing. Only used by EK60/EK80.
     include_index : bool, default `False`
