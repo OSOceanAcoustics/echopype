@@ -15,6 +15,15 @@ if os.getenv("USE_POOCH") == "True":
     )
     cache_dir = pooch.os_cache("echopype")
 
+    print(
+        "\n[echopype-ci] POOCH CONFIG\n"
+        f"  USE_POOCH           = {os.getenv('USE_POOCH')}\n"
+        f"  ECHOPYPE_DATA_VERSION = {ver}\n"
+        f"  ECHOPYPE_DATA_BASEURL = {base}\n"
+        f"  pooch cache_dir       = {cache_dir}\n",
+        flush=True,
+    )
+
     bundles = [
         "ad2cp.zip", "azfp.zip", "azfp6.zip", "ea640.zip", "ecs.zip", "ek60.zip",
         "ek60_calibrate_chunks.zip", "ek60_missing_channel_power.zip", "ek80.zip",
@@ -60,14 +69,24 @@ if os.getenv("USE_POOCH") == "True":
     def _unpack(fname, action, pooch_instance):
         z = Path(fname)
         out = z.parent / z.stem
+
+        print(
+            "\n[echopype-ci] UNPACK\n"
+            f"  zip file   = {z}\n"
+            f"  action     = {action}\n"
+            f"  extract_to = {out}\n",
+            flush=True,
+        )
+
         if action in ("update", "download") or not out.exists():
             from zipfile import ZipFile
+
             with ZipFile(z, "r") as f:
                 f.extractall(out)
 
             # flatten single nested dir if needed
             try:
-                entries = [p for p in out.iterdir()]
+                entries = list(out.iterdir())
                 if len(entries) == 1 and entries[0].is_dir():
                     inner = entries[0]
                     for child in inner.iterdir():
@@ -80,12 +99,42 @@ if os.getenv("USE_POOCH") == "True":
                         pass
             except Exception:
                 pass
+
+        # Print tree after extraction/flatten
+        try:
+            if out.exists():
+                print("[echopype-ci] extracted tree (depth ≤ 2):")
+                for p in sorted(out.glob("*")):
+                    print(f"   - {p.name}")
+                    if p.is_dir():
+                        for q in sorted(p.glob("*")):
+                            print(f"       • {q.name}")
+        except Exception:
+            pass
+
         return str(out)
 
+
     for b in bundles:
+        url = base.format(version=ver) + b
+        print(f"[echopype-ci] fetching bundle: {b}")
+        print(f"[echopype-ci]   → URL: {url}")
         EP.fetch(b, processor=_unpack, progressbar=False)
 
     TEST_DATA_FOLDER = Path(cache_dir) / ver
+    
+    print(
+        "\n[echopype-ci] TEST_DATA_FOLDER\n"
+        f"  path = {TEST_DATA_FOLDER}\n"
+        f"  exists = {TEST_DATA_FOLDER.exists()}\n",
+        flush=True,
+    )
+
+    if TEST_DATA_FOLDER.exists():
+        print("[echopype-ci] top-level contents:")
+        for p in sorted(TEST_DATA_FOLDER.iterdir()):
+            print(f"   - {p.name}")
+
 
 @pytest.fixture(scope="session")
 def dump_output_dir():
