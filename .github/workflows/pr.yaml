@@ -47,6 +47,25 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags.
 
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          echo "Before cleanup:"
+          df -h
+          for p in /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL; do
+            if [ -d "$p" ]; then
+              echo "Removing $p (size: $(du -sh "$p" | cut -f1))"
+              sudo rm -rf "$p"
+            else
+              echo "Not present: $p"
+            fi
+          done
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          echo "After cleanup:"
+          df -h
+
 
       - name: Set up Python
         uses: actions/setup-python@v6.1.0
@@ -93,6 +112,13 @@ jobs:
       - name: Print Changed files
         run: echo "${{ steps.files.outputs.all_changed_files }}"
 
+      - name: Disk usage (before test data)
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          df -h
+          du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
+
       - name: Pre-fetch Pooch test data
         run: |
           pytest --collect-only -q
@@ -103,6 +129,14 @@ jobs:
 
           # Check data endpoint
           curl http://localhost:8080/data/
+
+      - name: Disk usage (after services deploy)
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          df -h
+          du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
+          docker system df || true
 
       - name: Running all tests
         run: |
