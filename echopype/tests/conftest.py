@@ -164,6 +164,7 @@ def test_path():
         "EK80_SEQUENCE": TEST_DATA_FOLDER / "ek80_sequence",
         "EK80_CAL": TEST_DATA_FOLDER / "ek80_bb_with_calibration",
         "EK80_EXT": TEST_DATA_FOLDER / "ek80_ext",
+        "EK80_MULTI": TEST_DATA_FOLDER / "ek80_bb_complex_multiplex",
         "ECS": TEST_DATA_FOLDER / "ecs",
         "LEGACY_DATATREE": TEST_DATA_FOLDER / "legacy_datatree",
     }

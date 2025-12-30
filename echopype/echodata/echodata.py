@@ -1,3 +1,4 @@
+import copy
 import datetime
 import re
 import sys
@@ -68,6 +69,7 @@ class EchoData:
         self.sonar_model: Optional["SonarModelsHint"] = sonar_model
         self.converted_raw_path: Optional["PathHint"] = converted_raw_path
         self._tree: Optional["DataTree"] = None
+        self.original = True
 
         self.__setup_groups()
         # self.__read_converted(converted_raw_path)
@@ -104,7 +106,7 @@ class EchoData:
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
         #  even clear all outputs is used. It will work if you explicitly delete the object
-        if self.converted_raw_path is None:
+        if self.converted_raw_path is None and self.original:
             # Assumes raw data is in memory
             self.cleanup_swap_files()
 
@@ -728,3 +730,29 @@ class EchoData:
                     self[echodata_group] = group.chunk(subset_chunks)
 
         return self
+
+    def copy(self, deep: bool = True):
+        """
+        Create a copy of the Echodata object.
+
+        Parameters
+        ----------
+        deep : bool, default True
+            If True, make a deep copy. If False, make a shallow copy.
+
+        Returns
+        -------
+        Echodata
+            A copy of the Echodata object.
+        """
+        # Create a new echodata object
+        ed_copy = self.__class__.__new__(self.__class__)
+
+        # Copy attributes
+        for attr, value in self.__dict__.items():
+            if attr == "original":
+                setattr(ed_copy, attr, False)
+            else:
+                setattr(ed_copy, attr, copy.deepcopy(value) if deep else value)
+
+        return ed_copy

@@ -101,7 +101,6 @@ def compute_range_EK(
     env_params: Dict,
     waveform_mode: str = "CW",
     encode_mode: str = "power",
-    chan_sel=None,
 ):
     """
     Computes the range (``echo_range``) of EK backscatter data in meters.
@@ -164,11 +163,7 @@ def compute_range_EK(
 
     # Get the right Sonar/Beam_groupX group according to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
-    beam = (
-        echodata[ed_beam_group]
-        if chan_sel is None
-        else echodata[ed_beam_group].sel(channel=chan_sel)
-    )
+    beam = echodata[ed_beam_group]
 
     # Range in meters, not modified for TVG compensation
     range_meter = beam["range_sample"] * beam["sample_interval"] * sound_speed / 2
