@@ -13,6 +13,9 @@ import xarray as xr
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 
+# for single_target_detection
+from echopype.mask.single_target_detection.detect_matecho import detect_matecho
+
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
@@ -799,3 +802,52 @@ def detect_shoal(
         raise ValueError(f"Unsupported shoal detection method: {method}")
 
     return METHODS_SHOAL[method](ds, **params)
+
+
+# Registry of supported methods for single_target_detection
+METHODS_SINGLE_TARGET = {
+    "matecho": detect_matecho,
+}
+
+
+def detect_single_targets(
+    ds: xr.Dataset,
+    method: str,
+    params: dict,
+) -> xr.Dataset:
+    """
+    Run single-target detection using the selected method.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Acoustic dataset containing the fields required by the selected method.
+        Typical dimensions include ``ping_time`` and ``range_sample`` (or ``depth``).
+        Depending on the method, this may require TS, Sv, and optionally split-beam
+        angles (e.g. alongship / athwartship angles).
+    method : str
+        Name of the detection method to use (e.g., ``"matecho"``, ``"esp3"``, ...).
+    params : dict
+        Method-specific parameters. This argument is required and no defaults
+        are assumed.
+
+    Returns
+    -------
+    xr.Dataset
+        Per-target results with dimension ``target`` and coordinates
+        ``ping_time`` and ``ping_number``. Variables include compensated and
+        uncompensated TS, range metrics, and optional
+        navigation/attitude fields when available.
+    """
+    if method not in METHODS_SINGLE_TARGET:
+        raise ValueError(f"Unsupported single-target method: {method}")
+
+    if params is None:
+        raise ValueError("No parameters given.")
+
+    out = METHODS_SINGLE_TARGET[method](ds, params)
+
+    if not isinstance(out, xr.Dataset) or "target" not in out.dims:
+        raise TypeError(f"{method} must return an xr.Dataset with a 'target' dimension.")
+
+    return out
