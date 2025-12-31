@@ -8,12 +8,21 @@ if os.getenv("USE_POOCH") == "True":
     import pooch
 
     # Lock to the known-good assets release (can be overridden via env if needed)
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a1")
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     base = os.getenv(
         "ECHOPYPE_DATA_BASEURL",
         "https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/",
     )
     cache_dir = pooch.os_cache("echopype")
+
+    print(
+        "\n[echopype-ci] POOCH CONFIG\n"
+        f"  USE_POOCH           = {os.getenv('USE_POOCH')}\n"
+        f"  ECHOPYPE_DATA_VERSION = {ver}\n"
+        f"  ECHOPYPE_DATA_BASEURL = {base}\n"
+        f"  pooch cache_dir       = {cache_dir}\n",
+        flush=True,
+    )
 
     bundles = [
         "ad2cp.zip", "azfp.zip", "azfp6.zip", "ea640.zip", "ecs.zip", "ek60.zip",
@@ -24,10 +33,10 @@ if os.getenv("USE_POOCH") == "True":
         "es60.zip", "es70.zip", "es80.zip", "legacy_datatree.zip",
     ]
 
-    # v0.11.1a1 checksums (GitHub release assets)
+    # v0.11.1a2 checksums (GitHub release assets)
     registry = {
         "ad2cp.zip": "sha256:78c634c7345991177b267c4cbb31f391990d2629b7f4a546da20d5126978b98a",
-        "azfp.zip": "sha256:5f6a57c5dce323d4cb280c72f0d64c15f79be69b02f4f3a1228fc519d48b690f",
+        "azfp.zip": "sha256:fc75b48c81f266ce70d9db79a986fe8de4399c93bef35119acdc17a2d84aed49",
         "azfp6.zip": "sha256:98228329333064fb4b44d3044296c79d58ac22f6d81f7f22cf770bacf0e882fd",
         "ea640.zip": "sha256:49f70bd6f2355cb3c4c7a5b31fc00f7ae8c8a9ae888f0df1efe759032f9580df",
         "ecs.zip": "sha256:dcc312baa1e9da4488f33bef625b1f86c8a92e3262e34fc90ccd0a4f90d1e313",
@@ -60,14 +69,24 @@ if os.getenv("USE_POOCH") == "True":
     def _unpack(fname, action, pooch_instance):
         z = Path(fname)
         out = z.parent / z.stem
+
+        print(
+            "\n[echopype-ci] UNPACK\n"
+            f"  zip file   = {z}\n"
+            f"  action     = {action}\n"
+            f"  extract_to = {out}\n",
+            flush=True,
+        )
+
         if action in ("update", "download") or not out.exists():
             from zipfile import ZipFile
+
             with ZipFile(z, "r") as f:
                 f.extractall(out)
 
             # flatten single nested dir if needed
             try:
-                entries = [p for p in out.iterdir()]
+                entries = list(out.iterdir())
                 if len(entries) == 1 and entries[0].is_dir():
                     inner = entries[0]
                     for child in inner.iterdir():
@@ -80,12 +99,42 @@ if os.getenv("USE_POOCH") == "True":
                         pass
             except Exception:
                 pass
+
+        # Print tree after extraction/flatten
+        try:
+            if out.exists():
+                print("[echopype-ci] extracted tree (depth ≤ 2):")
+                for p in sorted(out.glob("*")):
+                    print(f"   - {p.name}")
+                    if p.is_dir():
+                        for q in sorted(p.glob("*")):
+                            print(f"       • {q.name}")
+        except Exception:
+            pass
+
         return str(out)
 
+
     for b in bundles:
+        url = base.format(version=ver) + b
+        print(f"[echopype-ci] fetching bundle: {b}")
+        print(f"[echopype-ci]   → URL: {url}")
         EP.fetch(b, processor=_unpack, progressbar=False)
 
     TEST_DATA_FOLDER = Path(cache_dir) / ver
+    
+    print(
+        "\n[echopype-ci] TEST_DATA_FOLDER\n"
+        f"  path = {TEST_DATA_FOLDER}\n"
+        f"  exists = {TEST_DATA_FOLDER.exists()}\n",
+        flush=True,
+    )
+
+    if TEST_DATA_FOLDER.exists():
+        print("[echopype-ci] top-level contents:")
+        for p in sorted(TEST_DATA_FOLDER.iterdir()):
+            print(f"   - {p.name}")
+
 
 @pytest.fixture(scope="session")
 def dump_output_dir():
