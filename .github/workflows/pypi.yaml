@@ -33,7 +33,7 @@ jobs:
 
     # This step is only necessary for testing purposes and for TestPyPI
     - name: Fix up version string for TestPyPI
-      if: ${{ !startsWith(github.ref, 'refs/tags') }} || github.event_name == 'workflow_dispatch'
+      if: ${{ !startsWith(github.ref, 'refs/tags') || github.event_name == 'workflow_dispatch' }}
       run: |
         # Change setuptools-scm local_scheme to "no-local-version" so the
         # local part of the version isn't included, making the version string
@@ -72,9 +72,9 @@ jobs:
       uses: pypa/gh-action-pypi-publish@v1.13.0
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
+        repository-url: https://test.pypi.org/legacy/
         verbose: true
-        skip_existing: true
+        skip-existing: true
     - name: Check pypi packages
       run: |
         sleep 3
