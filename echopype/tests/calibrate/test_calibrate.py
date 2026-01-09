@@ -214,8 +214,6 @@ def test_compute_Sv_offset_azfp(azfp_path):
     assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(125000.0, 190) == 1.4
     assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(769000.0, 1000) == 0.3
     assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(769000.0, 150) == 1.4
-    #assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(38000.0, 100) == 0.0
-    #assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(38000.0, 1001) == 0.0
     
     env_params = {
         'temperature': 20.,
