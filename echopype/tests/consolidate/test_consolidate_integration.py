@@ -331,6 +331,11 @@ def test_add_splitbeam_angle_with_dim_swap(sonar_model, test_path_key, raw_file_
 
     ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
 
+    # swap dims in beam_groups to test with dim_0 = frequency_nominal
+    ed["Sonar/Beam_group1"] = ep.consolidate.swap_dims_channel_frequency(ed["Sonar/Beam_group1"])
+    if ed["Sonar"].sizes["beam_group"] > 1:
+        ed["Sonar/Beam_group2"] = ep.consolidate.swap_dims_channel_frequency(ed["Sonar/Beam_group2"])
+
     ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed,
                                                waveform_mode=waveform_mode,
                                                encode_mode=encode_mode,

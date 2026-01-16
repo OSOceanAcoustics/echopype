@@ -26,6 +26,7 @@ from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 logger = _init_logger(__name__)
 
 POSITION_VARIABLES = ["latitude", "longitude"]
+SUPPORTED_DIM_0_NAMES = ["channel", "frequency_nominal"]
 
 
 def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.Dataset:
@@ -63,6 +64,26 @@ def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.
             "Operation is not valid."
         )
 
+def get_dim_0(ds: Union[xr.Dataset, str, pathlib.Path]) -> str:
+    """
+    Get the name of the first dimension of the dataset.
+
+    Parameters
+    ----------
+    ds : Union[xr.Dataset, str, pathlib.Path]
+        The input dataset.
+
+    Returns
+    -------
+    str
+        The name of the first dimension.
+    """
+    if list(ds.sizes.keys())[0] in SUPPORTED_DIM_0_NAMES:
+        return list(ds.sizes.keys())[0]
+    else:
+        raise ValueError(
+            f"The first dimension of the dataset must be one of {SUPPORTED_DIM_0_NAMES}."
+        )
 
 @add_processing_level("L2A")
 def add_depth(
@@ -205,37 +226,12 @@ def add_depth(
             # Compute echo range scaling in EK systems using platform angle data
             echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
         elif use_beam_angles:
-            # Check beam groups to find which one contains the matching dimension
-            dim_0 = list(ds.sizes.keys())[0]
-            beam_group_name = None
-            for idx in range(echodata["Sonar"].sizes["beam_group"]):
-                if dim_0 in list(echodata[f"Sonar/Beam_group{idx + 1}"].sizes):
-                    if echodata[f"Sonar/Beam_group{idx + 1}"][dim_0].equals(ds[dim_0]):
-                        beam_group_name = f"Beam_group{idx + 1}"
-                        break
-
-            if not beam_group_name:
-                if echodata["Sonar"].sizes["beam_group"] >= 1:
-                    beam_group_name = "Beam_group1"
-                    logger.warning(
-                        f"Could not identify beam group for dimension `{dim_0}`. "
-                        "Defaulting to `Beam_group1`."
-                    )
-                    if (
-                        "channel" not in list(echodata["Sonar/Beam_group1"].sizes)
-                        and dim_0 != "frequency_nominal"
-                    ):
-                        raise ValueError(
-                            "Could not identify beam group for dimension "
-                            f"`{dim_0}` and `Beam_group1` does not have a "
-                            "`channel` or `frequency_nominal` dimension to swap."
-                        )
-                    else:
-                        # Swap beam group dims if necessary
-                        echodata["Sonar/Beam_group1"] = swap_dims_channel_frequency(
-                            echodata["Sonar/Beam_group1"]
-                        )
-
+            dim_0 = get_dim_0(ds)
+            # Identify beam group name by checking channel values of `ds`
+            if echodata["Sonar/Beam_group1"][dim_0].equals(ds[dim_0]):
+                beam_group_name = "Beam_group1"
+            else:
+                beam_group_name = "Beam_group2"
             # Compute echo range scaling in EK systems using beam angle data
             echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"])
 
@@ -481,22 +477,8 @@ def add_splitbeam_angle(
     # and obtain the echodata group path corresponding to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
-    dim_0 = None
-    for dim in list(source_Sv.sizes.keys()):
-        if dim in ["channel", "frequency_nominal"]:
-            dim_0 = dim
-            break
-
-    if dim_0:
-        if dim_0 not in list(echodata[ed_beam_group].sizes) and "channel" in list(
-            echodata[ed_beam_group].sizes
-        ):
-            echodata[ed_beam_group] = swap_dims_channel_frequency(echodata[ed_beam_group])
-        ds_beam = echodata[ed_beam_group].sel({dim_0: source_Sv[dim_0].values})
-    else:
-        raise ValueError(
-            "The input source_Sv Dataset must have a channel or frequency_nominal dimension!"
-        )
+    dim_0 = get_dim_0(source_Sv)
+    ds_beam = echodata[ed_beam_group].sel({dim_0: source_Sv[dim_0].values})
 
     # Assemble angle param dict
     angle_param_list = [

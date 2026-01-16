@@ -560,21 +560,9 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
 
 @pytest.mark.integration
 @pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
-    (
-            "NBP_B050N-D20180118-T090228.raw",
-            "EK60",
-            {}
-    ),
-    (
-            "ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw",
-            "EK80",
-            {"waveform_mode": "BB", "encode_mode": "complex"}
-    ),
-    (
-            "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
-            "EK80",
-            {"waveform_mode": "CW", "encode_mode": "power"}
-    )
+    ("NBP_B050N-D20180118-T090228.raw", "EK60", {}),
+    ("ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw", "EK80", {"waveform_mode": "BB", "encode_mode": "complex"}),
+    ("ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw", "EK80", {"waveform_mode": "CW", "encode_mode": "power"})
 ])
 def test_add_depth_with_dim_swap(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
     """
@@ -591,6 +579,9 @@ def test_add_depth_with_dim_swap(file, sonar_model, compute_Sv_kwargs, ek80_path
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
+
+    # swap dims in beam_group to test with dim_0 = frequency_nominal
+    ed["Sonar/Beam_group1"] = ep.consolidate.swap_dims_channel_frequency(ed["Sonar/Beam_group1"])
 
     # Replace Beam Angle NaN values
     ed["Sonar/Beam_group1"]["beam_direction_x"].values = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0).values
