@@ -64,6 +64,7 @@ def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.
             "Operation is not valid."
         )
 
+
 def get_dim_0(ds: Union[xr.Dataset, str, pathlib.Path]) -> str:
     """
     Get the name of the first dimension of the dataset.
@@ -84,6 +85,7 @@ def get_dim_0(ds: Union[xr.Dataset, str, pathlib.Path]) -> str:
         raise ValueError(
             f"The first dimension of the dataset must be one of {SUPPORTED_DIM_0_NAMES}."
         )
+
 
 @add_processing_level("L2A")
 def add_depth(
