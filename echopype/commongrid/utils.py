@@ -662,7 +662,7 @@ def get_valid_max_depth_ping(ds: xr.Dataset, channel_idx: int) -> int:
     channel_idx : int
         The index of the channel to access within the Dataset.
     deepest_ping : int
-        The index of the ping (row) that contains the deepest valid (non-NaN) sample in the specified variable.
+        The index of the ping that contains the deepest valid sample in the specified variable.
 
     Returns
     -------
@@ -691,11 +691,11 @@ def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
     Parameters
     ----------
     target_ranges: np.ndarray
-        1D array of target bin centers (range values) to which the source data will be resampled.
+        1D array of target bin centers to which the source data will be resampled.
     source_ranges: np.ndarray
-        1D array of source bin centers (range values) representing the original data geometry.
+        1D array of source bin centers representing the original data geometry.
     source_values: np.ndarray
-        1D array of values corresponding to each source bin (e.g., power or intensity values).
+        1D array of values corresponding to each source bin.
 
     Returns
     -------
