@@ -649,3 +649,210 @@ def assign_actual_range(ds_MVBS: xr.Dataset) -> xr.Dataset:
         round(float(ds_MVBS["Sv"].max().values), 2),
     ]
     return ds_MVBS.assign_attrs({"actual_range": actual_range})
+
+
+def get_valid_max_depth_ping(ds: xr.Dataset, channel_idx: int) -> int:
+    """
+    Finds the integer indices of the last non-NaN value in a DataArray.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The xarray Dataset containing the variable of interest.
+    channel_idx : int
+        The index of the channel to access within the Dataset.
+    deepest_ping : int
+        The index of the ping (row) that contains the deepest valid (non-NaN) sample in the specified variable.
+
+    Returns
+    -------
+    deepest_ping: int
+        index of the "deepest" sample
+    """
+    da = ds.isel(channel=channel_idx)["echo_range"].values
+
+    deepest_ping = 0
+    max_range_sample = -np.inf
+
+    for i in range(da.shape[0]):
+        all_nan = np.isnan(da[i, :])
+        row_indices = np.where(~all_nan)[0]
+        max_range_sample = max(max_range_sample, row_indices.max())
+        if max_range_sample == row_indices.max():
+            deepest_ping = i
+    return deepest_ping
+
+
+def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
+    """
+    The Numba/Numpy kernel.
+    Resamples a single ping (1D array) from source geometry to target geometry.
+
+    Parameters
+    ----------
+    target_ranges: np.ndarray
+        1D array of target bin centers (range values) to which the source data will be resampled.
+    source_ranges: np.ndarray
+        1D array of source bin centers (range values) representing the original data geometry.
+    source_values: np.ndarray
+        1D array of values corresponding to each source bin (e.g., power or intensity values).
+
+    Returns
+    -------
+    output: np.ndarray
+        1D array of resampled values at the target bin centers.
+    """
+    # 1. Quick Checks for Empty/Invalid Data
+    if np.all(np.isnan(target_ranges)) or np.all(np.isnan(source_ranges)):
+        return np.full_like(target_ranges, np.nan)
+
+    valid_mask_source = ~np.isnan(source_ranges) & ~np.isnan(source_values)
+    valid_mask_target = ~np.isnan(target_ranges)
+
+    if not np.any(valid_mask_source) or not np.any(valid_mask_target):
+        return np.full_like(target_ranges, np.nan)
+
+    source_range = source_ranges[valid_mask_source]
+    source_value = source_values[valid_mask_source]
+    target_range_valid = target_ranges[valid_mask_target]
+
+    # Define edges source
+    # Estimate bin edges from sample centers
+    if len(source_range) > 1:
+        source_mid = 0.5 * (source_range[:-1] + source_range[1:])
+        source_edges = np.concatenate(
+            (
+                [source_range[0] - (source_range[1] - source_range[0]) / 2],
+                source_mid,
+                [source_range[-1] + (source_range[-1] - source_range[-2]) / 2],
+            )
+        )
+    else:
+        source_edges = np.array([source_range[0] - 0.5, source_range[0] + 0.5])
+
+    # Define edges target
+    if len(target_range_valid) > 1:
+        target_mid = 0.5 * (target_range_valid[:-1] + target_range_valid[1:])
+        target_edges = np.concatenate(
+            (
+                [target_range_valid[0] - (target_range_valid[1] - target_range_valid[0]) / 2],
+                target_mid,
+                [target_range_valid[-1] + (target_range_valid[-1] - target_range_valid[-2]) / 2],
+            )
+        )
+    else:
+        target_edges = np.array([target_range_valid[0] - 0.5, target_range_valid[0] + 0.5])
+
+    # Weighted mean integration
+    # Calculate accumulated energy
+    source_thickness = np.diff(source_edges)
+    source_energies = source_value * source_thickness
+    source_cdf = np.concatenate(([0], np.cumsum(source_energies)))
+
+    # Interpolate CDF onto Target Edges
+    target_cdf_interp = np.interp(target_edges, source_edges, source_cdf)
+
+    # Differentiate to get Energy per Target Bin
+    target_energies = np.diff(target_cdf_interp)
+    target_thickness = np.diff(target_edges)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        target_mean_power = target_energies / target_thickness
+
+    output = np.full_like(target_ranges, np.nan)
+    output[valid_mask_target] = target_mean_power
+
+    return output
+
+
+def regrid_all_channels(ds_Sv, target_channel_idx=0):
+    """
+    Regrids all channels in the EchoData object to match the geometry
+    of the specified target channel index.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        Input Dataset containing Sv data
+    target_channel_idx : int
+        The index of the channel to serve as the master grid.
+
+    Returns
+    -------
+    xr.Dataset
+        A new Dataset where all channels share the same `ping_time`,
+        `range_sample`, and `echo_range` as the target.
+    """
+
+    channels = ds_Sv.channel.values
+
+    # Check bounds
+    if not (0 <= target_channel_idx < len(channels)):
+        raise IndexError(
+            f"Target index {target_channel_idx} out of range for {len(channels)} channels."
+        )
+
+    # Extract target ds
+    ds_target = ds_Sv.isel(channel=target_channel_idx).copy()
+    target_range_da = ds_target["echo_range"]
+
+    # List to hold the aligned DataArrays
+    aligned_arrays = []
+
+    print(f"Master Grid: {channels[target_channel_idx]} (Index {target_channel_idx})")
+
+    for i, channel in enumerate(channels):
+
+        if i == target_channel_idx:
+            print(f"  - Copying {channel} (Target)...")
+            aligned_arrays.append(ds_target["Sv"])
+            continue
+
+        print(f"  - Matching {channel} (Index {i}) to Target...")
+        ds_source = ds_Sv.isel(channel=i)
+
+        ds_source_aligned = ds_source.reindex(ping_time=ds_target.ping_time, method="nearest")
+
+        # Linear domain for resampling
+        s_linear = 10 ** (ds_source_aligned["Sv"] / 10.0)
+        source_range_da = ds_source_aligned["echo_range"]
+
+        # Apply weighted mean resapling as Ufunc
+
+        result_linear = xr.apply_ufunc(
+            _weighted_mean_kernel,
+            target_range_da,
+            source_range_da,
+            s_linear,
+            input_core_dims=[["range_sample"], ["range_sample"], ["range_sample"]],
+            output_core_dims=[["range_sample"]],
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[float],
+        )
+
+        # Convert back to log domain
+        result_linear = result_linear.where(result_linear > 0)
+        result_sv = 10 * np.log10(result_linear)
+
+        result_sv.name = "Sv"
+
+        result_sv = result_sv.assign_coords(channel=channel)
+
+        aligned_arrays.append(result_sv)
+
+    ds_combined = xr.concat(aligned_arrays, dim="channel")
+
+    # Construct final Dataset based on original ds_Sv
+    deepest_ping_index = get_valid_max_depth_ping(ds_Sv, channel_idx=target_channel_idx)
+    valid_range_sample = np.argmax(
+        ds_Sv.isel(channel=target_channel_idx, ping_time=deepest_ping_index)["echo_range"].values
+    )
+
+    ds_final = ds_Sv.copy(deep=True)
+
+    ds_final["echo_range"][:] = ds_Sv["echo_range"].isel(channel=target_channel_idx)
+    ds_final = ds_final.isel(range_sample=slice(0, valid_range_sample))
+    ds_final["Sv"] = ds_combined.isel(range_sample=slice(0, valid_range_sample))
+
+    return ds_final
