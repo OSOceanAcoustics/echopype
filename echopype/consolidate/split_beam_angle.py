@@ -210,18 +210,19 @@ def get_angle_complex_samples(
     else:
         # beam_type different for some channels, process each channel separately
         theta, phi = [], []
-        for ch_id in bs["channel"].data:
+        dim_0 = list(bs.sizes.keys())[0]
+        for ch_id in bs[dim_0].data:
             theta_ch, phi_ch = _compute_angle_from_complex(
-                bs=bs.sel(channel=ch_id),
+                bs=bs.sel({dim_0: ch_id}),
                 # beam_type is not time-varying
-                beam_type=(ds_beam["beam_type"].sel(channel=ch_id)),
+                beam_type=(ds_beam["beam_type"].sel({dim_0: ch_id})),
                 sens=[
-                    angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
-                    angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
+                    angle_params["angle_sensitivity_alongship"].sel({dim_0: ch_id}),
+                    angle_params["angle_sensitivity_athwartship"].sel({dim_0: ch_id}),
                 ],
                 offset=[
-                    angle_params["angle_offset_alongship"].sel(channel=ch_id),
-                    angle_params["angle_offset_athwartship"].sel(channel=ch_id),
+                    angle_params["angle_offset_alongship"].sel({dim_0: ch_id}),
+                    angle_params["angle_offset_athwartship"].sel({dim_0: ch_id}),
                 ],
             )
             theta.append(theta_ch)
@@ -231,7 +232,7 @@ def get_angle_complex_samples(
         theta = xr.DataArray(
             data=theta,
             coords={
-                "channel": bs["channel"],
+                dim_0: bs[dim_0],
                 "ping_time": bs["ping_time"],
                 "range_sample": bs["range_sample"],
             },
@@ -239,7 +240,7 @@ def get_angle_complex_samples(
         phi = xr.DataArray(
             data=phi,
             coords={
-                "channel": bs["channel"],
+                dim_0: bs[dim_0],
                 "ping_time": bs["ping_time"],
                 "range_sample": bs["range_sample"],
             },
