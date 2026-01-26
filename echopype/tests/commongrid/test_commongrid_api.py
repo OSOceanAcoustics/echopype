@@ -94,18 +94,14 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
     ["target_ranges", "source_ranges", "source_values", "expected_linear"],
     [
         # Simple Downsample (2 Source -> 1 Target)
-        # Expected: Average of 1.0 and 1.0 is 1.0
         (np.array([15.0]), np.array([10.0, 20.0]), np.array([0.0, 0.0]), np.array([1.0])),
         # NaN Handling (Data Gap)
-        # Logic: NaN data is treated as Linear 0.0, but geometry is preserved.
-        # Expected: = 0.666
         (
             np.array([20.0]),
             np.array([10.0, 20.0, 30.0]),
             np.array([0.0, np.nan, 0.0]),
             np.array([2 / 3]),
         ),
-        # Case 4: Precision Check
         # Ensure float64 and scaling handles tiny numbers without underflow
         (np.array([10.0]), np.array([10.0]), np.array([-120.0]), np.array([10 ** (-12.0)])),
     ],
@@ -113,10 +109,8 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
 def test__weighted_mean_kernel(target_ranges, source_ranges, source_values, expected_linear):
     """Testing the underlying mathematical kernel of match_geometry"""
 
-    # Run the kernel (which returns linear values)
     result = _weighted_mean_kernel(target_ranges, source_ranges, source_values)
 
-    # Assert
     np.testing.assert_allclose(
         result, expected_linear, rtol=1e-5, atol=1e-20, err_msg="Kernel calculation mismatch"
     )
@@ -155,62 +149,55 @@ def test_regrid_with_channel(request, er_type):
             1D array of Total Energy per ping.
         """
         # Select Data
-        ds_ch = ds.sel(channel=channel)
-        sv = ds_ch['Sv'].values
-        r = ds_ch['echo_range'].values # Shape: (ping_time, range_sample)
+        ds_channel = ds.sel(channel=channel)
+        sv = ds_channel['Sv'].values
+        echo_range = ds_channel['echo_range'].values
         
-        # Calculate Thickness (Delta R) per ping.
         n_pings = sv.shape[0]
         total_energy = np.zeros(n_pings)
         
-        # 2. Iterate per ping to handle ragged arrays (variable valid ranges)
-        for i in range(n_pings):
+        for i in echo_range(n_pings):
             # Extract row
-            r_row = r[i, :]
+            range_row = echo_range[i, :]
             sv_row = sv[i, :]
             
             # Mask
-            valid_r = ~np.isnan(r_row)
+            valid_range = ~np.isnan(range_row)
             
-            if not np.any(valid_r):
+            if not np.any(valid_range):
                 total_energy[i] = 0.0
                 continue
                 
             # Get valid geometry
-            r_valid = r_row[valid_r]
-            sv_valid = sv_row[valid_r]
+            range_valid = range_row[valid_range]
+            sv_valid = sv_row[valid_range]
             
             # Calculate Thickness using Midpoints 
-            if len(r_valid) > 1:
-                midpoints = 0.5 * (r_valid[:-1] + r_valid[1:])
-                # Extrapolate edges for first and last bin
-                d_start = r_valid[1] - r_valid[0]
-                d_end = r_valid[-1] - r_valid[-2]
+            if len(range_valid) > 1:
+                midpoints = 0.5 * (range_valid[:-1] + range_valid[1:])
+
+                d_start = range_valid[1] - range_valid[0]
+                d_end = range_valid[-1] - range_valid[-2]
                 
                 edges = np.concatenate([
-                    [r_valid[0] - d_start/2], 
+                    [range_valid[0] - d_start/2], 
                     midpoints, 
-                    [r_valid[-1] + d_end/2]
+                    [range_valid[-1] + d_end/2]
                 ])
                 
                 thickness = np.diff(edges)
             else:
-                # Single sample fallback (assume unit thickness or 1.0)
                 thickness = np.array([1.0])
     
-            # 4. Convert dB to Linear
             linear_sv = 10 ** (sv_valid / 10.0)
             
-            # Treat NaN Sv as 0.0 (Empty water)
             linear_sv = np.nan_to_num(linear_sv, nan=0.0)
             
-            # 5. Integrate
             total_energy[i] = np.sum(linear_sv * thickness)
         
         return total_energy
     
-    # Calculate total energy for original and regridded datasets
-    # Calculate total energy for all channels
+
     channels = ds_Sv["channel"].values
     total_energy_original = [calculate_total_energy(ds_Sv, ch) for ch in channels]
     total_energy_regridded = [calculate_total_energy(ds_regridded, ch) for ch in channels]
@@ -257,62 +244,54 @@ def test_regrid_with_grid(request, er_type):
             1D array of Total Energy per ping.
         """
         # Select Data
-        ds_ch = ds.sel(channel=channel)
-        sv = ds_ch['Sv'].values
-        r = ds_ch['echo_range'].values # Shape: (ping_time, range_sample)
+        ds_channel = ds.sel(channel=channel)
+        sv = ds_channel['Sv'].values
+        range = ds_channel['echo_range'].values
         
-        # Calculate Thickness (Delta R) per ping.
         n_pings = sv.shape[0]
         total_energy = np.zeros(n_pings)
         
-        # 2. Iterate per ping to handle ragged arrays (variable valid ranges)
         for i in range(n_pings):
             # Extract row
-            r_row = r[i, :]
+            range_row = range[i, :]
             sv_row = sv[i, :]
             
             # Mask
-            valid_r = ~np.isnan(r_row)
+            valid_range = ~np.isnan(range_row)
             
-            if not np.any(valid_r):
+            if not np.any(valid_range):
                 total_energy[i] = 0.0
                 continue
                 
             # Get valid geometry
-            r_valid = r_row[valid_r]
-            sv_valid = sv_row[valid_r]
+            range_valid = range_row[valid_range]
+            sv_valid = sv_row[valid_range]
             
             # Calculate Thickness using Midpoints 
-            if len(r_valid) > 1:
-                midpoints = 0.5 * (r_valid[:-1] + r_valid[1:])
-                # Extrapolate edges for first and last bin
-                d_start = r_valid[1] - r_valid[0]
-                d_end = r_valid[-1] - r_valid[-2]
+            if len(range_valid) > 1:
+                midpoints = 0.5 * (range_valid[:-1] + range_valid[1:])
+
+                d_start = range_valid[1] - range_valid[0]
+                d_end = range_valid[-1] - range_valid[-2]
                 
                 edges = np.concatenate([
-                    [r_valid[0] - d_start/2], 
+                    [range_valid[0] - d_start/2], 
                     midpoints, 
-                    [r_valid[-1] + d_end/2]
+                    [range_valid[-1] + d_end/2]
                 ])
                 
                 thickness = np.diff(edges)
             else:
-                # Single sample fallback (assume unit thickness or 1.0)
                 thickness = np.array([1.0])
     
-            # 4. Convert dB to Linear
             linear_sv = 10 ** (sv_valid / 10.0)
             
-            # Treat NaN Sv as 0.0 (Empty water)
             linear_sv = np.nan_to_num(linear_sv, nan=0.0)
             
-            # 5. Integrate
             total_energy[i] = np.sum(linear_sv * thickness)
         
         return total_energy
     
-    # Calculate total energy for original and regridded datasets
-    # Calculate total energy for all channels
     channels = ds_Sv["channel"].values
     total_energy_original = [calculate_total_energy(ds_Sv, ch) for ch in channels]
     total_energy_regridded = [calculate_total_energy(ds_regridded, ch) for ch in channels]

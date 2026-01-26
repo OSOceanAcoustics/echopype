@@ -698,45 +698,40 @@ def _exact_integration_kernel(target_edges, source_edge, source_value):
     # Result array
     output_values = np.empty(n_target, dtype=np.float64)
     
-    # Sliding window pointer for source bins (O(N+M) complexity)
-    s_idx = 0
+    source_idx = 0
     
-    for t_i in range(n_target):
-        t_left = target_edges[t_i]
-        t_right = target_edges[t_i + 1]
-        t_width = t_right - t_left
+    for target_i in range(n_target):
+        target_left = target_edges[target_i]
+        target_right = target_edges[target_i + 1]
+        target_width = target_right - target_left
         
-        if t_width <= 0:
-            output_values[t_i] = np.nan
+        if target_width <= 0:
+            output_values[target_i] = np.nan
             continue
             
         total_energy = 0.0
         
-        # 1. Fast-forward source pointer to the start of overlap
-        # Stop when the NEXT source bin starts after the current target starts
-        while s_idx < n_source and source_edge[s_idx + 1] <= t_left:
-            s_idx += 1
+        # Fast-forward source pointer to the start of overlap
+        while source_idx < n_source and source_edge[source_idx + 1] <= target_left:
+            source_idx += 1
             
-        # 2. Integrate overlapping source bins
-        # Use a temp pointer so we don't lose the place for the next target bin
-        temp_s = s_idx
-        while temp_s < n_source and source_edge[temp_s] < t_right:
-            s_left = source_edge[temp_s]
-            s_right = source_edge[temp_s + 1]
+        # Integrate overlapping source bins
+        temp_source = source_idx
+        while temp_source < n_source and source_edge[temp_source] < target_right:
+            source_left = source_edge[temp_source]
+            source_right = source_edge[temp_source + 1]
             
-            # Calculate geometric overlap (Intersection)
-            overlap_start = max(t_left, s_left)
-            overlap_end = min(t_right, s_right)
+            overlap_start = max(target_left, source_left)
+            overlap_end = min(target_right, source_right)
             overlap_len = overlap_end - overlap_start
             
             if overlap_len > 0:
-                val = source_value[temp_s]
-                # Accumulate energy (Density * Overlap Width)
+                val = source_value[temp_source]
                 total_energy += val * overlap_len
                 
-            temp_s += 1
+            temp_source += 1
             
-        output_values[t_i] = total_energy / t_width
+        output_values[target_i] = total_energy / target_width
 
     return output_values
 
@@ -801,13 +796,9 @@ def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
         target_edges = np.array([target_range_valid[0] - 0.5, target_range_valid[0] + 0.5])
         
     source_value = np.nan_to_num(source_value, nan=0.0)
-
-    # --- CHANGED: High Precision Integration ---
-    # Replaces the CDF/Interp/Diff method with exact geometric overlap.
     
     target_mean_power = _exact_integration_kernel(target_edges, source_edge, source_value)
 
-    # -------------------------------------------
 
     output = np.full_like(target_ranges, np.nan, dtype=np.float64)
     output[valid_target_range_mask] = target_mean_power
