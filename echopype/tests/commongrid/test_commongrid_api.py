@@ -10,7 +10,8 @@ from echopype.commongrid.utils import (
     _parse_x_bin,
     _groupby_x_along_channels,
     get_distance_from_latlon,
-    compute_raw_NASC
+    compute_raw_NASC,
+    _weighted_mean_kernel,
 )
 from echopype.tests.commongrid.conftest import get_NASC_echoview
 
@@ -46,9 +47,7 @@ def test__parse_x_bin(x_bin, x_label, expected_result):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    ["range_var", "lat_lon"], [("depth", False), ("echo_range", False)]
-)
+@pytest.mark.parametrize(["range_var", "lat_lon"], [("depth", False), ("echo_range", False)])
 def test__groupby_x_along_channels(request, range_var, lat_lon):
     """Testing the underlying function of compute_MVBS and compute_NASC"""
     range_bin = 20
@@ -75,7 +74,7 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
         .indexes["ping_time"]
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
-    
+
     sv_mean = _groupby_x_along_channels(
         ds_Sv,
         range_interval,
@@ -83,11 +82,249 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
         x_var="ping_time",
         range_var=range_var,
         method=method,
-        **flox_kwargs
+        **flox_kwargs,
     )
 
     # Check that the range_var is in the dimension
     assert f"{range_var}_bins" in sv_mean.dims
+
+#Regrid Tests
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ["target_ranges", "source_ranges", "source_values", "expected_linear"],
+    [
+        # Simple Downsample (2 Source -> 1 Target)
+        # Expected: Average of 1.0 and 1.0 is 1.0
+        (np.array([15.0]), np.array([10.0, 20.0]), np.array([0.0, 0.0]), np.array([1.0])),
+        # NaN Handling (Data Gap)
+        # Logic: NaN data is treated as Linear 0.0, but geometry is preserved.
+        # Expected: = 0.666
+        (
+            np.array([20.0]),
+            np.array([10.0, 20.0, 30.0]),
+            np.array([0.0, np.nan, 0.0]),
+            np.array([2 / 3]),
+        ),
+        # Case 4: Precision Check
+        # Ensure float64 and scaling handles tiny numbers without underflow
+        (np.array([10.0]), np.array([10.0]), np.array([-120.0]), np.array([10 ** (-12.0)])),
+    ],
+)
+def test__weighted_mean_kernel(target_ranges, source_ranges, source_values, expected_linear):
+    """Testing the underlying mathematical kernel of match_geometry"""
+
+    # Run the kernel (which returns linear values)
+    result = _weighted_mean_kernel(target_ranges, source_ranges, source_values)
+
+    # Assert
+    np.testing.assert_allclose(
+        result, expected_linear, rtol=1e-5, atol=1e-20, err_msg="Kernel calculation mismatch"
+    )
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("er_type"),
+    [
+        ("regular"),
+        ("irregular"),
+    ],
+)
+def test_regrid_with_channel(request, er_type):
+    """Testing the regrid_all_channels_robust wrapper function"""
+    if er_type == "regular":
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
+    else:
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
+    ds_regridded = ep.commongrid.regrid(ds_Sv, target_channel = "WBT 987763-15 ES38-7_ES")
+
+    def calculate_total_energy(ds, channel):
+        """
+        Calculates the total integrated energy (Linear Sv * Thickness) 
+        per ping for a specific channel.
+        
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset containing 'Sv' and 'echo_range'.
+        channel_idx : int
+            Index of the channel to calculate.
+
+        Returns
+        -------
+        np.ndarray
+            1D array of Total Energy per ping.
+        """
+        # Select Data
+        ds_ch = ds.sel(channel=channel)
+        sv = ds_ch['Sv'].values
+        r = ds_ch['echo_range'].values # Shape: (ping_time, range_sample)
+        
+        # Calculate Thickness (Delta R) per ping.
+        n_pings = sv.shape[0]
+        total_energy = np.zeros(n_pings)
+        
+        # 2. Iterate per ping to handle ragged arrays (variable valid ranges)
+        for i in range(n_pings):
+            # Extract row
+            r_row = r[i, :]
+            sv_row = sv[i, :]
+            
+            # Mask
+            valid_r = ~np.isnan(r_row)
+            
+            if not np.any(valid_r):
+                total_energy[i] = 0.0
+                continue
+                
+            # Get valid geometry
+            r_valid = r_row[valid_r]
+            sv_valid = sv_row[valid_r]
+            
+            # Calculate Thickness using Midpoints 
+            if len(r_valid) > 1:
+                midpoints = 0.5 * (r_valid[:-1] + r_valid[1:])
+                # Extrapolate edges for first and last bin
+                d_start = r_valid[1] - r_valid[0]
+                d_end = r_valid[-1] - r_valid[-2]
+                
+                edges = np.concatenate([
+                    [r_valid[0] - d_start/2], 
+                    midpoints, 
+                    [r_valid[-1] + d_end/2]
+                ])
+                
+                thickness = np.diff(edges)
+            else:
+                # Single sample fallback (assume unit thickness or 1.0)
+                thickness = np.array([1.0])
+    
+            # 4. Convert dB to Linear
+            linear_sv = 10 ** (sv_valid / 10.0)
+            
+            # Treat NaN Sv as 0.0 (Empty water)
+            linear_sv = np.nan_to_num(linear_sv, nan=0.0)
+            
+            # 5. Integrate
+            total_energy[i] = np.sum(linear_sv * thickness)
+        
+        return total_energy
+    
+    # Calculate total energy for original and regridded datasets
+    # Calculate total energy for all channels
+    channels = ds_Sv["channel"].values
+    total_energy_original = [calculate_total_energy(ds_Sv, ch) for ch in channels]
+    total_energy_regridded = [calculate_total_energy(ds_regridded, ch) for ch in channels]
+
+    np.testing.assert_allclose(
+        total_energy_original, 
+        total_energy_regridded, 
+        atol=1e-5, 
+        rtol=1e-5,
+        err_msg="Total energy was not conserved during regridding!"
+    )
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("er_type"),
+    [
+        ("regular"),
+        ("irregular"),
+    ],
+)
+def test_regrid_with_grid(request, er_type):
+    """Testing the regrid_all_channels_robust wrapper function"""
+    if er_type == "regular":
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
+    else:
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
+    ds_regridded = ep.commongrid.regrid(ds_Sv, target_grid = ds_Sv["echo_range"].sel(channel = "WBT 987763-15 ES38-7_ES"))
+
+    def calculate_total_energy(ds, channel):
+        """
+        Calculates the total integrated energy (Linear Sv * Thickness) 
+        per ping for a specific channel.
+        
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset containing 'Sv' and 'echo_range'.
+        channel_idx : int
+            Index of the channel to calculate.
+
+        Returns
+        -------
+        np.ndarray
+            1D array of Total Energy per ping.
+        """
+        # Select Data
+        ds_ch = ds.sel(channel=channel)
+        sv = ds_ch['Sv'].values
+        r = ds_ch['echo_range'].values # Shape: (ping_time, range_sample)
+        
+        # Calculate Thickness (Delta R) per ping.
+        n_pings = sv.shape[0]
+        total_energy = np.zeros(n_pings)
+        
+        # 2. Iterate per ping to handle ragged arrays (variable valid ranges)
+        for i in range(n_pings):
+            # Extract row
+            r_row = r[i, :]
+            sv_row = sv[i, :]
+            
+            # Mask
+            valid_r = ~np.isnan(r_row)
+            
+            if not np.any(valid_r):
+                total_energy[i] = 0.0
+                continue
+                
+            # Get valid geometry
+            r_valid = r_row[valid_r]
+            sv_valid = sv_row[valid_r]
+            
+            # Calculate Thickness using Midpoints 
+            if len(r_valid) > 1:
+                midpoints = 0.5 * (r_valid[:-1] + r_valid[1:])
+                # Extrapolate edges for first and last bin
+                d_start = r_valid[1] - r_valid[0]
+                d_end = r_valid[-1] - r_valid[-2]
+                
+                edges = np.concatenate([
+                    [r_valid[0] - d_start/2], 
+                    midpoints, 
+                    [r_valid[-1] + d_end/2]
+                ])
+                
+                thickness = np.diff(edges)
+            else:
+                # Single sample fallback (assume unit thickness or 1.0)
+                thickness = np.array([1.0])
+    
+            # 4. Convert dB to Linear
+            linear_sv = 10 ** (sv_valid / 10.0)
+            
+            # Treat NaN Sv as 0.0 (Empty water)
+            linear_sv = np.nan_to_num(linear_sv, nan=0.0)
+            
+            # 5. Integrate
+            total_energy[i] = np.sum(linear_sv * thickness)
+        
+        return total_energy
+    
+    # Calculate total energy for original and regridded datasets
+    # Calculate total energy for all channels
+    channels = ds_Sv["channel"].values
+    total_energy_original = [calculate_total_energy(ds_Sv, ch) for ch in channels]
+    total_energy_regridded = [calculate_total_energy(ds_regridded, ch) for ch in channels]
+
+    np.testing.assert_allclose(
+        total_energy_original, 
+        total_energy_regridded, 
+        atol=1e-5, 
+        rtol=1e-5,
+        err_msg="Total energy was not conserved during regridding!"
+    )
+
 
 
 # NASC Tests
@@ -256,6 +493,7 @@ def test_compute_MVBS_invalid_range_var(ds_Sv_echo_range_regular, range_var):
     else:
         pass
 
+
 @pytest.mark.integration
 def test_compute_MVBS_w_dim_swapped(request):
     """
@@ -269,9 +507,13 @@ def test_compute_MVBS_w_dim_swapped(request):
 
     # Test to see if ping_time was resampled correctly
     expected_ping_time = (
-        ds_Sv["ping_time"].resample(ping_time=ping_time_bin, skipna=True).asfreq().indexes["ping_time"]
+        ds_Sv["ping_time"]
+        .resample(ping_time=ping_time_bin, skipna=True)
+        .asfreq()
+        .indexes["ping_time"]
     )
     assert np.array_equal(ds_MVBS.ping_time.data, expected_ping_time.values)
+
 
 @pytest.mark.integration
 def test_compute_MVBS(test_data_samples):
@@ -465,9 +707,10 @@ def test_compute_NASC_values(request, er_type):
         ds_NASC.NASC.values, expected_nasc.values, atol=1e-10, rtol=1e-10, equal_nan=True
     )
 
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("operation","skipna", "range_var"),
+    ("operation", "skipna", "range_var"),
     [
         ("MVBS", True, "depth"),
         ("MVBS", False, "depth"),
@@ -490,7 +733,7 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
     # Get fixture for irregular Sv
     ds_Sv = request.getfixturevalue("mock_Sv_dataset_irregular")
     # Already has 2 channels and 20 range samples, so subset for only ping time
-    subset_ds_Sv = ds_Sv.isel(ping_time=slice(0,2))
+    subset_ds_Sv = ds_Sv.isel(ping_time=slice(0, 2))
 
     # Compute MVBS / Compute NASC
     if operation == "MVBS":
@@ -499,10 +742,7 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
             ep.utils.log.verbose(override=False)
 
         da = ep.commongrid.compute_MVBS(
-            subset_ds_Sv,
-            range_var=range_var,
-            range_bin="2m",
-            skipna=skipna
+            subset_ds_Sv, range_var=range_var, range_bin="2m", skipna=skipna
         )["Sv"]
 
         if range_var == "echo_range":
@@ -512,7 +752,9 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
                 "```Sv``` values that have corresponding NaN coordinate values. Consider handling "
                 "these values before calling your intended commongrid function."
             )
-            expected_warning = f"The ```echo_range``` coordinate array contain NaNs. {aggregation_msg}"
+            expected_warning = (
+                f"The ```echo_range``` coordinate array contain NaNs. {aggregation_msg}"
+            )
             assert any(expected_warning in record.message for record in caplog.records)
 
             # Turn off logger verbosity
@@ -532,7 +774,7 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
         # have any `NaNs` that are aggregated into them.
         expected_values = [
             [[False, False, False, False, False]],
-            [[False, False, False, False, False]]
+            [[False, False, False, False, False]],
         ]
         assert np.array_equal(da_nan_mask, np.array(expected_values))
     else:
@@ -542,13 +784,13 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
         if skipna:
             expected_values = [
                 [[True, False, False, False, False, False]],
-                [[True, False, False, False, False, False]]
+                [[True, False, False, False, False, False]],
             ]
             assert np.array_equal(da_nan_mask, np.array(expected_values))
         else:
             expected_values = [
                 [[True, True, True, False, False, True]],
-                [[True, False, False, True, True, True]]
+                [[True, False, False, True, True, True]],
             ]
             assert np.array_equal(da_nan_mask, np.array(expected_values))
 
@@ -570,7 +812,7 @@ def test_assign_actual_range(request):
         [
             round(float(ds_MVBS["Sv"].min().values), 2),
             round(float(ds_MVBS["Sv"].max().values), 2),
-        ]
+        ],
     )
 
 
@@ -600,5 +842,8 @@ def test_compute_reindex_non_NaN_not_map_reduce(request):
     # Compute MVBS with invalid parameters
     for method in ["blockwise", "cohorts"]:
         for reindex in [True, False]:
-            with pytest.raises(ValueError, match=f"Passing in reindex={reindex} is only allowed when method='map_reduce'."):
+            with pytest.raises(
+                ValueError,
+                match=f"Passing in reindex={reindex} is only allowed when method='map_reduce'.",
+            ):
                 ep.commongrid.compute_MVBS(ds_Sv, method=method, reindex=reindex)

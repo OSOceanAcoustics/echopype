@@ -687,10 +687,65 @@ def get_valid_max_depth_ping(ds: xr.Dataset, target_channel: str = None, target_
     return deepest_ping
 
 
+def _exact_integration_kernel(target_edges, source_edge, source_value):
+    """
+    Helper Kernel: Performs exact interval intersection to determine energy distribution.
+    Replaces the standard CDF interpolation method to avoid floating point cancellation errors.
+    """
+    n_target = len(target_edges) - 1
+    n_source = len(source_edge) - 1
+    
+    # Result array
+    output_values = np.empty(n_target, dtype=np.float64)
+    
+    # Sliding window pointer for source bins (O(N+M) complexity)
+    s_idx = 0
+    
+    for t_i in range(n_target):
+        t_left = target_edges[t_i]
+        t_right = target_edges[t_i + 1]
+        t_width = t_right - t_left
+        
+        if t_width <= 0:
+            output_values[t_i] = np.nan
+            continue
+            
+        total_energy = 0.0
+        
+        # 1. Fast-forward source pointer to the start of overlap
+        # Stop when the NEXT source bin starts after the current target starts
+        while s_idx < n_source and source_edge[s_idx + 1] <= t_left:
+            s_idx += 1
+            
+        # 2. Integrate overlapping source bins
+        # Use a temp pointer so we don't lose the place for the next target bin
+        temp_s = s_idx
+        while temp_s < n_source and source_edge[temp_s] < t_right:
+            s_left = source_edge[temp_s]
+            s_right = source_edge[temp_s + 1]
+            
+            # Calculate geometric overlap (Intersection)
+            overlap_start = max(t_left, s_left)
+            overlap_end = min(t_right, s_right)
+            overlap_len = overlap_end - overlap_start
+            
+            if overlap_len > 0:
+                val = source_value[temp_s]
+                # Accumulate energy (Density * Overlap Width)
+                total_energy += val * overlap_len
+                
+            temp_s += 1
+            
+        output_values[t_i] = total_energy / t_width
+
+    return output_values
+
 def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
     """
     The Numba/Numpy kernel.
     Resamples a single ping (1D array) from source geometry to target geometry.
+    
+    Updated: Uses exact interval integration for high precision.
 
     Parameters
     ----------
@@ -744,23 +799,15 @@ def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
         )
     else:
         target_edges = np.array([target_range_valid[0] - 0.5, target_range_valid[0] + 0.5])
+        
     source_value = np.nan_to_num(source_value, nan=0.0)
 
-    # Interpolate CDF onto Target Edges
-    source_thickness = np.diff(source_edge)
+    # --- CHANGED: High Precision Integration ---
+    # Replaces the CDF/Interp/Diff method with exact geometric overlap.
+    
+    target_mean_power = _exact_integration_kernel(target_edges, source_edge, source_value)
 
-    source_value = source_value * source_thickness
-    source_cdf = np.concatenate(([0], np.cumsum(source_value)))
-
-    # Interpolate CDF onto Target Edges
-    target_cdf_interp = np.interp(target_edges, source_edge, source_cdf)
-
-    # Differentiate to get Energy per Target Bin
-    target_energies = np.diff(target_cdf_interp)
-    target_thickness = np.diff(target_edges)
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        target_mean_power = target_energies / target_thickness
+    # -------------------------------------------
 
     output = np.full_like(target_ranges, np.nan, dtype=np.float64)
     output[valid_target_range_mask] = target_mean_power
