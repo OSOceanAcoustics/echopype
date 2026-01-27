@@ -81,10 +81,6 @@ def _compute_cal(
 
         return cal_ds
 
-    # If assuming a single filter time, select first index filter time
-    if assume_single_filter_time:
-        echodata["Vendor_specific"] = echodata["Vendor_specific"].isel(filter_time=0)
-
     if (
         echodata.sonar_model == "EK80"
         and "filter_time" in echodata["Vendor_specific"].dims
@@ -96,61 +92,72 @@ def _compute_cal(
             echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
 
-        # Compute calibration dataset for each filter time and merge
+        # List to accumulate calibration datasets
         cal_ds_list = []
 
-        # Sort all filter times
-        filter_times_all = sorted(echodata["Vendor_specific"]["filter_time"].data)
-
-        # Subset filter times for times that are in the echodata beam group subset
-        filter_times_subset = sorted(
-            np.intersect1d(
-                filter_times_all,
-                echodata[ed_beam_group]["ping_time"].data,
-            )
+        # Grab valid channel and ping time pairings and organize into
+        # channel/filter-time dictionary
+        valid = (
+            echodata[ed_beam_group]["transmit_duration_nominal"]
+            .stack(pairs=("channel", "ping_time"))
+            .dropna(dim="pairs")
         )
-        for filter_time in filter_times_subset:
-            # Susbet echodata object to grab vendor values and ping times corresponding to
-            # the index's associated filter time
-            echodata_copy = echodata.copy()
-            echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].sel(
-                filter_time=filter_time
-            )
-            # We want to subset the beam group to calibrate for 1 specific set of calibration
-            # parameters; however, this can get complicated:
-            # For example, in the complex FM, CW, FM case, there will be a filter
-            # time that is specific to each recording. However, FM complex will be completely
-            # contained in Beam_group1, so there will be a gap in Beam_group1. The filter
-            # time corresponding to the CW recording is the end time for the first FM recording.
-            start_time = filter_time
-            filter_times_all_index = np.where(filter_times_all == start_time)[0][0]
-            if filter_times_all_index == len(filter_times_all) - 1:
-                end_time = None
-            else:
-                end_time = filter_times_all[filter_times_all_index + 1] - np.timedelta64(1, "ns")
-            echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(
-                ping_time=slice(start_time, end_time)
+        filter_times_all = sorted(echodata["Vendor_specific"]["filter_time"].data)
+        channel_filter_times = {}
+        for channel in valid["channel"].values:
+            ping_times = valid["ping_time"].where(valid["channel"] == channel, drop=True).values
+            channel_filter_times[channel] = np.array(
+                sorted(ping_times[np.isin(ping_times, filter_times_all)])
             )
 
-            # Grab channels that have non-nan transmit duration nominal values. These are the
-            # channels that are not pinging in the multiplexing cycle.
-            valid_channels = echodata_copy[ed_beam_group]["transmit_duration_nominal"].dropna(
-                dim="channel", how="all"
-            )["channel"]
-            echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(channel=valid_channels)
+        for channel in channel_filter_times.keys():
+            filter_times_subset = channel_filter_times[channel]
 
-            # Calibrate and broadcast filter time onto ping time dimension, and convert it from
-            # coordinate to data variable
-            cal_ds_iteration = _compute_cal_ds(echodata_copy)
-            cal_ds_iteration["filter_time"] = cal_ds_iteration["filter_time"].broadcast_like(
-                cal_ds_iteration["ping_time"]
-            )
-            cal_ds_iteration = cal_ds_iteration.reset_coords(names="filter_time", drop=False)
-            cal_ds_list.append(cal_ds_iteration)
+            # If assuming a single filter time, select first index filter time
+            if assume_single_filter_time:
+                filter_times_subset = np.array([filter_times_subset[0]])
+
+            for filter_time in filter_times_subset:
+                echodata_copy = echodata.copy()
+
+                # Subset echodata object to grab vendor values and ping times corresponding to
+                # the index's associated filter time
+                echodata_copy["Vendor_specific"] = echodata_copy["Vendor_specific"].sel(
+                    filter_time=filter_time
+                )
+
+                # Subset for channel
+                echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(channel=[channel])
+
+                # We want to subset the beam group to calibrate for 1 specific set of calibration
+                # parameters, but this can get complicated:
+                # In the complex FM, CW, FM case, there will be a filter time that is specific
+                # to each recording. However, FM complex will be completely contained in
+                # Beam_group1, so there will be a gap in Beam_group1. The filter  time
+                # corresponding to the CW recording is the end time for the first FM recording.
+                start_time = filter_time
+                filter_times_subset_index = np.where(filter_times_subset == start_time)[0][0]
+                if filter_times_subset_index == len(filter_times_subset) - 1:
+                    end_time = None
+                else:
+                    end_time = filter_times_all[filter_times_subset_index + 1] - np.timedelta64(
+                        1, "ns"
+                    )
+                echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(
+                    ping_time=slice(start_time, end_time)
+                )
+
+                # Calibrate and drop filter_time
+                cal_ds_iteration = _compute_cal_ds(echodata_copy)
+                cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
 
         # Merge across both channel and ping time dimensions
         cal_ds = xr.merge(cal_ds_list)
     else:
+        # If assuming a single filter time, select first index filter time
+        if assume_single_filter_time:
+            echodata["Vendor_specific"] = echodata["Vendor_specific"].isel(filter_time=0)
+
         # Create an echodata copy
         echodata_copy = echodata.copy()
 
