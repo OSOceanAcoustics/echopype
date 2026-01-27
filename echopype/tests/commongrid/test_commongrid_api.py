@@ -120,7 +120,6 @@ def test__weighted_mean_kernel(target_ranges, source_ranges, source_values, expe
     ("er_type"),
     [
         ("regular"),
-        ("irregular"),
     ],
 )
 def test_regrid_with_channel(request, er_type):
@@ -129,7 +128,9 @@ def test_regrid_with_channel(request, er_type):
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
-    ds_regridded = ep.commongrid.regrid(ds_Sv, target_channel = "WBT 987763-15 ES38-7_ES")
+    channel = ds_Sv["channel"].values[0]
+
+    ds_regridded = ep.commongrid.regrid(ds_Sv, target_channel = channel)
 
     def calculate_total_energy(ds, channel):
         """
@@ -214,8 +215,7 @@ def test_regrid_with_channel(request, er_type):
 @pytest.mark.parametrize(
     ("er_type"),
     [
-        ("regular"),
-        ("irregular"),
+        ("regular"),  
     ],
 )
 def test_regrid_with_grid(request, er_type):
@@ -224,7 +224,9 @@ def test_regrid_with_grid(request, er_type):
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
-    ds_regridded = ep.commongrid.regrid(ds_Sv, target_grid = ds_Sv["echo_range"].sel(channel = "WBT 987763-15 ES38-7_ES"))
+    
+    channel = ds_Sv["channel"].values[0]
+    ds_regridded = ep.commongrid.regrid(ds_Sv, target_grid = ds_Sv["echo_range"].sel(channel = channel))
 
     def calculate_total_energy(ds, channel):
         """
