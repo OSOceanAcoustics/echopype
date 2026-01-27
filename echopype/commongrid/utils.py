@@ -651,7 +651,9 @@ def assign_actual_range(ds_MVBS: xr.Dataset) -> xr.Dataset:
     return ds_MVBS.assign_attrs({"actual_range": actual_range})
 
 
-def get_valid_max_depth_ping(ds: xr.Dataset, target_channel: str = None, target_grid: xr.DataArray = None) -> int:
+def get_valid_max_depth_ping(
+    ds: xr.Dataset, target_channel: str = None, target_grid: xr.DataArray = None
+) -> int:
     """
     Finds the integer indices of the last non-NaN value in a DataArray.
 
@@ -694,52 +696,53 @@ def _exact_integration_kernel(target_edges, source_edge, source_value):
     """
     n_target = len(target_edges) - 1
     n_source = len(source_edge) - 1
-    
+
     # Result array
     output_values = np.empty(n_target, dtype=np.float64)
-    
+
     source_idx = 0
-    
+
     for target_i in range(n_target):
         target_left = target_edges[target_i]
         target_right = target_edges[target_i + 1]
         target_width = target_right - target_left
-        
+
         if target_width <= 0:
             output_values[target_i] = np.nan
             continue
-            
+
         total_energy = 0.0
-        
+
         # Fast-forward source pointer to the start of overlap
         while source_idx < n_source and source_edge[source_idx + 1] <= target_left:
             source_idx += 1
-            
+
         # Integrate overlapping source bins
         temp_source = source_idx
         while temp_source < n_source and source_edge[temp_source] < target_right:
             source_left = source_edge[temp_source]
             source_right = source_edge[temp_source + 1]
-            
+
             overlap_start = max(target_left, source_left)
             overlap_end = min(target_right, source_right)
             overlap_len = overlap_end - overlap_start
-            
+
             if overlap_len > 0:
                 val = source_value[temp_source]
                 total_energy += val * overlap_len
-                
+
             temp_source += 1
-            
+
         output_values[target_i] = total_energy / target_width
 
     return output_values
+
 
 def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
     """
     The Numba/Numpy kernel.
     Resamples a single ping (1D array) from source geometry to target geometry.
-    
+
     Updated: Uses exact interval integration for high precision.
 
     Parameters
@@ -794,11 +797,10 @@ def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
         )
     else:
         target_edges = np.array([target_range_valid[0] - 0.5, target_range_valid[0] + 0.5])
-        
-    source_value = np.nan_to_num(source_value, nan=0.0)
-    
-    target_mean_power = _exact_integration_kernel(target_edges, source_edge, source_value)
 
+    source_value = np.nan_to_num(source_value, nan=0.0)
+
+    target_mean_power = _exact_integration_kernel(target_edges, source_edge, source_value)
 
     output = np.full_like(target_ranges, np.nan, dtype=np.float64)
     output[valid_target_range_mask] = target_mean_power

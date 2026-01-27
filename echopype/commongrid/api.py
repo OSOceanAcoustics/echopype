@@ -18,10 +18,10 @@ from .utils import (
     _set_MVBS_attrs,
     _set_var_attrs,
     _setup_and_validate,
+    _weighted_mean_kernel,
     compute_raw_MVBS,
     compute_raw_NASC,
     get_distance_from_latlon,
-    _weighted_mean_kernel,
     get_valid_max_depth_ping,
 )
 
@@ -468,40 +468,39 @@ def regrid(ds_Sv, target_channel: str = None, target_grid: xr.DataArray = None) 
 
     channels = ds_Sv.channel.values
     ds_final = ds_Sv.copy(deep=True)
-    
+
     # Check bounds
     if target_channel and not target_channel in channels:
-        raise IndexError(
-            f"{target_channel} is not part of the channel names in : {channels}"
-    )
+        raise IndexError(f"{target_channel} is not part of the channel names in : {channels}")
 
     if target_grid is not None and target_grid.dims != ("ping_time", "range_sample"):
         raise NotImplementedError("target_grid dimensions do not match expected dimensions.")
-        
+
     # Target channel is given
     if target_channel:
         ds_target = ds_Sv.sel(channel=target_channel).copy()
         target_range_da = ds_target["echo_range"]
-        
+
         deepest_ping_index = get_valid_max_depth_ping(ds_Sv, target_channel=target_channel)
         valid_range_sample = np.argmax(
-            ds_Sv["echo_range"].sel(channel=target_channel).isel(ping_time=deepest_ping_index).values
+            ds_Sv["echo_range"]
+            .sel(channel=target_channel)
+            .isel(ping_time=deepest_ping_index)
+            .values
         )
         ds_final["echo_range"][:] = ds_Sv["echo_range"].sel(channel=target_channel)
-        
+
     # Target grid is given
     else:
         target_range_da = target_grid.copy()
-        
+
         deepest_ping_index = get_valid_max_depth_ping(ds_Sv, target_grid=target_grid)
-        valid_range_sample = np.argmax(
-            target_grid.isel(ping_time=deepest_ping_index).values
-        )
+        valid_range_sample = np.argmax(target_grid.isel(ping_time=deepest_ping_index).values)
         ds_final["echo_range"][:] = target_grid
-    
+
     # List to hold the aligned DataArrays
     aligned_arrays = []
-    
+
     for i, channel in enumerate(channels):
 
         ds_source = ds_Sv.sel(channel=channel)
