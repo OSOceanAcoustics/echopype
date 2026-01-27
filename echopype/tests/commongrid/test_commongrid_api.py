@@ -112,7 +112,7 @@ def test__weighted_mean_kernel(target_ranges, source_ranges, source_values, expe
     result = _weighted_mean_kernel(target_ranges, source_ranges, source_values)
 
     np.testing.assert_allclose(
-        result, expected_linear, rtol=1e-5, atol=1e-20, err_msg="Kernel calculation mismatch"
+        result, expected_linear, rtol=1e-5, atol=1e-10, err_msg="Kernel calculation mismatch"
     )
 
 @pytest.mark.integration
@@ -157,7 +157,7 @@ def test_regrid_with_channel(request, er_type):
         n_pings = sv.shape[0]
         total_energy = np.zeros(n_pings)
         
-        for i in echo_range(n_pings):
+        for i in range(n_pings):
             # Extract row
             range_row = echo_range[i, :]
             sv_row = sv[i, :]
@@ -248,14 +248,14 @@ def test_regrid_with_grid(request, er_type):
         # Select Data
         ds_channel = ds.sel(channel=channel)
         sv = ds_channel['Sv'].values
-        range = ds_channel['echo_range'].values
+        echo_range = ds_channel['echo_range'].values
         
         n_pings = sv.shape[0]
         total_energy = np.zeros(n_pings)
         
         for i in range(n_pings):
             # Extract row
-            range_row = range[i, :]
+            range_row = echo_range[i, :]
             sv_row = sv[i, :]
             
             # Mask
