@@ -100,7 +100,7 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
                              {"start": 0, "stop": 10, "step": 2.0}, 5.0),
         
         # Upsampling
-        ("upsample_const",   {"start": 0, "stop": 10, "step": 2.0, "val": 10.0}, 
+        ("upsample_const",   {"start": 0, "stop": 10, "step": 0.2, "val": 10.0}, 
                              {"start": 0, "stop": 10, "step": 0.1}, 10.0),
                              
         # No Change
