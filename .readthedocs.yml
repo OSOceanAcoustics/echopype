@@ -11,10 +11,6 @@ build:
   tools:
     python: "3.12"
     nodejs: "18"
-  jobs:
-    pre_build:
-      # Generate the Sphinx configuration for this Jupyter Book so it builds.
-      - "jupyter-book config sphinx docs/source"
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
