@@ -3,6 +3,11 @@ name: Test PR
 on:
   pull_request:
     paths-ignore: ["**/docker.yaml", "docs"]
+  push:
+    branches:
+      - ci/*
+  workflow_dispatch:
+
 
 env:
   NUM_WORKERS: 2
@@ -24,6 +29,7 @@ jobs:
         runs-on: [ubuntu-latest]
         experimental: [false]
 
+
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
@@ -35,19 +41,23 @@ jobs:
         ports:
           - 8080:80
 
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags.
 
+
       - name: Set up Python
         uses: actions/setup-python@v6.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
+
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
+
 
       - name: Set environment variables
         run: echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
@@ -84,7 +94,6 @@ jobs:
           format: 'csv'
 
       - name: Print Changed files
-        if: ${{ github.event_name == 'pull_request' }}
         run: echo "${{ steps.files.outputs.added_modified_renamed }}"
 
       - name: Pre-fetch Pooch test data
@@ -95,7 +104,10 @@ jobs:
         run: |
           python .ci_helpers/docker/setup-services.py --deploy --data-only --http-server ${{ job.services.httpserver.id }}
 
-      - name: Running all Tests
+          # Check data endpoint
+          curl http://localhost:8080/data/
+
+      - name: Running all tests
         run: |
           pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
           --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
@@ -108,3 +120,65 @@ jobs:
           env_vars: RUNNER_OS,PYTHON_VERSION
           name: codecov-umbrella
           fail_ci_if_error: false
+
+  test-windows:
+    name: ${{ matrix.python-version }}--windows
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install deps (dev + pooch + s3)
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m pip install "pooch>=1.8" fsspec s3fs
+          python -m pip install pytest pytest-cov pytest-xdist pytest-mock
+
+      - name: Install error reporter
+        if: ${{ matrix.python-version == '3.13' }}
+        run: python -m pip install pytest-github-actions-annotate-failures
+
+      - name: Install echopype
+        run: python -m pip install -e ".[plot]"
+
+      - name: Pre-fetch all Pooch assets
+        run: python -m pytest --collect-only -q
+
+      - name: Start local services
+        run: python .ci_helpers/setup-services-windows.py start
+
+      - name: Running all Tests
+        shell: pwsh
+        env:
+          PY_COLORS: "1"
+        run: >
+          python -m pytest -vvv -rx
+          --numprocesses $env:NUM_WORKERS --max-worker-restart 3
+          --cov echopype --cov-report xml
+          --log-cli-level WARNING --disable-warnings
+
+      - name: Upload code coverage
+        uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: RUNNER_OS
+          name: codecov-windows
+          fail_ci_if_error: false
+
+      - name: Teardown services
+        if: always()
+        run: python .ci_helpers/setup-services-windows.py stop

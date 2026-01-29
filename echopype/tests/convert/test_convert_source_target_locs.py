@@ -282,13 +282,32 @@ def test_convert_ek(
     common_storage_options = minio_bucket
     output_storage_options = {}
     input_paths, sonar_model = ek_input_params
+    
     ipath = input_paths
     if isinstance(input_paths, list):
+        # If the test ever uses multiple HTTP files, wrap each one.
+        wrapped = []
+        for p in input_paths:
+            if p.startswith(("http://", "https://")):
+                wrapped.append(f"simplecache::{p}")
+            else:
+                wrapped.append(p)
+        input_paths = wrapped
         ipath = input_paths[0]
 
-    input_storage_options = (
-        common_storage_options if ipath.startswith("s3://") else {}
-    )
+    # Handle input sources
+    if ipath.startswith("s3://"):
+        input_storage_options = common_storage_options
+    elif ipath.startswith(("http://", "https://", "simplecache::http://", "simplecache::https://")):
+        # Make HTTP files seekable across all OSes
+        if not ipath.startswith("simplecache::"):
+            ipath = f"simplecache::{ipath}"
+        # Disable file-change checks to keep it simple/fast in CI
+        input_storage_options = {}
+    else:
+        input_storage_options = {}
+
+    # Handle outputs (S3 only)
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
@@ -360,9 +379,15 @@ def test_convert_azfp(
     common_storage_options = minio_bucket
     output_storage_options = {}
 
-    input_storage_options = (
-        common_storage_options if azfp_input_paths.startswith("s3://") else {}
-    )
+    # S3 uses MinIO creds; HTTP must stream to avoid ranged reads on Windows CI
+    if azfp_input_paths.startswith("s3://"):
+        input_storage_options = common_storage_options
+    elif azfp_input_paths.startswith(("http://", "https://")):
+        azfp_input_paths = f"simplecache::{azfp_input_paths}"
+        input_storage_options = {}
+    else:
+        input_storage_options = {}
+    
     if output_save_path and output_save_path.startswith("s3://"):
         output_storage_options = common_storage_options
 
