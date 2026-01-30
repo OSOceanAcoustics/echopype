@@ -140,7 +140,7 @@ def _compute_cal(
                 if filter_times_subset_index == len(filter_times_subset) - 1:
                     end_time = None
                 else:
-                    end_time = filter_times_all[filter_times_subset_index + 1] - np.timedelta64(
+                    end_time = filter_times_subset[filter_times_subset_index + 1] - np.timedelta64(
                         1, "ns"
                     )
                 echodata_copy[ed_beam_group] = echodata_copy[ed_beam_group].sel(
