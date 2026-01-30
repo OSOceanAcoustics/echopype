@@ -8,7 +8,7 @@ geopy
 jinja2
 netCDF4>1.6
 numpy
-pandas
+pandas<3
 psutil>=5.9.1
 pynmea2
 pytz
