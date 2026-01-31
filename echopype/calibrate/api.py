@@ -84,14 +84,11 @@ def _compute_cal(
 
         return cal_ds
 
-    # Grab the correct ed_beam_group given waveform and encode mode and subset for
-    # CW or BB if encode mode is complex
-    ed_beam_group = retrieve_correct_beam_group(
-        echodata=echodata_copy, waveform_mode=waveform_mode, encode_mode=encode_mode
-    )
-
     # Collapse vendor specific's filter time dimension
     if assume_single_filter_time and "filter_time" in echodata_copy["Vendor_specific"].dims:
+        ed_beam_group = retrieve_correct_beam_group(
+            echodata=echodata_copy, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
         transmit_duration_nominal_ds = echodata_copy[ed_beam_group]["transmit_duration_nominal"]
         # Grab a valid filter time for each channel
         channel_filter_time = {}
@@ -120,10 +117,12 @@ def _compute_cal(
         echodata_copy["Vendor_specific"] = vendor_specific_collapsed_combined_ds
 
     if (
-        echodata_copy.sonar_model == "EK80"
-        and "filter_time" in echodata_copy["Vendor_specific"].dims
+        "filter_time" in echodata_copy["Vendor_specific"].dims
         and len(echodata_copy["Vendor_specific"]["filter_time"]) > 1
     ):
+        ed_beam_group = retrieve_correct_beam_group(
+            echodata=echodata_copy, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
         # List to accumulate calibration datasets
         cal_ds_list = []
 

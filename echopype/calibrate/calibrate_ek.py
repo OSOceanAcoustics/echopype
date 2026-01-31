@@ -298,6 +298,7 @@ class CalibrateEK80(CalibrateEK):
                 ds_cal_NB[p] = ds_cal_NB[p] + 20 * np.log10(
                     beam["frequency_nominal"] / self.freq_center
                 )
+            ds_cal_NB[p].attrs = {}  # drop any attributes inherited from frequency nominal
         return ds_cal_NB
 
     def _assimilate_ecs_cal_params(self, cal_params_dict: Dict, ds_cal_BB: xr.Dataset):
