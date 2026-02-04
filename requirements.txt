@@ -9,7 +9,6 @@ jinja2
 netCDF4>1.6
 numpy
 pandas<3
-pyarrow<23
 psutil>=5.9.1
 pynmea2
 pytz
