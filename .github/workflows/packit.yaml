@@ -14,13 +14,13 @@ jobs:
     if: github.repository == 'OSOceanAcoustics/echopype'
     steps:
     - name: Checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         # fetch all history so that setuptools-scm works
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v6.0.0
+      uses: actions/setup-python@v6.2.0
       with:
         python-version: 3.12
 
@@ -42,7 +42,7 @@ jobs:
         echo ""
         echo "Generated files:"
         ls -lh dist/
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v6
       with:
         name: releases
         path: dist
@@ -52,11 +52,11 @@ jobs:
     needs: build-artifact
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/setup-python@v6.0.0
+    - uses: actions/setup-python@v6.2.0
       name: Install Python
       with:
         python-version: 3.12
-    - uses: actions/download-artifact@v6
+    - uses: actions/download-artifact@v7
       with:
         name: releases
         path: dist

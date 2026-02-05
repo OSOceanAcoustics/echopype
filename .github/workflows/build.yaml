@@ -10,7 +10,7 @@ on:
 env:
   NUM_WORKERS: 2
   USE_POOCH: "True"
-  ECHOPYPE_DATA_VERSION: v0.11.0
+  ECHOPYPE_DATA_VERSION: v0.11.1a2
   ECHOPYPE_DATA_BASEURL: https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
 
@@ -34,20 +34,52 @@ jobs:
         ports:
           - 9000:9000
       httpserver:
-        image: cormorack/http:latest
+        image: httpd:2.4
         ports:
           - 8080:80
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags.
 
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          echo "Before cleanup:"
+          df -h
+          for p in /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL; do
+            if [ -d "$p" ]; then
+              echo "Removing $p (size: $(du -sh "$p" | cut -f1))"
+              sudo rm -rf "$p"
+            else
+              echo "Not present: $p"
+            fi
+          done
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          echo "After cleanup:"
+          df -h
+
       - name: Set up Python
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: System usage (baseline)
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          echo "== Disk =="
+          df -h
+          echo "== Memory =="
+          free -h
+          echo "== Swap =="
+          swapon --show || true
+          echo "== Top memory processes =="
+          ps -eo pid,ppid,cmd,%mem,%cpu --sort=-%mem | head -n 20 || true
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
@@ -63,7 +95,7 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
 
       - name: Cache echopype test data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.XDG_CACHE_HOME }}/echopype
           key: ep-data-${{ env.ECHOPYPE_DATA_VERSION }}
@@ -81,6 +113,15 @@ jobs:
       - name: Print installed packages
         run: python -m pip list
 
+      - name: System usage (after install)
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          df -h
+          free -h
+          du -h -d 2 "${{ env.XDG_CACHE_HOME }}" || true
+          ps -eo pid,ppid,cmd,%mem,%cpu --sort=-%mem | head -n 20 || true
+
       - name: Pre-fetch Pooch test data
         run: |
           pytest --collect-only -q
@@ -91,6 +132,17 @@ jobs:
 
           # Check data endpoint
           curl http://localhost:8080/data/
+
+      - name: System usage (after services)
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          df -h
+          free -h
+          du -h -d 2 "${{ env.XDG_CACHE_HOME }}" || true
+          docker system df || true
+          ps -eo pid,ppid,cmd,%mem,%cpu --sort=-%mem | head -n 20 || true
+
 
       - name: Running all tests
         shell: bash -l {0}
@@ -106,3 +158,18 @@ jobs:
           env_vars: RUNNER_OS,PYTHON_VERSION
           name: codecov-umbrella
           fail_ci_if_error: false
+
+      - name: System usage (final)
+        if: always() && runner.os == 'Linux'
+        run: |
+          set -eux
+          echo "== Disk =="
+          df -h
+          echo "== Memory =="
+          free -h
+          echo "== Cache dir =="
+          du -h -d 2 "${{ env.XDG_CACHE_HOME }}" || true
+          echo "== Docker =="
+          docker system df || true
+          echo "== Top memory processes =="
+          ps -eo pid,ppid,cmd,%mem,%cpu --sort=-%mem | head -n 30 || true

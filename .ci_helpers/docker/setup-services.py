@@ -29,7 +29,7 @@ COMPOSE_FILE = BASE / "docker-compose.yaml"
 
 def get_pooch_data_path() -> Path:
     """Return path to the Pooch test data cache."""
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.0")
+    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     cache_dir = Path(pooch.os_cache("echopype")) / ver
     if not cache_dir.exists():
         raise FileNotFoundError(
@@ -110,15 +110,40 @@ def load_s3(*args, **kwargs) -> None:
             continue
         source_path = str(d)
         target_path = f"{test_data}/{d.name}"
-        logger.info(f"Uploading {source_path} → {target_path}")
+        logger.info(f"Copying {source_path} → {target_path}")
         fs.put(source_path, target_path, recursive=True)
+
+
+def load_http_server(http_server_id) -> None:
+    """Copy test data from Pooch cache to HTTP server container."""
+    pooch_path = get_pooch_data_path()
+
+    # Create the data directory in the container
+    mkdir_result = subprocess.run(
+        ["docker", "exec", http_server_id, "sh", "-c", "mkdir -p /usr/local/apache2/htdocs/data"],
+        capture_output=True,
+        text=True,
+    )
+    if mkdir_result.returncode == 0:
+        logger.info("Created /usr/local/apache2/htdocs/data directory")
+    else:
+        logger.warning(f"mkdir warning (may be harmless): {mkdir_result.stderr}")
+
+    # Copy all dataset directories directly to /usr/local/apache2/htdocs/data/
     for d in pooch_path.iterdir():
-        if d.suffix == ".zip":  # skip zip archives to cut redundant I/O
+        if d.suffix == ".zip":  # skip zip archives
             continue
         source_path = str(d)
-        target_path = f"{test_data}/{d.name}"
-        logger.info(f"Uploading {source_path} → {target_path}")
-        fs.put(source_path, target_path, recursive=True)
+        dataset_name = d.name
+
+        # Copy directly to the data directory
+        target_path = f"/usr/local/apache2/htdocs/data/{dataset_name}"
+        cmd = ["docker", "cp", source_path, f"{http_server_id}:{target_path}"]
+        logger.info(f"Copying {source_path} → {target_path}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            logger.error(f"Failed to copy {dataset_name}: {result.stderr}")
 
 
 if __name__ == "__main__":
@@ -164,6 +189,14 @@ if __name__ == "__main__":
             {
                 "msg": "Setting up MinIO S3 bucket with Pooch test data ...",
                 "cmd": load_s3,
+            }
+        )
+
+        commands.append(
+            {
+                "msg": f"Setting up HTTP server {args.http_server} with Pooch test data ...",
+                "cmd": load_http_server,
+                "args": args.http_server,
             }
         )
 
