@@ -694,46 +694,55 @@ def _exact_integration_kernel(target_edges, source_edge, source_value):
     Helper Kernel: Performs exact interval intersection to determine energy distribution.
     Replaces the standard CDF interpolation method to avoid floating point cancellation errors.
     """
-    n_target = len(target_edges) - 1
-    n_source = len(source_edge) - 1
+    target_edges = np.asanyarray(target_edges)
+    source_edge = np.asanyarray(source_edge)
+    source_value = np.asanyarray(source_value)
 
-    # Result array
-    output_values = np.empty(n_target, dtype=np.float64)
+    target_min, target_max = target_edges[0], target_edges[-1]
 
-    source_idx = 0
+    idx_start = np.searchsorted(source_edge, target_min, side="right") - 1
+    idx_end = np.searchsorted(source_edge, target_max, side="left") + 1
 
-    for target_i in range(n_target):
-        target_left = target_edges[target_i]
-        target_right = target_edges[target_i + 1]
-        target_width = target_right - target_left
+    idx_start = max(0, idx_start)
+    idx_end = min(len(source_edge), idx_end)
 
-        if target_width <= 0:
-            output_values[target_i] = np.nan
-            continue
+    source_edge_sub = source_edge[idx_start:idx_end]
+    source_val_sub = source_value[idx_start : max(idx_start, idx_end - 1)]
 
-        total_energy = 0.0
+    if len(source_edge_sub) < 2:
+        return np.full(len(target_edges) - 1, np.nan)
 
-        # Fast-forward source pointer to the start of overlap
-        while source_idx < n_source and source_edge[source_idx + 1] <= target_left:
-            source_idx += 1
+    all_edges = np.concatenate([target_edges, source_edge_sub])
+    union_edges = np.unique(all_edges)
 
-        # Integrate overlapping source bins
-        temp_source = source_idx
-        while temp_source < n_source and source_edge[temp_source] < target_right:
-            source_left = source_edge[temp_source]
-            source_right = source_edge[temp_source + 1]
+    union_centers = 0.5 * (union_edges[:-1] + union_edges[1:])
+    union_widths = np.diff(union_edges)
 
-            overlap_start = max(target_left, source_left)
-            overlap_end = min(target_right, source_right)
-            overlap_len = overlap_end - overlap_start
+    source_indices = np.searchsorted(source_edge_sub, union_centers, side="right") - 1
 
-            if overlap_len > 0:
-                val = source_value[temp_source]
-                total_energy += val * overlap_len
+    valid_source = (source_indices >= 0) & (source_indices < len(source_val_sub))
 
-            temp_source += 1
+    atomic_energies = np.zeros_like(union_widths)
+    atomic_energies[valid_source] = (
+        source_val_sub[source_indices[valid_source]] * union_widths[valid_source]
+    )
 
-        output_values[target_i] = total_energy / target_width
+    target_indices = np.searchsorted(target_edges, union_centers, side="right") - 1
+
+    n_targets = len(target_edges) - 1
+
+    valid_target = (target_indices >= 0) & (target_indices < n_targets)
+
+    total_energy_per_target = np.bincount(
+        target_indices[valid_target], weights=atomic_energies[valid_target], minlength=n_targets
+    )
+
+    target_widths = target_edges[1:] - target_edges[:-1]
+
+    output_values = np.full(n_targets, np.nan)
+
+    valid_width = target_widths > 0
+    output_values[valid_width] = total_energy_per_target[valid_width] / target_widths[valid_width]
 
     return output_values
 

@@ -10,6 +10,7 @@ import pandas as pd
 import xarray as xr
 
 from ..consolidate.api import POSITION_VARIABLES
+from ..qc.api import coerce_increasing_time, exist_reversed_time
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .utils import (
     _convert_bins_to_interval_index,
@@ -465,6 +466,10 @@ def regrid(ds_Sv, target_channel: str = None, target_grid: xr.DataArray = None) 
     """
     if target_channel is not None and target_grid is not None:
         raise ValueError("Provide only one of target_channel or target_grid, not both.")
+
+    if exist_reversed_time(ds_Sv, "ping_time"):
+        # Coerce increasing time
+        coerce_increasing_time(ds_Sv)
 
     channels = ds_Sv.channel.values
     ds_final = ds_Sv.copy(deep=True)
