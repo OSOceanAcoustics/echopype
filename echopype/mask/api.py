@@ -815,7 +815,7 @@ def regrid_mask(
             method=method,
             reindex=reindex,
             func="mean",
-            skipna=True,
+            skipna=False,
             fill_value=np.nan,
             **flox_kwargs,
         )
