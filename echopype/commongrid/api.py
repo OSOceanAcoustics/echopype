@@ -470,7 +470,7 @@ def regrid(ds_Sv, target_channel: str = None, target_grid: xr.DataArray = None) 
     ds_final = ds_Sv.copy(deep=True)
 
     # Check bounds
-    if target_channel and not target_channel in channels:
+    if target_channel and target_channel not in channels:
         raise IndexError(f"{target_channel} is not part of the channel names in : {channels}")
 
     if target_grid is not None and target_grid.dims != ("ping_time", "range_sample"):
