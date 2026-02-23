@@ -606,7 +606,9 @@ class ParseEK(ParseBase):
                 self.mru1["longitude"].append(new_datagram["longitude"])
                 self.mru1["timestamp"].append(new_datagram["timestamp"])
 
-            # FIL datagrams contain filters for processing baskcatter data for EK80
+            # FIL datagrams contain filters for processing backscatter data for EK80
+            # Allowing for looking up for filter coefficients and decimation factor
+            # by channel, stage, and timestamp
             elif new_datagram["type"].startswith("FIL"):
                 if "EC150" not in new_datagram["channel_id"]:
                     self.fil["timestamp"].append(new_datagram["timestamp"])
