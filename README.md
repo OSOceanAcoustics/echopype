@@ -89,7 +89,8 @@ Brandon Reyes ([@b-reyes](https://github.com/b-reyes)),
 Kavin Nguyen ([@ngkavin](https://github.com/ngkavin))
 and Imran Majeed ([@imranmaj](https://github.com/imranmaj))
 have contributed significantly to the code.
-Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team.
+Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team. Lloyd Izard ([@LOCEANlloydizard](https://github.com/LOCEANlloydizard)) joined the project in 2025
+and is an active contributor.
 
 A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
 
@@ -110,26 +111,31 @@ for developing NumPy implementation of
 acoustic analysis functions via Echopy, which
 we referenced for several Echopype functions.
 
-We also thank funding support from
-the National Science Foundation,
-NOAA Ocean Exploration,
-NOAA Fisheries,
-and software engineering support from
+We thank funding support from the National Science Foundation,
+NOAA Ocean Exploration, NOAA Fisheries,
+and the VOTO Foundation.
+We also acknowledge software engineering support from
 the University of Washington Scientific Software Engineering Center (SSEC),
 as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
 
-<div>
+<div align="center">
+
   <a href="https://oceanexplorer.noaa.gov/news/oer-updates/2021/fy21-ffo-schedule.html">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/NOAA_logo.svg/936px-NOAA_logo.svg.png" alt="NOAA_logo" width="120">
+    <img src="assets/logos/noaa.png" alt="NOAA" width="120">
   </a>
 
   <a href="https://www.nsf.gov/awardsearch/showAward?AWD_ID=1849930&HistoricalAwards=false">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/NSF_logo.png" alt="NSF_logo" width="120">
+    <img src="assets/logos/nsf.png" alt="NSF" width="120">
   </a>
 
   <a href="https://escience.washington.edu/software-engineering/ssec/">
-    <img src="https://avatars.githubusercontent.com/u/122321194?s=200&v=4" alt="SSEC_logo" width="120">
+    <img src="assets/logos/ssec.png" alt="SSEC" width="120">
   </a>
+
+  <a href="https://voiceoftheocean.org/">
+    <img src="assets/logos/voto.png" alt="VOTO Foundation" width="120">
+  </a>
+
 </div>
 
 
