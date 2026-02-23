@@ -752,8 +752,7 @@ class SetGroupsEK80(SetGroupsBase):
             Channel id
         """
 
-        # pulse_form: 0 = CW, 1 = FM, 5 = FMD
-        # cw_idx = np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0
+        # pulse_form: 0=CW, 1=FM, 5=FMD
         fm_idx = np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 1
         freq_start = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
         freq_stop = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
