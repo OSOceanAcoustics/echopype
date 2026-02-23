@@ -1182,7 +1182,7 @@ class SetGroupsEK80(SetGroupsBase):
         # Merge and save group(s):
         # Four cases:
         # If only one of complex or power data exist: Place in /Sonar/Beam_group1
-        # If both complex FM/CW and power data exist: Complex in /Sonar/Beam_group1
+        # If only one of complex FM and complex CW and power data exist: Complex in /Sonar/Beam_group1
         # and power in /Sonar/Beam_group2.
         # If complex FM and complex CW data exist: Complex FM in /Sonar/Beam_group1
         # and complex CW in /Sonar/Beam_group2
