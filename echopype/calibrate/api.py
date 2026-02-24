@@ -107,7 +107,8 @@ def _compute_cal(
         slice_dict["channel_filter_time"] = channel_filter_time
 
     if (
-        "filter_time" in echodata["Vendor_specific"].dims
+        not assume_single_filter_time
+        and "filter_time" in echodata["Vendor_specific"].dims
         and len(echodata["Vendor_specific"]["filter_time"]) > 1
     ):
         ed_beam_group = retrieve_correct_beam_group(
@@ -143,10 +144,14 @@ def _compute_cal(
 
                 # Calibrate and drop filter_time
                 cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
-                cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
+                cal_ds_list.append(cal_ds_iteration)
 
         # Merge across both channel and ping time dimensions
-        cal_ds = xr.merge(cal_ds_list)
+        cal_ds = xr.merge(
+            cal_ds_list,
+            join="outer",
+            compat="no_conflicts",
+        )
     else:
         # Compute a single calibration dataset
         cal_ds = _compute_cal_ds(echodata, slice_dict)

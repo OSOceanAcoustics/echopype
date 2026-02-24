@@ -22,7 +22,7 @@ from .range import compute_range_EK, range_mod_TVG_EK
 logger = _init_logger(__name__)
 
 
-def _slice_beam(beam, slice_dict):
+def _slice_beam_vend(beam, vend, slice_dict):
     beam = beam.sel(
         channel=[slice_dict["channel"]],
         ping_time=slice(
@@ -30,7 +30,8 @@ def _slice_beam(beam, slice_dict):
             slice_dict["beam_group_end_time"],
         ),
     )
-    return beam
+    vend = vend.sel(filter_time=[slice_dict["filter_time"]])
+    return beam, vend
 
 
 def _collapse_vendor_specific(vendor_specific_ds, slice_dict):
@@ -165,6 +166,11 @@ class CalibrateEK60(CalibrateEK):
         self.waveform_mode = "CW"
         self.encode_mode = "power"
 
+        # Get the right ed_beam_group for CW power samples
+        self.ed_beam_group = retrieve_correct_beam_group(
+            echodata=self.echodata, waveform_mode=self.waveform_mode, encode_mode=self.encode_mode
+        )
+
         # Grab beam group and vendor specific dataset
         self.beam = self.echodata[self.ed_beam_group]
         self.vend = self.echodata["Vendor_specific"]
@@ -233,7 +239,7 @@ class CalibrateEK80(CalibrateEK):
         waveform_mode,
         encode_mode,
         ecs_file=None,
-        slice_dict=None,
+        slice_dict={},
         drop_last_hanning_zero=False,
         **kwargs,
     ):
@@ -259,9 +265,9 @@ class CalibrateEK80(CalibrateEK):
 
         # Grab beam group and vendor specific dataset
         self.beam = self.echodata[self.ed_beam_group]
-        if "channel" in self.slice_dict:
-            self.beam = _slice_beam(self.beam, self.slice_dict)
         self.vend = self.echodata["Vendor_specific"]
+        if "channel" in self.slice_dict:
+            self.beam, self.vend = _slice_beam_vend(self.beam, self.vend, self.slice_dict)
         if "channel_filter_time" in self.slice_dict:
             self.vend = _collapse_vendor_specific(self.vend, self.slice_dict)
         else:
