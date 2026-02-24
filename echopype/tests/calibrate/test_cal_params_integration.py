@@ -2,6 +2,7 @@ import pytest
 
 import numpy as np
 import xarray as xr
+from xarray.testing import assert_identical
 
 import echopype as ep
 
@@ -45,11 +46,23 @@ def test_cal_params_intake_AZFP(azfp_path):
     )
 
     # Check cal params ingested from both ways
-    assert cal_obj.cal_params["EL"].identical(cal_params_manual["EL"])
+    assert_identical(cal_obj.cal_params["EL"], cal_params_manual["EL"])
 
     # Check against the final cal params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"EL": EL_ext}, env_params=env_ext)
-    assert ds_Sv["EL"].identical(cal_params_manual["EL"])
+    assert_identical(ds_Sv["EL"], cal_params_manual["EL"])
+    
+    # Check passing Sv_offset values manually 
+    SV_ext = xr.DataArray([1., 2., 3., 4.], dims=["channel"], coords={"channel": chan}, name="Sv_offset")
+    cal_params_manual = ep.calibrate.cal_params.get_cal_params_AZFP(
+        beam=ed["Sonar/Beam_group1"], vend=ed["Vendor_specific"], user_dict={"Sv_offset": SV_ext}
+    )
+    cal_obj = ep.calibrate.calibrate_azfp.CalibrateAZFP(
+        echodata=ed, cal_params={"Sv_offset" : SV_ext}, env_params=env_ext
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"Sv_offset" : SV_ext}, env_params=env_ext)
+    assert_identical(ds_Sv["Sv_offset"], cal_params_manual["Sv_offset"])
+    assert_identical(ds_Sv["Sv_offset"], cal_obj.cal_params["Sv_offset"])
 
 
 def test_cal_params_intake_EK60(ek60_path):

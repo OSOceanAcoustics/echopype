@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.io import loadmat
 from echopype import open_raw
 import pytest
-from echopype.convert.parse_azfp import ParseAZFP
+from echopype.convert.parse_uls5 import ParseULS5
 
 
 @pytest.fixture
@@ -154,7 +154,7 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     check_platform_required_scalar_vars(echodata)
 
 
-@pytest.mark.skip(reason="required pulse length not in Sv offset dictionary")
+#@pytest.mark.skip(reason="required pulse length not in Sv offset dictionary")
 def test_convert_azfp_01a_no_temperature_pressure_tilt(azfp_path):
     """Test converting file with no valid temperature, pressure and tilt data."""
 
@@ -209,7 +209,7 @@ def test_convert_azfp_UNB_glider_130kHz(azfp_path):
 
 def test_load_parse_azfp_xml(azfp_path):
     azfp_xml_path = azfp_path / '23081211.XML'
-    parseAZFP = ParseAZFP(None, str(azfp_xml_path))
+    parseAZFP = ParseULS5(None, str(azfp_xml_path))
     parseAZFP.load_AZFP_xml()
     expected_params = ['instrument_type_string', 'instrument_type', 'major', 'minor', 'date',
                        'program_name', 'program', 'CPU', 'serial_number', 'board_version',

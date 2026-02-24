@@ -2,6 +2,7 @@ import pytest
 
 import numpy as np
 import xarray as xr
+from xarray.testing import assert_identical
 
 import echopype as ep
 
@@ -45,8 +46,8 @@ def test_env_params_intake_AZFP(azfp_path):
     ds_Sv = ep.calibrate.compute_Sv(ed, env_params=env_ext)
     assert ds_Sv["formula_sound_speed"] == "AZFP"
     assert ds_Sv["formula_absorption"] == "AZFP"
-    assert ds_Sv["sound_speed"].identical(env_params_manual["sound_speed"])
-    assert ds_Sv["sound_absorption"].identical(env_params_manual["sound_absorption"])
+    assert_identical(ds_Sv["sound_speed"], env_params_manual["sound_speed"])
+    assert_identical(ds_Sv["sound_absorption"], env_params_manual["sound_absorption"])
 
 
 def test_env_params_intake_EK60_with_input(ek60_path):
