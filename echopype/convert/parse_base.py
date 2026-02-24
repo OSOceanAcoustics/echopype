@@ -76,10 +76,6 @@ class ParseEK(ParseBase):
         self.mru0 = defaultdict(list)  # Dictionary to store MRU0 data (heading, pitch, roll, heave)
         self.mru1 = defaultdict(list)  # Dictionary to store MRU1 data (latitude, longitude)
         self.fil = defaultdict(list)  # Dictionary to store filter data
-        # Dictionary to store PC and WBT coefficients
-        # self.fil_coeffs = defaultdict(list)
-        # Dictionary to store filter decimation factors
-        # self.fil_decimation_fac = defaultdict(list)
         self.bot = defaultdict(list)  # Dictionary to store bottom depth values
         self.idx = defaultdict(list)  # Dictionary to store index file values
 

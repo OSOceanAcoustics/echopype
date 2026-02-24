@@ -55,8 +55,8 @@ class SetGroupsEK80(SetGroupsBase):
                 "power": "contains backscatter power (uncalibrated) and "
                 "other beam or channel-specific data,"
                 " including split-beam angle data when they exist.",
-                "complex": "contains FM or CW complex backscatter data and other "
-                "beam or channel-specific data.",
+                "complex": "contains FM-only or CW-only complex backscatter data and "
+                "other beam or channel-specific data.",
             },
         },
         {
@@ -65,15 +65,15 @@ class SetGroupsEK80(SetGroupsBase):
                 "power": "contains backscatter power (uncalibrated) and "
                 "other beam or channel-specific data,"
                 " including split-beam angle data when they exist.",
-                "complex": "contains CW complex backscatter data and other "
+                "complex": "contains CW-only complex backscatter data and other "
                 "beam or channel-specific data.",
             },
         },
         {
             "name": "Beam_group3",
             "descr": (
-                "contains backscatter power (uncalibrated) and other beam or channel-specific data,"  # noqa
-                " including split-beam angle data when they exist."
+                "contains backscatter power (uncalibrated) and other beam or "
+                "channel-specific data, including split-beam angle data when they exist."
             ),
         },
     ]
@@ -752,24 +752,12 @@ class SetGroupsEK80(SetGroupsBase):
             Channel id
         """
 
-        # pulse_form: 0=CW, 1=FM, 5=FMD
+        # pulse_form: 0 = CW, 1 = FM, 5 = FMD
         fm_idx = np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 1
         freq_start = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
         freq_stop = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
         freq_start[fm_idx] = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
         freq_stop[fm_idx] = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
-
-        # # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
-        # # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        # if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
-        #     freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
-        #     freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
-        # elif not self.sorted_channel["power"]:
-        #     freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
-        #     freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
-        #     freq_stop = freq_start
-        # else:
-        #     return ds_tmp
 
         ds_f_start_end = xr.Dataset(
             {
@@ -1181,8 +1169,8 @@ class SetGroupsEK80(SetGroupsBase):
         # Merge and save group(s):
         # Four cases:
         # If only one of complex or power data exist: Place in /Sonar/Beam_group1
-        # If only one of complex FM and complex CW and power data exist: Complex in /Sonar/Beam_group1
-        # and power in /Sonar/Beam_group2.
+        # If only one of complex FM and complex CW and power data exist: Complex in
+        # /Sonar/Beam_group1 and power in /Sonar/Beam_group2.
         # If complex FM and complex CW data exist: Complex FM in /Sonar/Beam_group1
         # and complex CW in /Sonar/Beam_group2
         # If complex FM, complex CW, and power data exist: Complex FM in

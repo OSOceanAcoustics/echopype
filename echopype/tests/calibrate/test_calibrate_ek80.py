@@ -485,28 +485,43 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
     ("filename"),
     [
         ("hake2024_08152300-Phase0-D20240815-T234514-4.raw"),
-        ("hake2024_08152300-Phase0-D20240815-T233359-3.raw"),
+        ("DRIX08-D20231003-T120051.raw"),
+        ("NYOS2105-D20210525-T213648.raw"),
         ("ooi_multiplex.zarr"),
+        ("WBAT-EK80-TEST-0929-T233437.raw"),
+        ("Washington_shelf_june2025_simeltaneous-Phase0-D20250624-T000012-0.raw"),
     ],
 )
 def test_ek80_complex_FM_CW_interleave_dimensions(filename, ek80_multiplex_path):
-    # Open converted/raw file and calibrate both FM and CW
-    if filename.endswith(".zarr"):
-        ed = ep.open_converted(ek80_multiplex_path / filename)
-    else:
-        ed = ep.open_raw(ek80_multiplex_path / filename, sonar_model="EK80", use_swap=True)
-    ds_Sv_FM = ep.calibrate.compute_Sv(ed, waveform_mode="FM", encode_mode="complex")
-    ds_Sv_CW = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="complex")
+    print(ek80_multiplex_path)
+    for assume_single_filter_time in [True, False]:
+        # Open converted/raw file and calibrate both FM and CW
+        if filename.endswith(".zarr"):
+            ed = ep.open_converted(ek80_multiplex_path / filename)
+        else:
+            ed = ep.open_raw(ek80_multiplex_path / filename, sonar_model="EK80", use_swap=True)
+        ds_Sv_FM = ep.calibrate.compute_Sv(
+            ed,
+            waveform_mode="FM",
+            encode_mode="complex",
+            assume_single_filter_time=assume_single_filter_time
+        )
+        ds_Sv_CW = ep.calibrate.compute_Sv(
+            ed,
+            waveform_mode="CW",
+            encode_mode="complex",
+            assume_single_filter_time=assume_single_filter_time
+        )
 
-    # Check that FM Sv dimensions line up with Beam_group1
-    assert ed["Sonar/Beam_group1"]["channel"].equals(ds_Sv_FM["channel"])
-    assert ed["Sonar/Beam_group1"]["ping_time"].equals(ds_Sv_FM["ping_time"])
-    assert ed["Sonar/Beam_group1"]["range_sample"].equals(ds_Sv_FM["range_sample"])
+        # Check that FM Sv dimensions line up with Beam_group1
+        assert ed["Sonar/Beam_group1"]["channel"].equals(ds_Sv_FM["channel"])
+        assert ed["Sonar/Beam_group1"]["ping_time"].equals(ds_Sv_FM["ping_time"])
+        assert ed["Sonar/Beam_group1"]["range_sample"].equals(ds_Sv_FM["range_sample"])
 
-    # Check that CW Sv dimensions line up with Beam_group2
-    assert ed["Sonar/Beam_group2"]["channel"].equals(ds_Sv_CW["channel"])
-    assert ed["Sonar/Beam_group2"]["ping_time"].equals(ds_Sv_CW["ping_time"])
-    assert ed["Sonar/Beam_group2"]["range_sample"].equals(ds_Sv_CW["range_sample"])
+        # Check that CW Sv dimensions line up with Beam_group2
+        assert ed["Sonar/Beam_group2"]["channel"].equals(ds_Sv_CW["channel"])
+        assert ed["Sonar/Beam_group2"]["ping_time"].equals(ds_Sv_CW["ping_time"])
+        assert ed["Sonar/Beam_group2"]["range_sample"].equals(ds_Sv_CW["range_sample"])
 
 
 @pytest.mark.parametrize(

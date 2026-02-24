@@ -85,7 +85,11 @@ def _compute_cal(
         return cal_ds
 
     # Collapse vendor specific's filter time dimension
-    if assume_single_filter_time and "filter_time" in echodata_copy["Vendor_specific"].dims:
+    if (
+        assume_single_filter_time
+        and "filter_time" in echodata_copy["Vendor_specific"].dims
+        and len(echodata_copy["Vendor_specific"]["filter_time"]) > 1
+    ):
         ed_beam_group = retrieve_correct_beam_group(
             echodata=echodata_copy, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
@@ -94,7 +98,7 @@ def _compute_cal(
         channel_filter_time = {}
         for channel in transmit_duration_nominal_ds.channel.values:
             valid_ping_times = (
-                transmit_duration_nominal_ds.sel(channel=channel)
+                transmit_duration_nominal_ds.sel(channel=[channel])
                 .dropna(dim="ping_time")
                 .ping_time.values
             )
@@ -107,13 +111,13 @@ def _compute_cal(
             vendor_specific_collapsed_ds = vendor_specific_ds.sel(
                 filter_time=filter_time
             ).drop_vars("filter_time")
-            # Ensure that we do not remove channel as dimension
-            if len(vendor_specific_collapsed_ds["channel"]) > 1:
-                vendor_specific_collapsed_ds = vendor_specific_collapsed_ds.sel(channel=channel)
+            vendor_specific_collapsed_ds = vendor_specific_collapsed_ds.sel(channel=[channel])
             vendor_specific_collapsed_ds_list.append(vendor_specific_collapsed_ds)
 
         # Merge collapsed datasets and replace original Vendor specific
-        vendor_specific_collapsed_combined_ds = xr.merge(vendor_specific_collapsed_ds_list)
+        vendor_specific_collapsed_combined_ds = xr.merge(
+            vendor_specific_collapsed_ds_list, join="outer", compat="no_conflicts"
+        )
         echodata_copy["Vendor_specific"] = vendor_specific_collapsed_combined_ds
 
     if (
@@ -150,20 +154,13 @@ def _compute_cal(
                 # Subset echodata object to grab vendor values and ping times corresponding to
                 # the index's associated filter time
                 echodata_copy_copy["Vendor_specific"] = echodata_copy_copy["Vendor_specific"].sel(
-                    filter_time=filter_time
+                    filter_time=[filter_time]
                 )
 
-                # Subset for channel
+                # Subset for channel and ping time
                 echodata_copy_copy[ed_beam_group] = echodata_copy_copy[ed_beam_group].sel(
                     channel=[channel]
                 )
-
-                # We want to subset the beam group to calibrate for 1 specific set of calibration
-                # parameters, but this can get complicated:
-                # In the complex FM, CW, FM case, there will be a filter time that is specific
-                # to each recording. However, FM complex will be completely contained in
-                # Beam_group1, so there will be a gap in Beam_group1. The filter  time
-                # corresponding to the CW recording is the end time for the first FM recording.
                 start_time = filter_time
                 filter_times_subset_index = np.where(filter_times_subset == start_time)[0][0]
                 if filter_times_subset_index == len(filter_times_subset) - 1:
