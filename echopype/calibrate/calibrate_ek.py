@@ -39,7 +39,7 @@ def _collapse_vendor_specific(vendor_specific_ds, slice_dict):
     # slice the vendor specific dataset and merge the sliced datasets. This
     # results in a vendor specific dataset with a collapsed filter dimension.
     collapsed_ds_list = []
-    for channel, filter_time in slice_dict["channel_filter_time"].items():
+    for channel, filter_time in slice_dict["first_valid_filter_time_per_channel"].items():
         collapsed_ds = vendor_specific_ds.sel(channel=[channel], filter_time=filter_time).drop_vars(
             "filter_time"
         )
@@ -268,7 +268,7 @@ class CalibrateEK80(CalibrateEK):
         self.vend = self.echodata["Vendor_specific"]
         if "channel" in self.slice_dict:
             self.beam, self.vend = _slice_beam_vend(self.beam, self.vend, self.slice_dict)
-        if "channel_filter_time" in self.slice_dict:
+        if "first_valid_filter_time_per_channel" in self.slice_dict:
             self.vend = _collapse_vendor_specific(self.vend, self.slice_dict)
         else:
             self.vend = self.vend.sel(channel=self.beam.channel)

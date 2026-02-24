@@ -96,15 +96,15 @@ def _compute_cal(
         )
         transmit_duration_nominal_ds = echodata[ed_beam_group]["transmit_duration_nominal"]
         # Grab the first valid filter time for each channel
-        channel_filter_time = {}
+        first_valid_filter_time_per_channel = {}
         for channel in transmit_duration_nominal_ds.channel.values:
             valid_ping_times = (
                 transmit_duration_nominal_ds.sel(channel=[channel])
                 .dropna(dim="ping_time")
                 .ping_time.values
             )
-            channel_filter_time[channel] = valid_ping_times[0]
-        slice_dict["channel_filter_time"] = channel_filter_time
+            first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
+        slice_dict["first_valid_filter_time_per_channel"] = first_valid_filter_time_per_channel
 
     if (
         not assume_single_filter_time
@@ -117,7 +117,7 @@ def _compute_cal(
         # List to accumulate calibration datasets
         cal_ds_list = []
 
-        # Grab and calibrate for each valid channel and filter/ping time pairing
+        # Calibrate each valid channel and filter/ping time pairing
         valid = (
             echodata[ed_beam_group]["transmit_duration_nominal"]
             .stack(pairs=("channel", "ping_time"))
