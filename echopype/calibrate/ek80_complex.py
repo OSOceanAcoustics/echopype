@@ -244,7 +244,6 @@ def get_transmit_signal(
     # Generate all transmit replica
     y_all = {}
     y_time_all = {}
-    # TODO: expand to deal with the case with varying non-NaN tx param across ping_time
     tx_param_names = [
         "transmit_duration_nominal",
         "slope",

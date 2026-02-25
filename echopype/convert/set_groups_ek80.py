@@ -751,13 +751,8 @@ class SetGroupsEK80(SetGroupsBase):
         ch: str
             Channel id
         """
-
-        # pulse_form: 0 = CW and 1 = FM
-        fm_idx = np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 1
-        freq_start = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
-        freq_stop = np.ones(self.parser_obj.ping_time[ch].size) * np.nan
-        freq_start[fm_idx] = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
-        freq_stop[fm_idx] = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
+        freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
+        freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
 
         ds_f_start_end = xr.Dataset(
             {
@@ -775,7 +770,7 @@ class SetGroupsEK80(SetGroupsBase):
             coords={
                 "ping_time": (
                     ["ping_time"],
-                    self.parser_obj.ping_time[ch],
+                    ds_tmp["ping_time"].values,
                     self._varattrs["beam_coord_default"]["ping_time"],
                 ),
             },
@@ -830,8 +825,6 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
         )
-
-        ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
 
         return set_time_encodings(ds_tmp)
 
@@ -958,8 +951,6 @@ class SetGroupsEK80(SetGroupsBase):
                 }
             )
 
-        ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
-
         return set_time_encodings(ds_tmp)
 
     def _assemble_ds_common(self, ch, range_sample_size):
@@ -1069,8 +1060,10 @@ class SetGroupsEK80(SetGroupsBase):
     def merge_save(ds_combine: List[xr.Dataset], ds_invariant: xr.Dataset) -> xr.Dataset:
         """Merge data from all complex or all power/angle channels"""
         # Combine all channels into one Dataset
-        ds_combine = xr.concat(ds_combine, dim="channel", join="outer")
-
+        ds_combine = xr.concat(ds_combine, dim="channel", join="outer", data_vars="all")
+        # Merge ds invariant with ds combine based on which channels exist in ds combine since
+        # splitting CW complex and FM complex may drop channels in ds_combine
+        ds_invariant = ds_invariant.sel(channel=ds_combine["channel"])
         ds_combine = xr.merge(
             [ds_invariant, ds_combine], combine_attrs="override", join="outer"
         )  # override keeps the Dataset attributes
@@ -1154,8 +1147,15 @@ class SetGroupsEK80(SetGroupsBase):
             ds_data = self._assemble_ds_complex(ch)
             ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
             ds_data = _remove_duplicates(ds_data)
-            ds_complex_FM.append(ds_data.where(ds_data["transmit_type"] == "LFM", drop=True))
-            ds_complex_CW.append(ds_data.where(ds_data["transmit_type"] == "CW", drop=True))
+            # split FM
+            ds_complex_subset_FM = ds_data.where(ds_data["transmit_type"] == "LFM", drop=True)
+            if len(ds_complex_subset_FM["ping_time"]) > 0:
+                ds_complex_subset_FM = self._add_freq_start_end_ds(ds_complex_subset_FM, ch)
+                ds_complex_FM.append(ds_complex_subset_FM)
+            # split CW
+            ds_complex_subset_CW = ds_data.where(ds_data["transmit_type"] == "CW", drop=True)
+            if len(ds_complex_subset_CW["ping_time"]) > 0:
+                ds_complex_CW.append(ds_complex_subset_CW)
 
         # gather power channel data
         for ch in self.sorted_channel.get("power", []):
@@ -1166,12 +1166,18 @@ class SetGroupsEK80(SetGroupsBase):
 
         # merge datasets
         ds_beam_complex_FM = (
-            self.merge_save(ds_complex_FM, ds_invariant.get("complex")) if ds_complex_FM else None
+            self.merge_save(ds_complex_FM, ds_invariant.get("complex"))
+            if len(ds_complex_FM) > 0
+            else None
         )
         ds_beam_complex_CW = (
-            self.merge_save(ds_complex_CW, ds_invariant.get("complex")) if ds_complex_CW else None
+            self.merge_save(ds_complex_CW, ds_invariant.get("complex"))
+            if len(ds_complex_CW) > 0
+            else None
         )
-        ds_beam_power = self.merge_save(ds_power, ds_invariant.get("power")) if ds_power else None
+        ds_beam_power = (
+            self.merge_save(ds_power, ds_invariant.get("power")) if len(ds_power) > 0 else None
+        )
 
         # apply conventions
         for ds in [ds_beam_complex_FM, ds_beam_complex_CW, ds_beam_power]:
@@ -1185,87 +1191,6 @@ class SetGroupsEK80(SetGroupsBase):
             ds for ds in [ds_beam_complex_FM, ds_beam_complex_CW, ds_beam_power] if ds is not None
         ]
         return beam_groups
-
-        # TODO drop this once this has been fixed
-        """
-        # Assemble dataset for ping-invariant params
-        if self.sorted_channel["complex"]:
-            ds_invariant_complex = self._assemble_ds_ping_invariant(params, "complex")
-        if self.sorted_channel["power"]:
-            ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
-
-        # Assemble dataset for backscatter data and other ping-by-ping data
-        ds_complex = []
-        ds_power = []
-        for ch in self.sorted_channel["all"]:
-            if ch in self.sorted_channel["complex"]:
-                ds_data = self._assemble_ds_complex(ch)
-            elif ch in self.sorted_channel["power"]:
-                ds_data = self._assemble_ds_power(ch)
-            else:  # skip for channels containing no data
-                continue
-
-            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
-
-            # Access the 'ping_time' coordinate as a NumPy array
-            ping_times = ds_data["ping_time"].values
-
-            # Check if ping time duplicates exist
-            if len(ping_times) > len(np.unique(ping_times)):
-                # Check for unique ping time duplicates and if they are not unique, raise warning.
-                check_unique_ping_time_duplicates(ds_data, logger)
-
-                # Drop duplicates
-                ds_data = ds_data.drop_duplicates(dim="ping_time")
-
-            if ch in self.sorted_channel["complex"]:
-                ds_complex.append(ds_data)
-            else:
-                ds_power.append(ds_data)
-
-        # Merge and save group(s):
-        # Four cases:
-        # If only one of complex or power data exist: Place in /Sonar/Beam_group1
-        # If only one of complex FM and complex CW and power data exist: Complex in
-        # /Sonar/Beam_group1 and power in /Sonar/Beam_group2.
-        # If complex FM and complex CW data exist: Complex FM in /Sonar/Beam_group1
-        # and complex CW in /Sonar/Beam_group2
-        # If complex FM, complex CW, and power data exist: Complex FM in
-        # /Sonar/Beam_group1, complex CW in /Sonar/Beam_group2, and
-        # power in /Sonar/Beam_group3.
-        ds_beam_power = None
-        if len(ds_complex) > 0:
-            ds_beam = self.merge_save(ds_complex, ds_invariant_complex)
-            if len(ds_power) > 0:
-                ds_beam_power = self.merge_save(ds_power, ds_invariant_power)
-        else:
-            ds_beam = self.merge_save(ds_power, ds_invariant_power)
-
-        # Manipulate some Dataset dimensions to adhere to convention
-        if isinstance(ds_beam_power, xr.Dataset):
-            self.beam_groups_to_convention(
-                ds_beam_power,
-                self.beam_only_names,
-                self.beam_ping_time_names,
-                self.ping_time_only_names,
-            )
-
-        self.beam_groups_to_convention(
-            ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
-        )
-
-        if "CW" in ds_beam["transmit_type"] and ("LFM" in ds_beam["transmit_type"]):
-            # Create BB and CW masks and select beam subsets from mask coordinates
-            mask_BB = ds_beam["transmit_type"].isin(["LFM"])
-            mask_BB = mask_BB.where(mask_BB, drop=True)
-            mask_CW = ds_beam["transmit_type"] == "CW"
-            mask_CW = mask_CW.where(mask_CW, drop=True)
-            ds_beam_BB = ds_beam.sel(channel=mask_BB["channel"], ping_time=mask_BB["ping_time"])
-            ds_beam_CW = ds_beam.sel(channel=mask_CW["channel"], ping_time=mask_CW["ping_time"])
-            return [ds_beam_BB, ds_beam_CW, ds_beam_power]
-        else:
-            return [ds_beam, ds_beam_power]
-        """
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""
@@ -1420,7 +1345,7 @@ class SetGroupsEK80(SetGroupsBase):
                 "long_name"
             ] = "ID of channels containing broadband calibration information"
             ds_cal.append(ds_ch)
-        ds_cal = xr.merge(ds_cal, join="outer")
+        ds_cal = xr.merge(ds_cal, join="outer", compat="no_conflicts")
 
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
