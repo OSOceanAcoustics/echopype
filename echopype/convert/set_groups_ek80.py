@@ -1392,13 +1392,14 @@ class SetGroupsEK80(SetGroupsBase):
         ds = ds.assign_coords({"filter_time": np.unique(fil["timestamp"])})
 
         # Create empty coefficient DataArrays
-        coeffs_stage_num_max_length_dict = {1: 0, 2: 0}
-        for filter_time in fil["timestamp"]:
-            for ch in self.sorted_channel["all"]:
-                for stage_num in stage_type.keys():
-                    coeff_length = len(fil.get((ch, stage_num, "coeffs", filter_time), []))
-                    if coeff_length > coeffs_stage_num_max_length_dict[stage_num]:
-                        coeffs_stage_num_max_length_dict[stage_num] = coeff_length
+        coeffs_stage_num_max_length_dict = {}
+        for stage_num in stage_type:
+            lengths = []
+            for filter_time in fil["timestamp"]:
+                for ch in self.sorted_channel["all"]:
+                    lengths.append(len(fil.get((ch, stage_num, "coeffs", filter_time), [])))
+            coeffs_stage_num_max_length_dict[stage_num] = max(lengths, default=0)
+
         empty_WBT_coeffs_da = xr.DataArray(
             np.full(
                 (len(ds["channel"]), len(ds["filter_time"]), coeffs_stage_num_max_length_dict[1]),
