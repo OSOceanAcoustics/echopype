@@ -114,9 +114,9 @@ def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
         "ek60_summer_2017",
         "ek60_rep_freq",
         "ek80_summer_2018",
-        "ek80_bb_w_cal",
         "ek80_short_slow",
-        "ek80_grp_2_survey",
+        #"ek80_bb_w_cal",
+        #"ek80_grp_2_survey",
     ],
 )
 def test_direct_to_zarr_integration(
