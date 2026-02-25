@@ -136,7 +136,6 @@ def _compute_cal(
             ):
                 end_time = None if next_time is None else next_time - np.timedelta64(1, "ns")
 
-                # Place in dictionary
                 slice_dict["filter_time"] = start_time
                 slice_dict["channel"] = channel
                 slice_dict["beam_group_start_time"] = start_time
@@ -144,7 +143,7 @@ def _compute_cal(
 
                 # Calibrate and drop filter_time
                 cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
-                cal_ds_list.append(cal_ds_iteration)
+                cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
 
         # Merge across both channel and ping time dimensions
         cal_ds = xr.merge(
@@ -155,8 +154,6 @@ def _compute_cal(
     else:
         # Compute a single calibration dataset
         cal_ds = _compute_cal_ds(echodata, slice_dict)
-        if "filter_time" in cal_ds:
-            cal_ds = cal_ds.drop_vars("filter_time")
 
     # Add attributes
     def _add_attrs(cal_type, ds):

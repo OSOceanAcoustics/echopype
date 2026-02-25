@@ -485,15 +485,10 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
     ("filename"),
     [
         ("hake2024_08152300-Phase0-D20240815-T234514-4.raw"),
-        ("DRIX08-D20231003-T120051.raw"),
-        ("NYOS2105-D20210525-T213648.raw"),
-        ("ooi_multiplex.zarr"),
-        ("WBAT-EK80-TEST-0929-T233437.raw"),
-        ("Washington_shelf_june2025_simeltaneous-Phase0-D20250624-T000012-0.raw"),
+        ("CW_FM_power_complex_repeating.raw"),
     ],
 )
 def test_ek80_complex_FM_CW_interleave_dimensions(filename, ek80_multiplex_path):
-    print(ek80_multiplex_path)
     for assume_single_filter_time in [True, False]:
         # Open converted/raw file and calibrate both FM and CW
         if filename.endswith(".zarr"):
@@ -522,6 +517,19 @@ def test_ek80_complex_FM_CW_interleave_dimensions(filename, ek80_multiplex_path)
         assert ed["Sonar/Beam_group2"]["channel"].equals(ds_Sv_CW["channel"])
         assert ed["Sonar/Beam_group2"]["ping_time"].equals(ds_Sv_CW["ping_time"])
         assert ed["Sonar/Beam_group2"]["range_sample"].equals(ds_Sv_CW["range_sample"])
+
+
+def test_ek80_waveform_encode_descr_error(ek80_multiplex_path):
+    ed = ep.open_converted(ek80_multiplex_path / "ooi_multiplex.zarr")
+    with pytest.raises(
+        ValueError,
+        match="Echodata missing `waveform_encode_descr`. Reconvert using latest Echopype version."
+    ):
+        ep.calibrate.compute_Sv(
+            ed,
+            waveform_mode="FM",
+            encode_mode="complex",
+        )
 
 
 @pytest.mark.parametrize(

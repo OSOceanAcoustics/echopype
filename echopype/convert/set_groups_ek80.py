@@ -268,14 +268,25 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             ),
         }
+
+        # Extract beam group mapping that was set in `set_beam`
+        beam_group_indices = list(self.beam_group_map.keys())
+        waveform_encode_modes = list(self.beam_group_map.values())
+
+        # Construct sonar dataset
         ds = xr.Dataset(
-            {**sonar_vars, **beam_groups_vars},
+            {
+                **sonar_vars,
+                **beam_groups_vars,
+                **{"waveform_encode_descr": ("beam_group_index", waveform_encode_modes)},
+            },
             coords={
                 "channel_all": (
                     ["channel_all"],
                     self.sorted_channel["all"],
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
+                "beam_group_index": beam_group_indices,
                 **beam_groups_coord,
             },
         )
@@ -1186,10 +1197,27 @@ class SetGroupsEK80(SetGroupsBase):
                     ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
                 )
 
-        # return beam groups
+        # store the mapping in self
+        self.beam_group_map = {
+            i + 1: name
+            for i, (name, _) in enumerate(
+                [
+                    (n, d)
+                    for n, d in [
+                        ("complex_FM", ds_beam_complex_FM),
+                        ("complex_CW", ds_beam_complex_CW),
+                        ("power", ds_beam_power),
+                    ]
+                    if d is not None
+                ]
+            )
+        }
+
+        # return datasets in order
         beam_groups = [
             ds for ds in [ds_beam_complex_FM, ds_beam_complex_CW, ds_beam_power] if ds is not None
         ]
+
         return beam_groups
 
     def set_vendor(self) -> xr.Dataset:

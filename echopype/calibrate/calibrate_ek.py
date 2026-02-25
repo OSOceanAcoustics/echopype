@@ -30,7 +30,7 @@ def _slice_beam_vend(beam, vend, slice_dict):
             slice_dict["beam_group_end_time"],
         ),
     )
-    vend = vend.sel(filter_time=[slice_dict["filter_time"]])
+    vend = vend.sel(filter_time=slice_dict["filter_time"])
     return beam, vend
 
 
