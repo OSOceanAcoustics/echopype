@@ -395,8 +395,8 @@ def test_convert_ek80_freq_subset(ek80_path):
     )
     echodata = open_raw(raw_file=ek80_raw_path_freq_subset, sonar_model='EK80')
 
-    # Check if converted output has only 2 frequency channels
-    assert echodata["Sonar/Beam_group1"].channel.size == 2
+    # Check if converted output has only 1 frequency channels
+    assert echodata["Sonar/Beam_group1"].channel.size == 1
 
     # check platform
     nan_plat_vars = [
@@ -478,7 +478,7 @@ def test_skip_ec150(ek80_path):
     assert "backscatter_i" in echodata["Sonar/Beam_group1"].data_vars
     assert (
         echodata["Sonar/Beam_group1"].sizes
-        == {'channel_all': 1, 'beam_group': 1, 'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
+        == {'channel_all': 1, 'beam_group': 1, 'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4, 'beam_group_index': 1}
     )
 
 
@@ -646,21 +646,21 @@ def test_ek80_sequence_filter_coeff(ek80_sequence_path):
 
     # Check that one channel is filter coeff are all NaN
     assert (
-        ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel").sizes
-        == {'channel': 1, 'WBT_filter_n': 191}
+        ed["Vendor_specific"]["WBT_coeffs_imag"].dropna(dim="channel").sizes
+        == {'channel': 1, 'filter_time': 17, 'WBT_filter_n': 191}
     )
     assert (
-        ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel").sizes
-        == {'channel': 1, 'PC_filter_n': 63}
+        ed["Vendor_specific"]["PC_coeffs_imag"].dropna(dim="channel").sizes
+        == {'channel': 1, 'filter_time': 17, 'PC_filter_n': 63}
     )
-    assert np.isnan(ed["Vendor_specific"]["PC_decimation"].values[0])
-    assert ed["Vendor_specific"]["PC_decimation"].values[1] == 2
+    assert np.all(np.isnan(ed["Vendor_specific"]["PC_deci_fac"].values[0]))
+    assert np.all(ed["Vendor_specific"]["PC_deci_fac"].values[1] == 2)
 
-    assert np.isnan(ed["Vendor_specific"]["WBT_decimation"].values[0])
-    assert ed["Vendor_specific"]["WBT_decimation"].values[1] == 6
+    assert np.all(np.isnan(ed["Vendor_specific"]["WBT_deci_fac"].values[0]))
+    assert np.all(ed["Vendor_specific"]["WBT_deci_fac"].values[1] == 6)
 
     # Check that calibration can run and that its channel matches that of the non-NaN vendor
     # specific filter channel since that is the one associated with the complex calibration
     ds_Sv = compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
-    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_filter_i"].dropna(dim="channel")["channel"])
-    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_filter_i"].dropna(dim="channel")["channel"])
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_coeffs_imag"].dropna(dim="channel")["channel"])
+    assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_coeffs_imag"].dropna(dim="channel")["channel"])

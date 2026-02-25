@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import numpy as np
 import pandas as pd
@@ -25,6 +27,11 @@ def ek80_ext_path(test_path):
 def ek80_multiplex_path(test_path):
     return test_path["EK80_MULTIPLEX"]
 
+@pytest.fixture
+def ek80_multiplex_path(test_path):
+    return test_path["EK80_MULTI"]
+
+
 def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     """
     Test transmit chirp reconstruction against Andersen et al. 2021/pyEcholab implementation
@@ -46,16 +53,16 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     )
     fs = cal_obj.cal_params["receiver_sampling_frequency"]
     filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(
-        ed["Vendor_specific"].sel(channel=cal_obj.chan_sel)
+        ed["Vendor_specific"].sel(channel=ed["Sonar/Beam_group1"]["channel"])
     )
     tx, tx_time = ep.calibrate.ek80_complex.get_transmit_signal(
-        ed["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel), filter_coeff, waveform_mode, fs
+        ed["Sonar/Beam_group1"].sel(channel=ed["Sonar/Beam_group1"]["channel"]), filter_coeff, waveform_mode, fs, drop_last_hanning_zero=True,
     )
     tau_effective = ep.calibrate.ek80_complex.get_tau_effective(
         ytx_dict=tx,
         fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
         waveform_mode=cal_obj.waveform_mode,
-        channel=cal_obj.chan_sel,
+        channel=ed["Sonar/Beam_group1"]["channel"],
         ping_time=cal_obj.echodata["Sonar/Beam_group1"]["ping_time"],
     )
 
@@ -87,7 +94,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
 
 def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     """
-    Test power from pulse compressed BB data
+    Test calibration-related parameters against pyEcholab implementation
     """
     ek80_raw_path = (
         ek80_cal_path / "2018115-D20181213-T094600.raw"
@@ -153,6 +160,9 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
 
 
 def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
+    """
+    Test computed range against pyEcholab implementation
+    """
     ek80_raw_path = (
         ek80_cal_path / "2018115-D20181213-T094600.raw"
     )  # rx impedance / rx fs / tcvr type
@@ -179,6 +189,7 @@ def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     ep_vals = cal_obj.range_meter.sel(channel=ch_sel).isel(ping_time=0).data
     pyel_vals = pyel_BB_p_data["range"]
     assert np.allclose(pyel_vals, ep_vals)
+
 
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
@@ -207,6 +218,10 @@ def test_ek80_BB_power_from_complex(
     dask_array,
     request,
 ):
+    """
+    Test power from pulse compressed BB data against pyEcholab implementation
+    """    
+
     raw_data_path = request.getfixturevalue(raw_data_path)
     ek80_raw_path = raw_data_path / raw_file_name  # rx impedance / rx fs / tcvr type
 
@@ -224,17 +239,18 @@ def test_ek80_BB_power_from_complex(
         encode_mode=encode_mode,
         env_params={"formula_absorption": "FG"},
         cal_params=None,
+        drop_last_hanning_zero=True,
     )
 
     # Params needed
-    beam = cal_obj.echodata[cal_obj.ed_beam_group].sel(channel=cal_obj.chan_sel)
+    beam = cal_obj.echodata[cal_obj.ed_beam_group]
     z_er = cal_obj.cal_params["impedance_transceiver"]
     z_et = cal_obj.cal_params["impedance_transducer"]
     fs = cal_obj.cal_params["receiver_sampling_frequency"]
     filter_coeff = ep.calibrate.ek80_complex.get_filter_coeff(
-        ed["Vendor_specific"].sel(channel=cal_obj.chan_sel)
+        ed["Vendor_specific"].sel(channel=beam["channel"])
     )
-    tx, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs)
+    tx, _ = ep.calibrate.ek80_complex.get_transmit_signal(beam, filter_coeff, waveform_mode, fs, drop_last_hanning_zero=True)
 
     # Get power from complex samples
     prx = cal_obj._get_power_from_complex(beam=beam, chirp=tx, z_et=z_et, z_er=z_er).compute()
@@ -254,6 +270,7 @@ def test_ek80_BB_power_from_complex(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
     )
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
+
 
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
@@ -282,6 +299,10 @@ def test_ek80_BB_power_compute_Sv(
     dask_array,
     request,
 ):
+    """
+    Test Sv computed from pulse compressed BB data against pyEcholab implementation
+    """    
+
     raw_data_path = request.getfixturevalue(raw_data_path)
     ek80_raw_path = raw_data_path / raw_file_name  # rx impedance / rx fs / tcvr type
 
@@ -307,6 +328,7 @@ def test_ek80_BB_power_compute_Sv(
         ed,
         waveform_mode=waveform_mode,
         encode_mode=encode_mode,
+        drop_last_hanning_zero=True,
     )
     pyel_vals = pyel_BB_p_data["sv_data"]
     if dask_array:
@@ -340,17 +362,19 @@ def test_ek80_BB_power_echoview(ek80_path):
         cal_params=None,
         waveform_mode="BB",
         encode_mode="complex",
+        drop_last_hanning_zero=True,
     )
-    beam = echodata["Sonar/Beam_group1"].sel(channel=cal_obj.chan_sel)
+    beam = echodata["Sonar/Beam_group1"]
 
     coeff = ep.calibrate.ek80_complex.get_filter_coeff(
-        echodata["Vendor_specific"].sel(channel=cal_obj.chan_sel)
+        echodata["Vendor_specific"].sel(channel=beam["channel"])
     )
     chirp, _ = ep.calibrate.ek80_complex.get_transmit_signal(
         beam,
         coeff,
         "BB",
         cal_obj.cal_params["receiver_sampling_frequency"],
+        drop_last_hanning_zero=True,
     )
 
     pc = ep.calibrate.ek80_complex.compress_pulse(
@@ -374,6 +398,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     ep_vals = pc_mean.values.real[:, :]
     assert np.allclose(ev_vals[:, 69:], ep_vals[:, 69:], atol=1e-4)
     assert np.allclose(ev_vals[:, 90:], ep_vals[:, 90:], atol=1e-4)
+
 
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))
@@ -454,3 +479,183 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
         target_channel_ping_pattern,
         equal_nan=True
     )
+
+
+@pytest.mark.parametrize(
+    ("filename"),
+    [
+        ("hake2024_08152300-Phase0-D20240815-T234514-4.raw"),
+        ("CW_FM_power_complex_repeating.raw"),
+    ],
+)
+def test_ek80_complex_FM_CW_interleave_dimensions(filename, ek80_multiplex_path):
+    for assume_single_filter_time in [True, False]:
+        # Open converted/raw file and calibrate both FM and CW
+        if filename.endswith(".zarr"):
+            ed = ep.open_converted(ek80_multiplex_path / filename)
+        else:
+            ed = ep.open_raw(ek80_multiplex_path / filename, sonar_model="EK80", use_swap=True)
+        ds_Sv_FM = ep.calibrate.compute_Sv(
+            ed,
+            waveform_mode="FM",
+            encode_mode="complex",
+            assume_single_filter_time=assume_single_filter_time
+        )
+        ds_Sv_CW = ep.calibrate.compute_Sv(
+            ed,
+            waveform_mode="CW",
+            encode_mode="complex",
+            assume_single_filter_time=assume_single_filter_time
+        )
+
+        # Check that FM Sv dimensions line up with Beam_group1
+        assert ed["Sonar/Beam_group1"]["channel"].equals(ds_Sv_FM["channel"])
+        assert ed["Sonar/Beam_group1"]["ping_time"].equals(ds_Sv_FM["ping_time"])
+        assert ed["Sonar/Beam_group1"]["range_sample"].equals(ds_Sv_FM["range_sample"])
+
+        # Check that CW Sv dimensions line up with Beam_group2
+        assert ed["Sonar/Beam_group2"]["channel"].equals(ds_Sv_CW["channel"])
+        assert ed["Sonar/Beam_group2"]["ping_time"].equals(ds_Sv_CW["ping_time"])
+        assert ed["Sonar/Beam_group2"]["range_sample"].equals(ds_Sv_CW["range_sample"])
+
+
+def test_ek80_waveform_encode_descr_error(ek80_multiplex_path):
+    ed = ep.open_converted(ek80_multiplex_path / "ooi_multiplex.zarr")
+    with pytest.raises(
+        ValueError,
+        match="Echodata missing `waveform_encode_descr`. Reconvert using latest Echopype version."
+    ):
+        ep.calibrate.compute_Sv(
+            ed,
+            waveform_mode="FM",
+            encode_mode="complex",
+        )
+
+
+@pytest.mark.parametrize(
+    ("sonar_model", "compute_type", "waveform_mode", "encode_mode"),
+    [
+        ("EK80", "Sv", "CW", "complex"),
+        ("EK80", "TS", "CW", "complex"),
+        ("EK80", "Sv", "CW", "power"),
+        ("EK80", "TS", "CW", "power"),
+        ("EK60", "Sv", None, None),
+        ("EK60", "TS", None, None)
+    ],
+)
+def test_assume_single_filter_time(sonar_model, compute_type, waveform_mode, encode_mode, ek80_path):
+    if sonar_model == "EK80":
+        if encode_mode == "complex":
+            ek80_raw_path = str(
+                ek80_path.joinpath("ar2.0-D20201210-T000409.raw")
+            )
+        else:
+            ek80_raw_path = str(
+                ek80_path.joinpath("Summer2018--D20180905-T033113.raw")
+            )
+        # Read echodata object with Vendor specific dataset containing a single filter time
+        ed = ep.open_raw(ek80_raw_path, sonar_model=sonar_model)
+
+        # Modify Vendor specific to have two filter times
+        vendor_specific_ds = ed["Vendor_specific"]
+        vendor_specific_ds = xr.concat(
+            [vendor_specific_ds, vendor_specific_ds],
+            dim="filter_time"
+        )
+        first_time = vendor_specific_ds.coords["filter_time"].values[0]
+        new_times = [first_time, pd.to_datetime(first_time) + pd.Timedelta(seconds=10)]
+        vendor_specific_ds = vendor_specific_ds.assign_coords(filter_time=("filter_time", new_times))
+        ed["Vendor_specific"] = vendor_specific_ds
+    else:
+        ek60_path = Path(str(ek80_path).replace("80", "60"))
+        ek60_raw_path = str(
+            ek60_path.joinpath("DY1801_EK60-D20180211-T164025.raw")
+        )
+        # Read echodata object from EK60 raw file with no transmit parameters
+        ed = ep.open_raw(ek60_raw_path, sonar_model=sonar_model)
+
+    # Run calibration
+    if encode_mode == "complex":
+        if compute_type == "Sv":
+            ep.calibrate.compute_Sv(
+                ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+            )
+        else:
+            ep.calibrate.compute_TS(
+                ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+            )
+    else:
+        # Check that the correct value error is raised with encode mode power
+        with pytest.raises(
+            ValueError,
+            match="assume_single_filter_time can only be used on complex EK80 data."
+        ):
+            if compute_type == "Sv":
+                ep.calibrate.compute_Sv(
+                    ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+                )
+            else:
+                ep.calibrate.compute_TS(
+                    ed, waveform_mode=waveform_mode, encode_mode=encode_mode, assume_single_filter_time=True,
+                )
+
+
+@pytest.mark.parametrize(
+    ("compute_type"),
+    [
+        ("Sv"),
+        ("TS")
+    ],
+)
+def test_multiple_filter_times_calibration(compute_type, ek80_path):
+    # Select raw path
+    ek80_raw_path = str(
+        ek80_path.joinpath("ar2.0-D20201210-T000409.raw")
+    )
+
+    # Read echodata object with Vendor specific dataset containing a single filter time
+    ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+
+    # Create copy
+    ed_copy = ed.copy()
+
+    # Modify Vendor specific to have two filter times
+    vendor_specific_ds = ed_copy["Vendor_specific"]
+    vendor_specific_ds = xr.concat(
+        [vendor_specific_ds, vendor_specific_ds],
+        dim="filter_time"
+    )
+    first_time = vendor_specific_ds.coords["filter_time"].values[0]
+    second_time = ed["Sonar/Beam_group1"]["ping_time"].values[30]
+    new_times = [first_time, second_time]
+    vendor_specific_ds = vendor_specific_ds.assign_coords(filter_time=("filter_time", new_times))
+    ed_copy["Vendor_specific"] = vendor_specific_ds
+
+    # Calibrate for both echodata objects and when assume_filter_time=True
+    # and check that all 3 are equal (after filter_times is dropped)
+    if compute_type == "Sv":
+        ds_cal = ep.calibrate.compute_Sv(
+            ed, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_copy = ep.calibrate.compute_Sv(
+            ed_copy, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_assume_single_filter_time = ep.calibrate.compute_Sv(
+            ed_copy, waveform_mode="CW",
+            encode_mode="complex",
+            assume_single_filter_time=True
+        )
+    else:
+        ds_cal = ep.calibrate.compute_TS(
+            ed, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_copy = ep.calibrate.compute_TS(
+            ed_copy, waveform_mode="CW", encode_mode="complex"
+        )
+        ds_cal_assume_single_filter_time = ep.calibrate.compute_TS(
+            ed_copy, waveform_mode="CW",
+            encode_mode="complex",
+            assume_single_filter_time=True
+        )
+    assert ds_cal.equals(ds_cal_copy)
+    assert ds_cal.equals(ds_cal_assume_single_filter_time)

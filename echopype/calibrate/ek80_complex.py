@@ -15,6 +15,7 @@ def tapered_chirp(
     slope,
     transmit_frequency_start,
     transmit_frequency_stop,
+    drop_last_hanning_zero=False,
 ):
     """
     Create the chirp replica following implementation from Lars Anderson.
@@ -35,7 +36,10 @@ def tapered_chirp(
     w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(0, L, 1) / (L - 1)))
     N = len(y)
     w1 = w[0 : int(len(w) / 2)]
-    w2 = w[int(len(w) / 2) : -1]
+    if drop_last_hanning_zero:
+        w2 = w[int(len(w) / 2) : -1]
+    else:
+        w2 = w[int(len(w) / 2) :]
     i0 = 0
     i1 = len(w1)
     i2 = N - len(w2)
@@ -136,6 +140,11 @@ def get_filter_coeff(vend: xr.Dataset) -> Dict:
         A dictionary indexed by ``channel`` and values being dictionaries containing
         filter coefficients and decimation factors for constructing the transmit replica.
     """
+    # Select first index of filter time, which is of length 1. This ensures that the
+    # coefficient and decimation arrays are of shape (n,) instead of shape (1, n,).
+    if "filter_time" in vend.dims:
+        vend = vend.isel(filter_time=0)
+
     coeff = defaultdict(dict)
     for ch_id in vend["channel"].values:
         # filter coefficients and decimation factor
@@ -201,6 +210,7 @@ def get_transmit_signal(
     coeff: Dict,
     waveform_mode: str,
     fs: Union[float, xr.DataArray],
+    drop_last_hanning_zero: bool = False,
 ):
     """Reconstruct transmit signal and compute effective pulse length.
 
@@ -214,6 +224,10 @@ def get_transmit_signal(
     waveform_mode : str
         ``CW`` for CW-mode samples, either recorded as complex or power samples
         ``BB`` for BB-mode samples, recorded as complex samples
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
 
     Return
     ------
@@ -230,7 +244,6 @@ def get_transmit_signal(
     # Generate all transmit replica
     y_all = {}
     y_time_all = {}
-    # TODO: expand to deal with the case with varying non-NaN tx param across ping_time
     tx_param_names = [
         "transmit_duration_nominal",
         "slope",
@@ -239,16 +252,23 @@ def get_transmit_signal(
     ]
     for ch in beam["channel"].values:
         tx_params = {}
+        fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
         for p in tx_param_names:
-            # Extract beam values and filter out NaNs
-            beam_values = np.unique(beam[p].sel(channel=ch))
-            # Filter out NaN values
-            beam_values_without_nan = beam_values[~np.isnan(beam_values)]
-            tx_params[p] = beam_values_without_nan
+            if waveform_mode == "CW" and p in [
+                "transmit_frequency_start",
+                "transmit_frequency_stop",
+            ]:
+                tx_params[p] = fs_chan
+            else:
+                # Extract beam values and filter out NaNs
+                beam_values = np.unique(beam[p].sel(channel=ch))
+                # Filter out NaN values
+                beam_values_without_nan = beam_values[~np.isnan(beam_values)]
+                tx_params[p] = beam_values_without_nan
             if tx_params[p].size != 1:
                 raise TypeError("File contains changing %s!" % p)
-        fs_chan = fs.sel(channel=ch).data if isinstance(fs, xr.DataArray) else fs
         tx_params["fs"] = fs_chan
+        tx_params["drop_last_hanning_zero"] = drop_last_hanning_zero
         y_ch, _ = tapered_chirp(**tx_params)
         # Filter and decimate chirp template
         y_ch, y_tmp_time = filter_decimate_chirp(coeff_ch=coeff[ch], y_ch=y_ch, fs=fs_chan)

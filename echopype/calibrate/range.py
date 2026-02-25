@@ -3,7 +3,6 @@ from typing import Dict
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import retrieve_correct_beam_group
 from .env_params import harmonize_env_param_time
 
 DIMENSION_ORDER = ["channel", "ping_time", "range_sample"]
@@ -97,59 +96,32 @@ def compute_range_AZFP(echodata: EchoData, env_params: Dict, cal_type: str) -> x
 
 
 def compute_range_EK(
-    echodata: EchoData,
+    sonar_model: str,
+    beam: xr.Dataset,
     env_params: Dict,
-    waveform_mode: str = "CW",
-    encode_mode: str = "power",
-    chan_sel=None,
 ):
     """
     Computes the range (``echo_range``) of EK backscatter data in meters.
 
     Parameters
     ----------
-    echodata : EchoData
-        An EchoData object holding data from an AZFP echosounder
+    sonar_model : str
+        Sonar model.
+    beam : xr.Dataset
+        Beam group dataset that contains range information.
     env_params : dict
         A dictionary holding environmental parameters needed for computing range
         See echopype.calibrate.env_params.get_env_params_EK
-    waveform_mode : {"CW", "BB"}
-        Type of transmit waveform.
-        Required only for data from the EK80 echosounder.
-
-        - `"CW"` for narrowband transmission,
-            returned echoes recorded either as complex or power/angle samples
-        - `"BB"` for broadband transmission,
-            returned echoes recorded as complex samples
-
-    encode_mode : {"complex", "power"}
-        Type of encoded data format.
-        Required only for data from the EK80 echosounder.
-
-        - `"complex"` for complex samples
-        - `"power"` for power/angle samples, only allowed when
-          the echosounder is configured for narrowband transmission
 
     Returns
     -------
     xr.DataArray
         The range (``echo_range``) of the data in meters.
-
-    Notes
-    -----
-    The EK80 echosounder can be configured to transmit
-    either broadband (``waveform_mode="BB"``) or narrowband (``waveform_mode="CW"``) signals.
-    When transmitting in broadband mode, the returned echoes must be
-    encoded as complex samples (``encode_mode="complex"``).
-    When transmitting in narrowband mode, the returned echoes can be encoded
-    either as complex samples (``encode_mode="complex"``)
-    or as power/angle combinations (``encode_mode="power"``) in a format
-    similar to those recorded by EK60 echosounders (the "power/angle" format).
     """
     # sound_speed should exist already
-    if echodata.sonar_model in ("EK60", "ES70"):
+    if sonar_model in ("EK60", "ES70"):
         ek_str = "EK60"
-    elif echodata.sonar_model in ("EK80", "ES80", "EA640"):
+    elif sonar_model in ("EK80", "ES80", "EA640"):
         ek_str = "EK80"
     else:
         raise ValueError("The specified sonar_model is not supported!")
@@ -161,14 +133,6 @@ def compute_range_EK(
         )
     else:
         sound_speed = env_params["sound_speed"]
-
-    # Get the right Sonar/Beam_groupX group according to encode_mode
-    ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
-    beam = (
-        echodata[ed_beam_group]
-        if chan_sel is None
-        else echodata[ed_beam_group].sel(channel=chan_sel)
-    )
 
     # Range in meters, not modified for TVG compensation
     range_meter = beam["range_sample"] * beam["sample_interval"] * sound_speed / 2
@@ -194,7 +158,11 @@ def compute_range_EK(
 
 
 def range_mod_TVG_EK(
-    echodata: EchoData, ed_beam_group: str, range_meter: xr.DataArray, sound_speed: xr.DataArray
+    sonar_model: str,
+    beam: xr.Dataset,
+    vend: xr.Dataset,
+    range_meter: xr.DataArray,
+    sound_speed: xr.DataArray,
 ) -> xr.DataArray:
     """
     Modify range for TVG calculation.
@@ -215,17 +183,14 @@ def range_mod_TVG_EK(
             mod = mod.squeeze().drop_vars("time1")
         return mod
 
-    beam = echodata[ed_beam_group]
-    vend = echodata["Vendor_specific"]
-
     # If EK60
-    if echodata.sonar_model in ["EK60", "ES70"]:
+    if sonar_model in ["EK60", "ES70"]:
         range_meter = range_meter - mod_Ex60()
 
     # If EK80:
     # - compute range first assuming all channels have Ex80 style hardware
     # - change range for channels with Ex60 style hardware (GPT)
-    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
+    elif sonar_model in ["EK80", "ES80", "EA640"]:
         range_meter = range_meter - mod_Ex80()
 
         # Change range for all channels with GPT

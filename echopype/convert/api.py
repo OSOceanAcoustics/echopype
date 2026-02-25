@@ -519,8 +519,8 @@ def open_raw(
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
             # fill in beam_group_type (only necessary for EK80, ES80, EA640)
-            if idx == 1:
-                # choose the appropriate description key for Beam_group1
+            if idx in [1, 2]:
+                # choose the appropriate description key for Beam_group1 and Beam_group2
                 beam_group_type.append("complex" if "backscatter_i" in beam_group else "power")
             else:
                 # provide None for all other beam groups (since the description does not have a key)

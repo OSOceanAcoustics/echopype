@@ -350,6 +350,7 @@ def add_splitbeam_angle(
     pulse_compression: bool = False,
     storage_options: dict = {},
     to_disk: bool = True,
+    drop_last_hanning_zero: bool = False,
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
@@ -391,6 +392,11 @@ def add_splitbeam_angle(
         If ``False``, ``to_disk`` with split-beam angles added will be returned.
         ``to_disk=True`` is useful when ``source_Sv`` is a path and
         users only want to write the split-beam angle data to this path.
+
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
 
     Returns
     -------
@@ -504,6 +510,10 @@ def add_splitbeam_angle(
                 echodata["Vendor_specific"].sel(channel=source_Sv["channel"].values)
             )
             pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
+
+            # Add dictionary entry to keep/drop last hanning window's zero value
+            pc_params["drop_last_hanning_zero"] = drop_last_hanning_zero
+
             theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params)
         else:  # without pulse compression
             # operation is identical with CW complex data

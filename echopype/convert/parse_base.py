@@ -75,8 +75,7 @@ class ParseEK(ParseBase):
         self.nmea = defaultdict(list)  # Dictionary to store NMEA data(timestamp and string)
         self.mru0 = defaultdict(list)  # Dictionary to store MRU0 data (heading, pitch, roll, heave)
         self.mru1 = defaultdict(list)  # Dictionary to store MRU1 data (latitude, longitude)
-        self.fil_coeffs = defaultdict(dict)  # Dictionary to store PC and WBT coefficients
-        self.fil_df = defaultdict(dict)  # Dictionary to store filter decimation factors
+        self.fil = defaultdict(list)  # Dictionary to store filter data
         self.bot = defaultdict(list)  # Dictionary to store bottom depth values
         self.idx = defaultdict(list)  # Dictionary to store index file values
 
@@ -488,9 +487,6 @@ class ParseEK(ParseBase):
 
         while True:
             try:
-                # TODO: @ngkvain: what I need in the code to not PARSE the raw0/3 datagram
-                #  when users only want CONFIG or ENV, but the way this is implemented
-                #  the raw0/3 datagrams are still parsed, you are just not saving them
                 new_datagram = fid.read(1)
 
             except SimradEOF:
@@ -500,6 +496,10 @@ class ParseEK(ParseBase):
             new_datagram["timestamp"] = np.datetime64(
                 new_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
+
+            # Remove \00t from channel_id
+            if "channel_id" in new_datagram:
+                new_datagram["channel_id"] = new_datagram["channel_id"].replace("\00t", "")
 
             # # For debugging EC150 datagrams
             # if new_datagram["type"].startswith("XML") and "subtype" in new_datagram:
@@ -602,18 +602,28 @@ class ParseEK(ParseBase):
                 self.mru1["longitude"].append(new_datagram["longitude"])
                 self.mru1["timestamp"].append(new_datagram["timestamp"])
 
-            # FIL datagrams contain filters for processing bascatter data for EK80
+            # FIL datagrams contain filters for processing backscatter data for EK80
+            # Allowing for looking up for filter coefficients and decimation factor
+            # by channel, stage, and timestamp
             elif new_datagram["type"].startswith("FIL"):
                 if "EC150" not in new_datagram["channel_id"]:
-                    # print(f"{new_datagram['channel_id']} from FIL -- NOT SKIPPING")
-                    self.fil_coeffs[new_datagram["channel_id"]][new_datagram["stage"]] = (
-                        new_datagram["coefficients"]
-                    )
-                    self.fil_df[new_datagram["channel_id"]][new_datagram["stage"]] = new_datagram[
-                        "decimation_factor"
-                    ]
-                # else:
-                #     print(f"{new_datagram['channel_id']} from FIL")
+                    self.fil["timestamp"].append(new_datagram["timestamp"])
+                    self.fil[
+                        (
+                            new_datagram["channel_id"],
+                            new_datagram["stage"],
+                            "coeffs",
+                            new_datagram["timestamp"],
+                        )
+                    ] = new_datagram["coefficients"]
+                    self.fil[
+                        (
+                            new_datagram["channel_id"],
+                            new_datagram["stage"],
+                            "deci_fac",
+                            new_datagram["timestamp"],
+                        )
+                    ] = new_datagram["decimation_factor"]
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):

@@ -1,7 +1,8 @@
+import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..echodata.simrad import check_input_args_combination
+from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
@@ -27,11 +28,13 @@ def _compute_cal(
     ecs_file=None,
     waveform_mode=None,
     encode_mode=None,
+    assume_single_filter_time=None,
+    drop_last_hanning_zero=False,
 ):
     # Make waveform_mode "FM" equivalent to "BB"
     waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
 
-    # Check on waveform_mode and encode_mode inputs
+    # Check on waveform_mode, encode_mode inputs, and assumption on single filter time
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
@@ -48,29 +51,112 @@ def _compute_cal(
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
 
-    # Set up calibration object
-    cal_obj = CALIBRATOR[echodata.sonar_model](
-        echodata,
-        env_params=env_params,
-        cal_params=cal_params,
-        ecs_file=ecs_file,
-        waveform_mode=waveform_mode,
-        encode_mode=encode_mode,
-    )
+    # Check that assume_single_filter_time is correctly passed in
+    if (
+        echodata.sonar_model != "EK80" or encode_mode != "complex"
+    ) and assume_single_filter_time is not None:
+        raise ValueError("assume_single_filter_time can only be used on complex EK80 data.")
 
-    # Check Echodata Backscatter Size
-    cal_obj._check_echodata_backscatter_size()
+    # Compute calibration dataset
+    def _compute_cal_ds(echodata, subsect_dict):
+        # Set up calibration object
+        cal_obj = CALIBRATOR[echodata.sonar_model](
+            echodata,
+            env_params=env_params,
+            cal_params=cal_params,
+            ecs_file=ecs_file,
+            waveform_mode=waveform_mode,
+            encode_mode=encode_mode,
+            drop_last_hanning_zero=drop_last_hanning_zero,
+            slice_dict=subsect_dict,
+        )
 
-    # Perform calibration
-    if cal_type == "Sv":
-        cal_ds = cal_obj.compute_Sv()
-    elif cal_type == "TS":
-        cal_ds = cal_obj.compute_TS()
+        # Check Echodata Backscatter Size
+        cal_obj._check_echodata_backscatter_size()
+
+        # Perform calibration
+        if cal_type == "Sv":
+            cal_ds = cal_obj.compute_Sv()
+        else:
+            cal_ds = cal_obj.compute_TS()
+
+        return cal_ds
+
+    # Initialize slice dictionary
+    slice_dict = {}
+
+    # Collapse vendor specific's filter time dimension
+    if (
+        assume_single_filter_time
+        and "filter_time" in echodata["Vendor_specific"].dims
+        and len(echodata["Vendor_specific"]["filter_time"]) > 1
+    ):
+        ed_beam_group = retrieve_correct_beam_group(
+            echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
+        transmit_duration_nominal_ds = echodata[ed_beam_group]["transmit_duration_nominal"]
+        # Grab the first valid filter time for each channel
+        first_valid_filter_time_per_channel = {}
+        for channel in transmit_duration_nominal_ds.channel.values:
+            valid_ping_times = (
+                transmit_duration_nominal_ds.sel(channel=[channel])
+                .dropna(dim="ping_time")
+                .ping_time.values
+            )
+            first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
+        slice_dict["first_valid_filter_time_per_channel"] = first_valid_filter_time_per_channel
+
+    if (
+        not assume_single_filter_time
+        and "filter_time" in echodata["Vendor_specific"].dims
+        and len(echodata["Vendor_specific"]["filter_time"]) > 1
+    ):
+        ed_beam_group = retrieve_correct_beam_group(
+            echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+        )
+        # List to accumulate calibration datasets
+        cal_ds_list = []
+
+        # Calibrate each valid channel and filter/ping time pairing
+        valid = (
+            echodata[ed_beam_group]["transmit_duration_nominal"]
+            .stack(pairs=("channel", "ping_time"))
+            .dropna("pairs")
+        )
+        filter_times_all = np.sort(echodata["Vendor_specific"]["filter_time"].data)
+        for channel, group in valid.groupby("channel"):
+            filter_times = np.intersect1d(
+                group["ping_time"].values,
+                filter_times_all,
+            )
+            for start_time, next_time in zip(
+                filter_times,
+                # set again as datetime64[ns] since np.append sets times to int
+                np.append(filter_times[1:], None).astype("datetime64[ns]"),
+            ):
+                end_time = None if next_time is None else next_time - np.timedelta64(1, "ns")
+
+                slice_dict["filter_time"] = start_time
+                slice_dict["channel"] = channel
+                slice_dict["beam_group_start_time"] = start_time
+                slice_dict["beam_group_end_time"] = end_time
+
+                # Calibrate and drop filter_time
+                cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
+                cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
+
+        # Merge across both channel and ping time dimensions
+        cal_ds = xr.merge(
+            cal_ds_list,
+            join="outer",
+            compat="no_conflicts",
+        )
     else:
-        raise ValueError("cal_type must be Sv or TS")
+        # Compute a single calibration dataset
+        cal_ds = _compute_cal_ds(echodata, slice_dict)
 
     # Add attributes
-    def add_attrs(cal_type, ds):
+    def _add_attrs(cal_type, ds):
         """Add attributes to backscattering strength dataset.
         cal_type: Sv or TS
         """
@@ -91,7 +177,7 @@ def _compute_cal(
                 }
             )
 
-    add_attrs(cal_type, cal_ds)
+    _add_attrs(cal_type, cal_ds)
 
     # Add provinance
     # Provenance source files may originate from raw files (echodata.source_files)
@@ -178,6 +264,16 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
         - `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
+
+    assume_single_filter_time : boolean, optional
+        If true, filter coefficients and decimation values will be used from the first
+        filter time. If false, all filter times will be used.
+        This can only be used for complex EK80 calibration.
+
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
 
     Returns
     -------
@@ -267,6 +363,15 @@ def compute_TS(echodata: EchoData, **kwargs):
         - `"complex"` for complex samples
         - `"power"` for power/angle samples, only allowed when
           the echosounder is configured for narrowband transmission
+
+    assume_single_filter_time : boolean, optional
+        If true, filter coefficients and decimation values will be used from the first
+        filter time. If false, all filter times will be used.
+
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
 
     Returns
     -------

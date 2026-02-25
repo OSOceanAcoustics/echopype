@@ -1,9 +1,8 @@
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import List
 
 import numpy as np
 import xarray as xr
-from numpy.typing import NDArray
 
 from ..utils.coding import set_time_encodings
 from ..utils.log import _init_logger
@@ -14,9 +13,9 @@ logger = _init_logger(__name__)
 
 WIDE_BAND_TRANS = "WBT"
 PULSE_COMPRESS = "PC"
-FILTER_IMAG = "filter_i"
-FILTER_REAL = "filter_r"
-DECIMATION = "decimation"
+FILTER_IMAG = "coeffs_imag"
+FILTER_REAL = "coeffs_real"
+DECIMATION = "deci_fac"
 
 
 class SetGroupsEK80(SetGroupsBase):
@@ -56,15 +55,25 @@ class SetGroupsEK80(SetGroupsBase):
                 "power": "contains backscatter power (uncalibrated) and "
                 "other beam or channel-specific data,"
                 " including split-beam angle data when they exist.",
-                "complex": "contains complex backscatter data and other "
-                "beam or channel-specific data.",
+                "complex": "contains FM-only or CW-only complex backscatter data and "
+                "other beam or channel-specific data.",
             },
         },
         {
             "name": "Beam_group2",
+            "descr": {
+                "power": "contains backscatter power (uncalibrated) and "
+                "other beam or channel-specific data,"
+                " including split-beam angle data when they exist.",
+                "complex": "contains CW-only complex backscatter data and other "
+                "beam or channel-specific data.",
+            },
+        },
+        {
+            "name": "Beam_group3",
             "descr": (
-                "contains backscatter power (uncalibrated) and other beam or channel-specific data,"  # noqa
-                " including split-beam angle data when they exist."
+                "contains backscatter power (uncalibrated) and other beam or "
+                "channel-specific data, including split-beam angle data when they exist."
             ),
         },
     ]
@@ -259,14 +268,25 @@ class SetGroupsEK80(SetGroupsBase):
                 },
             ),
         }
+
+        # Extract beam group mapping that was set in `set_beam`
+        beam_group_indices = list(self.beam_group_map.keys())
+        waveform_encode_modes = list(self.beam_group_map.values())
+
+        # Construct sonar dataset
         ds = xr.Dataset(
-            {**sonar_vars, **beam_groups_vars},
+            {
+                **sonar_vars,
+                **beam_groups_vars,
+                **{"waveform_encode_descr": ("beam_group_index", waveform_encode_modes)},
+            },
             coords={
                 "channel_all": (
                     ["channel_all"],
                     self.sorted_channel["all"],
                     self._varattrs["beam_coord_default"]["channel"],
                 ),
+                "beam_group_index": beam_group_indices,
                 **beam_groups_coord,
             },
         )
@@ -742,18 +762,8 @@ class SetGroupsEK80(SetGroupsBase):
         ch: str
             Channel id
         """
-
-        # Process if it's a BB channel (not all pings are CW, where pulse_form encodes CW as 0)
-        # CW data encoded as complex samples do NOT have frequency_start and frequency_end
-        if not np.all(np.array(self.parser_obj.ping_data_dict["pulse_form"][ch]) == 0):
-            freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
-            freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
-        elif not self.sorted_channel["power"]:
-            freq = self.parser_obj.config_datagram["configuration"][ch]["transducer_frequency"]
-            freq_start = np.full(len(self.parser_obj.ping_time[ch]), freq)
-            freq_stop = freq_start
-        else:
-            return ds_tmp
+        freq_start = np.array(self.parser_obj.ping_data_dict["frequency_start"][ch])
+        freq_stop = np.array(self.parser_obj.ping_data_dict["frequency_end"][ch])
 
         ds_f_start_end = xr.Dataset(
             {
@@ -771,7 +781,7 @@ class SetGroupsEK80(SetGroupsBase):
             coords={
                 "ping_time": (
                     ["ping_time"],
-                    self.parser_obj.ping_time[ch],
+                    ds_tmp["ping_time"].values,
                     self._varattrs["beam_coord_default"]["ping_time"],
                 ),
             },
@@ -826,8 +836,6 @@ class SetGroupsEK80(SetGroupsBase):
                 ),
             },
         )
-
-        ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
 
         return set_time_encodings(ds_tmp)
 
@@ -954,8 +962,6 @@ class SetGroupsEK80(SetGroupsBase):
                 }
             )
 
-        ds_tmp = self._add_freq_start_end_ds(ds_tmp, ch)
-
         return set_time_encodings(ds_tmp)
 
     def _assemble_ds_common(self, ch, range_sample_size):
@@ -1065,8 +1071,10 @@ class SetGroupsEK80(SetGroupsBase):
     def merge_save(ds_combine: List[xr.Dataset], ds_invariant: xr.Dataset) -> xr.Dataset:
         """Merge data from all complex or all power/angle channels"""
         # Combine all channels into one Dataset
-        ds_combine = xr.concat(ds_combine, dim="channel", join="outer")
-
+        ds_combine = xr.concat(ds_combine, dim="channel", join="outer", data_vars="all")
+        # Merge ds invariant with ds combine based on which channels exist in ds combine since
+        # splitting CW complex and FM complex may drop channels in ds_combine
+        ds_invariant = ds_invariant.sel(channel=ds_combine["channel"])
         ds_combine = xr.merge(
             [ds_invariant, ds_combine], combine_attrs="override", join="outer"
         )  # override keeps the Dataset attributes
@@ -1127,67 +1135,90 @@ class SetGroupsEK80(SetGroupsBase):
             "transceiver_software_version",
         ]
 
-        # Assemble dataset for ping-invariant params
+        # assemble ping-invariant datasets
+        ds_invariant = {}
         if self.sorted_channel["complex"]:
-            ds_invariant_complex = self._assemble_ds_ping_invariant(params, "complex")
+            ds_invariant["complex"] = self._assemble_ds_ping_invariant(params, "complex")
         if self.sorted_channel["power"]:
-            ds_invariant_power = self._assemble_ds_ping_invariant(params, "power")
+            ds_invariant["power"] = self._assemble_ds_ping_invariant(params, "power")
 
-        # Assemble dataset for backscatter data and other ping-by-ping data
-        ds_complex = []
+        ds_complex_FM = []
+        ds_complex_CW = []
         ds_power = []
-        for ch in self.sorted_channel["all"]:
-            if ch in self.sorted_channel["complex"]:
-                ds_data = self._assemble_ds_complex(ch)
-            elif ch in self.sorted_channel["power"]:
-                ds_data = self._assemble_ds_power(ch)
-            else:  # skip for channels containing no data
-                continue
 
-            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
-
-            # Access the 'ping_time' coordinate as a NumPy array
-            ping_times = ds_data["ping_time"].values
-
-            # Check if ping time duplicates exist
+        def _remove_duplicates(ds):
+            ping_times = ds["ping_time"].values
             if len(ping_times) > len(np.unique(ping_times)):
-                # Check for unique ping time duplicates and if they are not unique, raise warning.
-                check_unique_ping_time_duplicates(ds_data, logger)
+                check_unique_ping_time_duplicates(ds, logger)
+                ds = ds.drop_duplicates(dim="ping_time")
+            return ds
 
-                # Drop duplicates
-                ds_data = ds_data.drop_duplicates(dim="ping_time")
+        # gather complex channel data and split based on FM and CW
+        for ch in self.sorted_channel.get("complex", []):
+            ds_data = self._assemble_ds_complex(ch)
+            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
+            ds_data = _remove_duplicates(ds_data)
+            # split FM
+            ds_complex_subset_FM = ds_data.where(ds_data["transmit_type"] == "LFM", drop=True)
+            if len(ds_complex_subset_FM["ping_time"]) > 0:
+                ds_complex_subset_FM = self._add_freq_start_end_ds(ds_complex_subset_FM, ch)
+                ds_complex_FM.append(ds_complex_subset_FM)
+            # split CW
+            ds_complex_subset_CW = ds_data.where(ds_data["transmit_type"] == "CW", drop=True)
+            if len(ds_complex_subset_CW["ping_time"]) > 0:
+                ds_complex_CW.append(ds_complex_subset_CW)
 
-            if ch in self.sorted_channel["complex"]:
-                ds_complex.append(ds_data)
-            else:
-                ds_power.append(ds_data)
+        # gather power channel data
+        for ch in self.sorted_channel.get("power", []):
+            ds_data = self._assemble_ds_power(ch)
+            ds_data = self._attach_vars_to_ds_data(ds_data, ch, rs_size=ds_data.range_sample.size)
+            ds_data = _remove_duplicates(ds_data)
+            ds_power.append(ds_data)
 
-        # Merge and save group:
-        #  if both complex and power data exist: complex data in /Sonar/Beam_group1 group
-        #   and power data in /Sonar/Beam_group2
-        #  if only one type of data exist: data in /Sonar/Beam_group1 group
-        ds_beam_power = None
-        if len(ds_complex) > 0:
-            ds_beam = self.merge_save(ds_complex, ds_invariant_complex)
-            if len(ds_power) > 0:
-                ds_beam_power = self.merge_save(ds_power, ds_invariant_power)
-        else:
-            ds_beam = self.merge_save(ds_power, ds_invariant_power)
-
-        # Manipulate some Dataset dimensions to adhere to convention
-        if isinstance(ds_beam_power, xr.Dataset):
-            self.beam_groups_to_convention(
-                ds_beam_power,
-                self.beam_only_names,
-                self.beam_ping_time_names,
-                self.ping_time_only_names,
-            )
-
-        self.beam_groups_to_convention(
-            ds_beam, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+        # merge datasets
+        ds_beam_complex_FM = (
+            self.merge_save(ds_complex_FM, ds_invariant.get("complex"))
+            if len(ds_complex_FM) > 0
+            else None
+        )
+        ds_beam_complex_CW = (
+            self.merge_save(ds_complex_CW, ds_invariant.get("complex"))
+            if len(ds_complex_CW) > 0
+            else None
+        )
+        ds_beam_power = (
+            self.merge_save(ds_power, ds_invariant.get("power")) if len(ds_power) > 0 else None
         )
 
-        return [ds_beam, ds_beam_power]
+        # apply conventions
+        for ds in [ds_beam_complex_FM, ds_beam_complex_CW, ds_beam_power]:
+            if ds is not None:
+                self.beam_groups_to_convention(
+                    ds, self.beam_only_names, self.beam_ping_time_names, self.ping_time_only_names
+                )
+
+        # store the mapping in self
+        self.beam_group_map = {
+            i + 1: name
+            for i, (name, _) in enumerate(
+                [
+                    (n, d)
+                    for n, d in [
+                        ("complex_FM", ds_beam_complex_FM),
+                        ("complex_CW", ds_beam_complex_CW),
+                        ("power", ds_beam_power),
+                    ]
+                    if d is not None
+                ]
+            )
+        }
+
+        # return datasets in order
+        beam_groups = [
+            ds for ds in [ds_beam_complex_FM, ds_beam_complex_CW, ds_beam_power] if ds is not None
+        ]
+
+        return beam_groups
 
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""
@@ -1342,42 +1373,16 @@ class SetGroupsEK80(SetGroupsBase):
                 "long_name"
             ] = "ID of channels containing broadband calibration information"
             ds_cal.append(ds_ch)
-        ds_cal = xr.merge(ds_cal, join="outer")
+        ds_cal = xr.merge(ds_cal, join="outer", compat="no_conflicts")
 
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
-        # Save decimation factors and filter coefficients
-        # Param map values
-        # 1: wide band transceiver (WBT)
-        # 2: pulse compression (PC)
-        param_map = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
-        coeffs_and_decimation = {
-            t: {FILTER_IMAG: [], FILTER_REAL: [], DECIMATION: []} for t in list(param_map.values())
-        }
-
-        for ch in self.sorted_channel["all"]:
-            fil_coeffs = self.parser_obj.fil_coeffs.get(ch, None)
-            fil_df = self.parser_obj.fil_df.get(ch, None)
-
-            for type_num in param_map.keys():
-                param = param_map[type_num]
-
-                # get filter coefficient values
-                val_imag = np.imag(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
-                val_real = np.real(fil_coeffs[type_num]) if fil_coeffs else [np.nan]
-                coeffs_and_decimation[param][FILTER_IMAG].append(val_imag)
-                coeffs_and_decimation[param][FILTER_REAL].append(val_real)
-
-                # get decimation factor values
-                val_deci = fil_df[type_num] if fil_df else np.nan
-                coeffs_and_decimation[param][DECIMATION].append(val_deci)
-
         # Assemble everything into a Dataset
         ds = xr.merge([ds_table, ds_cal])
 
-        # Add the coeffs and decimation
-        ds = ds.pipe(self._add_filter_params, coeffs_and_decimation)
+        # Add filter coefficients and decimation factors
+        ds = self._add_filter_params(ds)
 
         # Save the entire config XML in vendor group in case of info loss
         ds["config_xml"] = self.parser_obj.config_datagram["xml"]
@@ -1390,59 +1395,113 @@ class SetGroupsEK80(SetGroupsBase):
         ):
             ds = self._add_seafloor_detection_data_to_vendor_ds(ds)
 
-        return ds
+        return set_time_encodings(ds)
 
-    @staticmethod
-    def _add_filter_params(
-        dataset: xr.Dataset, coeffs_and_decimation: Dict[str, Dict[str, List[Union[int, NDArray]]]]
-    ) -> xr.Dataset:
+    def _add_filter_params(self, ds: xr.Dataset) -> xr.Dataset:
         """
         Assembles filter coefficient and decimation factors and add to the dataset
 
         Parameters
         ----------
-        dataset : xr.Dataset
-            xarray dataset where the filter coefficient and decimation factors will be added
-        coeffs_and_decimation : dict
-            dictionary holding the filter coefficient and decimation factors
+        ds : xr.Dataset
+            Xarray Dataset where the filter coefficient and decimation factors will be added.
 
         Returns
         -------
         xr.Dataset
-            The modified dataset with filter coefficient and decimation factors included
+            The modified dataset with filter coefficient and decimation factors included.
         """
-        attribute_values = {
-            FILTER_IMAG: "filter coefficients (imaginary part)",
-            FILTER_REAL: "filter coefficients (real part)",
-            DECIMATION: "decimation factor",
-            WIDE_BAND_TRANS: "Wideband transceiver",
-            PULSE_COMPRESS: "Pulse compression",
-        }
 
-        coeffs_xr_data = {}
-        for cd_type, values in coeffs_and_decimation.items():
-            for key, data in values.items():
-                if data:
-                    if "filter" in key:
-                        attrs = {
-                            "long_name": f"{attribute_values[cd_type]} {attribute_values[key]}"
-                        }
-                        # filter_i and filter_r
-                        max_len = np.max([len(a) for a in data])
-                        # Pad arrays
-                        data = np.asarray(
-                            [
-                                np.pad(a, (0, max_len - len(a)), "constant", constant_values=np.nan)
-                                for a in data
-                            ]
+        # Define stage types and grab filter from parser
+        stage_type = {1: WIDE_BAND_TRANS, 2: PULSE_COMPRESS}
+        fil = self.parser_obj.fil
+
+        # Add filter time coordinates
+        ds = ds.assign_coords({"filter_time": np.unique(fil["timestamp"])})
+
+        # Create empty coefficient DataArrays
+        coeffs_stage_num_max_length_dict = {}
+        for stage_num in stage_type:
+            lengths = []
+            for filter_time in fil["timestamp"]:
+                for ch in self.sorted_channel["all"]:
+                    lengths.append(len(fil.get((ch, stage_num, "coeffs", filter_time), [])))
+            coeffs_stage_num_max_length_dict[stage_num] = max(lengths, default=0)
+
+        empty_WBT_coeffs_da = xr.DataArray(
+            np.full(
+                (len(ds["channel"]), len(ds["filter_time"]), coeffs_stage_num_max_length_dict[1]),
+                np.nan,
+            ),
+            dims=("channel", "filter_time", "WBT_filter_n"),
+            coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
+        )
+        empty_PC_coeffs_da = xr.DataArray(
+            np.full(
+                (len(ds["channel"]), len(ds["filter_time"]), coeffs_stage_num_max_length_dict[2]),
+                np.nan,
+            ),
+            dims=("channel", "filter_time", "PC_filter_n"),
+            coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
+        )
+        ds["WBT_coeffs_real"] = empty_WBT_coeffs_da.copy()
+        ds["WBT_coeffs_imag"] = empty_WBT_coeffs_da.copy()
+        ds["PC_coeffs_real"] = empty_PC_coeffs_da.copy()
+        ds["PC_coeffs_imag"] = empty_PC_coeffs_da.copy()
+
+        # Create empty decimation DataArrays
+        empty_deci_fac_da = xr.DataArray(
+            np.full((len(ds["channel"]), len(ds["filter_time"])), np.nan),
+            dims=("channel", "filter_time"),
+            coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
+        )
+        ds["WBT_deci_fac"] = empty_deci_fac_da.copy()
+        ds["PC_deci_fac"] = empty_deci_fac_da.copy()
+
+        # Insert values into empty DataArrays
+        for filter_time in fil["timestamp"]:
+            for ch in self.sorted_channel["all"]:
+                for stage_num in stage_type.keys():
+                    # Find coeffs, pad, and set in DataArray
+                    coeffs = fil.get((ch, stage_num, "coeffs", filter_time), None)
+                    if coeffs is not None:
+                        coeffs = np.pad(
+                            coeffs,
+                            (0, coeffs_stage_num_max_length_dict[stage_num] - len(coeffs)),
+                            mode="constant",
+                            constant_values=np.nan,
                         )
-                        dims = ["channel", f"{cd_type}_filter_n"]
-                    else:
-                        attrs = {
-                            "long_name": f"{attribute_values[cd_type]} {attribute_values[DECIMATION]}"  # noqa
-                        }
-                        dims = ["channel"]
-                    # Set the xarray data dictionary
-                    coeffs_xr_data[f"{cd_type}_{key}"] = (dims, data, attrs)
+                        ds[f"{stage_type[stage_num]}_coeffs_real"].loc[
+                            dict(channel=ch, filter_time=filter_time)
+                        ] = np.real(coeffs)
+                        ds[f"{stage_type[stage_num]}_coeffs_imag"].loc[
+                            dict(channel=ch, filter_time=filter_time)
+                        ] = np.imag(coeffs)
 
-        return dataset.assign(coeffs_xr_data)
+                    # Find decimation factor and set in DataArray
+                    deci_fac_value = fil.get((ch, stage_num, "deci_fac", filter_time), None)
+                    if deci_fac_value is not None:
+                        ds[f"{stage_type[stage_num]}_deci_fac"].loc[
+                            dict(channel=ch, filter_time=filter_time)
+                        ] = deci_fac_value
+
+        # Assign attributes
+        attr_dict = {
+            "real": "filter coefficients (real part)",
+            "imag": "filter coefficients (imaginary part)",
+            "deci": "decimation factor",
+            "WBT": "Wideband transceiver",
+            "PC": "Pulse compression",
+        }
+        for stage_name in ["WBT", "PC"]:
+            for coeff_type in ["real", "imag"]:
+                var_name = f"{stage_name}_coeffs_{coeff_type}"
+                ds[var_name] = ds[var_name].assign_attrs(
+                    long_name=f"{attr_dict[stage_name]} {attr_dict[coeff_type]}"
+                )
+            deci_var = f"{stage_name}_deci_fac"
+            ds[deci_var] = ds[deci_var].assign_attrs(
+                long_name=f"{attr_dict[stage_name]} {attr_dict['deci']}"
+            )
+
+        return ds

@@ -157,7 +157,7 @@ def test_combine_echodata(raw_datasets):
 
     eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
 
-    append_dims = {"filenames", "time1", "time2", "time3", "nmea_time", "ping_time"}
+    append_dims = {"filenames", "time1", "time2", "time3", "nmea_time", "ping_time", "filter_time"}
 
     combined = echopype.combine_echodata(eds)
 
