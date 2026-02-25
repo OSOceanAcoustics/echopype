@@ -478,7 +478,7 @@ def test_skip_ec150(ek80_path):
     assert "backscatter_i" in echodata["Sonar/Beam_group1"].data_vars
     assert (
         echodata["Sonar/Beam_group1"].sizes
-        == {'channel_all': 1, 'beam_group': 1, 'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4}
+        == {'channel_all': 1, 'beam_group': 1, 'channel': 1, 'ping_time': 2, 'range_sample': 115352, 'beam': 4, 'beam_group_index': 1}
     )
 
 
