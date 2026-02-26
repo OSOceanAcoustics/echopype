@@ -15,12 +15,12 @@ _DATA_LEN = {
 
 
 def _gen_ping_time(ping_time_len, ping_time_interval, ping_time_jitter_max_ms=0):
-    ping_time = pd.date_range("2018-07-01", periods=ping_time_len, freq=ping_time_interval)
+    ping_time = pd.Timestamp("2018-07-01") + pd.to_timedelta(
+        np.arange(ping_time_len) * pd.to_timedelta(ping_time_interval)
+    )
     if ping_time_jitter_max_ms != 0:  # if to add jitter
-        jitter = (
-            np.random.randint(ping_time_jitter_max_ms, size=ping_time_len) / 1000
-        )  # convert to seconds
-        ping_time = pd.to_datetime(ping_time.astype("int64") / 1e9 + jitter, unit="s")
+        jitter = np.random.randint(ping_time_jitter_max_ms, size=ping_time_len)  # integer ms
+        ping_time = (ping_time + pd.to_timedelta(jitter, unit="ms")).sort_values()
     return ping_time
 
 

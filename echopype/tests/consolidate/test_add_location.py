@@ -249,7 +249,11 @@ def test_add_location_time_duplicates_value_error(
     )
 
     # Add duplicates to `time_dim`
-    ed["Platform"][time_dim_name].data[0] = ed["Platform"][time_dim_name].data[1]
+    # Make a writable copy before modifying the coordinate values
+    da = ed["Platform"][time_dim_name]
+    vals = da.to_numpy().copy()
+    vals[0] = vals[1]
+    ed["Platform"] = ed["Platform"].assign_coords({time_dim_name: (da.dims, vals)})
     
     # Check if the expected error is logged
     with pytest.raises(ValueError) as exc_info:
