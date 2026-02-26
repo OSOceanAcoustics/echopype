@@ -21,6 +21,10 @@ from echopype.mask import detect_seafloor
 
 # for schoals
 from echopype.mask import detect_shoal
+
+# for single targets
+from echopype.mask import detect_single_targets
+
 from scipy import ndimage as ndi
 from typing import List, Union, Optional
 
@@ -2006,3 +2010,420 @@ def test_echoview_mincan_no_linking():
     # Label the mask and confirm they are separate components (not connected)
     _, nlab = ndi.label(mask.values, structure=np.ones((3, 3), dtype=bool))
     assert nlab == 2
+
+# test for single target detections
+
+# Helpers: base coords
+def _coords_ping_range(n_ping=5, n_range=10):
+    return {
+        "ping_time": np.arange(n_ping),
+        "range_sample": np.arange(n_range),
+    }
+
+# Stub: Matecho-style ds (3D with channel)
+def _make_ds_matecho_minimal(
+    n_ping=5,
+    n_range=10,
+    channels=("chan1",),
+) -> xr.Dataset:
+    coords = _coords_ping_range(n_ping, n_range)
+    ping_time = coords["ping_time"]
+    range_sample = coords["range_sample"]
+    channel = np.array(list(channels))
+
+    # Core 3D fields
+    Sv = xr.DataArray(
+        np.full((len(channel), n_ping, n_range), -90.0, dtype=float),
+        dims=("channel", "ping_time", "range_sample"),
+        coords={"channel": channel, "ping_time": ping_time, "range_sample": range_sample},
+        name="Sv",
+    )
+
+    al = xr.DataArray(
+        np.zeros((len(channel), n_ping, n_range), dtype=float),
+        dims=("channel", "ping_time", "range_sample"),
+        coords={"channel": channel, "ping_time": ping_time, "range_sample": range_sample},
+        name="angle_alongship",
+    )
+
+    ath = xr.DataArray(
+        np.zeros((len(channel), n_ping, n_range), dtype=float),
+        dims=("channel", "ping_time", "range_sample"),
+        coords={"channel": channel, "ping_time": ping_time, "range_sample": range_sample},
+        name="angle_athwartship",
+    )
+
+    # Range axis (2D accepted)
+    echo_range = xr.DataArray(
+        np.tile(np.linspace(1.0, float(n_range), n_range)[None, :], (n_ping, 1)),
+        dims=("ping_time", "range_sample"),
+        coords={"ping_time": ping_time, "range_sample": range_sample},
+        name="echo_range",
+    )
+
+    # SHIFT alignment requirement
+    start_depth_m = xr.DataArray(
+        np.zeros((n_ping, len(channel)), dtype=float),
+        dims=("ping_time", "channel"),
+        coords={"ping_time": ping_time, "channel": channel},
+        name="start_depth_m",
+    )
+
+    # scalar-ish
+    sound_speed = xr.DataArray(1500.0, name="sound_speed")
+    equivalent_beam_angle = xr.DataArray(-20.0, name="equivalent_beam_angle")
+    sa_correction = xr.DataArray(0.0, name="sa_correction")
+    sample_interval = xr.DataArray(4e-5, name="sample_interval")  # 40 us
+
+    # tau_effective: channel-only 
+    tau_effective = xr.DataArray(
+        np.full((len(channel),), 8e-4, dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="tau_effective",
+    )
+
+    transmit_duration_nominal = xr.DataArray(
+        np.full((n_ping, len(channel)), 1e-3, dtype=float),  # 1 ms
+        dims=("ping_time", "channel"),
+        coords={"ping_time": ping_time, "channel": channel},
+        name="transmit_duration_nominal",
+    )
+
+    # ping_time x channel required
+    sound_absorption = xr.DataArray(
+        np.full((n_ping, len(channel)), 0.003, dtype=float),
+        dims=("ping_time", "channel"),
+        coords={"ping_time": ping_time, "channel": channel},
+        name="sound_absorption",
+    )
+    transducer_depth = xr.DataArray(
+        np.full((n_ping, len(channel)), 2.0, dtype=float),
+        dims=("ping_time", "channel"),
+        coords={"ping_time": ping_time, "channel": channel},
+        name="transducer_depth",
+    )
+    heave_compensation = xr.DataArray(
+        np.zeros((n_ping, len(channel)), dtype=float),
+        dims=("ping_time", "channel"),
+        coords={"ping_time": ping_time, "channel": channel},
+        name="heave_compensation",
+    )
+
+    # channel-only beam geometry
+    beamwidth_alongship = xr.DataArray(
+        np.full((len(channel),), 7.0, dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="beamwidth_alongship",
+    )
+    beamwidth_athwartship = xr.DataArray(
+        np.full((len(channel),), 7.0, dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="beamwidth_athwartship",
+    )
+    angle_offset_alongship = xr.DataArray(
+        np.zeros((len(channel),), dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="angle_offset_alongship",
+    )
+    angle_offset_athwartship = xr.DataArray(
+        np.zeros((len(channel),), dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="angle_offset_athwartship",
+    )
+    angle_sensitivity_alongship = xr.DataArray(
+        np.ones((len(channel),), dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="angle_sensitivity_alongship",
+    )
+    angle_sensitivity_athwartship = xr.DataArray(
+        np.ones((len(channel),), dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="angle_sensitivity_athwartship",
+    )
+
+    beam_type = xr.DataArray(
+        np.full((len(channel),), 1, dtype=np.int16),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="beam_type",
+    )
+
+    frequency_nominal = xr.DataArray(
+        np.full((len(channel),), 38000.0, dtype=float),
+        dims=("channel",),
+        coords={"channel": channel},
+        name="frequency_nominal",
+    )
+
+    ds = xr.Dataset(
+        data_vars=dict(
+            Sv=Sv,
+            angle_alongship=al,
+            angle_athwartship=ath,
+            echo_range=echo_range,
+            start_depth_m=start_depth_m,
+            sound_speed=sound_speed,
+            transmit_duration_nominal=transmit_duration_nominal,
+            tau_effective=tau_effective,
+            sample_interval=sample_interval,
+            sound_absorption=sound_absorption,
+            equivalent_beam_angle=equivalent_beam_angle,
+            sa_correction=sa_correction,
+            beamwidth_alongship=beamwidth_alongship,
+            beamwidth_athwartship=beamwidth_athwartship,
+            angle_offset_alongship=angle_offset_alongship,
+            angle_offset_athwartship=angle_offset_athwartship,
+            angle_sensitivity_alongship=angle_sensitivity_alongship,
+            angle_sensitivity_athwartship=angle_sensitivity_athwartship,
+            transducer_depth=transducer_depth,
+            heave_compensation=heave_compensation,
+            beam_type=beam_type,
+            frequency_nominal=frequency_nominal,
+        ),
+        coords=dict(channel=channel, ping_time=ping_time, range_sample=range_sample),
+    )
+    return ds
+
+
+def _make_ds_matecho_wrong_dims_missing_range(channels=("chan1",), n_ping=5) -> xr.Dataset:
+    # Sv missing range_sample dim intentionally (and also missing range_sample coord/dim)
+    da = xr.DataArray(
+        np.full((len(channels), n_ping), -90.0, dtype=float),
+        dims=("channel", "ping_time"),
+        coords={"channel": list(channels), "ping_time": np.arange(n_ping)},
+        name="Sv",
+    )
+    ds = da.to_dataset()
+    ds = ds.assign(
+        beam_type=xr.DataArray(
+            np.ones((len(channels),), dtype=np.int16),
+            dims=("channel",),
+            coords={"channel": list(channels)},
+        )
+    )
+    return ds
+
+
+# Stub: EV split method2 ds_m2 (2D, no channel dim)
+def _make_ds_ev_m2_minimal(n_ping=5, n_range=10) -> xr.Dataset:
+    coords = _coords_ping_range(n_ping, n_range)
+
+    TS = xr.DataArray(
+        np.full((n_ping, n_range), -90.0, dtype=float),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="TS",
+    )
+    echo_range = xr.DataArray(
+        np.tile(np.linspace(1.0, float(n_range), n_range)[None, :], (n_ping, 1)),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="echo_range",
+    )
+    angle_al = xr.DataArray(
+        np.zeros((n_ping, n_range), dtype=float),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="angle_alongship",
+    )
+    angle_ath = xr.DataArray(
+        np.zeros((n_ping, n_range), dtype=float),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="angle_athwartship",
+    )
+
+    sound_absorption = xr.DataArray(0.003, name="sound_absorption")
+    timeSampleInterval_usec = xr.DataArray(40.0, name="timeSampleInterval_usec")
+    effective_pulse_duration = xr.DataArray(8e-4, name="effective_pulse_duration")
+
+    frequency_nominal = xr.DataArray(38000.0, name="frequency_nominal")
+
+    # beam compensation inputs for simrad_lobe
+    beamwidth_al = xr.DataArray(7.0, name="beamwidth_alongship")
+    beamwidth_at = xr.DataArray(7.0, name="beamwidth_athwartship")
+    angle_off_al = xr.DataArray(0.0, name="angle_offset_alongship")
+    angle_off_at = xr.DataArray(0.0, name="angle_offset_athwartship")
+
+    beam_type = xr.DataArray(np.int16(1), name="beam_type")
+
+    ds = xr.Dataset(
+        data_vars=dict(
+            TS=TS,
+            echo_range=echo_range,
+            angle_alongship=angle_al,
+            angle_athwartship=angle_ath,
+            sound_absorption=sound_absorption,
+            timeSampleInterval_usec=timeSampleInterval_usec,
+            effective_pulse_duration=effective_pulse_duration,
+            frequency_nominal=frequency_nominal,
+            beamwidth_alongship=beamwidth_al,
+            beamwidth_athwartship=beamwidth_at,
+            angle_offset_alongship=angle_off_al,
+            angle_offset_athwartship=angle_off_at,
+            beam_type=beam_type,
+        ),
+        coords=coords,
+    )
+    return ds
+
+
+# Tests: dispatcher generic
+@pytest.mark.unit
+def test_detect_single_targets_unknown_method_raises():
+    ds = _make_ds_matecho_minimal()
+    with pytest.raises(ValueError, match="Unsupported single-target method"):
+        detect_single_targets(
+            ds,
+            method="__bad__",
+            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
+        )
+
+
+@pytest.mark.unit
+def test_detect_single_targets_params_required_raises():
+    ds = _make_ds_matecho_minimal()
+    with pytest.raises(ValueError, match="No parameters given"):
+        detect_single_targets(ds, method="matecho", params=None)
+
+
+@pytest.mark.unit
+def test_detect_single_targets_beam_type_missing_raises():
+    ds = _make_ds_matecho_minimal().drop_vars("beam_type")
+    with pytest.raises(ValueError, match="beam_type variable is missing"):
+        detect_single_targets(
+            ds,
+            method="matecho",
+            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
+        )
+
+
+@pytest.mark.unit
+def test_detect_single_targets_beam_type_not_split_raises():
+    ds = _make_ds_matecho_minimal()
+    ds["beam_type"] = xr.DataArray(
+        np.full(ds.sizes["channel"], 2, dtype=np.int16),
+        dims=("channel",),
+        coords={"channel": ds["channel"]},
+    )
+    with pytest.raises(ValueError, match="Only split-beam data supported"):
+        detect_single_targets(
+            ds,
+            method="matecho",
+            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
+        )
+
+
+# Tests: matecho-specific validation + schema
+MATECHO_REQ = {
+    "channel": "chan1",
+    "seafloor": None,
+    "min_threshold_db": -58.0,
+    "max_angle_oneway_compression_db": 2.0,
+    "max_phase_deviation_deg": 8.0,
+    "min_echo_length_pulse": 0.7,
+    "max_echo_length_pulse": 1.5,
+    # optional:
+    "min_echo_space_pulse": 1.0,
+    "min_echo_depth_m": 0.0,
+    "max_echo_depth_m": 1e9,
+    "floor_filter_tolerance_m": 0.0,
+}
+
+
+@pytest.mark.unit
+def test_detect_single_targets_matecho_missing_channel_param_raises():
+    ds = _make_ds_matecho_minimal()
+    p = dict(MATECHO_REQ)
+    p.pop("channel")
+    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
+    with pytest.raises(ValueError, match=r"params\['channel'\]"):
+        detect_single_targets(ds, method="matecho", params=p)
+
+
+@pytest.mark.unit
+def test_detect_single_targets_matecho_channel_not_in_ds_raises():
+    ds = _make_ds_matecho_minimal(channels=("chan1",))
+    p = dict(MATECHO_REQ)
+    p["channel"] = "chanX"
+    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
+    with pytest.raises(ValueError, match=r"Channel 'chanX' not found"):
+        detect_single_targets(ds, method="matecho", params=p)
+
+
+@pytest.mark.unit
+def test_detect_single_targets_matecho_sv_wrong_dims_raises():
+    ds = _make_ds_matecho_wrong_dims_missing_range()
+    p = dict(MATECHO_REQ)
+    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
+
+    with pytest.raises(ValueError, match=r"Missing required coordinate/dimension: 'range_sample'"):
+        detect_single_targets(ds, method="matecho", params=p)
+
+
+@pytest.mark.unit
+def test_detect_single_targets_matecho_returns_empty_with_required_fields():
+    ds = _make_ds_matecho_minimal()
+    p = dict(MATECHO_REQ)
+    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
+
+    out = detect_single_targets(ds, method="matecho", params=p)
+
+    assert isinstance(out, xr.Dataset)
+    assert "target" in out.dims
+    assert out.sizes["target"] == 0
+
+    for v in ("ping_time", "range_sample", "frequency_nominal"):
+        assert v in out
+        assert out[v].dims == ("target",)
+        assert out[v].sizes["target"] == 0
+
+
+@pytest.mark.unit
+def test_detect_single_targets_concat_empty_is_stable():
+    ds = _make_ds_matecho_minimal()
+    p = dict(MATECHO_REQ)
+    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
+
+    out1 = detect_single_targets(ds, method="matecho", params=p)
+    out2 = detect_single_targets(ds, method="matecho", params=p)
+
+    outc = xr.concat([out1, out2], dim="target")
+    assert "target" in outc.dims
+    assert outc.sizes["target"] == 0
+
+
+# Tests: EV split method2
+EV_REQ = {
+    "ts_threshold_db": -58.0,
+    "pldl_db": 6.0,
+    "min_norm_pulse": 0.7,
+    "max_norm_pulse": 1.5,
+    "beam_comp_model": "simrad_lobe",
+    "max_beam_comp_db": 4.0,
+    "max_sd_minor_deg": 0.6,
+    "max_sd_major_deg": 0.6,
+}
+
+
+@pytest.mark.unit
+def test_detect_single_targets_echoview_m2_missing_required_param_raises():
+    ds = _make_ds_ev_m2_minimal()
+    p = dict(EV_REQ)
+    p.pop("pldl_db")
+    with pytest.raises(ValueError, match=r"Missing required parameters"):
+        detect_single_targets(ds, method="echoview_split_method2", params=p)
+
+
+@pytest.mark.unit
+def test_detect_single_targets_echoview_m2_missing_required_ds_var_raises():
+    ds = _make_ds_ev_m2_minimal().drop_vars("effective_pulse_duration")
+    with pytest.raises(ValueError, match=r"ds_m2 missing required variable"):
+        detect_single_targets(ds, method="echoview_split_method2", params=dict(EV_REQ))
