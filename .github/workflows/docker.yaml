@@ -64,7 +64,7 @@ jobs:
 
       - name: Build and push
         id: docker_build_push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./
           file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile
