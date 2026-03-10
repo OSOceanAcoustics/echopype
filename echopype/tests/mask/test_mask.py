@@ -1797,6 +1797,7 @@ def test_blackwell_vs_basic_close_local(ek80_path):
         ds=ds_Sv,
         method="blackwell",
         params={
+            "var_name": "Sv",
             "channel": sel_channel,
             "threshold": [-40, 702, 282],
             "offset": 0.3,
