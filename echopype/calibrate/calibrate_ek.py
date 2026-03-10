@@ -61,6 +61,7 @@ class CalibrateEK(CalibrateBase):
         """
         # Select source of backscatter data
         beam = self.echodata[self.ed_beam_group]
+        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
 
         # Derived params
         wavelength = self.env_params["sound_speed"] / beam["frequency_nominal"]  # wavelength
@@ -78,6 +79,31 @@ class CalibrateEK(CalibrateBase):
         absorption_loss = 2 * absorption * tvg_mod_range
 
         if cal_type == "Sv":
+            # try to get effective pulse length for WTB
+            try:
+                # Get transmit signal
+                tx_coeff = get_filter_coeff(vend)
+                fs = self.cal_params["receiver_sampling_frequency"]
+                tx, tx_time = get_transmit_signal(beam, tx_coeff, self.waveform_mode, fs)
+
+                tau_effective = get_tau_effective(
+                    ytx_dict=tx,
+                    fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},
+                    waveform_mode=self.waveform_mode,
+                    channel=self.chan_sel,
+                    ping_time=beam["ping_time"],
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not compute tau_effective from transmit signal in power path; "
+                    "falling back to transmit_duration_nominal. Error: %s",
+                    repr(e),
+                )
+                tau_effective = beam["transmit_duration_nominal"].isel(ping_time=0)
+
+            # Force nominal tau for GPT channels
+            ch_GPT = (vend["transceiver_type"] == "GPT").compute()
+            tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
             # Calc gain
             CSv = (
                 10 * np.log10(beam["transmit_power"])
@@ -85,10 +111,7 @@ class CalibrateEK(CalibrateBase):
                 + self.cal_params["equivalent_beam_angle"]
                 + 10
                 * np.log10(
-                    wavelength**2
-                    * beam["transmit_duration_nominal"]
-                    * self.env_params["sound_speed"]
-                    / (32 * np.pi**2)
+                    wavelength**2 * tau_effective * self.env_params["sound_speed"] / (32 * np.pi**2)
                 )
             )
 
@@ -118,6 +141,16 @@ class CalibrateEK(CalibrateBase):
         out = out.to_dataset()
         out = out.merge(self.range_meter)
 
+        # Add tau_effective to output (Sv only)
+        if cal_type == "Sv":
+            out["tau_effective"] = tau_effective
+            out["tau_effective"].attrs.update(
+                long_name="Effective pulse length",
+                units="s",
+                description=(
+                    "Effective pulse length used for Sv. " "GPT uses transmit_duration_nominal."
+                ),
+            )
         # Add frequency_nominal to data set
         out["frequency_nominal"] = beam["frequency_nominal"]
 
@@ -534,13 +567,21 @@ class CalibrateEK80(CalibrateEK):
         if cal_type == "Sv":
             # Effective pulse length
             # compute first assuming all channels are not GPT
-            tau_effective = get_tau_effective(
-                ytx_dict=tx,
-                fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},  # decimated fs
-                waveform_mode=self.waveform_mode,
-                channel=self.chan_sel,
-                ping_time=beam["ping_time"],
-            )
+            try:
+                tau_effective = get_tau_effective(
+                    ytx_dict=tx,
+                    fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},
+                    waveform_mode=self.waveform_mode,
+                    channel=self.chan_sel,
+                    ping_time=beam["ping_time"],
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not compute tau_effective from transmit signal in complex path; "
+                    "falling back to transmit_duration_nominal. Error: %s",
+                    repr(e),
+                )
+                tau_effective = beam["transmit_duration_nominal"].isel(ping_time=0)
             # Use pulse_duration in place of tau_effective for GPT channels
             # TODO: below assumes that all transmit parameters are identical
             # and needs to be changed when allowing transmit parameters to vary by ping
@@ -581,6 +622,16 @@ class CalibrateEK80(CalibrateEK):
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset().merge(range_meter)
 
+        # Add tau_effective to output (Sv only)
+        if cal_type == "Sv":
+            out["tau_effective"] = tau_effective
+            out["tau_effective"].attrs.update(
+                long_name="Effective pulse length",
+                units="s",
+                description=(
+                    "Effective pulse length used for Sv. " "GPT uses transmit_duration_nominal."
+                ),
+            )
         # Add frequency_nominal to data set
         out["frequency_nominal"] = beam["frequency_nominal"]
 
