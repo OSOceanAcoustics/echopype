@@ -5,10 +5,29 @@ angles and add them to a Dataset.
 
 from typing import List, Tuple
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 
 from ..calibrate.ek80_complex import compress_pulse, get_norm_fac, get_transmit_signal
+from ..utils.log import _init_logger
+
+logger = _init_logger(__name__)
+
+# Beam type identifiers
+BEAM_TYPE_SPLIT_4_SECTOR = 1  # 4-sector split-beam (common Simrad type)
+BEAM_TYPE_SPLIT_3_SECTOR = 17  # 3-sector
+BEAM_TYPE_SPLIT_3_PLUS_CENTER = 49  # 3-sector + center element
+BEAM_TYPE_SPLIT_VARIANT_65 = 65  # Another 3+1 variant (vendor-specific)
+BEAM_TYPE_SPLIT_VARIANT_81 = 81  # Another 3+1 variant (vendor-specific)
+
+SUPPORTED_BEAM_TYPES = [
+    BEAM_TYPE_SPLIT_4_SECTOR,
+    BEAM_TYPE_SPLIT_3_SECTOR,
+    BEAM_TYPE_SPLIT_3_PLUS_CENTER,
+    BEAM_TYPE_SPLIT_VARIANT_65,
+    BEAM_TYPE_SPLIT_VARIANT_81,
+]
 
 
 def _compute_angle_from_complex(
@@ -87,8 +106,12 @@ def _compute_angle_from_complex(
     else:
         raise ValueError("beam_type not recognized!")
 
-    theta = theta / sens[0] - offset[0]
-    phi = phi / sens[1] - offset[1]
+    if isinstance(sens[0].data, da.Array):
+        theta = theta / float(sens[0].values) - float(offset[0].values)
+        phi = phi / float(sens[1].values) - float(offset[1].values)
+    else:
+        theta = theta / sens[0] - offset[0]
+        phi = phi / sens[1] - offset[1]
 
     return theta, phi
 
@@ -209,12 +232,17 @@ def get_angle_complex_samples(
         )
     else:
         # beam_type different for some channels, process each channel separately
-        theta, phi = [], []
+        theta_list, phi_list, valid_channels = [], [], []
         for ch_id in bs["channel"].data:
+            beam_type = ds_beam["beam_type"].sel(channel=ch_id)
+            beam_type = int(beam_type)
+            if beam_type not in SUPPORTED_BEAM_TYPES:
+                logger.warning(f"Skipping channel {ch_id}: unsupported beam_type {beam_type}")
+                continue
+
             theta_ch, phi_ch = _compute_angle_from_complex(
                 bs=bs.sel(channel=ch_id),
-                # beam_type is not time-varying
-                beam_type=(ds_beam["beam_type"].sel(channel=ch_id)),
+                beam_type=beam_type,
                 sens=[
                     angle_params["angle_sensitivity_alongship"].sel(channel=ch_id),
                     angle_params["angle_sensitivity_athwartship"].sel(channel=ch_id),
@@ -224,22 +252,23 @@ def get_angle_complex_samples(
                     angle_params["angle_offset_athwartship"].sel(channel=ch_id),
                 ],
             )
-            theta.append(theta_ch)
-            phi.append(phi_ch)
+            theta_list.append(theta_ch)
+            phi_list.append(phi_ch)
+            valid_channels.append(ch_id)
 
         # Combine angles from all channels
         theta = xr.DataArray(
-            data=theta,
+            data=theta_list,
             coords={
-                "channel": bs["channel"],
+                "channel": valid_channels,
                 "ping_time": bs["ping_time"],
                 "range_sample": bs["range_sample"],
             },
         )
         phi = xr.DataArray(
-            data=phi,
+            data=phi_list,
             coords={
-                "channel": bs["channel"],
+                "channel": valid_channels,
                 "ping_time": bs["ping_time"],
                 "range_sample": bs["range_sample"],
             },
