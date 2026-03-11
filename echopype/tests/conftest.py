@@ -6,6 +6,10 @@ from pathlib import Path
 import pytest
 import pooch
 
+from zipfile import ZipFile
+import shutil
+import time
+
 ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
 TEST_DATA_FOLDER = Path(pooch.os_cache("echopype")) / ver
 
@@ -79,10 +83,6 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
             f"  extract_to = {out}\n",
             flush=True,
         )
-
-        from zipfile import ZipFile
-        import shutil
-        import time
 
         if out.exists():
             for _ in range(3):
