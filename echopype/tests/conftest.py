@@ -4,7 +4,7 @@ import os
 import pytest
 from pathlib import Path
 
-if os.getenv("USE_POOCH") == "True":
+if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None:
     import pooch
 
     # Lock to the known-good assets release (can be overridden via env if needed)
@@ -80,9 +80,15 @@ if os.getenv("USE_POOCH") == "True":
 
         from zipfile import ZipFile
         import shutil
+        import time
 
         if out.exists():
-            shutil.rmtree(out)
+            for _ in range(3):
+                try:
+                    shutil.rmtree(out)
+                    break
+                except Exception:
+                    time.sleep(1)
 
         with ZipFile(z, "r") as f:
             f.extractall(out)
