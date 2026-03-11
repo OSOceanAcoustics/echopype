@@ -138,19 +138,19 @@ jobs:
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
 
-      - name: Debug Linux full suite (no xdist)
+      - name: Running all tests
         run: |
-          pytest -vvv -rx \
-          --log-cli-level=WARNING --disable-warnings
+          pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
+          --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
 
-      # - name: Upload code coverage to Codecov
-      #   uses: codecov/codecov-action@v5
-      #   with:
-      #     files: ./coverage.xml
-      #     flags: unittests
-      #     env_vars: RUNNER_OS,PYTHON_VERSION
-      #     name: codecov-umbrella
-      #     fail_ci_if_error: false
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          name: codecov-umbrella
+          fail_ci_if_error: false
 
   test-windows:
     name: ${{ matrix.python-version }}--windows
