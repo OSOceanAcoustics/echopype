@@ -220,7 +220,9 @@ def test_combine_echodata(raw_datasets):
 
             # correctly set filenames values for constructed combined Dataset
             if "filenames" in test_ds:
-                test_ds.filenames.values[:] = np.arange(len(test_ds.filenames), dtype=int)
+                test_ds = test_ds.assign_coords(
+                    filenames=np.arange(test_ds.sizes["filenames"], dtype=int)
+                )
 
             # correctly modify Provenance attributes, so we can do a direct compare
             if group_name == "Provenance":
