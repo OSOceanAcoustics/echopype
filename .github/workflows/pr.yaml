@@ -208,7 +208,7 @@ jobs:
           flags: unittests
           env_vars: RUNNER_OS
           name: codecov-windows
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       - name: Teardown services
         if: always()
