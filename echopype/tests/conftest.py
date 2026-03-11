@@ -1,14 +1,20 @@
 """pytest configuration with minimal Pooch fallback for CI"""
 
 import os
-import pytest
 from pathlib import Path
 
-if os.getenv("USE_POOCH") == "True":
-    import pooch
+import pytest
+import pooch
 
+from zipfile import ZipFile
+import shutil
+import time
+
+ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
+TEST_DATA_FOLDER = Path(pooch.os_cache("echopype")) / ver
+
+if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None:
     # Lock to the known-good assets release (can be overridden via env if needed)
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     base = os.getenv(
         "ECHOPYPE_DATA_BASEURL",
         "https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/",
@@ -43,11 +49,11 @@ if os.getenv("USE_POOCH") == "True":
         "ek60.zip": "sha256:66735de0ac584ec8a150b54b1a54024a92195f64036134ffdc9d472d7e155bb2",
         "ek60_calibrate_chunks.zip": "sha256:bf435b1f7fc055f51afd55c4548713ba8e1eb0e919a0d74f4b9dd5f60b7fe327",
         "ek60_missing_channel_power.zip": "sha256:f3851534cdc6ad3ae1d7c52a11cb279305d316d0086017a305be997d4011e20e",
-        "ek80.zip": "sha256:a114a8272e4c0e08c45c75241c50e3fd9e954f85791bb5eda25be98f6f782397",
+        "ek80.zip": "sha256:be0bab8bc18fa219098caf9d35b0186b003bc0b334897dbee75821c0388ce67e",
         "ek80_bb_complex_multiplex.zip": "sha256:f4b23b872378e5b3b13e5536547fcb094f0230b2b0bef4de89ab18beff6c2d3e",
         "ek80_bb_with_calibration.zip": "sha256:53f018b6dae051cc86180e13cb3f28848750014dfcf84d97cf2191be2b164ccb",
         "ek80_duplicate_ping_times.zip": "sha256:11a2dcb5cf113fa1bb03a6724524ac17bdb0db66cb018b0a3ca7cad87067f4bb",
-        "ek80_ext.zip": "sha256:79dd12b2d9e0399f88c98ab53490f5d0a8d8aed745650208000fcd947dbdd0de",
+        "ek80_ext.zip": "sha256:c2caa4f4fa2d3b31d8cf1dc99ebd1db31077336d3831b68014ade320c7967413",
         "ek80_invalid_env_datagrams.zip": "sha256:dece27d90f30d1a13b56d99350c3254e81622af3199fda0112d3b9e1d7db270c",
         "ek80_missing_sound_velocity_profile.zip": "sha256:1635585026ae5c4ffdff09ca4d63aeff0b33471c5ee0e1b8a520f87469535852",
         "ek80_new.zip": "sha256:f799cde453762c46ad03fee178c76cd9fbb00eec92a5d1038c32f6a9479b2e57",
@@ -78,11 +84,16 @@ if os.getenv("USE_POOCH") == "True":
             flush=True,
         )
 
-        if action in ("update", "download") or not out.exists():
-            from zipfile import ZipFile
+        if out.exists():
+            for _ in range(3):
+                try:
+                    shutil.rmtree(out)
+                    break
+                except Exception:
+                    time.sleep(1)
 
-            with ZipFile(z, "r") as f:
-                f.extractall(out)
+        with ZipFile(z, "r") as f:
+            f.extractall(out)
 
             # flatten single nested dir if needed
             try:
@@ -120,8 +131,6 @@ if os.getenv("USE_POOCH") == "True":
         print(f"[echopype-ci] fetching bundle: {b}")
         print(f"[echopype-ci]   → URL: {url}")
         EP.fetch(b, processor=_unpack, progressbar=False)
-
-    TEST_DATA_FOLDER = Path(cache_dir) / ver
     
     print(
         "\n[echopype-ci] TEST_DATA_FOLDER\n"
