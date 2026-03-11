@@ -138,9 +138,12 @@ jobs:
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
 
-      - name: Debug Linux suspect file only (with xdist)
+      - name: Debug Linux 20-30 percent region (with xdist)
         run: |
-          pytest -vvv -rx echopype/tests/consolidate/test_add_location.py \
+          pytest -vvv -rx \
+          echopype/tests/consolidate/test_consolidate_integration.py \
+          echopype/tests/convert/test_convert_ad2cp.py \
+          echopype/tests/convert/test_convert_ek80.py \
           --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
           --log-cli-level=WARNING --disable-warnings
 
