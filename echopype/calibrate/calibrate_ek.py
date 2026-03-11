@@ -79,7 +79,8 @@ class CalibrateEK(CalibrateBase):
         absorption_loss = 2 * absorption * tvg_mod_range
 
         if cal_type == "Sv":
-            # try to get effective pulse length for WTB
+            # Try to compute effective pulse length from transmit signal
+            # GPT channels are overwritten with nominal transmit duration below
             try:
                 # Get transmit signal
                 tx_coeff = get_filter_coeff(vend)
@@ -101,9 +102,23 @@ class CalibrateEK(CalibrateBase):
                 )
                 tau_effective = beam["transmit_duration_nominal"].isel(ping_time=0)
 
-            # Force nominal tau for GPT channels
-            ch_GPT = (vend["transceiver_type"] == "GPT").compute()
+            # Identify GPT channels.
+            # EK60 systems always use GPT transceivers, so all channels are GPT.
+            # EK80 systems may contain different transceiver types (e.g. GPT, WBT),
+            # so we use Vendor_specific["transceiver_type"] to identify GPT channels.
+            if self.sonar_type == "EK60":
+                # we set the boolean vector to ones
+                ch_GPT = xr.DataArray(
+                    np.ones(vend.sizes["channel"], dtype=bool),
+                    dims=["channel"],
+                    coords={"channel": vend["channel"]},
+                )
+            else:  # EK80
+                ch_GPT = (vend["transceiver_type"] == "GPT").compute()
+
+            # tau eff
             tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
+
             # Calc gain
             CSv = (
                 10 * np.log10(beam["transmit_power"])
