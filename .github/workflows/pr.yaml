@@ -138,9 +138,10 @@ jobs:
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
 
-      - name: Debug Linux suspect file only (no xdist)
+      - name: Debug Linux suspect file only (with xdist)
         run: |
           pytest -vvv -rx echopype/tests/consolidate/test_add_location.py \
+          --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
           --log-cli-level=WARNING --disable-warnings
 
       # - name: Upload code coverage to Codecov
