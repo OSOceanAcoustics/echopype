@@ -1,14 +1,16 @@
 """pytest configuration with minimal Pooch fallback for CI"""
 
 import os
-import pytest
 from pathlib import Path
 
-if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None:
-    import pooch
+import pytest
+import pooch
 
+ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
+TEST_DATA_FOLDER = Path(pooch.os_cache("echopype")) / ver
+
+if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None:
     # Lock to the known-good assets release (can be overridden via env if needed)
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     base = os.getenv(
         "ECHOPYPE_DATA_BASEURL",
         "https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/",
@@ -129,8 +131,6 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
         print(f"[echopype-ci] fetching bundle: {b}")
         print(f"[echopype-ci]   → URL: {url}")
         EP.fetch(b, processor=_unpack, progressbar=False)
-
-    TEST_DATA_FOLDER = Path(cache_dir) / ver
     
     print(
         "\n[echopype-ci] TEST_DATA_FOLDER\n"
