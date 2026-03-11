@@ -78,11 +78,14 @@ if os.getenv("USE_POOCH") == "True":
             flush=True,
         )
 
-        if action in ("update", "download") or not out.exists():
-            from zipfile import ZipFile
+        from zipfile import ZipFile
+        import shutil
 
-            with ZipFile(z, "r") as f:
-                f.extractall(out)
+        if out.exists():
+            shutil.rmtree(out)
+
+        with ZipFile(z, "r") as f:
+            f.extractall(out)
 
             # flatten single nested dir if needed
             try:
