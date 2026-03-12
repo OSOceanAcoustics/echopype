@@ -7,8 +7,12 @@ on:
     paths-ignore: ["**/docker.yaml"]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  NUM_WORKERS: 2
+  NUM_WORKERS: auto
   USE_POOCH: "True"
   ECHOPYPE_DATA_VERSION: v0.11.1a2
   ECHOPYPE_DATA_BASEURL: https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/
@@ -67,6 +71,7 @@ jobs:
         uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: System usage (baseline)
         if: runner.os == 'Linux'

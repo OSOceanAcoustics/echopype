@@ -8,9 +8,12 @@ on:
       - ci/*
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 env:
-  NUM_WORKERS: 2
+  NUM_WORKERS: auto
   USE_POOCH: "True"
   ECHOPYPE_DATA_VERSION: v0.11.1a2
   ECHOPYPE_DATA_BASEURL: https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/
@@ -71,7 +74,7 @@ jobs:
         uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
-
+          cache: pip
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
@@ -168,6 +171,7 @@ jobs:
       - uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
