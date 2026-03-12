@@ -16,15 +16,6 @@ env:
   ECHOPYPE_DATA_BASEURL: https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
 
-  # Reduce memory pressure in CI
-  DASK_SCHEDULER: synchronous
-
-  # Prevent BLAS libraries from spawning many threads
-  OMP_NUM_THREADS: 1
-  OPENBLAS_NUM_THREADS: 1
-  MKL_NUM_THREADS: 1
-  NUMEXPR_NUM_THREADS: 1
-
 jobs:
   test:
     name: ${{ matrix.python-version }}--${{ matrix.runs-on }}
@@ -35,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
-        runs-on: [ubuntu-latest]
+        runs-on: [ubuntu-22.04]
         experimental: [false]
 
 
@@ -146,13 +137,6 @@ jobs:
           df -h
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
-
-      - name: Print memory status
-        run: |
-          free -h
-          echo "-----"
-          top -b -n1 | head -20
-
 
       - name: Running all tests
         run: |
