@@ -8,7 +8,6 @@ on:
       - ci/*
   workflow_dispatch:
 
-
 env:
   NUM_WORKERS: 2
   USE_POOCH: "True"
@@ -28,7 +27,6 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
         runs-on: [ubuntu-latest]
         experimental: [false]
-
 
     services:
       # TODO: figure out how to update tag when there's a new one
@@ -66,16 +64,13 @@ jobs:
           echo "After cleanup:"
           df -h
 
-
       - name: Set up Python
         uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
 
-
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
-
 
       - name: Set environment variables
         run: echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
@@ -85,6 +80,9 @@ jobs:
 
       - name: Install dev tools
         run: python -m pip install -r requirements-dev.txt
+
+      - name: Install memory monitor
+        run: python -m pip install psrecord
 
       - name: Cache echopype test data
         uses: actions/cache@v5
@@ -138,10 +136,69 @@ jobs:
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
 
-      - name: Running all tests
+      - name: Running all tests with memory tracking
         run: |
-          pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
-          --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
+          psrecord "pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings" --interval 1 --log memory_usage.txt
+
+      - name: Plot memory usage
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+          import matplotlib.pyplot as plt
+
+          p = Path("memory_usage.txt")
+          if not p.exists() or p.stat().st_size == 0:
+              print("memory_usage.txt missing or empty")
+              raise SystemExit(0)
+
+          print("=== Raw memory log head ===")
+          with p.open() as f:
+              for i, line in enumerate(f):
+                  print(line.rstrip())
+                  if i >= 4:
+                      break
+
+          try:
+              df = pd.read_csv(p)
+          except Exception:
+              df = pd.read_csv(p, sep=r"\s+", engine="python", header=None)
+
+          print("=== Columns detected ===")
+          print(df.columns)
+          print("=== First rows ===")
+          print(df.head())
+
+          numeric_cols = df.select_dtypes(include="number").columns.tolist()
+          if len(numeric_cols) < 2:
+              print("Not enough numeric columns to plot")
+              raise SystemExit(0)
+
+          xcol = numeric_cols[0]
+          ycol = numeric_cols[1]
+
+          plt.figure(figsize=(8, 4))
+          plt.plot(df[xcol], df[ycol])
+          plt.xlabel(str(xcol))
+          plt.ylabel(str(ycol))
+          plt.title("Memory usage during CI")
+          plt.tight_layout()
+          plt.savefig("memory_usage.png", dpi=150)
+          PY
+
+      - name: Show last memory samples
+        if: always()
+        run: tail -n 20 memory_usage.txt || true
+
+      - name: Upload memory artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-monitor-${{ matrix.python-version }}-${{ matrix.runs-on }}
+          path: |
+            memory_usage.txt
+            memory_usage.png
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v5

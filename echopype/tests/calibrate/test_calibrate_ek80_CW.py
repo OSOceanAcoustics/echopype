@@ -5,12 +5,12 @@ import pickle
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def ek80_path(test_path):
     return test_path["EK80"]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def ek80_ext_path(test_path):
     return test_path["EK80_EXT"]
 
