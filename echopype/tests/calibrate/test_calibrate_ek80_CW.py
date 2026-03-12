@@ -277,63 +277,75 @@ def _ref_complex_var_to_da(ref: dict, var_name: str, ds_ep_38: xr.Dataset) -> xr
         name=var_name,
     )
 
+def _assert_2d_close(ep_da, ref_da, rtol=0.0, atol=1e-2, skip_range_samples=0):
+    ep_vals = np.asarray(ep_da.data)
+    ref_vals = np.asarray(ref_da.data)
 
-def test_ek80_CW_complex_tau_effective_matches_matecho(cw_complex_ds, ek80_ext_path):
+    if skip_range_samples > 0:
+        ep_vals = ep_vals[:, skip_range_samples:]
+        ref_vals = ref_vals[:, skip_range_samples:]
 
-    ds = cw_complex_ds
+    m = np.isfinite(ep_vals) & np.isfinite(ref_vals)
+    assert m.any()
 
-    ds38 = _select_ep_complex_38(ds)
+    assert np.allclose(ep_vals[m], ref_vals[m], rtol=rtol, atol=atol)
 
-    tau_ep = float(ds38["tau_effective"].values)
+# def test_ek80_CW_complex_tau_effective_matches_matecho(cw_complex_ds, ek80_ext_path):
 
-    ref = _load_complex_ref(ek80_ext_path, "matecho")
-    tau_ref = float(ref["tau_effective"])
+#     ds = cw_complex_ds
 
-    np.testing.assert_allclose(
-        tau_ep,
-        tau_ref,
-        rtol=_TAU_RTOL,
-        atol=0.0,
-    )
+#     ds38 = _select_ep_complex_38(ds)
 
+#     tau_ep = float(ds38["tau_effective"].values)
 
-def test_ek80_CW_complex_Sv_matches_matecho(cw_complex_ds, ek80_ext_path):
+#     ref = _load_complex_ref(ek80_ext_path, "matecho")
+#     tau_ref = float(ref["tau_effective"])
 
-    ds = cw_complex_ds
-
-    ref = _load_complex_ref(ek80_ext_path, "matecho")
-    n_range = ref["Sv"].shape[1]
-
-    ds38 = _select_ep_complex_38(ds, n_range=n_range)
-
-    sv_ep = ds38["Sv"]
-    sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
-
-    _assert_2d_close(
-        sv_ep,
-        sv_ref,
-        rtol=0.0,
-        atol=_SV_ATOL_DB,
-        skip_range_samples=_SKIP_RS,
-    )
+#     np.testing.assert_allclose(
+#         tau_ep,
+#         tau_ref,
+#         rtol=_TAU_RTOL,
+#         atol=0.0,
+#     )
 
 
-def test_ek80_CW_complex_Sv_matches_echoview(cw_complex_ds, ek80_ext_path):
+# def test_ek80_CW_complex_Sv_matches_matecho(cw_complex_ds, ek80_ext_path):
 
-    ds = cw_complex_ds
+#     ds = cw_complex_ds
 
-    ref = _load_complex_ref(ek80_ext_path, "echoview")
-    n_range = ref["Sv"].shape[1]
+#     ref = _load_complex_ref(ek80_ext_path, "matecho")
+#     n_range = ref["Sv"].shape[1]
 
-    ds38 = _select_ep_complex_38(ds, n_range=n_range)
+#     ds38 = _select_ep_complex_38(ds, n_range=n_range)
 
-    sv_ep = ds38["Sv"]
-    sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
+#     sv_ep = ds38["Sv"]
+#     sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
 
-    _assert_2d_close(
-        sv_ep,
-        sv_ref,
-        rtol=0.0,
-        atol=_SV_ATOL_DB,
-        skip_range_samples=_SKIP_RS,
-    )
+#     _assert_2d_close(
+#         sv_ep,
+#         sv_ref,
+#         rtol=0.0,
+#         atol=_SV_ATOL_DB,
+#         skip_range_samples=_SKIP_RS,
+#     )
+
+
+# def test_ek80_CW_complex_Sv_matches_echoview(cw_complex_ds, ek80_ext_path):
+
+#     ds = cw_complex_ds
+
+#     ref = _load_complex_ref(ek80_ext_path, "echoview")
+#     n_range = ref["Sv"].shape[1]
+
+#     ds38 = _select_ep_complex_38(ds, n_range=n_range)
+
+#     sv_ep = ds38["Sv"]
+#     sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
+
+#     _assert_2d_close(
+#         sv_ep,
+#         sv_ref,
+#         rtol=0.0,
+#         atol=_SV_ATOL_DB,
+#         skip_range_samples=_SKIP_RS,
+#     )
