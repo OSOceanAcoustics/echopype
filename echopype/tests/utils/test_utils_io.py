@@ -37,6 +37,7 @@ import echopype.utils.io
         (fsspec.get_mapper('https://example.com/test.jpeg'), True, 'jpeg'),
     ],
 )
+@pytest.mark.unit
 def test_sanitize_file_path(file_path, should_fail, file_type):
     try:
         sanitized = sanitize_file_path(file_path)
@@ -76,6 +77,7 @@ def test_sanitize_file_path(file_path, should_fail, file_type):
         ('s3://ooi-raw-data/new_test.nc', 'netcdf4'),
     ],
 )
+@pytest.mark.integration
 def test_validate_output_path(save_path, engine, minio_bucket):
     output_root_path = os.path.join('.', 'echopype', 'test_data', 'dump')
     source_file = 'test.raw'
@@ -178,6 +180,7 @@ def mock_unix_return(*args: Tuple[str, ...]):
         (r"s3://folder", True, True),
     ]
 )
+@pytest.mark.unit
 def test_env_indep_joinpath_mock_return(save_path: str, is_windows: bool, is_cloud: bool, monkeypatch):
     """
     Tests the function ``env_indep_joinpath`` using a mock return on varying OS and cloud
@@ -224,6 +227,7 @@ def test_env_indep_joinpath_mock_return(save_path: str, is_windows: bool, is_clo
         (r"s3://root/folder", True, True),
     ]
 )
+@pytest.mark.unit
 def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cloud: bool):
     """
     Tests the true output of the function ``env_indep_joinpath`` on varying OS and cloud path
@@ -287,6 +291,7 @@ def test_env_indep_joinpath_os_dependent(save_path: str, is_windows: bool, is_cl
     ]
 
 )
+@pytest.mark.unit
 def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_file_type):
     """
     Tests that ``validate_source`` has the appropriate outputs.
@@ -303,6 +308,7 @@ def test_validate_source_ds_da(source_ds_da_input, storage_options_input, true_f
         assert isinstance(source_ds_output, str)
         assert file_type_output == true_file_type
 
+@pytest.mark.unit
 def test_init_ep_dir(monkeypatch):
     temp_user_dir = tempfile.TemporaryDirectory()
     echopype_dir = Path(temp_user_dir.name) / ".echopype"

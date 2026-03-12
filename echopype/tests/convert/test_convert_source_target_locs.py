@@ -17,6 +17,8 @@ from tempfile import TemporaryDirectory
 from echopype import open_raw
 from echopype.utils.coding import DEFAULT_ENCODINGS
 
+pytestmark = pytest.mark.integration
+
 
 def _check_file_group(data_file, engine, groups):
     tree = open_datatree(data_file, engine=engine)

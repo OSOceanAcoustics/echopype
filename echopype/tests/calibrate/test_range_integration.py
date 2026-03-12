@@ -1,6 +1,8 @@
 import pytest
 import echopype as ep
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.parametrize(
     (

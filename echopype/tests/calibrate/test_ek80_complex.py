@@ -4,6 +4,8 @@ import xarray as xr
 
 from echopype.calibrate.ek80_complex import get_vend_filter_EK80
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def ek80_path(test_path):

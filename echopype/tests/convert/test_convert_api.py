@@ -91,6 +91,7 @@ def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
         assert os.path.exists(output_save_path)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ["path_model", "raw_file", "sonar_model"],
     [

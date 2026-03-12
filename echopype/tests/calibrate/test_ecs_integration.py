@@ -8,6 +8,8 @@ from echopype.calibrate.ecs import ECSParser, ecs_ev2ep, ecs_ds2dict, conform_ch
 from echopype.calibrate.env_params import get_env_params_EK
 from echopype.calibrate.cal_params import get_cal_params_EK
 
+pytestmark = pytest.mark.integration
+
 
 # @pytest.fixture
 # def azfp_path(test_path):

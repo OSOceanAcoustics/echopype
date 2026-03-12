@@ -11,6 +11,8 @@ import scipy.io as io
 import echopype as ep
 from typing import List
 
+pytestmark = pytest.mark.integration
+
 """
 For future reference:
 
