@@ -332,7 +332,9 @@ def test_compute_MVBS_range_output(request, er_type):
     ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="5m", ping_time_bin="10s")
 
     if er_type == "regular":
-        dt_ns = np.diff(ds_Sv["ping_time"][[0, -1]].values)[0]
+        dt_ns = pd.Timedelta(
+            ds_Sv["ping_time"].values[-1] - ds_Sv["ping_time"].values[0]
+        ).value
         expected_len = (
             ds_Sv["channel"].size,  # channel
             int(np.ceil(int(dt_ns) / 1e9 / 10)),  # ping_time

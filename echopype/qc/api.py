@@ -64,7 +64,8 @@ def coerce_increasing_time(
     would remain undisturbed.
     """
 
-    ds[time_name].data[:] = _clean_reversed(ds[time_name].data, win_len)
+    da = ds[time_name]
+    ds[time_name] = (da.dims, _clean_reversed(da.values, win_len))
 
 
 def exist_reversed_time(ds, time_name):
