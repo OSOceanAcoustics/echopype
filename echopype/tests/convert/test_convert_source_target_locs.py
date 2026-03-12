@@ -8,7 +8,6 @@ output tests.**
 """
 
 
-import os
 import fsspec
 import xarray as xr
 import pytest
@@ -228,7 +227,7 @@ def azfp_xml_paths(request, test_path):
     ],
     ids=["azfp", "ek60", "es70", "es80", "ea640", "ek80", "ad2cp"],
 )
-def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
+def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path, tmp_path):
     path_model = sonar_model.upper()
     if path_model == "EK80":
         path_model = path_model + "_NEW"
@@ -240,7 +239,7 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
     ed = open_raw(
         sonar_model=sonar_model, raw_file=raw_file, xml_path=xml_path, use_swap=False
     )
-    ed.to_netcdf(overwrite=True)
+    ed.to_netcdf(save_path=tmp_path, overwrite=True)
     for group, details in ed.group_map.items():
         group_path = details['ep_group']
         if group_path is None:
@@ -272,7 +271,6 @@ def test_convert_time_encodings(sonar_model, raw_file, xml_path, test_path):
                         group=details['ep_group'],
                     )[var]
                     assert da.equals(decoded_da) is True
-    os.unlink(ed.converted_raw_path)
 
 
 def test_convert_ek(
