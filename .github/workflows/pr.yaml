@@ -147,6 +147,13 @@ jobs:
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
 
+      - name: Print memory status
+        run: |
+          free -h
+          echo "-----"
+          top -b -n1 | head -20
+
+
       - name: Running all tests
         run: |
           pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
