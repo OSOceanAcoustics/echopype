@@ -114,15 +114,24 @@ class SetGroupsBase(abc.ABC):
         if len(time_val) == 1 and np.isnan(time_val[0]):
             # set time_val to earliest ping_time among all channels
             if self.sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
-                return [np.array([v[0] for v in self.parser_obj.ping_time.values()]).min()]
-            elif self.sonar_model in ["AZFP", "AZFP6"]:
+                ping_times = [v[0] for v in self.parser_obj.ping_time.values()]
+                # If ping_times are empty or contain empty arrays
+                if len(ping_times) == 0 or all(
+                    hasattr(t, '__len__') and len(t) == 0 for t in ping_times
+                ):
+                    return [np.nan]
+
+                earliest_ping_time = np.array(ping_times).min()
+                return [earliest_ping_time]
+
+            if self.sonar_model in ["AZFP", "AZFP6"]:
                 return [self.parser_obj.ping_time[0]]
-            else:
-                return NotImplementedError(
-                    f"Nan timestamp handling has not been implemented for {self.sonar_model}!"
-                )
-        else:
-            return time_val
+
+            return NotImplementedError(
+                f"Nan timestamp handling has not been implemented for {self.sonar_model}!"
+            )
+
+        return time_val
 
     def set_nmea(self) -> xr.Dataset:
         """Set the Platform/NMEA group."""
