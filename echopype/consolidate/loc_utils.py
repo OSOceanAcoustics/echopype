@@ -1,3 +1,4 @@
+import warnings
 from typing import Union
 
 import numpy as np
@@ -107,13 +108,24 @@ def check_loc_vars_validity(
             logger.warning(output_message)
 
 
-def check_loc_time_dim_duplicates(da: xr.DataArray, time_dim_name: str) -> None:
-    """Check if there are duplicates in time_dim_name"""
-    if len(np.unique(da[time_dim_name].data)) != len(da[time_dim_name].data):
-        raise ValueError(
-            f'Data contains duplicate time values in time_dim_name "{time_dim_name}". '
-            "Downstream interpolation on the position variables requires unique time values."
+def check_loc_time_dim_duplicates(da: xr.DataArray, time_dim_name: str) -> xr.DataArray:
+    """Check for and remove duplicates in time_dim_name.
+
+    If duplicate time values are found, they are removed (keeping the first
+    occurrence) and a warning is logged. The deduplicated DataArray is returned.
+    """
+    time_vals = da[time_dim_name].data
+    if len(np.unique(time_vals)) != len(time_vals):
+        n_total = len(time_vals)
+        n_unique = len(np.unique(time_vals))
+        warnings.warn(
+            f'Dropped {n_total - n_unique} duplicate value(s) in "{time_dim_name}".',
+            UserWarning,
+            stacklevel=2,
         )
+        _, unique_idx = np.unique(time_vals, return_index=True)
+        da = da.isel({time_dim_name: np.sort(unique_idx)})
+    return da
 
 
 def sel_nmea(

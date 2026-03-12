@@ -316,8 +316,9 @@ def add_location(
             datagram_type=datagram_type,
         )
 
-        # Check if there are duplicates in time_dim_name for this NMEA subset
-        check_loc_time_dim_duplicates(loc_var, time_dim_name)
+        # Deduplicate time dimension if needed (e.g. multiple NMEA sentences
+        # at the same timestamp); required for downstream interpolation.
+        loc_var = check_loc_time_dim_duplicates(loc_var, time_dim_name)
 
         interp_ds[interp_loc_name] = align_to_ping_time(
             loc_var, time_dim_name, ds["ping_time"], "linear"
