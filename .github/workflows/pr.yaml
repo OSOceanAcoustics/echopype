@@ -16,6 +16,15 @@ env:
   ECHOPYPE_DATA_BASEURL: https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
 
+  # Reduce memory pressure in CI
+  DASK_SCHEDULER: synchronous
+
+  # Prevent BLAS libraries from spawning many threads
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+  NUMEXPR_NUM_THREADS: 1
+
 jobs:
   test:
     name: ${{ matrix.python-version }}--${{ matrix.runs-on }}
@@ -140,19 +149,17 @@ jobs:
 
       - name: Running all tests
         run: |
-          pytest -vvv -rx \
-          --log-cli-level=WARNING --disable-warnings
+          pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
+          --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
 
-
-
-      # - name: Upload code coverage to Codecov
-      #   uses: codecov/codecov-action@v5
-      #   with:
-      #     files: ./coverage.xml
-      #     flags: unittests
-      #     env_vars: RUNNER_OS,PYTHON_VERSION
-      #     name: codecov-umbrella
-      #     fail_ci_if_error: false
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          name: codecov-umbrella
+          fail_ci_if_error: false
 
   test-windows:
     name: ${{ matrix.python-version }}--windows
