@@ -234,10 +234,10 @@ def test_add_location(
         ),
     ],
 )
-def test_add_location_time_duplicates_value_error(
+def test_add_location_time_duplicates_warning(
     ek80_path, raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs,
 ):   
-    """Tests for duplicate time value error in ``add_location``.""" 
+    """Tests that duplicate time values are handled with a warning, not an error.""" 
     # Open raw and compute the Sv dataset
     if parse_idx:
         ed = ep.open_raw(ek80_path / raw_path, include_idx=True, sonar_model=sonar_model)
@@ -255,16 +255,15 @@ def test_add_location_time_duplicates_value_error(
     vals[0] = vals[1]
     ed["Platform"] = ed["Platform"].assign_coords({time_dim_name: (da.dims, vals)})
     
-    # Check if the expected error is logged
-    with pytest.raises(ValueError) as exc_info:
-        # Run add location with duplicated time
-        ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
+    # Should succeed with a warning instead of raising ValueError
+    with pytest.warns(UserWarning, match="Dropped 1 duplicate value"):
+        ds_loc = ep.consolidate.add_location(
+            ds=ds, echodata=ed, datagram_type=datagram_type
+        )
 
-    # Check if the specific error message is in the logs
-    assert (
-        f'Data contains duplicate time values in time_dim_name "{time_dim_name}". '
-        "Downstream interpolation on the position variables requires unique time values."
-    ) == str(exc_info.value)
+    # Verify location was successfully added
+    assert "latitude" in ds_loc
+    assert "longitude" in ds_loc
 
 
 @pytest.mark.integration
