@@ -439,7 +439,7 @@ def remove_background_noise(
     ping_num: int,
     range_sample_num: int,
     background_noise_max: str = None,
-    SNR_threshold: float = "3.0dB",
+    SNR_threshold: str = "3.0dB",
 ) -> xr.Dataset:
     """
     Remove noise by using estimates of background noise
