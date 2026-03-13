@@ -10,6 +10,7 @@ import pandas as pd
 import xarray as xr
 
 from ..consolidate.api import POSITION_VARIABLES
+from ..qc.api import coerce_increasing_time, exist_reversed_time
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .utils import (
     _convert_bins_to_interval_index,
@@ -18,9 +19,11 @@ from .utils import (
     _set_MVBS_attrs,
     _set_var_attrs,
     _setup_and_validate,
+    _weighted_mean_kernel,
     compute_raw_MVBS,
     compute_raw_NASC,
     get_distance_from_latlon,
+    get_valid_max_depth_ping,
 )
 
 logger = logging.getLogger(__name__)
@@ -441,5 +444,105 @@ def compute_NASC(
     return ds_NASC
 
 
-def regrid():
-    return 1
+def regrid(ds_Sv, target_channel: str = None, target_grid: xr.DataArray = None) -> xr.Dataset:
+    """
+    Regrids all channels in the EchoData object to match the geometry
+    of the specified target channel index.
+
+    Parameters
+    ----------
+    ds_Sv : xr.Dataset
+        Input Dataset containing Sv data
+    target_channel : string, optional
+        The label of the channel to serve as the master grid.
+    target_grid : xr.DataArray, optional
+        A data array containing specific 'echo_range' values specifying the target grid.
+        Data array must have dimension ('ping_time', 'range_sample').
+    Returns
+    -------
+    xr.Dataset
+        A new Dataset where all channels share the same `ping_time`,
+        `range_sample`, and `echo_range` as the target.
+    """
+    if target_channel is not None and target_grid is not None:
+        raise ValueError("Provide only one of target_channel or target_grid, not both.")
+
+    if exist_reversed_time(ds_Sv, "ping_time"):
+        # Coerce increasing time
+        coerce_increasing_time(ds_Sv)
+
+    channels = ds_Sv.channel.values
+    ds_final = ds_Sv.copy(deep=True)
+
+    # Check bounds
+    if target_channel and target_channel not in channels:
+        raise IndexError(f"{target_channel} is not part of the channel names in : {channels}")
+
+    if target_grid is not None and target_grid.dims != ("ping_time", "range_sample"):
+        raise NotImplementedError("target_grid dimensions do not match expected dimensions.")
+
+    # Target channel is given
+    if target_channel:
+        ds_target = ds_Sv.sel(channel=target_channel).copy()
+        target_range_da = ds_target["echo_range"]
+
+        deepest_ping_index = get_valid_max_depth_ping(ds_Sv, target_channel=target_channel)
+        valid_range_sample = np.argmax(
+            ds_Sv["echo_range"]
+            .sel(channel=target_channel)
+            .isel(ping_time=deepest_ping_index)
+            .values
+        )
+        ds_final["echo_range"][:] = ds_Sv["echo_range"].sel(channel=target_channel)
+
+    # Target grid is given
+    else:
+        target_range_da = target_grid.copy()
+
+        deepest_ping_index = get_valid_max_depth_ping(ds_Sv, target_grid=target_grid)
+        valid_range_sample = np.argmax(target_grid.isel(ping_time=deepest_ping_index).values)
+        ds_final["echo_range"][:] = target_grid
+
+    # List to hold the aligned DataArrays
+    aligned_arrays = []
+
+    for i, channel in enumerate(channels):
+
+        ds_source = ds_Sv.sel(channel=channel)
+
+        # Linear domain for resampling
+        source_linear = 10 ** (ds_source["Sv"] / 10.0)
+        source_range_da = ds_source["echo_range"]
+
+        # Apply weighted mean resapling as Ufunc
+
+        result_linear = xr.apply_ufunc(
+            _weighted_mean_kernel,
+            target_range_da,
+            source_range_da,
+            source_linear,
+            input_core_dims=[["range_sample"], ["range_sample"], ["range_sample"]],
+            output_core_dims=[["range_sample"]],
+            vectorize=True,
+            dask="parallelized",
+            output_dtypes=[np.float64],
+        )
+
+        # Convert back to log domain
+        result_linear = result_linear.where(result_linear > 0)
+        result_sv = 10 * np.log10(result_linear)
+
+        result_sv.name = "Sv"
+
+        result_sv = result_sv.assign_coords(channel=channel)
+
+        aligned_arrays.append(result_sv)
+
+    ds_combined = xr.concat(aligned_arrays, dim="channel")
+
+    # Construct final Dataset based on original ds_Sv
+
+    ds_final = ds_final.isel(range_sample=slice(0, valid_range_sample + 20))
+    ds_final["Sv"] = ds_combined.isel(range_sample=slice(0, valid_range_sample + 20))
+
+    return ds_final
