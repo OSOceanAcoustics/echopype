@@ -1,8 +1,11 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from echopype.utils.prov import _sanitize_source_files
+
+pytestmark = pytest.mark.unit
 
 
 def test_scalars():

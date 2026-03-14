@@ -4,6 +4,8 @@ Tests functions contained within echodata/simrad.py
 import pytest
 from echopype.echodata.simrad import retrieve_correct_beam_group, check_input_args_combination
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.parametrize(
     ("waveform_mode", "encode_mode", "pulse_compression"),

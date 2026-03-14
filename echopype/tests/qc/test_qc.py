@@ -6,6 +6,8 @@ from echopype.qc.api import _clean_reversed
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def ds_time():

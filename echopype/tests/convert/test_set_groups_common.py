@@ -2,6 +2,9 @@ from typing import Dict, List, Any
 
 import xarray as xr
 import numpy as np
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_backscatter_concat_jitter_ping_time(mock_ping_data_dict_power_angle_jitter):

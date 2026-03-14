@@ -15,6 +15,8 @@ from pathlib import Path
 
 from echopype import open_raw, open_converted
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="session")
 def ad2cp_path(test_path):

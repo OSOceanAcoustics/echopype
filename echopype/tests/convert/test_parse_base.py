@@ -6,6 +6,8 @@ import pytest
 from echopype.convert.parse_base import FILENAME_DATETIME_EK60, ParseBase, ParseEK, INDEX2POWER
 from echopype.convert.utils.ek_swap import calc_final_shapes
 
+pytestmark = pytest.mark.unit
+
 
 class TestParseBase:
     file = "./my_file.raw"
