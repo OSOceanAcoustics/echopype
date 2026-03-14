@@ -16,6 +16,7 @@ from echopype.tests.commongrid.conftest import get_NASC_echoview
 
 
 # Utilities Tests
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ["x_bin", "x_label", "expected_result"],
     [
