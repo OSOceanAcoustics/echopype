@@ -12,6 +12,12 @@ import xarray as xr
 # for seafloor detection
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
+from echopype.mask.single_target_detection.detect_echoview_split_method2 import (
+    detect_echoview_split_method2,
+)
+
+# for single_target_detection
+from echopype.mask.single_target_detection.detect_matecho import detect_matecho
 
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
@@ -799,3 +805,82 @@ def detect_shoal(
         raise ValueError(f"Unsupported shoal detection method: {method}")
 
     return METHODS_SHOAL[method](ds, **params)
+
+
+# Registry of supported methods for single_target_detection
+METHODS_SINGLE_TARGET = {
+    "matecho": detect_matecho,
+    "echoview_split_method2": detect_echoview_split_method2,
+}
+
+
+def detect_single_targets(
+    ds: xr.Dataset,
+    method: str,
+    params: dict,
+) -> xr.Dataset:
+    """
+    Run single-target detection using the selected method.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Acoustic dataset containing the fields required by the selected method.
+        Typical dimensions include ``ping_time`` and ``range_sample``.
+        Depending on the method, this may require TS, Sv and split-beam
+        angles (e.g. alongship / athwartship angles).
+    method : str
+        Name of the detection method to use (e.g., ``"matecho"``, ...).
+    params : dict
+        Method-specific parameters. This argument is required and no defaults
+        are assumed.
+
+    Returns
+    -------
+    xr.Dataset
+        Per-target detection results with dimension ``target``.
+
+        Coordinates (defined on ``target``) are:
+            - ``ping_time``
+            - ``range_sample``
+            - ``frequency_nominal``
+
+        Each row corresponds to a single detection occurring at one
+        time and one range sample. The frequency may be constant
+        (CW data) or vary per target (FM data).
+
+    """
+
+    if method not in METHODS_SINGLE_TARGET:
+        raise ValueError(f"Unsupported single-target method: {method}")
+
+    if params is None:
+        raise ValueError("No parameters given.")
+
+    if "beam_type" not in ds:
+        raise ValueError("beam_type variable is missing from dataset.")
+
+    beam_vals = np.unique(ds["beam_type"].values)
+
+    if not np.all(np.isin(beam_vals, [1, 65])):
+        raise ValueError(
+            f"Only split-beam data supported (beam_type 1 or 65). " f"Found: {beam_vals}"
+        )
+
+    out = METHODS_SINGLE_TARGET[method](ds, params)
+
+    if not isinstance(out, xr.Dataset) or "target" not in out.dims:
+        raise TypeError(f"{method} must return an xr.Dataset with a 'target' dimension.")
+
+    required = ("ping_time", "range_sample", "frequency_nominal")
+    missing = [v for v in required if v not in out]
+    if missing:
+        raise ValueError(
+            f"{method} output missing required field(s): {missing} (expected {list(required)})."
+        )
+
+    bad_dims = [v for v in required if out[v].dims != ("target",)]
+    if bad_dims:
+        raise ValueError(f"{method} field(s) must have dims ('target',): {bad_dims}.")
+
+    return out

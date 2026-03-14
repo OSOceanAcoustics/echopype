@@ -581,6 +581,20 @@ class CalibrateEK80(CalibrateEK):
         # Attach calculated range (with units meter) into data set
         out = out.to_dataset().merge(range_meter)
 
+        # Add tau_effective to output (Sv only)
+        if cal_type == "Sv":
+            out["tau_effective"] = tau_effective
+            out["tau_effective"].attrs.update(
+                {
+                    "long_name": "Effective pulse length",
+                    "units": "s",
+                    "description": (
+                        "Effective pulse length used in Sv calibration. "
+                        "For GPT channels, transmit_duration_nominal is used."
+                    ),
+                }
+            )
+
         # Add frequency_nominal to data set
         out["frequency_nominal"] = beam["frequency_nominal"]
 
