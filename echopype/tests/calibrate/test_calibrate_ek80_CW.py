@@ -4,6 +4,7 @@ import xarray as xr
 import pickle
 import pytest
 
+pytestmark = pytest.mark.integration
 
 @pytest.fixture(scope="module")
 def ek80_path(test_path):
@@ -23,7 +24,7 @@ _TAU_RTOL = 1e-3
 _TAU_RTOL_PYECHOLAB = 1e-6
 
 
-# --- DATASET FIXTURES (NEW)
+# --- DATASET FIXTURES
 
 @pytest.fixture(scope="module")
 def cw_power_ds(ek80_path):
@@ -38,8 +39,8 @@ def cw_power_ds(ek80_path):
 
 @pytest.fixture(scope="module")
 def cw_complex_ds(ek80_path):
-    raw = ek80_path / _COMPLEX_RAW_REL
-    ed = ep.open_raw(raw, sonar_model="EK80")
+    zarr_path = ek80_path / _COMPLEX_ZARR_REL
+    ed = ep.open_converted(zarr_path, chunks={})
     return ep.calibrate.compute_Sv(
         ed,
         waveform_mode="CW",
@@ -163,7 +164,9 @@ _HAKE_RAW_REL = "ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
 
 
 def test_ek80_CW_power_tau_effective_matches_matecho(cw_power_ds, ek80_ext_path):
-
+    """Check that tau_effective from echopype CW power
+    calibration matches Matecho reference values."""
+    
     ds = cw_power_ds
 
     tau_ep = _tau_ep_to_freq_vector(ds)
@@ -182,7 +185,9 @@ def test_ek80_CW_power_tau_effective_matches_matecho(cw_power_ds, ek80_ext_path)
 
 
 def test_ek80_CW_power_Sv_matches_matecho(cw_power_ds, ek80_ext_path):
-
+    """Verify that calibrated Sv from echopype CW power
+    mode matches Matecho Sv reference within tolerance."""
+    
     ds = cw_power_ds
 
     sv_ep = ds["Sv"]
@@ -200,7 +205,9 @@ def test_ek80_CW_power_Sv_matches_matecho(cw_power_ds, ek80_ext_path):
 
 
 def test_ek80_CW_power_tau_effective_matches_pyecholab(cw_power_ds, ek80_ext_path):
-
+    """Validate that echopype tau_effective agrees
+    with PyEcholab CW power reference values."""
+    
     ds = cw_power_ds
 
     tau_ep = _tau_ep_to_freq_vector(ds)
@@ -212,7 +219,9 @@ def test_ek80_CW_power_tau_effective_matches_pyecholab(cw_power_ds, ek80_ext_pat
 
 
 def test_ek80_CW_power_Sv_matches_pyecholab(cw_power_ds, ek80_ext_path):
-
+    """Verify that echopype calibrated Sv in CW power
+    mode matches PyEcholab reference outputs."""
+    
     ds = cw_power_ds
 
     sv_ep = ds["Sv"]
@@ -230,8 +239,7 @@ def test_ek80_CW_power_Sv_matches_pyecholab(cw_power_ds, ek80_ext_path):
 
 
 # --- COMPLEX
-
-_COMPLEX_RAW_REL = "RV_Svea/D20230626-T235835.raw"
+_COMPLEX_ZARR_REL = "RV_Svea/ci_subset_D20230626-T235835.zarr"
 
 
 def _load_complex_ref(ek80_ext_path, which: str) -> dict:
@@ -249,13 +257,17 @@ def _load_complex_ref(ek80_ext_path, which: str) -> dict:
 
 def _select_ep_complex_38(ds: xr.Dataset, n_range: int | None = None) -> xr.Dataset:
 
-    ch = ds["channel"].values.astype(str)
+    channel = ds["channel"].astype(str)
+    mask = channel.str.contains("ES38")
 
-    idx = np.where(np.char.find(ch, "ES38") >= 0)[0]
+    if int(mask.sum()) == 1:
+        ds38 = ds.isel(channel=mask)
+    elif ds.sizes["channel"] == 1:
+        ds38 = ds.isel(channel=[0])
+    else:
+        raise AssertionError(f"Expected one ES38 channel, got {channel.values}")
 
-    assert idx.size == 1, f"Expected one ES38 channel, got {idx}"
-
-    ds38 = ds.isel(channel=int(idx[0]))
+    ds38 = ds38.squeeze("channel", drop=True)
 
     if n_range is not None:
         ds38 = ds38.isel(range_sample=slice(0, n_range))
@@ -277,6 +289,7 @@ def _ref_complex_var_to_da(ref: dict, var_name: str, ds_ep_38: xr.Dataset) -> xr
         name=var_name,
     )
 
+
 def _assert_2d_close(ep_da, ref_da, rtol=0.0, atol=1e-2, skip_range_samples=0):
     ep_vals = np.asarray(ep_da.data)
     ref_vals = np.asarray(ref_da.data)
@@ -290,62 +303,69 @@ def _assert_2d_close(ep_da, ref_da, rtol=0.0, atol=1e-2, skip_range_samples=0):
 
     assert np.allclose(ep_vals[m], ref_vals[m], rtol=rtol, atol=atol)
 
-# def test_ek80_CW_complex_tau_effective_matches_matecho(cw_complex_ds, ek80_ext_path):
 
-#     ds = cw_complex_ds
+def test_ek80_CW_complex_tau_effective_matches_matecho(cw_complex_ds, ek80_ext_path):
+    """Check that tau_effective from echopype CW complex
+    calibration matches Matecho reference."""
 
-#     ds38 = _select_ep_complex_38(ds)
+    ds = cw_complex_ds
 
-#     tau_ep = float(ds38["tau_effective"].values)
+    ds38 = _select_ep_complex_38(ds)
 
-#     ref = _load_complex_ref(ek80_ext_path, "matecho")
-#     tau_ref = float(ref["tau_effective"])
+    tau_ep = float(ds38["tau_effective"].values)
 
-#     np.testing.assert_allclose(
-#         tau_ep,
-#         tau_ref,
-#         rtol=_TAU_RTOL,
-#         atol=0.0,
-#     )
+    ref = _load_complex_ref(ek80_ext_path, "matecho")
+    tau_ref = float(ref["tau_effective"])
 
-
-# def test_ek80_CW_complex_Sv_matches_matecho(cw_complex_ds, ek80_ext_path):
-
-#     ds = cw_complex_ds
-
-#     ref = _load_complex_ref(ek80_ext_path, "matecho")
-#     n_range = ref["Sv"].shape[1]
-
-#     ds38 = _select_ep_complex_38(ds, n_range=n_range)
-
-#     sv_ep = ds38["Sv"]
-#     sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
-
-#     _assert_2d_close(
-#         sv_ep,
-#         sv_ref,
-#         rtol=0.0,
-#         atol=_SV_ATOL_DB,
-#         skip_range_samples=_SKIP_RS,
-#     )
+    np.testing.assert_allclose(
+        tau_ep,
+        tau_ref,
+        rtol=_TAU_RTOL,
+        atol=0.0,
+    )
 
 
-# def test_ek80_CW_complex_Sv_matches_echoview(cw_complex_ds, ek80_ext_path):
+def test_ek80_CW_complex_Sv_matches_matecho(cw_complex_ds, ek80_ext_path):
+    """Verify that Sv from echopype CW complex
+    mode agrees with Matecho reference Sv."""
+    
+    ds = cw_complex_ds
 
-#     ds = cw_complex_ds
+    ref = _load_complex_ref(ek80_ext_path, "matecho")
+    n_range = ref["Sv"].shape[1]
 
-#     ref = _load_complex_ref(ek80_ext_path, "echoview")
-#     n_range = ref["Sv"].shape[1]
+    ds38 = _select_ep_complex_38(ds, n_range=n_range)
 
-#     ds38 = _select_ep_complex_38(ds, n_range=n_range)
+    sv_ep = ds38["Sv"]
+    sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
 
-#     sv_ep = ds38["Sv"]
-#     sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
+    _assert_2d_close(
+        sv_ep,
+        sv_ref,
+        rtol=0.0,
+        atol=_SV_ATOL_DB,
+        skip_range_samples=_SKIP_RS,
+    )
 
-#     _assert_2d_close(
-#         sv_ep,
-#         sv_ref,
-#         rtol=0.0,
-#         atol=_SV_ATOL_DB,
-#         skip_range_samples=_SKIP_RS,
-#     )
+
+def test_ek80_CW_complex_Sv_matches_echoview(cw_complex_ds, ek80_ext_path):
+    """Ensure echopype CW complex Sv matches
+    Echoview Sv reference for the ES38 channel."""
+    
+    ds = cw_complex_ds
+
+    ref = _load_complex_ref(ek80_ext_path, "echoview")
+    n_range = ref["Sv"].shape[1]
+
+    ds38 = _select_ep_complex_38(ds, n_range=n_range)
+
+    sv_ep = ds38["Sv"]
+    sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
+
+    _assert_2d_close(
+        sv_ep,
+        sv_ref,
+        rtol=0.0,
+        atol=_SV_ATOL_DB,
+        skip_range_samples=_SKIP_RS,
+    )
