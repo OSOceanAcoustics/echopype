@@ -85,7 +85,6 @@ jobs:
         runs-on: [ubuntu-latest]
         experimental: [false]
 
-
     services:
       # TODO: figure out how to update tag when there's a new one
       minio:
@@ -122,7 +121,6 @@ jobs:
           echo "After cleanup:"
           df -h
 
-
       - name: Set up Python
         uses: actions/setup-python@v6.2.0
         with:
@@ -131,7 +129,6 @@ jobs:
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
-
 
       - name: Set environment variables
         run: echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
