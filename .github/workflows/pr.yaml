@@ -59,10 +59,32 @@ jobs:
       - name: Install pooch (needed by conftest)
         run: python -m pip install pooch
 
+      - name: Start memory monitor
+        shell: bash
+        run: |
+          mkdir -p ci_monitor
+          nohup bash .ci_helpers/memory_usage/monitor_memory_linux.sh >/dev/null 2>&1 &
+          echo $! > ci_monitor/monitor.pid
+
       - name: Run unit tests
         run: |
           pytest -m unit -vvv -rx --numprocesses=auto \
             --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
+
+      - name: Stop memory monitor
+        if: always()
+        shell: bash
+        run: |
+          if [ -f ci_monitor/monitor.pid ]; then
+            kill "$(cat ci_monitor/monitor.pid)" || true
+          fi
+
+      - name: Upload memory CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-unit-${{ matrix.python-version }}-${{ matrix.runs-on }}
+          path: ci_monitor/memory_usage.csv
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -84,7 +106,6 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
         runs-on: [ubuntu-latest]
         experimental: [false]
-
 
     services:
       # TODO: figure out how to update tag when there's a new one
@@ -122,7 +143,6 @@ jobs:
           echo "After cleanup:"
           df -h
 
-
       - name: Set up Python
         uses: actions/setup-python@v6.2.0
         with:
@@ -131,7 +151,6 @@ jobs:
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
-
 
       - name: Set environment variables
         run: echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
@@ -194,10 +213,32 @@ jobs:
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
 
+      - name: Start memory monitor
+        shell: bash
+        run: |
+          mkdir -p ci_monitor
+          nohup bash .ci_helpers/memory_usage/monitor_memory_linux.sh >/dev/null 2>&1 &
+          echo $! > ci_monitor/monitor.pid
+
       - name: Running integration tests
         run: |
           pytest -m integration -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
           --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
+
+      - name: Stop memory monitor
+        if: always()
+        shell: bash
+        run: |
+          if [ -f ci_monitor/monitor.pid ]; then
+            kill "$(cat ci_monitor/monitor.pid)" || true
+          fi
+
+      - name: Upload memory CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-integration-${{ matrix.python-version }}-${{ matrix.runs-on }}
+          path: ci_monitor/memory_usage.csv
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -248,6 +289,13 @@ jobs:
       - name: Start local services
         run: python .ci_helpers/setup-services-windows.py start
 
+      - name: Start memory monitor
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ci_monitor | Out-Null
+          $p = Start-Process pwsh -ArgumentList "-File", ".ci_helpers/memory_usage/monitor_memory_windows.ps1" -PassThru -WindowStyle Hidden
+          $p.Id | Out-File ci_monitor/monitor.pid -Encoding ascii
+
       - name: Running all tests
         shell: pwsh
         env:
@@ -257,6 +305,22 @@ jobs:
           --numprocesses $env:NUM_WORKERS --max-worker-restart 3
           --cov echopype --cov-report xml
           --log-cli-level WARNING --disable-warnings
+
+      - name: Stop memory monitor
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path ci_monitor/monitor.pid) {
+            $monitorPid = Get-Content ci_monitor/monitor.pid
+            Stop-Process -Id $monitorPid -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload memory CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-windows-${{ matrix.python-version }}
+          path: ci_monitor/memory_usage.csv
 
       - name: Upload code coverage
         uses: codecov/codecov-action@v5
@@ -270,3 +334,29 @@ jobs:
       - name: Teardown services
         if: always()
         run: python .ci_helpers/setup-services-windows.py stop
+
+  memory-summary:
+    name: memory-summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, test-windows]
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all memory artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: memory_artifacts
+
+      - name: Install matplotlib
+        run: python -m pip install matplotlib
+
+      - name: Build memory summary
+        run: python .ci_helpers/memory_usage/build_memory_summary.py
+
+      - name: Upload combined memory plot
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-summary
+          path: memory_all_jobs.png
