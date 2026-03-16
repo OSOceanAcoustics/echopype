@@ -15,6 +15,9 @@ from echopype.commongrid.utils import (
 )
 from echopype.tests.commongrid.conftest import get_NASC_echoview
 
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path['EK80']
 
 # Utilities Tests
 @pytest.mark.parametrize(
@@ -326,11 +329,8 @@ def test_regrid_with_grid(request, er_type):
         err_msg="Total energy was not conserved during regridding!"
     )
 
-@pytest.mark.integration
-@pytest.fixture
-def ek80_path(test_path):
-    return test_path['EK80']
 
+@pytest.mark.integration
 def test_range_spacing(request, test_data_samples, er_type):
     """Testing the rsampling interval being accurate after using regrid function"""
 
