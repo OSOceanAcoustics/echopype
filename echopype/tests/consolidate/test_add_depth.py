@@ -407,7 +407,7 @@ def test_add_depth_errors(ek80_path):
 )
 def test_add_depth_EK_with_platform_vertical_offsets(relpath, sonar_model, compute_Sv_kwargs, ek60_path, ek80_path):
     """Test `depth` values when using EK Platform vertical offset values to compute it."""
-    
+
     base = ek60_path if sonar_model == "EK60" else ek80_path
     raw_file = base / relpath
     if not os.path.isfile(raw_file):
@@ -415,7 +415,7 @@ def test_add_depth_EK_with_platform_vertical_offsets(relpath, sonar_model, compu
 
     ed = ep.open_raw(raw_file, sonar_model=sonar_model)
     ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
-    
+
     # Subset ds_Sv to include only first 5 `range_sample` coordinates
     # since the test takes too long to iterate through every value
     ds_Sv = ds_Sv.isel(range_sample=slice(0,5))
@@ -490,9 +490,6 @@ def test_add_depth_EK_with_platform_angles(subpath, sonar_model, compute_Sv_kwar
     )
 
 
-import os
-import pytest
-
 @pytest.mark.integration
 @pytest.mark.parametrize("subpath, sonar_model, compute_Sv_kwargs", [
     ("NBP_B050N-D20180118-T090228.raw", "EK60", {}),
@@ -561,6 +558,44 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
         equal_nan=True
     )
 
+@pytest.mark.integration
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
+    ("NBP_B050N-D20180118-T090228.raw", "EK60", {}),
+    ("ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw", "EK80", {"waveform_mode": "BB", "encode_mode": "complex"}),
+    ("ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw", "EK80", {"waveform_mode": "CW", "encode_mode": "power"})
+])
+def test_add_depth_with_dim_swap(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
+    """
+    Test adding depth to Sv dataset after swapping dimension/coordinate
+    from channel to frequency_nominal.
+    Asserts that the output dataset has swapped channel dim to frequency_nominal
+    and contains the depth variable.
+    """
+    if sonar_model == "EK60":
+        ed = ep.open_raw(ek60_path / file, sonar_model=sonar_model)
+    else:
+        ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
+
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
+
+    ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
+
+    # swap dims in beam_group to test with dim_0 = frequency_nominal
+    ed["Sonar/Beam_group1"] = ep.consolidate.swap_dims_channel_frequency(ed["Sonar/Beam_group1"])
+
+    # Replace Beam Angle NaN values
+    ed["Sonar/Beam_group1"]["beam_direction_x"].values = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0).values
+    ed["Sonar/Beam_group1"]["beam_direction_y"].values = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna( 0).values
+    ed["Sonar/Beam_group1"]["beam_direction_z"].values = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1).values
+
+    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+
+    # Check that channel dim has been swapped to frequency_nominal
+    assert "channel" not in ds_Sv_with_depth.sizes
+    assert "frequency_nominal" in ds_Sv_with_depth.sizes
+    # Check that depth has been added
+    assert "depth" in ds_Sv_with_depth.data_vars
+
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -600,7 +635,6 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
     assert history_attribute_without_time == (
         f". `depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."
     )
-
 
 @pytest.mark.integration
 def test_add_depth_with_external_glider_depth_and_tilt_array(azfp_path):
