@@ -149,7 +149,7 @@ def test_regrid_with_channel(request, er_type):
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
     channel = ds_Sv["channel"].values[0]
 
-    ds_regridded = ep.commongrid.regrid(ds_Sv, target_channel = channel)
+    ds_regridded = ep.commongrid.regrid(ds_Sv, target_variable="Sv", target_channel=channel)
 
     def calculate_total_energy(ds, channel):
         """
@@ -237,6 +237,7 @@ def test_regrid_with_channel(request, er_type):
         ("regular"),  
     ],
 )
+
 def test_regrid_with_grid(request, er_type):
     """Testing the regrid_all_channels_robust wrapper function"""
     if er_type == "regular":
@@ -245,7 +246,7 @@ def test_regrid_with_grid(request, er_type):
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
     
     channel = ds_Sv["channel"].values[0]
-    ds_regridded = ep.commongrid.regrid(ds_Sv, target_grid = ds_Sv["echo_range"].sel(channel = channel))
+    ds_regridded = ep.commongrid.regrid(ds_Sv, target_variable="Sv", target_grid = ds_Sv["echo_range"].sel(channel = channel))
 
     def calculate_total_energy(ds, channel):
         """
@@ -325,8 +326,49 @@ def test_regrid_with_grid(request, er_type):
         err_msg="Total energy was not conserved during regridding!"
     )
 
+@pytest.mark.integration
+@pytest.fixture
+def ek80_path(test_path):
+    return test_path['EK80']
+
+def test_range_spacing(request, test_data_samples, er_type):
+    """Testing the rsampling interval being accurate after using regrid function"""
+
+    ek80_raw_path = str(
+        ek80_path.joinpath('ar2.0-D20201210-T000409.raw')
+    )  # CW complex
+    echodata = ep.open_raw(ek80_raw_path, sonar_model='EK80')
+    ds_Sv = ep.calibrate.compute_Sv(
+        echodata, waveform_mode='CW', encode_mode='complex'
+    )
+    
+    channel = ds_Sv["channel"].values[0]
+
+    ds_regridded = ep.commongrid.regrid(ds_Sv, target_variable="Sv", target_channel=channel)
+
+    channel = ds_Sv["channel"].values[0]
 
 
+    c = float(ds_Sv["sound_speed"].values) 
+    dt = float(echodata["Sonar/Beam_group1"]["sample_interval"].sel(channel=channel).median("ping_time").values)
+
+    delta_expected = c * dt / 2.0
+
+    for ch in ds_regridded.channel.values:
+        r = ds_regridded["echo_range"].sel(channel=ch).isel(ping_time=0).values
+    
+        idx = np.where(np.isfinite(r))[0][:2]
+        
+        assert len(idx) == 2, f"Not enough finite echo_range values to compute delta for channel {ch}"
+        
+        delta_actual = float(r[idx[1]] - r[idx[0]])
+
+        np.testing.assert_allclose(
+            delta_actual, 
+            delta_expected, 
+            rtol=1e-4, 
+            err_msg=f"Resolution mismatch on channel {ch}. Expected {delta_expected}, got {delta_actual}."
+        )
 # NASC Tests
 @pytest.mark.integration
 @pytest.mark.parametrize("compute_mvbs", [True, False])
