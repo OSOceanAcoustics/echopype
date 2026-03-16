@@ -681,6 +681,8 @@ def get_valid_max_depth_ping(
     max_range_sample = -np.inf
 
     for i in range(da.shape[0]):
+        if np.isnan(da[i, :]).all():
+            continue
         all_nan = np.isnan(da[i, :])
         row_indices = np.where(~all_nan)[0]
         max_range_sample = max(max_range_sample, row_indices.max())
