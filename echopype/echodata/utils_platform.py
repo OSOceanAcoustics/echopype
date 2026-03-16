@@ -26,8 +26,7 @@ def _clip_by_time_dim(external_ds, ext_time_dim_name, ping_time):
     min and max ping_time and taking all the times between those indices.
     """
 
-    sorted_external_time = external_ds[ext_time_dim_name].data
-    sorted_external_time.sort()
+    sorted_external_time = np.sort(external_ds[ext_time_dim_name].data)
 
     min_index = max(
         np.searchsorted(sorted_external_time, ping_time.min(), side="left") - 1,

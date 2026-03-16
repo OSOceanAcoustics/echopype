@@ -1776,7 +1776,7 @@ def test_blackwell_vs_basic_close_local(ek80_path):
     raw_path = ek80_path / "ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
 
     if not raw_path.is_file():
-        pytest.skip(f"Missing EK80 RAW: {raw_path}")
+        pytest.fail(f"Missing EK80 RAW: {raw_path}")
 
     ed = ep.open_raw(raw_path, sonar_model="EK80")
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
@@ -1797,6 +1797,7 @@ def test_blackwell_vs_basic_close_local(ek80_path):
         ds=ds_Sv,
         method="blackwell",
         params={
+            "var_name": "Sv",
             "channel": sel_channel,
             "threshold": [-40, 702, 282],
             "offset": 0.3,
