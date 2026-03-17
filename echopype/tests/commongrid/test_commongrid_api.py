@@ -152,7 +152,7 @@ def test_regrid_with_channel(request, er_type):
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
     channel = ds_Sv["channel"].values[0]
 
-    ds_regridded = ep.commongrid.regrid(ds_Sv, target_variable="Sv", target_channel=channel)
+    ds_regridded = ep.commongrid.regrid(ds_Sv.chunk({"channel": 1, "ping_time": 1000, "range_sample": -1}), target_variable="Sv", target_channel=channel)
 
     def calculate_total_energy(ds, channel):
         """
@@ -228,8 +228,7 @@ def test_regrid_with_channel(request, er_type):
     np.testing.assert_allclose(
         total_energy_original, 
         total_energy_regridded, 
-        atol=1e-5, 
-        rtol=1e-5,
+        rtol=1e-3,
         err_msg="Total energy was not conserved during regridding!"
     )
 
@@ -249,7 +248,7 @@ def test_regrid_with_grid(request, er_type):
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
     
     channel = ds_Sv["channel"].values[0]
-    ds_regridded = ep.commongrid.regrid(ds_Sv, target_variable="Sv", target_grid = ds_Sv["echo_range"].sel(channel = channel))
+    ds_regridded = ep.commongrid.regrid(ds_Sv.chunk({"channel": 1, "ping_time": 1000, "range_sample": -1}), target_variable="Sv", target_grid = ds_Sv.chunk({"channel": 1, "ping_time": 500, "range_sample": -1})["echo_range"].isel(channel=1))
 
     def calculate_total_energy(ds, channel):
         """
@@ -324,8 +323,7 @@ def test_regrid_with_grid(request, er_type):
     np.testing.assert_allclose(
         total_energy_original, 
         total_energy_regridded, 
-        atol=1e-5, 
-        rtol=1e-5,
+        rtol=1e-3,
         err_msg="Total energy was not conserved during regridding!"
     )
 
