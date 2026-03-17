@@ -509,7 +509,6 @@ def regrid(
             .isel(ping_time=deepest_ping_index)
             .values
         )
-        da_var["echo_range"][:] = ds_Sv["echo_range"].sel(channel=target_channel)
 
     # Target grid is given
     else:
@@ -517,18 +516,19 @@ def regrid(
 
         deepest_ping_index = get_valid_max_depth_ping(ds_Sv, target_grid=target_grid)
         valid_range_sample = np.argmax(target_grid.isel(ping_time=deepest_ping_index).values)
-        da_var["echo_range"][:] = target_grid
 
     # List to hold the aligned DataArrays
     aligned_arrays = []
 
     for i, channel in enumerate(channels):
 
-        ds_source = ds_Sv.sel(channel=channel)
+        ds_source = da_var.sel(channel=channel)
 
-        # Linear domain for resampling
-        source_linear = _log2lin(ds_source["Sv"])
-        source_range_da = ds_source["echo_range"]
+        if target_variable == "Sv":
+            source_linear = _log2lin(ds_source)
+        else:
+            source_linear = ds_source.copy()
+        source_range_da = ds_Sv["echo_range"].sel(channel=channel)
 
         # Apply weighted mean resapling as Ufunc
 
@@ -546,7 +546,10 @@ def regrid(
 
         # Convert back to log domain
         result_linear = result_linear.where(result_linear > 0)
-        result_sv = _lin2log(result_linear)
+        if target_variable == "Sv":
+            result_sv = _lin2log(result_linear)
+        else:
+            result_sv = result_linear
 
         result_sv.name = target_variable
         result_sv = result_sv.assign_coords(channel=channel)

@@ -331,7 +331,7 @@ def test_regrid_with_grid(request, er_type):
 
 
 @pytest.mark.integration
-def test_range_spacing(request, test_data_samples, er_type):
+def test_range_spacing(ek80_path):
     """Testing the rsampling interval being accurate after using regrid function"""
 
     ek80_raw_path = str(
