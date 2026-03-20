@@ -11,6 +11,7 @@ CALIBRATOR = {
     "EK60": CalibrateEK60,
     "EK80": CalibrateEK80,
     "AZFP": CalibrateAZFP,
+    "AZFP6": CalibrateAZFP,
     "ES70": CalibrateEK60,
     "ES80": CalibrateEK80,
     "EA640": CalibrateEK80,
@@ -36,7 +37,7 @@ def _compute_cal(
         if waveform_mode is None or encode_mode is None:
             raise ValueError("waveform_mode and encode_mode must be specified for EK80 calibration")
         check_input_args_combination(waveform_mode=waveform_mode, encode_mode=encode_mode)
-    elif echodata.sonar_model in ("EK60", "AZFP"):
+    elif echodata.sonar_model in ("EK60", "AZFP", "AZFP6"):
         if waveform_mode is not None and waveform_mode != "CW":
             logger.warning(
                 "This sonar model transmits only narrowband signals (waveform_mode='CW'). "
