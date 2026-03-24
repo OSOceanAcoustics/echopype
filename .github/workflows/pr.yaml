@@ -81,7 +81,7 @@ jobs:
 
       - name: Upload memory CSV
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: memory-unit-${{ matrix.python-version }}-${{ matrix.runs-on }}
           path: ci_monitor/memory_usage.csv
@@ -235,7 +235,7 @@ jobs:
 
       - name: Upload memory CSV
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: memory-integration-${{ matrix.python-version }}-${{ matrix.runs-on }}
           path: ci_monitor/memory_usage.csv
@@ -317,7 +317,7 @@ jobs:
 
       - name: Upload memory CSV
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: memory-windows-${{ matrix.python-version }}
           path: ci_monitor/memory_usage.csv
@@ -356,7 +356,7 @@ jobs:
         run: python .ci_helpers/memory_usage/build_memory_summary.py
 
       - name: Upload combined memory plot
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: memory-summary
           path: memory_all_jobs.png
