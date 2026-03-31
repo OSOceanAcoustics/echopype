@@ -19,10 +19,6 @@ build:
 sphinx:
    configuration: docs/source/conf.py
 
-# Build documentation with MkDocs
-#mkdocs:
-#  configuration: mkdocs.yml
-
 # Optionally build your docs in additional formats such as PDF and ePub
 formats: []
 
@@ -34,6 +30,3 @@ python:
         path: .
         extra_requirements:
            - plot
-      - method: setuptools
-        path: .
-#   system_packages: true
