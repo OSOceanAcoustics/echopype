@@ -4,4 +4,3 @@ sphinx-panels
 sphinxcontrib-mermaid
 jupyter-book<2.0
 numpydoc
-docutils<0.18
