@@ -1,5 +1,0 @@
-name: 'GDrive Rclone'
-description: 'Performs RClone from a google drive folder'
-runs:
-  using: 'docker'
-  image: 'Dockerfile'

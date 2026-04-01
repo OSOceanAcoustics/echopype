@@ -16,6 +16,8 @@ import pytest
 from echopype.echodata.echodata import EchoData, XARRAY_ENGINE_MAP
 from echopype.echodata.api import open_converted
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def azfp_path(test_path):

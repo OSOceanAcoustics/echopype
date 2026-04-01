@@ -25,6 +25,7 @@ def ek80_ext_path(test_path):
 def ek80_multiplex_path(test_path):
     return test_path["EK80_MULTIPLEX"]
 
+@pytest.mark.integration
 def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     """
     Test transmit chirp reconstruction against Andersen et al. 2021/pyEcholab implementation
@@ -85,6 +86,7 @@ def test_ek80_transmit_chirp(ek80_cal_path, ek80_ext_path):
     assert np.isclose(tau_effective.sel(channel=ch_sel).data, pyecholab_BB["_tau_eff"][0])
 
 
+@pytest.mark.integration
 def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     """
     Test power from pulse compressed BB data
@@ -152,6 +154,7 @@ def test_ek80_BB_params(ek80_cal_path, ek80_ext_path):
     )
 
 
+@pytest.mark.integration
 def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     ek80_raw_path = (
         ek80_cal_path / "2018115-D20181213-T094600.raw"
@@ -180,6 +183,7 @@ def test_ek80_BB_range(ek80_cal_path, ek80_ext_path):
     pyel_vals = pyel_BB_p_data["range"]
     assert np.allclose(pyel_vals, ep_vals)
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
     [
@@ -255,6 +259,7 @@ def test_ek80_BB_power_from_complex(
     )
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("raw_data_path,raw_file_name,pyecholab_data_path,pyecholab_file_path, dask_array"),
     [
@@ -321,6 +326,7 @@ def test_ek80_BB_power_compute_Sv(
     assert np.allclose(pyel_vals[idx_to_cmp], ep_vals[idx_to_cmp])
 
 
+@pytest.mark.integration
 def test_ek80_BB_power_echoview(ek80_path):
     """Compare pulse compressed outputs from echopype and csv exported from EchoView.
 
@@ -375,6 +381,7 @@ def test_ek80_BB_power_echoview(ek80_path):
     assert np.allclose(ev_vals[:, 69:], ep_vals[:, 69:], atol=1e-4)
     assert np.allclose(ev_vals[:, 90:], ep_vals[:, 90:], atol=1e-4)
 
+@pytest.mark.integration
 def test_ek80_CW_complex_Sv_receiver_sampling_freq(ek80_path):
     ek80_raw_path = str(ek80_path.joinpath("D20230804-T083032.raw"))
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")

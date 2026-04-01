@@ -7,6 +7,7 @@ import warnings
 
 from echopype.utils.coding import _get_dask_auto_chunk, set_netcdf_encodings, _encode_time_dataarray, DEFAULT_TIME_ENCODING
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "chunk",
     ["auto", "5MB", "10MB", "30MB", "70MB", "100MB", "default"],
@@ -33,6 +34,7 @@ def test__get_dask_auto_chunk(chunk):
     else:
         assert chunk_byte_size <= dask.utils.parse_bytes(chunk), "Calculated chunk exceeded max chunk!"
         
+@pytest.mark.unit
 def test_set_netcdf_encodings():
     # create a test dataset
     ds = xr.Dataset(

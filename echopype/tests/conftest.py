@@ -1,19 +1,34 @@
 """pytest configuration with minimal Pooch fallback for CI"""
 
 import os
-import pytest
 from pathlib import Path
 
-if os.getenv("USE_POOCH") == "True":
-    import pooch
+import pytest
+import pooch
 
+from zipfile import ZipFile
+import shutil
+import time
+
+ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
+TEST_DATA_FOLDER = Path(pooch.os_cache("echopype")) / ver
+
+if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None:
     # Lock to the known-good assets release (can be overridden via env if needed)
-    ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.0")
     base = os.getenv(
         "ECHOPYPE_DATA_BASEURL",
         "https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/",
     )
     cache_dir = pooch.os_cache("echopype")
+
+    print(
+        "\n[echopype-ci] POOCH CONFIG\n"
+        f"  USE_POOCH           = {os.getenv('USE_POOCH')}\n"
+        f"  ECHOPYPE_DATA_VERSION = {ver}\n"
+        f"  ECHOPYPE_DATA_BASEURL = {base}\n"
+        f"  pooch cache_dir       = {cache_dir}\n",
+        flush=True,
+    )
 
     bundles = [
         "ad2cp.zip", "azfp.zip", "azfp6.zip", "ea640.zip", "ecs.zip", "ek60.zip",
@@ -24,21 +39,21 @@ if os.getenv("USE_POOCH") == "True":
         "es60.zip", "es70.zip", "es80.zip", "legacy_datatree.zip",
     ]
 
-    # v0.11.0 checksums (GitHub release assets)
+    # v0.11.1a2 checksums (GitHub release assets)
     registry = {
         "ad2cp.zip": "sha256:78c634c7345991177b267c4cbb31f391990d2629b7f4a546da20d5126978b98a",
-        "azfp.zip": "sha256:5f6a57c5dce323d4cb280c72f0d64c15f79be69b02f4f3a1228fc519d48b690f",
-        "azfp6.zip": "sha256:81b4e5cc11ede8fc67af63a7c7688a63f30a35fcd78fd02b6d36ee4c1eb64404",
+        "azfp.zip": "sha256:fc75b48c81f266ce70d9db79a986fe8de4399c93bef35119acdc17a2d84aed49",
+        "azfp6.zip": "sha256:98228329333064fb4b44d3044296c79d58ac22f6d81f7f22cf770bacf0e882fd",
         "ea640.zip": "sha256:49f70bd6f2355cb3c4c7a5b31fc00f7ae8c8a9ae888f0df1efe759032f9580df",
         "ecs.zip": "sha256:dcc312baa1e9da4488f33bef625b1f86c8a92e3262e34fc90ccd0a4f90d1e313",
         "ek60.zip": "sha256:66735de0ac584ec8a150b54b1a54024a92195f64036134ffdc9d472d7e155bb2",
         "ek60_calibrate_chunks.zip": "sha256:bf435b1f7fc055f51afd55c4548713ba8e1eb0e919a0d74f4b9dd5f60b7fe327",
         "ek60_missing_channel_power.zip": "sha256:f3851534cdc6ad3ae1d7c52a11cb279305d316d0086017a305be997d4011e20e",
-        "ek80.zip": "sha256:a114a8272e4c0e08c45c75241c50e3fd9e954f85791bb5eda25be98f6f782397",
-        "ek80_bb_complex_multiplex.zip": "sha256:9feaa90ce60036db8110ff14e732910786c6deff96836f2d6504ec1e9de57533",
+        "ek80.zip": "sha256:9261b451412465774a6653969a19ae8d6cf17e346ec23c6cadde285c76b4d7b4",
+        "ek80_bb_complex_multiplex.zip": "sha256:f4b23b872378e5b3b13e5536547fcb094f0230b2b0bef4de89ab18beff6c2d3e",
         "ek80_bb_with_calibration.zip": "sha256:53f018b6dae051cc86180e13cb3f28848750014dfcf84d97cf2191be2b164ccb",
         "ek80_duplicate_ping_times.zip": "sha256:11a2dcb5cf113fa1bb03a6724524ac17bdb0db66cb018b0a3ca7cad87067f4bb",
-        "ek80_ext.zip": "sha256:79dd12b2d9e0399f88c98ab53490f5d0a8d8aed745650208000fcd947dbdd0de",
+        "ek80_ext.zip": "sha256:b04cd5305cea1823045740fe13ae4f12bf2982c0f8614c9871e0d1dcc4b28fd3",
         "ek80_invalid_env_datagrams.zip": "sha256:dece27d90f30d1a13b56d99350c3254e81622af3199fda0112d3b9e1d7db270c",
         "ek80_missing_sound_velocity_profile.zip": "sha256:1635585026ae5c4ffdff09ca4d63aeff0b33471c5ee0e1b8a520f87469535852",
         "ek80_new.zip": "sha256:f799cde453762c46ad03fee178c76cd9fbb00eec92a5d1038c32f6a9479b2e57",
@@ -60,14 +75,29 @@ if os.getenv("USE_POOCH") == "True":
     def _unpack(fname, action, pooch_instance):
         z = Path(fname)
         out = z.parent / z.stem
-        if action in ("update", "download") or not out.exists():
-            from zipfile import ZipFile
-            with ZipFile(z, "r") as f:
-                f.extractall(out)
+
+        print(
+            "\n[echopype-ci] UNPACK\n"
+            f"  zip file   = {z}\n"
+            f"  action     = {action}\n"
+            f"  extract_to = {out}\n",
+            flush=True,
+        )
+
+        if out.exists():
+            for _ in range(3):
+                try:
+                    shutil.rmtree(out)
+                    break
+                except Exception:
+                    time.sleep(1)
+
+        with ZipFile(z, "r") as f:
+            f.extractall(out)
 
             # flatten single nested dir if needed
             try:
-                entries = [p for p in out.iterdir()]
+                entries = list(out.iterdir())
                 if len(entries) == 1 and entries[0].is_dir():
                     inner = entries[0]
                     for child in inner.iterdir():
@@ -80,12 +110,40 @@ if os.getenv("USE_POOCH") == "True":
                         pass
             except Exception:
                 pass
+
+        # Print tree after extraction/flatten
+        try:
+            if out.exists():
+                print("[echopype-ci] extracted tree (depth ≤ 2):")
+                for p in sorted(out.glob("*")):
+                    print(f"   - {p.name}")
+                    if p.is_dir():
+                        for q in sorted(p.glob("*")):
+                            print(f"       • {q.name}")
+        except Exception:
+            pass
+
         return str(out)
 
-    for b in bundles:
-        EP.fetch(b, processor=_unpack, progressbar=False)
 
-    TEST_DATA_FOLDER = Path(cache_dir) / ver
+    for b in bundles:
+        url = base.format(version=ver) + b
+        print(f"[echopype-ci] fetching bundle: {b}")
+        print(f"[echopype-ci]   → URL: {url}")
+        EP.fetch(b, processor=_unpack, progressbar=False)
+    
+    print(
+        "\n[echopype-ci] TEST_DATA_FOLDER\n"
+        f"  path = {TEST_DATA_FOLDER}\n"
+        f"  exists = {TEST_DATA_FOLDER.exists()}\n",
+        flush=True,
+    )
+
+    if TEST_DATA_FOLDER.exists():
+        print("[echopype-ci] top-level contents:")
+        for p in sorted(TEST_DATA_FOLDER.iterdir()):
+            print(f"   - {p.name}")
+
 
 @pytest.fixture(scope="session")
 def dump_output_dir():
@@ -180,4 +238,3 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             tr.write_line(f"  … and {len(xfailed) - 20} more", yellow=True)
 
     tr.write_line("")  # trailing newline
-

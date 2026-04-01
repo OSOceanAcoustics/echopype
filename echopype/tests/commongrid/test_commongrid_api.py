@@ -16,6 +16,7 @@ from echopype.tests.commongrid.conftest import get_NASC_echoview
 
 
 # Utilities Tests
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ["x_bin", "x_label", "expected_result"],
     [
@@ -332,9 +333,12 @@ def test_compute_MVBS_range_output(request, er_type):
     ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="5m", ping_time_bin="10s")
 
     if er_type == "regular":
+        dt_ns = pd.Timedelta(
+            ds_Sv["ping_time"].values[-1] - ds_Sv["ping_time"].values[0]
+        ).value
         expected_len = (
             ds_Sv["channel"].size,  # channel
-            int(np.ceil(int(np.diff(ds_Sv["ping_time"][[0, -1]])) / 1e9 / 10)),  # ping_time
+            int(np.ceil(int(dt_ns) / 1e9 / 10)),  # ping_time
             int(np.ceil(ds_Sv["echo_range"].max() / 5)),  # depth
         )
         assert ds_MVBS["Sv"].shape == expected_len

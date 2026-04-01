@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        image_name: ["minioci", "http"]
+        image_name: ["minioci"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: df -h
       - name: Free disk space
@@ -51,20 +51,20 @@ jobs:
           echo "DATE_TAG=${DATE_TAG}" >> $GITHUB_ENV
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Build and push
         id: docker_build_push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./
           file: ./.ci_helpers/docker/${{ matrix.image_name }}.dockerfile

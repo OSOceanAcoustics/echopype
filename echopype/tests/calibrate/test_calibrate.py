@@ -37,6 +37,7 @@ def ek80_ext_path(test_path):
     return test_path['EK80_EXT']
 
 
+@pytest.mark.integration
 def test_compute_Sv_returns_water_level(ek60_path):
 
     # get EchoData object that has the water_level variable under platform and compute Sv of it
@@ -122,6 +123,7 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     check_output(ds_TS['TS'], 'Sp')
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek60_duplicated_freq(ek60_path):
 
     # TODO: add comparison of actual values in this test
@@ -141,6 +143,7 @@ def test_compute_Sv_ek60_duplicated_freq(ek60_path):
     assert isinstance(ds_TS, xr.Dataset)
 
 
+@pytest.mark.integration
 def test_compute_Sv_azfp(azfp_path):
     azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
@@ -200,6 +203,7 @@ def test_compute_Sv_azfp(azfp_path):
     check_output(base_path=azfp_matlab_TS_path, ds_cmp=ds_TS, cal_type='TS')
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_CW_complex(ek80_path):
     """Test calibrate CW mode data encoded as complex samples."""
     ek80_raw_path = str(
@@ -216,6 +220,7 @@ def test_compute_Sv_ek80_CW_complex(ek80_path):
     assert isinstance(ds_TS, xr.Dataset) is True
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_BB_complex(ek80_path):
     """Test calibrate BB mode data encoded as complex samples."""
     ek80_raw_path = str(
@@ -232,6 +237,7 @@ def test_compute_Sv_ek80_BB_complex(ek80_path):
     assert isinstance(ds_TS, xr.Dataset) is True
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     """
     Tests calibration in CW mode data encoded as power samples
@@ -250,6 +256,7 @@ def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     assert isinstance(ds_Sv, xr.Dataset)
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
     """
     Tests calibration for file containing both BB and CW mode data
@@ -321,6 +328,7 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1(ek80_path):
         assert not np.any(np.isnan(env_var.data))
 
                 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
     [

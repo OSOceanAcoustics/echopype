@@ -203,6 +203,7 @@ def range_check_files(request, test_path):
 
 
 # TODO: Uncomment when having fixed backward compatibility https://github.com/OSOceanAcoustics/echopype/issues/1420 # noqa
+@pytest.mark.integration
 class TestEchoData:
     expected_groups = (
         "Top-level",
@@ -333,6 +334,7 @@ class TestEchoData:
 
 # TODO: Add test_open_converted with zarr v3 test data since format changed. open_converted works but needs a test.
 
+@pytest.mark.integration
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):
         storage_options = {}
@@ -438,6 +440,7 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
 #         assert isinstance(echo_range, xr.DataArray)
 
 
+@pytest.mark.integration
 def test_nan_range_entries(range_check_files):
     sonar_model, ek_file = range_check_files
     echodata = echopype.open_raw(ek_file, sonar_model=sonar_model)
@@ -658,6 +661,7 @@ def test_update_platform_latlon(test_path, variable_mappings):
     ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
 
 
+@pytest.mark.integration
 @pytest.mark.filterwarnings("ignore:No variables will be updated")
 def test_update_platform_no_update(test_path):
     raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
@@ -757,6 +761,7 @@ def test_echodata_chunk(chunk_dict, ek60_path):
                     assert chunk_sizes[-1] <= desired_chunk_size
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "legacy_datatree_filename",
     [
@@ -774,6 +779,7 @@ def test_convert_legacy_versions_ek60(legacy_datatree, legacy_datatree_filename)
     assert isinstance(ed, EchoData)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "legacy_datatree_filename",
     [
