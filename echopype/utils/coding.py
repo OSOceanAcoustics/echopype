@@ -136,14 +136,21 @@ def set_time_encodings(ds: xr.Dataset) -> xr.Dataset:
     for var, encoding in DEFAULT_ENCODINGS.items():
         if var in new_ds:
             da = new_ds[var].copy()
+
             # Process all variable names matching the patterns *_time* or time<digits>
             # Examples: ping_time, ping_time_2, time1, time2
             if bool(search(r"_time|^time[\d]+$", var)):
-                new_ds[var] = xr.apply_ufunc(
-                    _encode_time_dataarray,
-                    da,
-                    keep_attrs=True,
-                )
+                if np.isnan(da).all():
+                    continue
+
+                try:
+                    new_ds[var] = xr.apply_ufunc(
+                        _encode_time_dataarray,
+                        da,
+                        keep_attrs=True,
+                    )
+                except ValueError as e:
+                    raise e
 
             new_ds[var].encoding = encoding
 
@@ -201,28 +208,36 @@ def set_zarr_encodings(
         chunk_size_tolerance = parse_bytes(ctol)
 
         if len(val.shape) > 0:
-            rechunk = True
-            if existing_chunks is not None:
-                # Perform chunk optimization
-                # 1. Get the chunk total from existing chunks
-                chunk_total = np.prod(existing_chunks) * val.dtype.itemsize
-                # 2. Get chunk size difference from the optimal chunk size
-                chunk_diff = optimal_chunk_size - chunk_total
-                # 3. Check difference from tolerance, if diff is less than
-                #    tolerance then no need to rechunk
-                if chunk_diff < chunk_size_tolerance:
-                    rechunk = False
-                    chunks = existing_chunks
+            if any(dim_size == 0 for dim_size in val.shape):
+                # If any dimension is zero, set chunks to None to avoid division by zero
+                encoding[name]["chunks"] = None
+            else:
+                rechunk = True
+                if existing_chunks is not None:
+                    # Perform chunk optimization
+                    # 1. Get the chunk total from existing chunks
+                    chunk_total = np.prod(existing_chunks) * val.dtype.itemsize
+                    # 2. Get chunk size difference from the optimal chunk size
+                    chunk_diff = optimal_chunk_size - chunk_total
+                    # 3. Check difference from tolerance, if diff is less than
+                    #    tolerance then no need to rechunk
+                    if chunk_diff < chunk_size_tolerance:
+                        rechunk = False
+                        chunks = existing_chunks
 
-            if rechunk:
-                # Use dask auto chunk to determine the optimal chunk
-                # spread for optimal chunk size
-                chunks = _get_dask_auto_chunk(val, chunk_size=chunk_size)
-                # Dask expects chunk dictionary but Zarr expects list-like iterable of
-                # values in encoding
-                chunks = [*chunks.values()]
+                if rechunk:
+                    # Use dask auto chunk to determine the optimal chunk
+                    # spread for optimal chunk size
+                    chunks = _get_dask_auto_chunk(val, chunk_size=chunk_size)
+                    # Dask expects chunk dictionary but Zarr expects list-like iterable of
+                    # values in encoding
+                    chunks = [*chunks.values()]
 
-            encoding[name]["chunks"] = chunks
+                encoding[name]["chunks"] = chunks
+        else:
+            # Variable has no shape (scalar), set chunks to None
+            encoding[name]["chunks"] = None
+
         if PREFERRED_CHUNKS in encoding[name]:
             # Remove 'preferred_chunks', use chunks only instead
             encoding[name].pop(PREFERRED_CHUNKS)
