@@ -1672,7 +1672,7 @@ def test_regrid_mask_2D(dtype, func):
     """
     Test mask regridding for a 2D array by checking logical-AND and logical-OR outputs.
     """
-    # Create mask
+    # Create mask array
     input_array = np.array(
         [
             [True, True, False, False],
@@ -1681,18 +1681,22 @@ def test_regrid_mask_2D(dtype, func):
             [False, False, True, False],
         ]
     )
+
+    # Create expected array
+    # The last value in each row should be False because we will add empty
+    # bin by setting max range to 60m.
     if func == "logical-AND":
         expected_array = np.array(
             [
-                [True,  False],
-                [False, False],
+                [True,  False, False],
+                [False, False, False],
             ]
         )
     elif func == "logical-OR":
         expected_array = np.array(
             [
-                [True,  False],
-                [False, True],
+                [True,  False, False],
+                [False, True, False],
             ]
         )
     if dtype == "int":
@@ -1723,6 +1727,7 @@ def test_regrid_mask_2D(dtype, func):
         range_bin="20m",
         ping_time_bin="20s",
         func=func,
+        range_var_max="59m",
     )
 
     # Check that expected result is what is received
@@ -1791,8 +1796,8 @@ def test_regrid_mask_3D():
         range_bin="20m",
         ping_time_bin="20s",
         third_dim="region_id",
-        func="logical-AND",
-        range_var_max="39m",
+        func="logical-OR",
+        range_var_max="59m",
     )
 
     # Check that expected result is what is received
@@ -1800,12 +1805,12 @@ def test_regrid_mask_3D():
         np.array(
             [
                 [
-                    [True, False],
-                    [False, False],
+                    [True, False, False],
+                    [False, True, False],
                 ],
                 [
-                    [False, False],
-                    [False, True],
+                    [True, False, False],
+                    [False, True, False],
                 ]
             ]
         ),
@@ -1820,7 +1825,7 @@ def test_regrid_mask_3D():
                     "2020-01-01T01:00:20.000000000",
                 ]
             ),
-            "depth": [0.0, 20.0]
+            "depth": [0.0, 20.0, 40.0]
         }
     )
     assert mask_regridded_da.equals(mask_expected_da)

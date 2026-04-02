@@ -790,7 +790,7 @@ def regrid_mask(
             reindex=reindex,
             func="mean",
             skipna=False,
-            fill_value=np.nan,
+            fill_value=0.0,
             **flox_kwargs,
         )
         mask_regridded_da = xr.DataArray(
@@ -816,7 +816,7 @@ def regrid_mask(
             reindex=reindex,
             func="mean",
             skipna=False,
-            fill_value=np.nan,
+            fill_value=0.0,
             **flox_kwargs,
         )
         mask_regridded_da = xr.DataArray(
