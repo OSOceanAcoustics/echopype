@@ -1743,7 +1743,7 @@ def test_regrid_mask_2D(dtype, func):
                     "2020-01-01T01:00:20.000000000",
                 ]
             ),
-            "depth": [0.0, 20.0]
+            "depth": [0.0, 20.0, 40.0]
         }
     )
     assert mask_regridded_da.equals(mask_expected_da)
