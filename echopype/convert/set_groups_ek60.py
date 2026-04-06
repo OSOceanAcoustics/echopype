@@ -712,7 +712,7 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Merge data from all channels
         ds = xr.merge(
-            [ds, xr.concat(ds_backscatter, dim="channel")],
+            [ds, xr.concat(ds_backscatter, dim="channel", join="outer")],
             compat="no_conflicts",
             join="outer",
             combine_attrs="override",
