@@ -314,7 +314,12 @@ class SetGroupsEK60(SetGroupsBase):
         )
 
         # Merge with NMEA data
-        ds = xr.merge([ds, ds_plat], combine_attrs="override")
+        ds = xr.merge(
+            [ds, ds_plat],
+            compat="no_conflicts",
+            join="outer",
+            combine_attrs="override",
+        )
         ds = ds.assign_attrs(platform_dict)
 
         # If `.IDX` file exists and `.IDX` data is parsed
@@ -707,7 +712,10 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Merge data from all channels
         ds = xr.merge(
-            [ds, xr.concat(ds_backscatter, dim="channel")], combine_attrs="override"
+            [ds, xr.concat(ds_backscatter, dim="channel")],
+            compat="no_conflicts",
+            join="outer",
+            combine_attrs="override",
         )  # override keeps the Dataset attributes
 
         # Manipulate some Dataset dimensions to adhere to convention
