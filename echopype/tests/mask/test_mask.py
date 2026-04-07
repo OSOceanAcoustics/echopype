@@ -257,6 +257,7 @@ def create_input_mask(
     return mask_out, temp_dir
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("n", "n_chan_freq", "add_chan", "add_freq_nom", "freqAB", "chanAB"),
     [
@@ -364,6 +365,7 @@ def test_check_freq_diff_source_Sv(
     _check_freq_diff_source_Sv(source_Sv, freqAB=freqAB, chanAB=chanAB)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("freqABEq", "chanABEq"),
     [
@@ -455,6 +457,7 @@ def test_parse_freq_diff_eq(freqABEq: str, chanABEq: str):
     assert diff == diff_val
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     (
         "n",
@@ -719,6 +722,7 @@ def test_frequency_differencing(
     assert out.name == "mask"
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("n", "n_chan", "mask_np", "mask_file", "storage_options_mask"),
     [
@@ -810,6 +814,7 @@ def test_validate_and_collect_mask_input(
         assert mask_out.identical(mask_da)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("mask_list"),
     [
@@ -853,6 +858,7 @@ def test_multi_mask_validate_and_collect_mask(mask_list: List[xr.DataArray]):
     _validate_and_collect_mask_input(mask=mask_list, storage_options_mask={})
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("n", "n_chan", "var_name", "fill_value"),
     [
@@ -909,6 +915,7 @@ def test_check_var_name_fill_value(
     _check_var_name_fill_value(source_ds=mock_ds, var_name=var_name, fill_value=fill_value)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     (
         "n",
@@ -1111,6 +1118,7 @@ def test_apply_mask(
         temp_dir.cleanup()
 
 
+@pytest.mark.unit
 def test_apply_mask_NaN_elements():
     """
     Make sure NaNs are rejected in masks.
@@ -1431,6 +1439,7 @@ def test_apply_mask_non_boolean_error():
         echopype.mask.apply_mask(ds, invalid_mask)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("mask_input", "storage_options", "should_pass", "test_description"),
     [
@@ -1524,6 +1533,7 @@ def test_validate_and_collect_mask_input_comprehensive(mask_input, storage_optio
         with pytest.raises((ValueError, TypeError)):
             _validate_and_collect_mask_input(mask_input, storage_options)
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("mask_type", "test_values", "expected_min", "expected_max", "test_description"),
     [
@@ -1755,6 +1765,7 @@ def test_detect_basic_no_detection_defaults_to_bin_skip():
     np.testing.assert_allclose(out.values, expected, atol=1e-6)
 
 
+@pytest.mark.unit
 @pytest.mark.xfail(strict=False, reason="Method may not be implemented yet (#1522)")
 def test_detect_seafloor_unknown_method_raises():
     """Expect a ValueError for an unknown method (via dispatcher, if present)."""
@@ -1769,7 +1780,7 @@ def test_detect_seafloor_unknown_method_raises():
             params={"var_name": "Sv_corrected", "channel": "59006-125-2"},
         )
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_blackwell_vs_basic_close_local(ek80_path):
     """Blackwell vs basic using local test data"""
 

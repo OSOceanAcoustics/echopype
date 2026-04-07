@@ -103,6 +103,7 @@ def check_env_xml(echodata):
     assert "time2" in echodata["Platform"]
 
 
+@pytest.mark.integration
 def test_convert(ek80_new_file, dump_output_dir):
     print("converting", ek80_new_file)
     echodata = open_raw(raw_file=str(ek80_new_file), sonar_model="EK80")
@@ -116,6 +117,7 @@ def test_convert(ek80_new_file, dump_output_dir):
     check_env_xml(echodata)
 
 
+@pytest.mark.integration
 def test_convert_ek80_complex_matlab(ek80_path):
     """Compare parsed EK80 CW power/angle data with Matlab parsed data."""
     ek80_raw_path_bb = str(ek80_path.joinpath('D20170912-T234910.raw'))
@@ -180,6 +182,7 @@ def test_convert_ek80_complex_matlab(ek80_path):
         assert (echodata["Platform"][plat_var] == 0).all()
 
 
+@pytest.mark.integration
 def test_convert_ek80_cw_power_angle_echoview(ek80_path):
     """Compare parsed EK80 CW power/angle data with csv exported by EchoView."""
     ek80_raw_path_cw = str(
@@ -287,6 +290,7 @@ def test_convert_ek80_cw_power_angle_echoview(ek80_path):
     assert (echodata["Platform"]["transducer_offset_z"] == 9.15).all()
 
 
+@pytest.mark.integration
 def test_convert_ek80_complex_echoview(ek80_path):
     """Compare parsed EK80 BB data with csv exported by EchoView."""
     ek80_raw_path_bb = ek80_path.joinpath('D20170912-T234910.raw')
@@ -347,6 +351,7 @@ def test_convert_ek80_complex_echoview(ek80_path):
         assert (echodata["Platform"][plat_var] == 0).all()
 
 
+@pytest.mark.integration
 def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     """Make sure can convert a single EK80 file containing both CW and BB mode data."""
     ek80_raw_path_bb_cw = str(
@@ -388,6 +393,7 @@ def test_convert_ek80_cw_bb_in_single_file(ek80_path):
     check_env_xml(echodata)
 
 
+@pytest.mark.integration
 def test_convert_ek80_freq_subset(ek80_path):
     """Make sure we can convert EK80 file with multiple frequency channels off."""
     ek80_raw_path_freq_subset = str(
@@ -427,6 +433,7 @@ def test_convert_ek80_freq_subset(ek80_path):
     check_env_xml(echodata)
 
 
+@pytest.mark.integration
 def test_convert_ek80_raw4(ek80_path):
     """Make sure we can convert EK80 file with RAW4 datagram.."""
     ek80_raw_path_freq_subset = str(
@@ -443,6 +450,7 @@ def test_convert_ek80_raw4(ek80_path):
         )
 
 
+@pytest.mark.integration
 def test_convert_ek80_no_fil_coeff(ek80_path):
     """Make sure we can convert EK80 file with empty filter coefficients."""
     echodata = open_raw(raw_file=ek80_path.joinpath('D20210330-T123857.raw'), sonar_model='EK80')
@@ -455,6 +463,7 @@ def test_convert_ek80_no_fil_coeff(ek80_path):
             assert np.all(np.isnan(vendor_spec_ds[f"{t}_{p}"]))
 
 
+@pytest.mark.integration
 @pytest.mark.xfail(reason="Setting MRU1 platform motion data to EchoData Platform group is not yet implemented.")
 def test_convert_ek80_mru1(ek80_path):
     """Make sure we can convert EK80 file with MRU1 datagram."""

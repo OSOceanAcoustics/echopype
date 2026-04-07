@@ -17,6 +17,8 @@ from echopype.echodata.combine import (
     _merge_attributes
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def ek60_diff_range_sample_test_data(test_path):

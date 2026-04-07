@@ -89,6 +89,8 @@ def calculate_total_energy(ds, channel):
 
     
 
+# Utilities Tests
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ["x_bin", "x_label", "expected_result"],
     [

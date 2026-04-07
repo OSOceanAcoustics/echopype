@@ -21,6 +21,7 @@ def ek60_missing_channel_power_path(test_path):
 def es60_path(test_path):
     return test_path["ES60"]
 
+@pytest.mark.integration
 def test_convert_ek60_matlab_raw(ek60_path):
     """Compare parsed Beam group data with Matlab outputs."""
     ek60_raw_path = str(
@@ -89,6 +90,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
         )
 
 
+@pytest.mark.integration
 def test_convert_ek60_echoview_raw(ek60_path):
     """Compare parsed power data (count) with csv exported by EchoView."""
     ek60_raw_path = str(
@@ -156,6 +158,7 @@ def test_convert_ek60_echoview_raw(ek60_path):
     assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 
+@pytest.mark.integration
 def test_convert_ek60_duplicate_frequencies(ek60_path):
     """Convert a file with duplicate frequencies"""
 
@@ -181,6 +184,7 @@ def test_convert_ek60_duplicate_frequencies(ek60_path):
     assert np.all(ed['Sonar/Beam_group1'].channel.values == truth_chan_vals)
 
 
+@pytest.mark.integration
 def test_convert_ek60_splitbeam_no_angle(ek60_path):
     """Convert a file from a split-beam setup that does not record angle data."""
 
@@ -194,6 +198,7 @@ def test_convert_ek60_splitbeam_no_angle(ek60_path):
     assert "angle_alongship" not in ed["Sonar/Beam_group1"]
 
 
+@pytest.mark.integration
 def test_convert_es60_no_unicode_error(es60_path):
     """Convert a file should not give unicode error"""
 
