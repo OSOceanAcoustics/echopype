@@ -13,5 +13,4 @@ include *.txt
 # Ignore testing files and data
 prune echopype/test_data
 prune echopype/tests
-exclude echopype/testing.py
 exclude .gitattributes
