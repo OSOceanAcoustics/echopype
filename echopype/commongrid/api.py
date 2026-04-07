@@ -551,10 +551,12 @@ def resample_to_geometry(
         data_vars={
             target_variable: ds_combined,
             "echo_range": echo_range_aligned,
-            "water_level": ds_Sv["water_level"],
             "frequency_nominal": ds_Sv["frequency_nominal"],
         }
     )
+    if "water_level" in ds_Sv:
+        new_ds["water_level"] = ds_Sv["water_level"]
+
     # Attach attributes
     new_ds[target_variable].attrs = ds_Sv[target_variable].attrs
     if target_channel:
