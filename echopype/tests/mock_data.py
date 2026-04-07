@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .utils.compute import _lin2log, _log2lin
+from echopype.utils.compute import _lin2log, _log2lin
 
 # Data length for each data type
 _DATA_LEN = {
