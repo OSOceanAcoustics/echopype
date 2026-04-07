@@ -19,7 +19,76 @@ from echopype.tests.commongrid.conftest import get_NASC_echoview
 def ek80_path(test_path):
     return test_path['EK80']
 
-# Utilities Tests
+@pytest.fixture
+def calculate_total_energy(ds, channel):
+    """
+    Calculates the total integrated energy (Linear Sv * Thickness) 
+    per ping for a specific channel.
+    
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing 'Sv' and 'echo_range'.
+    channel : str
+        Label of the channel to calculate.
+
+    Returns
+    -------
+    np.ndarray
+        1D array of Total Energy per ping.
+    """
+    # Select Data
+    ds_channel = ds.sel(channel=channel)
+    sv = ds_channel['Sv'].values
+    echo_range = ds_channel['echo_range'].values
+    
+    n_pings = sv.shape[0]
+    total_energy = np.zeros(n_pings)
+    
+    for i in range(n_pings):
+        # Extract row
+        range_row = echo_range[i, :]
+        sv_row = sv[i, :]
+        
+        # Mask
+        valid_range = ~np.isnan(range_row)
+        
+        if not np.any(valid_range):
+            total_energy[i] = 0.0
+            continue
+            
+        # Get valid geometry
+        range_valid = range_row[valid_range]
+        sv_valid = sv_row[valid_range]
+        
+        # Calculate Thickness using Midpoints 
+        if len(range_valid) > 1:
+            midpoints = 0.5 * (range_valid[:-1] + range_valid[1:])
+
+            d_start = range_valid[1] - range_valid[0]
+            d_end = range_valid[-1] - range_valid[-2]
+            
+            edges = np.concatenate([
+                [range_valid[0] - d_start/2], 
+                midpoints, 
+                [range_valid[-1] + d_end/2]
+            ])
+            
+            thickness = np.diff(edges)
+        else:
+            thickness = np.array([1.0])
+
+        linear_sv = 10 ** (sv_valid / 10.0)
+        
+        linear_sv = np.nan_to_num(linear_sv, nan=0.0)
+        
+        total_energy[i] = np.sum(linear_sv * thickness)
+    
+    return total_energy
+    
+
+    
+
 @pytest.mark.parametrize(
     ["x_bin", "x_label", "expected_result"],
     [
@@ -135,7 +204,34 @@ def test__weighted_mean_kernel(scenario, source_params, target_params, expected_
     
     assert np.isclose(source_energy, target_energy, rtol=0.05), \
         f"Scenario '{scenario}' failed energy conservation."
-        
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("er_type"),
+    [
+        ("regular"),
+    ],
+)
+def test_resample_target_channel_same(request, er_type):
+    """Testing that the resampling function preserves the target channel"""
+    if er_type == "regular":
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
+    else:
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
+
+    channel = ds_Sv["channel"].values[0]
+
+    ds_regridded = ep.commongrid.resample_to_geometry(ds_Sv.chunk({"channel": 1, "ping_time": 1000, "range_sample": -1}), target_variable="Sv", target_channel=channel)
+
+    original_channel = ds_Sv["Sv"].sel(channel=channel)
+    reggrided_channel = ds_regridded["Sv"].sel(channel=channel)
+
+    xr.testing.assert_allclose(
+        reggrided_channel, 
+        original_channel,
+        rtol=1e-12,
+        atol=1e-12)
+
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -144,82 +240,15 @@ def test__weighted_mean_kernel(scenario, source_params, target_params, expected_
         ("regular"),
     ],
 )
-def test_regrid_with_channel(request, er_type):
-    """Testing the regrid_all_channels_robust wrapper function"""
+def test_resample_with_channel(request, er_type):
+    """Testing the resample_to_geometry by evaluating energy loss after resampling using a target channel"""
     if er_type == "regular":
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
     channel = ds_Sv["channel"].values[0]
 
-    ds_regridded = ep.commongrid.regrid(ds_Sv.chunk({"channel": 1, "ping_time": 1000, "range_sample": -1}), target_variable="Sv", target_channel=channel)
-
-    def calculate_total_energy(ds, channel):
-        """
-        Calculates the total integrated energy (Linear Sv * Thickness) 
-        per ping for a specific channel.
-        
-        Parameters
-        ----------
-        ds : xr.Dataset
-            Dataset containing 'Sv' and 'echo_range'.
-        channel_idx : int
-            Index of the channel to calculate.
-
-        Returns
-        -------
-        np.ndarray
-            1D array of Total Energy per ping.
-        """
-        # Select Data
-        ds_channel = ds.sel(channel=channel)
-        sv = ds_channel['Sv'].values
-        echo_range = ds_channel['echo_range'].values
-        
-        n_pings = sv.shape[0]
-        total_energy = np.zeros(n_pings)
-        
-        for i in range(n_pings):
-            # Extract row
-            range_row = echo_range[i, :]
-            sv_row = sv[i, :]
-            
-            # Mask
-            valid_range = ~np.isnan(range_row)
-            
-            if not np.any(valid_range):
-                total_energy[i] = 0.0
-                continue
-                
-            # Get valid geometry
-            range_valid = range_row[valid_range]
-            sv_valid = sv_row[valid_range]
-            
-            # Calculate Thickness using Midpoints 
-            if len(range_valid) > 1:
-                midpoints = 0.5 * (range_valid[:-1] + range_valid[1:])
-
-                d_start = range_valid[1] - range_valid[0]
-                d_end = range_valid[-1] - range_valid[-2]
-                
-                edges = np.concatenate([
-                    [range_valid[0] - d_start/2], 
-                    midpoints, 
-                    [range_valid[-1] + d_end/2]
-                ])
-                
-                thickness = np.diff(edges)
-            else:
-                thickness = np.array([1.0])
-    
-            linear_sv = 10 ** (sv_valid / 10.0)
-            
-            linear_sv = np.nan_to_num(linear_sv, nan=0.0)
-            
-            total_energy[i] = np.sum(linear_sv * thickness)
-        
-        return total_energy
-    
+    ds_regridded = ep.commongrid.resample_to_geometry(ds_Sv.chunk({"channel": 1, "ping_time": 1000, "range_sample": -1}), target_variable="Sv", target_channel=channel)
 
     channels = ds_Sv["channel"].values
     total_energy_original = [calculate_total_energy(ds_Sv, ch) for ch in channels]
@@ -240,82 +269,16 @@ def test_regrid_with_channel(request, er_type):
     ],
 )
 
-def test_regrid_with_grid(request, er_type):
-    """Testing the regrid_all_channels_robust wrapper function"""
+def test_resample_with_grid(request, er_type):
+    """Testing the resample_to_geometry by evaluating energy loss after resampling using a target grid"""
     if er_type == "regular":
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_irregular")
     
     channel = ds_Sv["channel"].values[0]
-    ds_regridded = ep.commongrid.regrid(ds_Sv.chunk({"channel": 1, "ping_time": 1000, "range_sample": -1}), target_variable="Sv", target_grid = ds_Sv.chunk({"channel": 1, "ping_time": 500, "range_sample": -1})["echo_range"].isel(channel=1))
+    ds_regridded = ep.commongrid.resample_to_geometry(ds_Sv.chunk({"channel": 1, "ping_time": 1000, "range_sample": -1}), target_variable="Sv", target_grid = ds_Sv.chunk({"channel": 1, "ping_time": 500, "range_sample": -1})["echo_range"].sel(channel=channel))
 
-    def calculate_total_energy(ds, channel):
-        """
-        Calculates the total integrated energy (Linear Sv * Thickness) 
-        per ping for a specific channel.
-        
-        Parameters
-        ----------
-        ds : xr.Dataset
-            Dataset containing 'Sv' and 'echo_range'.
-        channel_idx : int
-            Index of the channel to calculate.
-
-        Returns
-        -------
-        np.ndarray
-            1D array of Total Energy per ping.
-        """
-        # Select Data
-        ds_channel = ds.sel(channel=channel)
-        sv = ds_channel['Sv'].values
-        echo_range = ds_channel['echo_range'].values
-        
-        n_pings = sv.shape[0]
-        total_energy = np.zeros(n_pings)
-        
-        for i in range(n_pings):
-            # Extract row
-            range_row = echo_range[i, :]
-            sv_row = sv[i, :]
-            
-            # Mask
-            valid_range = ~np.isnan(range_row)
-            
-            if not np.any(valid_range):
-                total_energy[i] = 0.0
-                continue
-                
-            # Get valid geometry
-            range_valid = range_row[valid_range]
-            sv_valid = sv_row[valid_range]
-            
-            # Calculate Thickness using Midpoints 
-            if len(range_valid) > 1:
-                midpoints = 0.5 * (range_valid[:-1] + range_valid[1:])
-
-                d_start = range_valid[1] - range_valid[0]
-                d_end = range_valid[-1] - range_valid[-2]
-                
-                edges = np.concatenate([
-                    [range_valid[0] - d_start/2], 
-                    midpoints, 
-                    [range_valid[-1] + d_end/2]
-                ])
-                
-                thickness = np.diff(edges)
-            else:
-                thickness = np.array([1.0])
-    
-            linear_sv = 10 ** (sv_valid / 10.0)
-            
-            linear_sv = np.nan_to_num(linear_sv, nan=0.0)
-            
-            total_energy[i] = np.sum(linear_sv * thickness)
-        
-        return total_energy
-    
     channels = ds_Sv["channel"].values
     total_energy_original = [calculate_total_energy(ds_Sv, ch) for ch in channels]
     total_energy_regridded = [calculate_total_energy(ds_regridded, ch) for ch in channels]
@@ -327,6 +290,7 @@ def test_regrid_with_grid(request, er_type):
         err_msg="Total energy was not conserved during regridding!"
     )
 
+# Utilities Tests
 
 @pytest.mark.integration
 def test_range_spacing(ek80_path):
@@ -342,10 +306,7 @@ def test_range_spacing(ek80_path):
     
     channel = ds_Sv["channel"].values[0]
 
-    ds_regridded = ep.commongrid.regrid(ds_Sv, target_variable="Sv", target_channel=channel)
-
-    channel = ds_Sv["channel"].values[0]
-
+    ds_regridded = ep.commongrid.resample_to_geometry(ds_Sv, target_variable="Sv", target_channel=channel)
 
     c = float(ds_Sv["sound_speed"].values) 
     dt = float(echodata["Sonar/Beam_group1"]["sample_interval"].sel(channel=channel).median("ping_time").values)

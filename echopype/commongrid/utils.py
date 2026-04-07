@@ -651,7 +651,7 @@ def assign_actual_range(ds_MVBS: xr.Dataset) -> xr.Dataset:
     return ds_MVBS.assign_attrs({"actual_range": actual_range})
 
 
-def get_valid_max_depth_ping(
+def get_valid_max_depth_ping_index(
     ds: xr.Dataset, target_channel: str = None, target_grid: xr.DataArray = None
 ) -> int:
     """
@@ -660,16 +660,16 @@ def get_valid_max_depth_ping(
     Parameters
     ----------
     ds : xr.Dataset
-        The xarray Dataset containing the variable of interest.
-    channel : str
-        The label used for the channel to access within the Dataset.
-    deepest_ping : int
-        The index of the ping that contains the deepest valid sample in the specified variable.
-
+        The xarray Dataset containing the echo_range variable.
+    target_channel : string, optional
+        The label of the channel from which to find the deepest ping.
+    target_grid : xr.DataArray, optional
+        A data array specifying the target grid from which to find the deeepst ping.
+        Data array must have dimension ('ping_time', 'range_sample').
     Returns
     -------
     deepest_ping: int
-        index of the "deepest" sample
+        Index of the ping containing the most amount of data before trailing NaN values.
     """
     da = xr.DataArray()
     if target_channel is not None:
@@ -694,7 +694,6 @@ def get_valid_max_depth_ping(
 def _exact_integration_kernel(target_edges, source_edge, source_value):
     """
     Helper Kernel: Performs exact interval intersection to determine energy distribution.
-    Replaces the standard CDF interpolation method to avoid floating point cancellation errors.
     """
     target_edges = np.asanyarray(target_edges)
     source_edge = np.asanyarray(source_edge)
