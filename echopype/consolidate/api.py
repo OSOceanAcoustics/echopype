@@ -20,7 +20,7 @@ from .ek_depth_utils import (
     ek_use_platform_angles,
     ek_use_platform_vertical_offsets,
 )
-from .loc_utils import check_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
+from .loc_utils import check_and_drop_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
 logger = _init_logger(__name__)
@@ -306,6 +306,26 @@ def add_location(
     # Copy dataset
     interp_ds = ds.copy()
 
+    # Build contextual warning message for duplicate timestamps.
+    # In the default NMEA case, multiple sentence types may be mixed,
+    # which can produce duplicate timestamps due to differing resolution.
+    extra_msg = ""
+
+    if nmea_sentence is None and datagram_type is None and "sentence_type" in echodata["Platform"]:
+        sentence_types = np.unique(echodata["Platform"]["sentence_type"].values)
+        sentence_types = [str(s) for s in sentence_types]
+
+        if len(sentence_types) > 1:
+            extra_msg = (
+                f" Multiple NMEA sentence types detected ({', '.join(sentence_types)}), "
+                "which may have different resolution and produce duplicate timestamps. "
+                "Consider specifying `nmea_sentence` to select a single GPS message type."
+            )
+        elif len(sentence_types) == 1:
+            extra_msg = (
+                f" Duplicate timestamps found within NMEA sentence type {sentence_types[0]}."
+            )
+
     # Select NMEA subset (if applicable) and interpolate location variables and place
     # into `interp_ds`.
     for loc_name, interp_loc_name in [(lat_name, "latitude"), (lon_name, "longitude")]:
@@ -316,8 +336,9 @@ def add_location(
             datagram_type=datagram_type,
         )
 
-        # Check if there are duplicates in time_dim_name for this NMEA subset
-        check_loc_time_dim_duplicates(loc_var, time_dim_name)
+        # Deduplicate time dimension if needed (e.g. multiple NMEA sentences
+        # at the same timestamp); required for downstream interpolation.
+        loc_var = check_and_drop_loc_time_dim_duplicates(loc_var, time_dim_name, extra_msg)
 
         interp_ds[interp_loc_name] = align_to_ping_time(
             loc_var, time_dim_name, ds["ping_time"], "linear"
