@@ -252,7 +252,10 @@ def test_ek80_BB_power_from_complex(
 
     # Power: only compare non-Nan, non-Inf values
     pyel_vals = pyel_BB_p_data["power"]
-    ep_vals = 10 * np.log10(prx.sel(channel=ch_sel).data)
+    ep_vals = prx.sel(channel=ch_sel).data.astype(float)
+    # Set non-positive values to NaN before log10 to avoid warnings
+    ep_vals[ep_vals <= 0] = np.nan
+    ep_vals = 10 * np.log10(ep_vals)
     assert pyel_vals.shape == ep_vals.shape
     idx_to_cmp = ~(
         np.isinf(pyel_vals) | np.isnan(pyel_vals) | np.isinf(ep_vals) | np.isnan(ep_vals)
