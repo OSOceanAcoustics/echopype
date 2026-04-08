@@ -11,6 +11,8 @@ import scipy.io as io
 import echopype as ep
 from typing import List
 
+pytestmark = pytest.mark.integration
+
 """
 For future reference:
 
@@ -336,6 +338,47 @@ def test_add_splitbeam_angle_BB_pc(test_path):
     ep_vals = ds_Sv["angle_athwartship"].sel(channel=chan_sel).values
     assert pyel_vals.shape == ep_vals.shape
     assert np.allclose(pyel_vals, ep_vals, atol=1e-6)
+
+
+def test_add_splitbeam_angle_partial_valid_channels(test_path):
+    """Force one channel to an unsupported split-beam configuration and verify
+    that angles are only computed for the valid channels."""
+    raw_file = test_path["EK80_CAL"] / "2018115-D20181213-T094600.raw"
+    ed = ep.open_raw(raw_file, sonar_model="EK80")
+
+    # Override beam_type for a specific channel to simulate single-beam (type 0)
+    forced_channel = "WBT 714583-15 ES120-7C"
+    beam_group = ed["Sonar/Beam_group1"]
+    channel_idx = list(beam_group["channel"].values).index(forced_channel)
+    beam_types = beam_group["beam_type"].values
+    beam_types[channel_idx] = 0
+    ed["Sonar/Beam_group1"]["beam_type"].data[:] = beam_types
+
+    # Compute Sv
+    ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="complex")
+
+    # Add split-beam angles
+    ds_Sv = ep.consolidate.add_splitbeam_angle(
+        source_Sv=ds_Sv,
+        echodata=ed,
+        waveform_mode="CW",
+        encode_mode="complex",
+        pulse_compression=False,
+        to_disk=False,
+    )
+
+    valid_angle_channels = [
+        ch
+        for ch in ds_Sv.channel.values
+        if not np.all(np.isnan(ds_Sv["angle_alongship"].sel(channel=ch)))
+    ]
+
+    # Verify angles exist for valid channel only
+    assert "angle_alongship" in ds_Sv
+    assert "angle_athwartship" in ds_Sv
+    # total_channels here refers to the Sv dataset's channels, not the beam group's
+    sv_channel_count = len(ds_Sv.channel)
+    assert len(valid_angle_channels) == sv_channel_count - 1
 
 
 # TODO: need a test for power/angle data, with mock EchoData object

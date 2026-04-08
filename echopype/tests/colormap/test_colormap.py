@@ -5,6 +5,8 @@ import numpy as np
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.parametrize(
     "cmap_name",
