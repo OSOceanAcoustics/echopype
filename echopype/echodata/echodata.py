@@ -104,7 +104,7 @@ class EchoData:
     def __del__(self):
         # TODO: this destructor seems to not work in Jupyter Lab if restart or
         #  even clear all outputs is used. It will work if you explicitly delete the object
-        if self.converted_raw_path:
+        if self.converted_raw_path is None:
             # Assumes raw data is in memory
             self.cleanup_swap_files()
 
