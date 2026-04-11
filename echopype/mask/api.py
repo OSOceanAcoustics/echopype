@@ -680,7 +680,7 @@ def regrid_mask(
     func: Literal["logical-AND", "logical-OR"] = "logical-AND",
     method: str = "map-reduce",
     reindex: bool = False,
-    closed: Literal["left", "right"] = "right",
+    closed: Literal["left", "right"] = "left",
     range_var_max: str = None,
     **flox_kwargs,
 ) -> xr.DataArray:
@@ -757,9 +757,10 @@ def regrid_mask(
         # This computes the range variable max since there might be NaNs in the data
         range_var_max = range_da.max(skipna=True)
     else:
-        # Parse string and add small value to ensure that we grab the bin
-        # corresponding to range_var_max
-        range_var_max = _parse_x_bin(range_var_max) + 1e-8
+        # Parse string
+        range_var_max = _parse_x_bin(range_var_max)
+    # Add small value to ensure that we grab the last value
+    range_var_max = range_var_max + 1e-8
     range_interval = np.arange(0, range_var_max + range_bin, range_bin)
     range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
 

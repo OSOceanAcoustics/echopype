@@ -1668,7 +1668,7 @@ def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_
         ("bool", "logical-OR"),
     ]
 )
-def test_regrid_mask_2D(dtype, func):
+def test_regrid_non_boundary_mask_2D(dtype, func):
     """
     Test mask regridding for a 2D array by checking logical-AND and logical-OR outputs.
     """
@@ -1683,20 +1683,18 @@ def test_regrid_mask_2D(dtype, func):
     )
 
     # Create expected array
-    # The last value in each row should be False because we will add empty
-    # bin by setting max range to 60m.
     if func == "logical-AND":
         expected_array = np.array(
             [
-                [True,  False, False],
-                [False, False, False],
+                [True,  False],
+                [False, False],
             ]
         )
     elif func == "logical-OR":
         expected_array = np.array(
             [
-                [True,  False, False],
-                [False, True, False],
+                [True,  False],
+                [False, True],
             ]
         )
     if dtype == "int":
@@ -1710,13 +1708,13 @@ def test_regrid_mask_2D(dtype, func):
         {
             "ping_time": pd.to_datetime(
                 [
-                    "2020-01-01T01:00:10.000000000",
-                    "2020-01-01T01:00:20.000000000",
-                    "2020-01-01T01:00:30.000000000",
+                    "2020-01-01T01:00:01.000000000",
+                    "2020-01-01T01:00:19.000000000",
+                    "2020-01-01T01:00:21.000000000",
                     "2020-01-01T01:00:39.000000000",
                 ]
             ),
-            "depth": [10.0, 20.0, 30.0, 39.0]
+            "depth": [1.0, 19.0, 21.0, 39.0]
         }
     )
 
@@ -1727,7 +1725,6 @@ def test_regrid_mask_2D(dtype, func):
         range_bin="20m",
         ping_time_bin="20s",
         func=func,
-        range_var_max="59m",
     )
 
     # Check that expected result is what is received
@@ -1743,7 +1740,112 @@ def test_regrid_mask_2D(dtype, func):
                     "2020-01-01T01:00:20.000000000",
                 ]
             ),
-            "depth": [0.0, 20.0, 40.0]
+            "depth": [0.0, 20.0]
+        }
+    )
+    assert mask_regridded_da.equals(mask_expected_da)
+
+
+@pytest.mark.parametrize(
+    ("closed", "func"),
+    [
+        ("left", "logical-AND"),
+        ("left", "logical-OR"),
+        ("right", "logical-AND"),
+        ("right", "logical-OR"),
+    ]
+)
+def test_regrid_boundary_mask_2D(closed, func):
+    """
+    Test 2d mask regridding for when points are on boundaries.
+    """
+    # Create mask array
+    input_array = np.array(
+        [
+            [True, True, False, False, False],
+            [True, True, False, False, False],
+            [False, False, True, True, False],
+            [False, False, True, False, False],
+            [False, False, False, False, False],
+        ]
+    )
+
+    # Create expected array
+    if func == "logical-AND" and closed == "left":
+        expected_array = np.array(
+            [
+                [True,  False, False],
+                [False, False, False],
+                [False, False, False],
+            ]
+        )
+    elif func == "logical-OR" and closed == "left":
+        expected_array = np.array(
+            [
+                [True, False, False],
+                [False, True, False],
+                [False, False, False],
+            ]
+        )
+    elif func == "logical-AND" and closed == "right":
+        expected_array = np.array(
+            [
+                [False, False, False],
+                [False, False, False],
+                [False, False, False],
+            ]
+        )
+    elif func == "logical-OR" and closed == "right":
+        expected_array = np.array(
+            [
+                [True, True, False],
+                [True, False, False],
+                [False, False, False],
+            ]
+        )
+    mask = xr.DataArray(
+        input_array,
+        dims=("ping_time", "depth"),
+    )
+    mask = mask.assign_coords(
+        {
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:00.000000000",
+                    "2020-01-01T01:00:10.000000000",
+                    "2020-01-01T01:00:20.000000000",
+                    "2020-01-01T01:00:30.000000000",
+                    "2020-01-01T01:00:40.000000000",
+                ]
+            ),
+            "depth": [0.0, 10.0, 20.0, 30.0, 40.0]
+        }
+    )
+
+    # Regrid mask
+    mask_regridded_da = regrid_mask(
+        mask,
+        range_da=mask["depth"],
+        range_bin="20m",
+        ping_time_bin="20s",
+        func=func,
+        closed=closed,
+    )
+
+    # Check that expected result is what is received
+    mask_expected_da = xr.DataArray(
+        expected_array,
+        dims=("ping_time", "depth"),
+    ).assign_coords(
+        {
+            "ping_time": pd.to_datetime(
+                [
+                    "2020-01-01T01:00:00",
+                    "2020-01-01T01:00:20",
+                    "2020-01-01T01:00:40",
+                ]
+            ),
+            "depth": [0.0, 20.0, 40.0],
         }
     )
     assert mask_regridded_da.equals(mask_expected_da)
@@ -1779,13 +1881,13 @@ def test_regrid_mask_3D():
             "region_id": [1, 2],
             "ping_time": pd.to_datetime(
                 [
-                    "2020-01-01T01:00:10.000000000",
-                    "2020-01-01T01:00:20.000000000",
-                    "2020-01-01T01:00:30.000000000",
+                    "2020-01-01T01:00:01.000000000",
+                    "2020-01-01T01:00:19.000000000",
+                    "2020-01-01T01:00:21.000000000",
                     "2020-01-01T01:00:39.000000000",
                 ]
             ),
-            "depth": [10.0, 20.0, 30.0, 39.0],
+            "depth": [1.0, 19.0, 21.0, 39.0],
         }
     )
 
@@ -1797,7 +1899,6 @@ def test_regrid_mask_3D():
         ping_time_bin="20s",
         third_dim="region_id",
         func="logical-OR",
-        range_var_max="59m",
     )
 
     # Check that expected result is what is received
@@ -1805,12 +1906,12 @@ def test_regrid_mask_3D():
         np.array(
             [
                 [
-                    [True, False, False],
-                    [False, True, False],
+                    [True, False],
+                    [False, True],
                 ],
                 [
-                    [True, False, False],
-                    [False, True, False],
+                    [True, False],
+                    [False, True],
                 ]
             ]
         ),
@@ -1825,7 +1926,7 @@ def test_regrid_mask_3D():
                     "2020-01-01T01:00:20.000000000",
                 ]
             ),
-            "depth": [0.0, 20.0, 40.0]
+            "depth": [0.0, 20.0]
         }
     )
     assert mask_regridded_da.equals(mask_expected_da)
@@ -1855,10 +1956,10 @@ def test_regrid_mask_errors():
                     "2020-01-01T01:00:10.000000000",
                     "2020-01-01T01:00:20.000000000",
                     "2020-01-01T01:00:30.000000000",
-                    "2020-01-01T01:00:39.000000000",
+                    "2020-01-01T01:00:40.000000000",
                 ]
             ),
-            "depth": [10, 20, 30, 39]
+            "depth": [10, 20, 30, 40]
         }
     )
 
@@ -1910,7 +2011,7 @@ def test_regrid_mask_errors():
     # Create invalid mask
     input_invalid_array = np.array(
         [
-            [1, 1, 0, 5], # 5 is invalid for binary mask
+            [1, 1, 0, 1],
             [1, 1, 0, 0],
             [0, 0, 1, 1],
             [0, 0, 1, np.nan], # NaN also invalid for binary mask
@@ -1927,10 +2028,10 @@ def test_regrid_mask_errors():
                     "2020-01-01T01:00:10.000000000",
                     "2020-01-01T01:00:20.000000000",
                     "2020-01-01T01:00:30.000000000",
-                    "2020-01-01T01:00:39.000000000",
+                    "2020-01-01T01:00:40.000000000",
                 ]
             ),
-            "depth": [10, 20, 30, 39]
+            "depth": [10, 20, 30, 40]
         }
     )
 
