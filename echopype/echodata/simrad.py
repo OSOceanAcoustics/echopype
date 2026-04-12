@@ -132,7 +132,7 @@ def _retrieve_correct_beam_group_EK80(
             match_str = "complex_CW"
         else:
             match_str = "complex_FM"
-    idx_match = np.argwhere((descr==match_str).data).squeeze()
+    idx_match = np.argwhere((descr == match_str).data).squeeze()
     if idx_match.size == 0:
         raise RuntimeError(
             f"No beam group with the specified encode_mode {encode_mode} and waveform_mode {waveform_mode} found in the provided echodata!"
