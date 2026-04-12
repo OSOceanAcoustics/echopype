@@ -266,8 +266,8 @@ class CalibrateEK80(CalibrateEK):
         # Grab beam group and vendor specific dataset
         self.beam = self.echodata[self.ed_beam_group]  # TODO: return self.beam in if-else below
         self.vend = self.echodata["Vendor_specific"]
-        
-        # TODO: consider adding assume_single_filter_time to slice_dict 
+
+        # TODO: consider adding assume_single_filter_time to slice_dict
         #       so that intention is clearer and don't need to rely on implicit keys
         if "channel" in self.slice_dict:
             # when assume_single_filter_time=True

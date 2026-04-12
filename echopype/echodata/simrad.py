@@ -140,8 +140,7 @@ def _retrieve_correct_beam_group_EK80(
                 complex_CW_group = f"Sonar/Beam_group{beam_idx}"
         else:
             raise RuntimeError(
-                "The provided encode_mode is not recognized! "
-                "Must be one of 'CW', 'FM', or 'BB'!"
+                "The provided encode_mode is not recognized! " "Must be one of 'CW', 'FM', or 'BB'!"
             )
 
     return power_group, complex_FM_group, complex_CW_group
