@@ -58,7 +58,7 @@ def _compute_cal(
         raise ValueError("assume_single_filter_time can only be used on complex EK80 data.")
 
     # Compute calibration dataset
-    def _compute_cal_ds(echodata, subsect_dict):
+    def _compute_cal_ds(echodata, slice_dict):
         # Set up calibration object
         cal_obj = CALIBRATOR[echodata.sonar_model](
             echodata,
@@ -68,9 +68,10 @@ def _compute_cal(
             waveform_mode=waveform_mode,
             encode_mode=encode_mode,
             drop_last_hanning_zero=drop_last_hanning_zero,
-            slice_dict=subsect_dict,
+            slice_dict=slice_dict,
         )
 
+        # TODO: do we need this check here?
         # Check Echodata Backscatter Size
         cal_obj._check_echodata_backscatter_size()
 
@@ -85,6 +86,12 @@ def _compute_cal(
     # Initialize slice dictionary
     slice_dict = {}
 
+    # TODO: revise if-else conditions
+    #       if filter_time dim exists and len of filter_time:
+    #           if assume_single_filter_time:
+    #           else:
+    #       else:
+    #           ??
     # Collapse vendor specific's filter time dimension
     if (
         assume_single_filter_time
@@ -94,15 +101,15 @@ def _compute_cal(
         ed_beam_group = retrieve_correct_beam_group(
             echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
-        transmit_duration_nominal_ds = echodata[ed_beam_group]["transmit_duration_nominal"]
+        transmit_duration_nominal = echodata[ed_beam_group]["transmit_duration_nominal"]
         # Grab the first valid filter time for each channel
         first_valid_filter_time_per_channel = {}
-        for channel in transmit_duration_nominal_ds.channel.values:
+        for channel in transmit_duration_nominal.channel.values:
             valid_ping_times = (
-                transmit_duration_nominal_ds.sel(channel=[channel])
+                transmit_duration_nominal.sel(channel=[channel])
                 .dropna(dim="ping_time")
                 .ping_time.values
-            )
+            )  # TODO: just select [0] and store as part of this line
             first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
         slice_dict["first_valid_filter_time_per_channel"] = first_valid_filter_time_per_channel
 

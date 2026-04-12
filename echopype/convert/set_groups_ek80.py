@@ -53,8 +53,8 @@ class SetGroupsEK80(SetGroupsBase):
             "name": "Beam_group1",
             "descr": {
                 "power": "contains backscatter power (uncalibrated) and "
-                "other beam or channel-specific data,"
-                " including split-beam angle data when they exist.",
+                "other beam or channel-specific data, "
+                "including split-beam angle data when they exist.",
                 "complex": "contains FM-only or CW-only complex backscatter data and "
                 "other beam or channel-specific data.",
             },
@@ -63,8 +63,8 @@ class SetGroupsEK80(SetGroupsBase):
             "name": "Beam_group2",
             "descr": {
                 "power": "contains backscatter power (uncalibrated) and "
-                "other beam or channel-specific data,"
-                " including split-beam angle data when they exist.",
+                "other beam or channel-specific data, "
+                "including split-beam angle data when they exist.",
                 "complex": "contains CW-only complex backscatter data and other "
                 "beam or channel-specific data.",
             },
@@ -750,7 +750,7 @@ class SetGroupsEK80(SetGroupsBase):
 
         return ds
 
-    def _add_freq_start_end_ds(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
+    def _add_freq_start_stop_ds(self, ds_tmp: xr.Dataset, ch: str) -> xr.Dataset:
         """
         Returns a Dataset with variables
         ``transmit_frequency_start`` and ``transmit_frequency_stop``
@@ -1161,12 +1161,15 @@ class SetGroupsEK80(SetGroupsBase):
             # split FM
             ds_complex_subset_FM = ds_data.where(ds_data["transmit_type"] == "LFM", drop=True)
             if len(ds_complex_subset_FM["ping_time"]) > 0:
-                ds_complex_subset_FM = self._add_freq_start_end_ds(ds_complex_subset_FM, ch)
+                # TODO: check convention and calibration code if CW data
+                #       should also have frequency_start and frequency_stop
+                ds_complex_subset_FM = self._add_freq_start_stop_ds(ds_complex_subset_FM, ch)
                 ds_complex_FM.append(ds_complex_subset_FM)
             # split CW
             ds_complex_subset_CW = ds_data.where(ds_data["transmit_type"] == "CW", drop=True)
             if len(ds_complex_subset_CW["ping_time"]) > 0:
                 ds_complex_CW.append(ds_complex_subset_CW)
+            # TODO: add sanity check len(FM pings) + len(CW pings) = len(complex pings)
 
         # gather power channel data
         for ch in self.sorted_channel.get("power", []):
@@ -1199,8 +1202,8 @@ class SetGroupsEK80(SetGroupsBase):
 
         # store the mapping in self
         self.beam_group_map = {
-            i + 1: name
-            for i, (name, _) in enumerate(
+            idx + 1: name
+            for idx, (name, _) in enumerate(
                 [
                     (n, d)
                     for n, d in [

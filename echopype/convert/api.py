@@ -515,11 +515,13 @@ def open_raw(
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
 
+    # TODO: dissolve this loop into set_beam() so it returns beam_group_type
+    #       since in set_beam() there's already info on what beam groups are what type
     beam_group_type = []
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
             # fill in beam_group_type (only necessary for EK80, ES80, EA640)
-            if idx in [1, 2]:
+            if idx in [1, 2]:  # Beam_group3 can only have power-angle data (see set_groups_ek80.py)
                 # choose the appropriate description key for Beam_group1 and Beam_group2
                 beam_group_type.append("complex" if "backscatter_i" in beam_group else "power")
             else:

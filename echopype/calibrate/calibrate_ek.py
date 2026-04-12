@@ -34,22 +34,22 @@ def _slice_beam_vend(beam, vend, slice_dict):
     return beam, vend
 
 
-def _collapse_vendor_specific(vendor_specific_ds, slice_dict):
+def _collapse_vend(ds_vendor_specific, slice_dict):
     # For each channel and filter time pairing in channel filter time, we
     # slice the vendor specific dataset and merge the sliced datasets. This
     # results in a vendor specific dataset with a collapsed filter dimension.
-    collapsed_ds_list = []
+    collapsed_vend_list = []
     for channel, filter_time in slice_dict["first_valid_filter_time_per_channel"].items():
-        collapsed_ds = vendor_specific_ds.sel(channel=[channel], filter_time=filter_time).drop_vars(
+        ds_collapsed = ds_vendor_specific.sel(channel=[channel], filter_time=filter_time).drop_vars(
             "filter_time"
         )
-        collapsed_ds_list.append(collapsed_ds)
-    vendor_specific_ds = xr.merge(
-        collapsed_ds_list,
+        collapsed_vend_list.append(ds_collapsed)
+    ds_vendor_specific = xr.merge(
+        collapsed_vend_list,
         join="outer",
         compat="no_conflicts",
     )
-    return vendor_specific_ds
+    return ds_vendor_specific
 
 
 class CalibrateEK(CalibrateBase):
@@ -264,12 +264,19 @@ class CalibrateEK80(CalibrateEK):
         )
 
         # Grab beam group and vendor specific dataset
-        self.beam = self.echodata[self.ed_beam_group]
+        self.beam = self.echodata[self.ed_beam_group]  # TODO: return self.beam in if-else below
         self.vend = self.echodata["Vendor_specific"]
+        
+        # TODO: consider adding assume_single_filter_time to slice_dict 
+        #       so that intention is clearer and don't need to rely on implicit keys
         if "channel" in self.slice_dict:
+            # when assume_single_filter_time=True
+            # TODO: think about performance implications for this slicing
+            #       do slicing only happen when used? is there some caching?
             self.beam, self.vend = _slice_beam_vend(self.beam, self.vend, self.slice_dict)
         if "first_valid_filter_time_per_channel" in self.slice_dict:
-            self.vend = _collapse_vendor_specific(self.vend, self.slice_dict)
+            # when assume_single_filter_time=False
+            self.vend = _collapse_vend(self.vend, self.slice_dict)
         else:
             self.vend = self.vend.sel(channel=self.beam.channel)
 

@@ -51,7 +51,7 @@ def _retrieve_correct_beam_group_EK60(
 ) -> Optional[str]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK60-like data supplied by ``echodata``. Additionally, select the
+    with EK60-like data supplied by ``echodata``. Additionally, select the
     appropriate beam group corresponding to this input.
 
     Parameters
@@ -95,7 +95,7 @@ def _retrieve_correct_beam_group_EK80(
 ) -> Tuple[Optional[str], Optional[str]]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK80-like data supplied by ``echodata``. Additionally, select the
+    with EK80-like data supplied by ``echodata``. Additionally, select the
     appropriate beam group corresponding to this input.
 
     Parameters
@@ -116,7 +116,8 @@ def _retrieve_correct_beam_group_EK80(
     """
     if "waveform_encode_descr" not in echodata["Sonar"]:
         raise ValueError(
-            "Echodata missing `waveform_encode_descr`. Reconvert using latest Echopype version."
+            "Echodata missing `waveform_encode_descr`. "
+            "Reconvert using the latest Echopype version."
         )
 
     # Get the waveform_encode descriptions indexed by beam group.
@@ -129,14 +130,19 @@ def _retrieve_correct_beam_group_EK80(
     complex_CW_group = None
 
     # Iterate over beam groups:
-    for beam_idx, desc in zip(descr.coords["beam_group_index"].values, descr.values):
-        if encode_mode == "power" and "power" in desc:
+    for beam_idx, descr in zip(descr.coords["beam_group_index"].values, descr.values):
+        if encode_mode == "power" and "power" in descr:
             power_group = f"Sonar/Beam_group{beam_idx}"
         elif encode_mode == "complex":
-            if "FM" in desc and waveform_mode == "BB":
+            if "FM" in descr and waveform_mode == "BB":
                 complex_FM_group = f"Sonar/Beam_group{beam_idx}"
-            elif "CW" in desc and waveform_mode == "CW":
+            elif "CW" in descr and waveform_mode == "CW":
                 complex_CW_group = f"Sonar/Beam_group{beam_idx}"
+        else:
+            raise RuntimeError(
+                "The provided encode_mode is not recognized! "
+                "Must be one of 'CW', 'FM', or 'BB'!"
+            )
 
     return power_group, complex_FM_group, complex_CW_group
 

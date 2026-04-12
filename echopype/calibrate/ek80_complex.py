@@ -37,8 +37,10 @@ def tapered_chirp(
     N = len(y)
     w1 = w[0 : int(len(w) / 2)]
     if drop_last_hanning_zero:
+        # pyEcholab implementation drops the last value in the hanning window (which is zero)
         w2 = w[int(len(w) / 2) : -1]
     else:
+        # CRIMAC implementation keeps the last value
         w2 = w[int(len(w) / 2) :]
     i0 = 0
     i1 = len(w1)
@@ -142,6 +144,7 @@ def get_filter_coeff(vend: xr.Dataset) -> Dict:
     """
     # Select first index of filter time, which is of length 1. This ensures that the
     # coefficient and decimation arrays are of shape (n,) instead of shape (1, n,).
+    # TODO: is n here the number of channels?
     if "filter_time" in vend.dims:
         vend = vend.isel(filter_time=0)
 
