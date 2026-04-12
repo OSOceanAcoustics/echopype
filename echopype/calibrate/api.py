@@ -51,7 +51,7 @@ def _compute_cal(
                 "(encode_mode='power'). Calibration will be done on the power samples.",
             )
 
-    # Check that assume_single_filter_time is correctly passed in
+    # Check that assume_single_filter_time is correctly passed in.
     if (
         echodata.sonar_model != "EK80" or encode_mode != "complex"
     ) and assume_single_filter_time is not None:
@@ -93,11 +93,7 @@ def _compute_cal(
     #       else:
     #           ??
     # Collapse vendor specific's filter time dimension
-    if (
-        assume_single_filter_time
-        and "filter_time" in echodata["Vendor_specific"].dims
-        and len(echodata["Vendor_specific"]["filter_time"]) > 1
-    ):
+    if assume_single_filter_time and len(echodata["Vendor_specific"]["filter_time"]) > 1:
         ed_beam_group = retrieve_correct_beam_group(
             echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
@@ -114,8 +110,9 @@ def _compute_cal(
         slice_dict["first_valid_filter_time_per_channel"] = first_valid_filter_time_per_channel
 
     if (
-        not assume_single_filter_time
-        and "filter_time" in echodata["Vendor_specific"].dims
+        # First check that sonar model is EK80 since EK60 does not have `filter_time` dim.
+        echodata.sonar_model == "EK80"
+        and not assume_single_filter_time
         and len(echodata["Vendor_specific"]["filter_time"]) > 1
     ):
         ed_beam_group = retrieve_correct_beam_group(

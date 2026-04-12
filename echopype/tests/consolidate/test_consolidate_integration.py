@@ -348,11 +348,12 @@ def test_add_splitbeam_angle_partial_valid_channels(test_path):
 
     # Override beam_type for a specific channel to simulate single-beam (type 0)
     forced_channel = "WBT 714583-15 ES120-7C"
-    beam_group = ed["Sonar/Beam_group1"]
+    # Force channel is CW so it exists in beam group 2 (beam group 1 is for FM channel)
+    beam_group = ed["Sonar/Beam_group2"]
     channel_idx = list(beam_group["channel"].values).index(forced_channel)
     beam_types = beam_group["beam_type"].values
     beam_types[channel_idx] = 0
-    ed["Sonar/Beam_group1"]["beam_type"].data[:] = beam_types
+    ed["Sonar/Beam_group2"]["beam_type"].data[:] = beam_types
 
     # Compute Sv
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="complex")

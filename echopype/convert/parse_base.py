@@ -497,9 +497,11 @@ class ParseEK(ParseBase):
                 new_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )
 
-            # Remove \00t from channel_id
+            # Remove \x00t from channel_id
             if "channel_id" in new_datagram:
-                new_datagram["channel_id"] = new_datagram["channel_id"].replace("\00t", "")
+                # Use `repr` to see the full string content
+                # print(repr(new_datagram["channel_id"]))
+                new_datagram["channel_id"] = new_datagram["channel_id"].replace("\x00t", "")
 
             # # For debugging EC150 datagrams
             # if new_datagram["type"].startswith("XML") and "subtype" in new_datagram:
