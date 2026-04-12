@@ -1431,7 +1431,7 @@ class SetGroupsEK80(SetGroupsBase):
                     lengths.append(len(fil.get((ch, stage_num, "coeffs", filter_time), [])))
             coeffs_stage_num_max_length_dict[stage_num] = max(lengths, default=0)
 
-        empty_WBT_coeffs_da = xr.DataArray(
+        da_empty_WBT_coeffs = xr.DataArray(
             np.full(
                 (len(ds["channel"]), len(ds["filter_time"]), coeffs_stage_num_max_length_dict[1]),
                 np.nan,
@@ -1439,7 +1439,7 @@ class SetGroupsEK80(SetGroupsBase):
             dims=("channel", "filter_time", "WBT_filter_n"),
             coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
         )
-        empty_PC_coeffs_da = xr.DataArray(
+        da_empty_PC_coeffs = xr.DataArray(
             np.full(
                 (len(ds["channel"]), len(ds["filter_time"]), coeffs_stage_num_max_length_dict[2]),
                 np.nan,
@@ -1447,19 +1447,19 @@ class SetGroupsEK80(SetGroupsBase):
             dims=("channel", "filter_time", "PC_filter_n"),
             coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
         )
-        ds["WBT_coeffs_real"] = empty_WBT_coeffs_da.copy()
-        ds["WBT_coeffs_imag"] = empty_WBT_coeffs_da.copy()
-        ds["PC_coeffs_real"] = empty_PC_coeffs_da.copy()
-        ds["PC_coeffs_imag"] = empty_PC_coeffs_da.copy()
+        ds["WBT_coeffs_real"] = da_empty_WBT_coeffs.copy()
+        ds["WBT_coeffs_imag"] = da_empty_WBT_coeffs.copy()
+        ds["PC_coeffs_real"] = da_empty_PC_coeffs.copy()
+        ds["PC_coeffs_imag"] = da_empty_PC_coeffs.copy()
 
         # Create empty decimation DataArrays
-        empty_deci_fac_da = xr.DataArray(
+        da_empty_deci_fac = xr.DataArray(
             np.full((len(ds["channel"]), len(ds["filter_time"])), np.nan),
             dims=("channel", "filter_time"),
             coords={"channel": ds["channel"].values, "filter_time": ds["filter_time"].values},
         )
-        ds["WBT_deci_fac"] = empty_deci_fac_da.copy()
-        ds["PC_deci_fac"] = empty_deci_fac_da.copy()
+        ds["WBT_deci_fac"] = da_empty_deci_fac.copy()
+        ds["PC_deci_fac"] = da_empty_deci_fac.copy()
 
         # Insert values into empty DataArrays
         for filter_time in fil["timestamp"]:

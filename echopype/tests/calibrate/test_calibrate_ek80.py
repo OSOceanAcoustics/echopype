@@ -622,27 +622,28 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
 
     # Read echodata object with Vendor specific dataset containing a single filter time
     ed = ep.open_raw(ek80_raw_path, sonar_model="EK80")
+    ed_venc_mod = ep.open_raw(ek80_raw_path, sonar_model="EK80")
 
-    # Modify Vendor specific to have two filter times
-    vendor_specific_ds = ed["Vendor_specific"]
-    vendor_specific_ds = xr.concat(
-        [vendor_specific_ds, vendor_specific_ds],
+    # Modify Vendor specific to have two different filter times but the same coeffs
+    ds_vendor_specific = ed_venc_mod["Vendor_specific"]
+    ds_vendor_specific = xr.concat(
+        [ds_vendor_specific, ds_vendor_specific],
         dim="filter_time"
     )
-    first_time = vendor_specific_ds.coords["filter_time"].values[0]
-    second_time = ed["Sonar/Beam_group1"]["ping_time"].values[30]
+    first_time = ds_vendor_specific.coords["filter_time"].values[0]
+    second_time = ed_venc_mod["Sonar/Beam_group1"]["ping_time"].values[30]
     new_times = [first_time, second_time]
-    vendor_specific_ds = vendor_specific_ds.assign_coords(filter_time=("filter_time", new_times))
-    ed["Vendor_specific"] = vendor_specific_ds
+    ds_vendor_specific = ds_vendor_specific.assign_coords(filter_time=("filter_time", new_times))
+    ed_venc_mod["Vendor_specific"] = ds_vendor_specific
 
-    # Calibrate for both echodata objects and when assume_filter_time=True
+    # Calibrate for both echodata objects and when assume_single_filter_time=True
     # and check that all 3 are equal (after filter_times is dropped)
     if compute_type == "Sv":
         ds_cal = ep.calibrate.compute_Sv(
             ed, waveform_mode="CW", encode_mode="complex"
         )
         ds_cal_copy = ep.calibrate.compute_Sv(
-            ed, waveform_mode="CW", encode_mode="complex"
+            ed_venc_mod, waveform_mode="CW", encode_mode="complex"
         )
         ds_cal_assume_single_filter_time = ep.calibrate.compute_Sv(
             ed, waveform_mode="CW",
@@ -654,7 +655,7 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
             ed, waveform_mode="CW", encode_mode="complex"
         )
         ds_cal_copy = ep.calibrate.compute_TS(
-            ed, waveform_mode="CW", encode_mode="complex"
+            ed_venc_mod, waveform_mode="CW", encode_mode="complex"
         )
         ds_cal_assume_single_filter_time = ep.calibrate.compute_TS(
             ed, waveform_mode="CW",

@@ -34,22 +34,22 @@ def _slice_beam_vend(beam, vend, slice_dict):
     return beam, vend
 
 
-def _collapse_vend(ds_vendor_specific, slice_dict):
+def _collapse_vend(ds_vendor_in, slice_dict):
     # For each channel and filter time pairing in channel filter time, we
     # slice the vendor specific dataset and merge the sliced datasets. This
     # results in a vendor specific dataset with a collapsed filter dimension.
     collapsed_vend_list = []
     for channel, filter_time in slice_dict["first_valid_filter_time_per_channel"].items():
-        ds_collapsed = ds_vendor_specific.sel(channel=[channel], filter_time=filter_time).drop_vars(
+        ds_collapsed = ds_vendor_in.sel(channel=[channel], filter_time=filter_time).drop_vars(
             "filter_time"
         )
         collapsed_vend_list.append(ds_collapsed)
-    ds_vendor_specific = xr.merge(
+    ds_vendor_out = xr.merge(
         collapsed_vend_list,
         join="outer",
         compat="no_conflicts",
     )
-    return ds_vendor_specific
+    return ds_vendor_out
 
 
 class CalibrateEK(CalibrateBase):
@@ -270,14 +270,15 @@ class CalibrateEK80(CalibrateEK):
         # TODO: consider adding assume_single_filter_time to slice_dict
         #       so that intention is clearer and don't need to rely on implicit keys
         if "channel" in self.slice_dict:
-            # when assume_single_filter_time=True
+            # when assume_single_filter_time=False
             # TODO: think about performance implications for this slicing
             #       do slicing only happen when used? is there some caching?
             self.beam, self.vend = _slice_beam_vend(self.beam, self.vend, self.slice_dict)
         if "first_valid_filter_time_per_channel" in self.slice_dict:
-            # when assume_single_filter_time=False
+            # when assume_single_filter_time=True
             self.vend = _collapse_vend(self.vend, self.slice_dict)
         else:
+            # TODO: remove this and select channel in _slice_beam_vend above
             self.vend = self.vend.sel(channel=self.beam.channel)
 
         # Use center frequency if in BB mode, else use nominal channel frequency
@@ -291,7 +292,7 @@ class CalibrateEK80(CalibrateEK):
             self.freq_center = self.beam["frequency_nominal"]
 
         # Convert env_params and cal_params if self.ecs_file exists
-        # Note a warning if thrown out in CalibrateBase.__init__
+        # Note a warning is raised in CalibrateBase.__init__
         # to let user know cal_params and env_params are ignored if ecs_file is provided
         if self.ecs_file is not None:  # also means self.ecs_dict != {}
             ds_env, ds_cal_NB, ds_cal_BB = ecs_ev2ep(self.ecs_dict, "EK80")

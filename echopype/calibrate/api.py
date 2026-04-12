@@ -71,8 +71,7 @@ def _compute_cal(
             slice_dict=slice_dict,
         )
 
-        # TODO: do we need this check here?
-        # Check Echodata Backscatter Size
+        # Check Echodata backscatter data size and recommend chunking if data is too large
         cal_obj._check_echodata_backscatter_size()
 
         # Perform calibration
@@ -93,7 +92,7 @@ def _compute_cal(
     #       else:
     #           ??
     # Collapse vendor specific's filter time dimension
-    if assume_single_filter_time and len(echodata["Vendor_specific"]["filter_time"]) > 1:
+    if assume_single_filter_time and len(echodata["Vendor_specific"]["filter_time"]) > 1:  # filter_time exists for ALL EK80 data
         ed_beam_group = retrieve_correct_beam_group(
             echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
         )
@@ -105,7 +104,7 @@ def _compute_cal(
                 transmit_duration_nominal.sel(channel=[channel])
                 .dropna(dim="ping_time")
                 .ping_time.values
-            )  # TODO: just select [0] and store as part of this line
+            )
             first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
         slice_dict["first_valid_filter_time_per_channel"] = first_valid_filter_time_per_channel
 
@@ -122,7 +121,7 @@ def _compute_cal(
         cal_ds_list = []
 
         # Calibrate each valid channel and filter/ping time pairing
-        valid = (
+        valid = (  # TODO: potentially expensive ops
             echodata[ed_beam_group]["transmit_duration_nominal"]
             .stack(pairs=("channel", "ping_time"))
             .dropna("pairs")
@@ -140,6 +139,7 @@ def _compute_cal(
             ):
                 end_time = None if next_time is None else next_time - np.timedelta64(1, "ns")
 
+                # TODO: filter_time=beam_group_start_time: consolidate
                 slice_dict["filter_time"] = start_time
                 slice_dict["channel"] = channel
                 slice_dict["beam_group_start_time"] = start_time
@@ -159,7 +159,7 @@ def _compute_cal(
         # Compute a single calibration dataset
         cal_ds = _compute_cal_ds(echodata, slice_dict)
 
-    # Add attributes
+    # Add attributes  # TODO: move outside of _compute_cal
     def _add_attrs(cal_type, ds):
         """Add attributes to backscattering strength dataset.
         cal_type: Sv or TS
