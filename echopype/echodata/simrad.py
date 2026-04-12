@@ -171,17 +171,17 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
         The ``EchoData`` beam group path corresponding to the ``encode_mode`` input
     """
 
-    # TODO: can simplify the checks here since 
+    # TODO: can simplify the checks here since
     #       1) checks under _retrieve_correct_beam_group_EK60 are redundant, and
-    #       2) only power data would exist for EK60-like data 
-    #          and we have echodata["Sonar"]["waveform_encode_descr"] now 
+    #       2) only power data would exist for EK60-like data
+    #          and we have echodata["Sonar"]["waveform_encode_descr"] now
     if echodata.sonar_model in ["EK60", "ES70"]:
         # check modes against data for EK60 and get power EchoData group
         power_group = _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
         # check modes against data for EK80 and get power/complex EchoData groups
-        # TODO: _retrieve_correct_beam_group_EK80 should only return 1 thing 
+        # TODO: _retrieve_correct_beam_group_EK80 should only return 1 thing
         #       instead of 3 with only 1 being valid
         power_group, complex_FM_group, complex_CW_group = _retrieve_correct_beam_group_EK80(
             echodata, waveform_mode, encode_mode
