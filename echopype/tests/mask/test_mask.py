@@ -1899,6 +1899,7 @@ def test_regrid_mask_3D():
         ping_time_bin="20s",
         third_dim="region_id",
         func="logical-OR",
+        range_var_max="39.0m",
     )
 
     # Check that expected result is what is received
