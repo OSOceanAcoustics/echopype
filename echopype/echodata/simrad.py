@@ -4,6 +4,8 @@ Contains functions that are specific to Simrad echo sounders
 
 from typing import Optional, Tuple
 
+import numpy as np
+
 from .echodata import EchoData
 
 
@@ -84,10 +86,8 @@ def _retrieve_correct_beam_group_EK60(
             "Provided echodata object does not correspond to an EK60-like "
             "sensor, but is labeled as data from an EK60-like sensor!"
         )
-    else:
-        power_group = "Sonar/Beam_group1"
 
-    return power_group
+    return "Sonar/Beam_group1"
 
 
 def _retrieve_correct_beam_group_EK80(
@@ -125,25 +125,20 @@ def _retrieve_correct_beam_group_EK80(
     # waveform descriptions.
     descr = echodata["Sonar"]["waveform_encode_descr"]
 
-    power_group = None
-    complex_FM_group = None
-    complex_CW_group = None
-
-    # Iterate over beam groups:
-    for beam_idx, descr in zip(descr.coords["beam_group_index"].values, descr.values):
-        if encode_mode == "power" and "power" in descr:
-            power_group = f"Sonar/Beam_group{beam_idx}"
-        elif encode_mode == "complex":
-            if "FM" in descr and waveform_mode == "BB":
-                complex_FM_group = f"Sonar/Beam_group{beam_idx}"
-            elif "CW" in descr and waveform_mode == "CW":
-                complex_CW_group = f"Sonar/Beam_group{beam_idx}"
+    if encode_mode == "power":
+        match_str = "power"
+    elif encode_mode == "complex":
+        if waveform_mode == "CW":
+            match_str = "complex_CW"
         else:
-            raise RuntimeError(
-                "The provided encode_mode is not recognized! " "Must be one of 'CW', 'FM', or 'BB'!"
-            )
+            match_str = "complex_FM"
+    idx_match = np.argwhere((descr==match_str).data).squeeze()
+    if idx_match.size == 0:
+        raise RuntimeError(
+            f"No beam group with the specified encode_mode {encode_mode} and waveform_mode {waveform_mode} found in the provided echodata!"
+        )
 
-    return power_group, complex_FM_group, complex_CW_group
+    return f"Sonar/Beam_group{idx_match+1}"  # Beam_groupX is 1-based, index is 0-based
 
 
 def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
@@ -177,24 +172,10 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
     #          and we have echodata["Sonar"]["waveform_encode_descr"] now 
     if echodata.sonar_model in ["EK60", "ES70"]:
         # check modes against data for EK60 and get power EchoData group
-        power_group = _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
+        return _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
-        # check modes against data for EK80 and get power/complex EchoData groups
-        # TODO: _retrieve_correct_beam_group_EK80 should only return 1 thing 
-        #       instead of 3 with only 1 being valid
-        power_group, complex_FM_group, complex_CW_group = _retrieve_correct_beam_group_EK80(
-            echodata, waveform_mode, encode_mode
-        )
-
+        return _retrieve_correct_beam_group_EK80(echodata, waveform_mode, encode_mode)
     else:
         # raise error for unknown or unaccounted for sonar model
         raise RuntimeError("EchoData was produced by a non-Simrad or unknown Simrad echo sounder!")
-
-    if encode_mode == "complex":
-        if waveform_mode == "CW":
-            return complex_CW_group
-        else:
-            return complex_FM_group
-    else:
-        return power_group
