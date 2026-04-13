@@ -431,8 +431,8 @@ def test_check_echodata_backscatter_size(
 
     # Check that warning message is called
     warning_message = (
-        "The Echodata Backscatter Variables are large and can cause memory issues. "
-        "Consider modifying compute_Sv workflow: "
+        "The Echodata backscatter variables are large and can cause memory issues. "
+        "Consider modifying the workflow that uses compute_Sv as below: "
         "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) "
         "and after `compute_Sv` run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. "
         "This will ensure that the computation is lazily evaluated, "

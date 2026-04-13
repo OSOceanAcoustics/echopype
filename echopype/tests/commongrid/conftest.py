@@ -11,7 +11,7 @@ from echopype.consolidate import add_depth
 from echopype.commongrid.utils import (
     get_distance_from_latlon,
 )
-from echopype.testing import (
+from echopype.tests.mock_data import (
     _gen_Sv_echo_range_regular,
     _gen_Sv_echo_range_irregular,
     _get_expected_mvbs_val,
