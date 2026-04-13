@@ -710,7 +710,7 @@ def regrid_mask(
         for more details.
     reindex: bool, default False
         If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
-        Generally, `reindex=False` results in less memory at the cost of computation speed.
+        Generally, `reindex=False` results in less memory usage at the cost of computation speed.
         Can only be used when method='map-reduce'.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
         for more details.
