@@ -15,7 +15,11 @@ from flox.xarray import xarray_reduce
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 
-from ..commongrid.utils import _convert_bins_to_interval_index, _parse_x_bin
+from ..commongrid.utils import (
+    _convert_bins_to_interval_index,
+    _parse_x_bin,
+    ping_time_bin_parsing_and_conversion,
+)
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
@@ -795,17 +799,6 @@ def regrid_mask(
             fill_value=0.0,
             **flox_kwargs,
         )
-        mask_regridded_da = xr.DataArray(
-            data=mask_regridded_da.data,
-            dims=[third_dim, "ping_time", range_da.name],
-            coords={
-                third_dim: mask_da[third_dim].values,
-                "ping_time": np.array([v.left for v in mask_regridded_da.ping_time_bins.values]),
-                range_da.name: np.array(
-                    [v.left for v in mask_regridded_da[f"{range_da.name}_bins"].values]
-                ),
-            },
-        )
     else:
         mask_copy = mask_copy.transpose("ping_time", "depth")
         mask_regridded_da = xarray_reduce(
@@ -821,16 +814,18 @@ def regrid_mask(
             fill_value=0.0,
             **flox_kwargs,
         )
-        mask_regridded_da = xr.DataArray(
-            data=mask_regridded_da.data,
-            dims=["ping_time", range_da.name],
-            coords={
-                "ping_time": np.array([v.left for v in mask_regridded_da.ping_time_bins.values]),
-                range_da.name: np.array(
-                    [v.left for v in mask_regridded_da[f"{range_da.name}_bins"].values]
-                ),
-            },
-        )
+    mask_regridded_da = mask_regridded_da.rename(
+        {
+            "ping_time_bins": "ping_time",
+            f"{range_da.name}_bins": range_da.name,
+        }
+    )
+    mask_regridded_da = mask_regridded_da.assign_coords(
+        {
+            "ping_time": [v.left for v in mask_regridded_da["ping_time"].values],
+            range_da.name: [v.left for v in mask_regridded_da[range_da.name].values],
+        }
+    )
 
     # For logical-AND, if output is not 1, then the value becomes 0.
     # For logical-OR, if output is not 0, then the value becomes 1.
@@ -842,38 +837,12 @@ def regrid_mask(
     # Set to the original data type
     mask_regridded_da = mask_regridded_da.astype(mask_da.dtype)
 
-    # ping_time_bin parsing and conversions
-    # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
-    # https://xarray.pydata.org/en/stable/generated/xarray.Dataset.resample.html
-    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.resample.html
-    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.html
-    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.resolution_string.html
-    # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
-    # https://numpy.org/devdocs/reference/arrays.datetime.html#datetime-units
-    timedelta_units = {
-        "d": {"nptd64": "D", "unitstr": "day"},
-        "h": {"nptd64": "h", "unitstr": "hour"},
-        "t": {"nptd64": "m", "unitstr": "minute"},
-        "min": {"nptd64": "m", "unitstr": "minute"},
-        "s": {"nptd64": "s", "unitstr": "second"},
-        "l": {"nptd64": "ms", "unitstr": "millisecond"},
-        "ms": {"nptd64": "ms", "unitstr": "millisecond"},
-        "u": {"nptd64": "us", "unitstr": "microsecond"},
-        "us": {"nptd64": "ms", "unitstr": "millisecond"},
-        "n": {"nptd64": "ns", "unitstr": "nanosecond"},
-        "ns": {"nptd64": "ms", "unitstr": "millisecond"},
-    }
-    ping_time_bin_td = pd.Timedelta(ping_time_bin)
-    # res = resolution (most granular time unit)
-    ping_time_bin_resunit = ping_time_bin_td.resolution_string.lower()
-    ping_time_bin_resvalue = int(
-        ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]["nptd64"])
-    )
-    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
-
     # Attach attributes
     range_var = range_da.name
     mask_regridded_da[range_var].attrs = {"long_name": "Range distance", "units": "m"}
+    ping_time_bin_resvalue, ping_time_bin_resunit_label = ping_time_bin_parsing_and_conversion(
+        ping_time_bin
+    )
     mask_regridded_da = mask_regridded_da.assign_attrs(
         {
             "cell_methods": (

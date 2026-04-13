@@ -1659,6 +1659,7 @@ def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_
                 f"actual_range max doesn't match data max for {test_description}"
 
 
+# TODO: Move to separate `regrid_mask` test file
 @pytest.mark.parametrize(
     ("dtype", "func"),
     [
@@ -1746,6 +1747,7 @@ def test_regrid_non_boundary_mask_2D(dtype, func):
     assert mask_regridded_da.equals(mask_expected_da)
 
 
+# TODO: Move to separate `regrid_mask` test file
 @pytest.mark.parametrize(
     ("closed", "func"),
     [
@@ -1851,6 +1853,7 @@ def test_regrid_boundary_mask_2D(closed, func):
     assert mask_regridded_da.equals(mask_expected_da)
 
 
+# TODO: Move to separate `regrid_mask` test file
 @pytest.mark.integration
 def test_regrid_mask_3D():
     """

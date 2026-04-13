@@ -21,6 +21,7 @@ from .utils import (
     compute_raw_MVBS,
     compute_raw_NASC,
     get_distance_from_latlon,
+    ping_time_bin_parsing_and_conversion,
 )
 
 logger = logging.getLogger(__name__)
@@ -159,38 +160,12 @@ def compute_MVBS(
     if range_var == "echo_range" and "water_level" in ds_Sv.data_vars:
         ds_MVBS["water_level"] = ds_Sv["water_level"]
 
-    # ping_time_bin parsing and conversions
-    # Need to convert between pd.Timedelta and np.timedelta64 offsets/frequency strings
-    # https://xarray.pydata.org/en/stable/generated/xarray.Dataset.resample.html
-    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.resample.html
-    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.html
-    # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.resolution_string.html
-    # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
-    # https://numpy.org/devdocs/reference/arrays.datetime.html#datetime-units
-    timedelta_units = {
-        "d": {"nptd64": "D", "unitstr": "day"},
-        "h": {"nptd64": "h", "unitstr": "hour"},
-        "t": {"nptd64": "m", "unitstr": "minute"},
-        "min": {"nptd64": "m", "unitstr": "minute"},
-        "s": {"nptd64": "s", "unitstr": "second"},
-        "l": {"nptd64": "ms", "unitstr": "millisecond"},
-        "ms": {"nptd64": "ms", "unitstr": "millisecond"},
-        "u": {"nptd64": "us", "unitstr": "microsecond"},
-        "us": {"nptd64": "ms", "unitstr": "millisecond"},
-        "n": {"nptd64": "ns", "unitstr": "nanosecond"},
-        "ns": {"nptd64": "ms", "unitstr": "millisecond"},
-    }
-    ping_time_bin_td = pd.Timedelta(ping_time_bin)
-    # res = resolution (most granular time unit)
-    ping_time_bin_resunit = ping_time_bin_td.resolution_string.lower()
-    ping_time_bin_resvalue = int(
-        ping_time_bin_td / np.timedelta64(1, timedelta_units[ping_time_bin_resunit]["nptd64"])
-    )
-    ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
-
     # Attach attributes
     _set_MVBS_attrs(ds_MVBS)
     ds_MVBS[range_var].attrs = {"long_name": "Range distance", "units": "m"}
+    ping_time_bin_resvalue, ping_time_bin_resunit_label = ping_time_bin_parsing_and_conversion(
+        ping_time_bin
+    )
     ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(
         {
             "cell_methods": (
