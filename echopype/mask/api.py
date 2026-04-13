@@ -700,10 +700,10 @@ def regrid_mask(
         Name for non-binned region. If None, use 'xarray_reduce' to operate on 2D array. Else,
         use 'xarray_reduce' to operate on 3D array with unbinned 3rd dimension.
     func: {'logical-AND', 'logical-OR'}, default 'logical-AND'
-        When func == 'logical-AND', the output value is set to 1/True only if all corresponding
-        values in the regrid bin are 1/True.
-        When func == 'logical-OR', the output value is set to 1/True if any value in the regrid
-        bin is 1/True.
+        When func == 'logical-AND', the output value is set to 1 or ``True`` only if 
+        all values in the regrid bin are 1 or ``True``.
+        When func == 'logical-OR', the output value is set to 1 or ``True`` if 
+        any value in the regrid bin is 1 or ``True``.
     method: str, default 'map-reduce'
         The flox strategy for reduction of dask arrays only.
         See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
