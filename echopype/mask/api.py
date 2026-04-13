@@ -832,8 +832,8 @@ def regrid_mask(
             },
         )
 
-    # For logical-AND, if output is not strictly 1, then the value becomes 0.
-    # For logical-OR, if output is not strictly 0, then the value becomes 1.
+    # For logical-AND, if output is not 1, then the value becomes 0.
+    # For logical-OR, if output is not 0, then the value becomes 1.
     if func == "logical-AND":
         mask_regridded_da = xr.where(mask_regridded_da == 1.0, 1, 0)
     elif func == "logical-OR":
