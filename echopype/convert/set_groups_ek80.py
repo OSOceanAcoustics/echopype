@@ -788,7 +788,7 @@ class SetGroupsEK80(SetGroupsBase):
         )
 
         ds_tmp = xr.merge(
-            [ds_tmp, ds_f_start_end], combine_attrs="override"
+            [ds_tmp, ds_f_start_end], compat="no_conflicts", join="outer", combine_attrs="override"
         )  # override keeps the Dataset attributes
 
         return ds_tmp
@@ -1076,8 +1076,11 @@ class SetGroupsEK80(SetGroupsBase):
         # splitting CW complex and FM complex may drop channels in ds_combine
         ds_invariant = ds_invariant.sel(channel=ds_combine["channel"])
         ds_combine = xr.merge(
-            [ds_invariant, ds_combine], combine_attrs="override", join="outer"
-        )  # override keeps the Dataset attributes
+            [ds_invariant, ds_combine],
+            compat="no_conflicts",
+            join="outer",
+            combine_attrs="override",
+        )
         return set_time_encodings(ds_combine)
 
     def _attach_vars_to_ds_data(self, ds_data: xr.Dataset, ch: str, rs_size: int) -> xr.Dataset:
@@ -1101,7 +1104,12 @@ class SetGroupsEK80(SetGroupsBase):
 
         ds_common = self._assemble_ds_common(ch, rs_size)
 
-        ds_data = xr.merge([ds_data, ds_common], combine_attrs="override")
+        ds_data = xr.merge(
+            [ds_data, ds_common],
+            compat="no_conflicts",
+            join="outer",
+            combine_attrs="override",
+        )
 
         # Attach channel dimension/coordinate
         ds_data = ds_data.expand_dims(
@@ -1376,13 +1384,13 @@ class SetGroupsEK80(SetGroupsBase):
                 "long_name"
             ] = "ID of channels containing broadband calibration information"
             ds_cal.append(ds_ch)
-        ds_cal = xr.merge(ds_cal, join="outer", compat="no_conflicts")
+        ds_cal = xr.merge(ds_cal, compat="no_conflicts", join="outer")
 
         if "impedance" in ds_cal:
             ds_cal = ds_cal.rename_vars({"impedance": "impedance_transducer"})
 
         # Assemble everything into a Dataset
-        ds = xr.merge([ds_table, ds_cal])
+        ds = xr.merge([ds_table, ds_cal], compat="no_conflicts", join="outer")
 
         # Add filter coefficients and decimation factors
         ds = self._add_filter_params(ds)
