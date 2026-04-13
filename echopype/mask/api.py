@@ -689,7 +689,7 @@ def regrid_mask(
 
     Parameters
     ----------
-    mask : xr.DataArray
+    mask_da : xr.DataArray
         Mask DataArray. Must be binary 0/1 or True/False.
         Must have two dimensions: 'depth' and 'ping_time'.
     range_bin : str, default '20m'
