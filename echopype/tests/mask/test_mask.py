@@ -1969,47 +1969,47 @@ def test_regrid_mask_errors():
 
     # Test errors
 
-    with pytest.raises(ValueError, match = "Passing in reindex=.*only allowed when method='map_reduce'"):
+    with pytest.raises(ValueError, match="Passing in reindex=.*only allowed when method='map_reduce'"):
         regrid_mask(
             mask,
             range_da=mask["depth"],
-            method = "blockwise",
-            reindex = False
+            method="blockwise",
+            reindex=False,
         )
 
-    with pytest.raises(TypeError, match = "ping_time_bin must be a string"):
+    with pytest.raises(TypeError, match="ping_time_bin must be a string"):
         regrid_mask(
             mask,
             range_da=mask["depth"],
-            ping_time_bin = 20
+            ping_time_bin=20,
         )
 
-    with pytest.raises(ValueError, match = "'func' must be 'logical-AND' or 'logical-OR'."):
+    with pytest.raises(ValueError, match="'func' must be 'logical-AND' or 'logical-OR'."):
         regrid_mask(
             mask,
             range_da=mask["depth"],
-            func = "invalid_func"
+            func="invalid_func",
         )
 
-    with pytest.raises(ValueError, match = "Mask must have only 2 dimensions unless 'third_dim' is specified."):
+    with pytest.raises(ValueError, match="Mask must have only 2 dimensions unless 'third_dim' is specified."):
         regrid_mask(
             mask.expand_dims("region_id"),
             range_da=mask["depth"],
-            third_dim = None,
+            third_dim=None,
         )
     
-    with pytest.raises(ValueError, match = f"Mask must contain 'region_id' as dimension."):
+    with pytest.raises(ValueError, match="Mask must contain the specified 'region_id' as a dimension."):
         regrid_mask(
             mask,
             range_da=mask["depth"],
-            third_dim = "region_id",
+            third_dim="region_id",
         )
 
-    with pytest.raises(ValueError, match = f"Mask must have only 3 dimensions."):
+    with pytest.raises(ValueError, match="Mask must have 3 dimensions when 'third_dim' is specified."):
         regrid_mask(
             mask.expand_dims("region_id_1").expand_dims("region_id_2"),
             range_da=mask["depth"],
-            third_dim = "region_id_1",
+            third_dim="region_id_1",
         )
 
     # Create invalid mask
