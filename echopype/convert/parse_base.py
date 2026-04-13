@@ -501,8 +501,8 @@ class ParseEK(ParseBase):
             if "channel_id" in new_datagram:
                 # Use `repr` to see the full string content
                 # print(repr(new_datagram["channel_id"]))
-                # trailing \x00t only seen once in but keeping it here just in case
-                # ref file: echopype/test_data/ek80_bb_complex_multiplex/CW_FM_power_complex_repeating.raw
+                # trailing \x00t only seen once in the file below but keeping it here just in case
+                # echopype/test_data/ek80_bb_complex_multiplex/CW_FM_power_complex_repeating.raw
                 new_datagram["channel_id"] = new_datagram["channel_id"].replace("\x00t", "")
 
             # # For debugging EC150 datagrams

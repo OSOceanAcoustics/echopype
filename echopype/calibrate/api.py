@@ -102,7 +102,6 @@ def _compute_cal(
         else:
             if assume_single_filter_time:
                 # Will use the first encountered filter coeffs
-                # cal_ds = _compute_cal_ds(echodata, slice_dict=dict(assume_single_filter_time=True))
 
                 # TODO: move below to within __init__ of cal object
                 ed_beam_group = retrieve_correct_beam_group(

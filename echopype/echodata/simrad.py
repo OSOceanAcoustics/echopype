@@ -71,9 +71,6 @@ def _retrieve_correct_beam_group_EK60(
         The ``EchoData`` beam group path containing the power data
     """
 
-    # initialize power EchoData group value
-    power_group = None
-
     # EK60-like sensors must have 'power' and 'CW' modes only
     if waveform_mode != "CW":
         raise RuntimeError("Incorrect waveform_mode input provided!")
@@ -135,10 +132,11 @@ def _retrieve_correct_beam_group_EK80(
     idx_match = np.argwhere((descr == match_str).data).squeeze()
     if idx_match.size == 0:
         raise RuntimeError(
-            f"No beam group with the specified encode_mode {encode_mode} and waveform_mode {waveform_mode} found in the provided echodata!"
+            f"No beam group with the specified encode_mode {encode_mode} "
+            f"and waveform_mode {waveform_mode} found in the provided echodata!"
         )
 
-    return f"Sonar/Beam_group{idx_match+1}"  # Beam_groupX is 1-based, index is 0-based
+    return f"Sonar/Beam_group{idx_match + 1}"  # Beam_groupX is 1-based, index is 0-based
 
 
 def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
