@@ -739,7 +739,7 @@ def regrid_mask(
         raise ValueError("Mask must have only 2 dimensions unless 'third_dim' is specified.")
 
     if third_dim is not None and third_dim not in mask_da.dims:
-        raise ValueError(f"Mask must contain '{third_dim}' as dimension.")
+        raise ValueError(f"Mask must contain the specified '{third_dim}' as a dimension.")
 
     if third_dim is not None and len(mask_da.dims) != 3:
         raise ValueError("Mask must have only 3 dimensions.")
