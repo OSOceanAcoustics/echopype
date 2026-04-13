@@ -742,7 +742,7 @@ def regrid_mask(
         raise ValueError(f"Mask must contain the specified '{third_dim}' as a dimension.")
 
     if third_dim is not None and len(mask_da.dims) != 3:
-        raise ValueError("Mask must have only 3 dimensions.")
+        raise ValueError("Mask must have 3 dimensions when 'third_dim' is specified.")
 
     # Check if mask is binary (True/False or 1/0)
     if not np.isin(mask_da.data, [1, 0]).all():
