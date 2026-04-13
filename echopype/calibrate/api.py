@@ -34,6 +34,7 @@ def _compute_cal(
     # Make waveform_mode "FM" equivalent to "BB"
     waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
 
+    # TODO: consolidate the below block with simrad.py::check_input_args_combination()
     # Check on waveform_mode, encode_mode inputs, and assumption on single filter time
     if echodata.sonar_model == "EK80":
         if waveform_mode is None or encode_mode is None:
@@ -71,6 +72,11 @@ def _compute_cal(
             slice_dict=slice_dict,
         )
 
+        # For alternative implementation in _compute_cal
+        # # Skip calibration if Ex80 data and cal_obj.beam has no valid ping_time
+        # if hasattr(cal_obj, "beam") and cal_obj.beam["ping_time"].size == 0:
+        #     return None
+
         # Check Echodata backscatter data size and recommend chunking if data is too large
         cal_obj._check_echodata_backscatter_size()
 
@@ -82,84 +88,183 @@ def _compute_cal(
 
         return cal_ds
 
-    # Initialize slice dictionary
-    slice_dict = {}
+    # Calibrate as a single dataset if not Ex80
+    if echodata.sonar_model not in ["EK80", "ES80", "EA640"]:
+        cal_ds = _compute_cal_ds(echodata, slice_dict={})
 
-    # TODO: revise if-else conditions
-    #       if filter_time dim exists and len of filter_time:
-    #           if assume_single_filter_time:
-    #           else:
-    #       else:
-    #           ??
-    # Collapse vendor specific's filter time dimension
-    if (
-        assume_single_filter_time and len(echodata["Vendor_specific"]["filter_time"]) > 1
-    ):  # filter_time exists for ALL EK80 data
-        ed_beam_group = retrieve_correct_beam_group(
-            echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
-        transmit_duration_nominal = echodata[ed_beam_group]["transmit_duration_nominal"]
-        # Grab the first valid filter time for each channel
-        first_valid_filter_time_per_channel = {}
-        for channel in transmit_duration_nominal.channel.values:
-            valid_ping_times = (
-                transmit_duration_nominal.sel(channel=[channel])
-                .dropna(dim="ping_time")
-                .ping_time.values
-            )
-            first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
-        slice_dict["first_valid_filter_time_per_channel"] = first_valid_filter_time_per_channel
-
-    if (
-        # First check that sonar model is EK80 since EK60 does not have `filter_time` dim.
-        echodata.sonar_model == "EK80"
-        and not assume_single_filter_time
-        and len(echodata["Vendor_specific"]["filter_time"]) > 1
-    ):
-        ed_beam_group = retrieve_correct_beam_group(
-            echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
-        )
-        # List to accumulate calibration datasets
-        cal_ds_list = []
-
-        # Calibrate each valid channel and filter/ping time pairing
-        valid = (  # TODO: potentially expensive ops
-            echodata[ed_beam_group]["transmit_duration_nominal"]
-            .stack(pairs=("channel", "ping_time"))
-            .dropna("pairs")
-        )
-        filter_times_all = np.sort(echodata["Vendor_specific"]["filter_time"].data)
-        for channel, group in valid.groupby("channel"):
-            filter_times = np.intersect1d(
-                group["ping_time"].values,
-                filter_times_all,
-            )
-            for start_time, next_time in zip(
-                filter_times,
-                # set again as datetime64[ns] since np.append sets times to int
-                np.append(filter_times[1:], None).astype("datetime64[ns]"),
-            ):
-                end_time = None if next_time is None else next_time - np.timedelta64(1, "ns")
-
-                # TODO: filter_time=beam_group_start_time: consolidate
-                slice_dict["filter_time"] = start_time
-                slice_dict["channel"] = channel
-                slice_dict["beam_group_start_time"] = start_time
-                slice_dict["beam_group_end_time"] = end_time
-
-                # Calibrate and drop filter_time
-                cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
-                cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
-
-        # Merge across both channel and ping time dimensions
-        cal_ds = xr.merge(
-            cal_ds_list,
-            join="outer",
-            compat="no_conflicts",
-        )
+    # If Ex80
     else:
-        # Compute a single calibration dataset
-        cal_ds = _compute_cal_ds(echodata, slice_dict)
+        # if only 1 filter_time exists
+        if len(echodata["Vendor_specific"]["filter_time"]) == 1:
+            cal_ds = _compute_cal_ds(echodata, slice_dict={})
+
+        # if multiple filter_time exists
+        else:
+            if assume_single_filter_time:
+                # Will use the first encountered filter coeffs
+                # cal_ds = _compute_cal_ds(echodata, slice_dict=dict(assume_single_filter_time=True))
+
+                # TODO: move below to within __init__ of cal object
+                ed_beam_group = retrieve_correct_beam_group(
+                    echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+                )
+                transmit_duration_nominal = echodata[ed_beam_group]["transmit_duration_nominal"]
+                # Grab the first valid filter time for each channel
+                first_valid_filter_time_per_channel = {}
+                for channel in transmit_duration_nominal.channel.values:
+                    valid_ping_times = (
+                        transmit_duration_nominal.sel(channel=[channel])
+                        .dropna(dim="ping_time")
+                        .ping_time.values
+                    )
+                    first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
+
+                slice_dict = {"first_valid_filter_time_per_channel": first_valid_filter_time_per_channel}
+
+                cal_ds = _compute_cal_ds(echodata, slice_dict=slice_dict)
+
+            else:
+                # Will loop through filter_time for each channel and calibrate separately then merge         
+                cal_ds_list = []  # List to accumulate calibration output
+
+                ed_beam_group = retrieve_correct_beam_group(
+                    echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+                )
+
+                # Calibrate each valid channel and filter/ping time pairing
+                valid = (
+                    echodata[ed_beam_group]["transmit_duration_nominal"]
+                    .stack(pairs=("channel", "ping_time"))
+                    .dropna("pairs")
+                )
+                filter_times_all = np.sort(echodata["Vendor_specific"]["filter_time"].data)
+                for channel, group in valid.groupby("channel"):
+                    filter_times = np.intersect1d(group["ping_time"].values, filter_times_all)
+
+                    for start_time, next_time in zip(
+                        filter_times,
+                        # set again as datetime64[ns] since np.append sets times to int
+                        np.append(filter_times[1:], None).astype("datetime64[ns]"),
+                    ):
+                        end_time = None if next_time is None else next_time - np.timedelta64(1, "ns")
+
+                        # TODO: filter_time=beam_group_start_time: consolidate
+                        slice_dict = {}
+                        slice_dict["filter_time"] = start_time
+                        slice_dict["channel"] = channel
+                        slice_dict["beam_group_start_time"] = start_time
+                        slice_dict["beam_group_end_time"] = end_time
+
+                        # Calibrate and drop filter_time
+                        cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
+                        cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
+
+                # # Alternative?
+                # for channel in echodata[ed_beam_group]["channel"].values:
+                #     # get all filter_time for this channel
+                #     filter_time_ch = (
+                #         echodata["Vendor_specific"]["WBT_coeffs_real"].sel(channel=channel)
+                #         .dropna("filter_time", how='all')["filter_time"].data
+                #     )
+                #     for f_seq, filter_time in enumerate(filter_time_ch):
+                #         # If last filter_time, set end_time to None
+                #         if f_seq == len(filter_time_ch) - 1:
+                #             end_time = None
+                #         else:
+                #             end_time = filter_time_ch[f_seq + 1] - np.timedelta64(1, "ns")
+                        
+                #         # TODO: filter_time=beam_group_start_time: consolidate
+                #         slice_dict = {}
+                #         slice_dict["filter_time"] = filter_time
+                #         slice_dict["channel"] = channel
+                #         slice_dict["beam_group_start_time"] = filter_time
+                #         slice_dict["beam_group_end_time"] = end_time
+
+                #         # Calibrate and drop filter_time
+                #         cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
+                #         if cal_ds_iteration is not None:
+                #             cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
+
+                # Merge across both channel and ping time dimensions
+                cal_ds = xr.merge(
+                    cal_ds_list,
+                    join="outer",
+                    compat="no_conflicts",
+                )
+
+
+    # # Initialize slice dictionary
+    # slice_dict = {}
+
+    # # Collapse vendor specific's filter time dimension
+    # if (
+    #     assume_single_filter_time and len(echodata["Vendor_specific"]["filter_time"]) > 1
+    # ):  # filter_time exists for ALL EK80 data
+    #     ed_beam_group = retrieve_correct_beam_group(
+    #         echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+    #     )
+    #     transmit_duration_nominal = echodata[ed_beam_group]["transmit_duration_nominal"]
+    #     # Grab the first valid filter time for each channel
+    #     first_valid_filter_time_per_channel = {}
+    #     for channel in transmit_duration_nominal.channel.values:
+    #         valid_ping_times = (
+    #             transmit_duration_nominal.sel(channel=[channel])
+    #             .dropna(dim="ping_time")
+    #             .ping_time.values
+    #         )
+    #         first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
+    #     slice_dict["first_valid_filter_time_per_channel"] = first_valid_filter_time_per_channel
+
+    # if (
+    #     # First check that sonar model is EK80 since EK60 does not have `filter_time` dim.
+    #     echodata.sonar_model == "EK80"
+    #     and not assume_single_filter_time
+    #     and len(echodata["Vendor_specific"]["filter_time"]) > 1
+    # ):
+    #     ed_beam_group = retrieve_correct_beam_group(
+    #         echodata=echodata, waveform_mode=waveform_mode, encode_mode=encode_mode
+    #     )
+    #     # List to accumulate calibration datasets
+    #     cal_ds_list = []
+
+    #     # Calibrate each valid channel and filter/ping time pairing
+    #     valid = (  # TODO: potentially expensive ops
+    #         echodata[ed_beam_group]["transmit_duration_nominal"]
+    #         .stack(pairs=("channel", "ping_time"))
+    #         .dropna("pairs")
+    #     )
+    #     filter_times_all = np.sort(echodata["Vendor_specific"]["filter_time"].data)
+    #     for channel, group in valid.groupby("channel"):
+    #         filter_times = np.intersect1d(
+    #             group["ping_time"].values,
+    #             filter_times_all,
+    #         )
+    #         for start_time, next_time in zip(
+    #             filter_times,
+    #             # set again as datetime64[ns] since np.append sets times to int
+    #             np.append(filter_times[1:], None).astype("datetime64[ns]"),
+    #         ):
+    #             end_time = None if next_time is None else next_time - np.timedelta64(1, "ns")
+
+    #             # TODO: filter_time=beam_group_start_time: consolidate
+    #             slice_dict["filter_time"] = start_time
+    #             slice_dict["channel"] = channel
+    #             slice_dict["beam_group_start_time"] = start_time
+    #             slice_dict["beam_group_end_time"] = end_time
+
+    #             # Calibrate and drop filter_time
+    #             cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
+    #             cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
+
+    #     # Merge across both channel and ping time dimensions
+    #     cal_ds = xr.merge(
+    #         cal_ds_list,
+    #         join="outer",
+    #         compat="no_conflicts",
+    #     )
+    # else:
+    #     # Compute a single calibration dataset
+    #     cal_ds = _compute_cal_ds(echodata, slice_dict)
 
     # Add attributes  # TODO: move outside of _compute_cal
     def _add_attrs(cal_type, ds):

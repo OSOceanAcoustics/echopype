@@ -499,9 +499,9 @@ def test_ek80_BB_complex_multiplex_NaNs_and_non_NaNs(raw_data_path, target_chann
     ],
 )
 def test_ek80_complex_FM_CW_interleave_dimensions(filename, ek80_multiplex_path):
+    ed = ep.open_raw(ek80_multiplex_path / filename, sonar_model="EK80", use_swap=True)
     for assume_single_filter_time in [True, False]:
         # Open raw file and calibrate both FM and CW
-        ed = ep.open_raw(ek80_multiplex_path / filename, sonar_model="EK80", use_swap=True)
         ds_Sv_FM = ep.calibrate.compute_Sv(
             ed,
             waveform_mode="FM",
@@ -530,7 +530,7 @@ def test_ek80_waveform_encode_descr_error(ek80_multiplex_path):
     ed = ep.open_converted(ek80_multiplex_path / "ooi_multiplex.zarr")
     with pytest.raises(
         ValueError,
-        match="Echodata missing `waveform_encode_descr`. Reconvert using latest Echopype version."
+        match="Echodata missing `waveform_encode_descr`. Reconvert using the latest Echopype version."
     ):
         ep.calibrate.compute_Sv(
             ed,
