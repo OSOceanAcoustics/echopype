@@ -748,7 +748,7 @@ def regrid_mask(
         raise ValueError("Mask must be binary True/False or 1/0.")
 
     # Check aggregation function
-    if func != "logical-AND" and func != "logical-OR":
+    if func not in ["logical-AND", "logical-OR"]:
         raise ValueError("'func' must be 'logical-AND' or 'logical-OR'.")
 
     # Create bin information for the range variable
