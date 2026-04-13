@@ -717,8 +717,8 @@ def regrid_mask(
     closed: {'left', 'right'}, default 'left'
         Which side of bin interval is closed.
     range_var_max: str, default None
-        Maximum value of the range variable. If this value is known, it is recommended to provide it 
-        as an input as it makes the underlying computation more efficient 
+        Maximum value of the range variable. If this value is known, it is recommended to provide it
+        as an input as it makes the underlying computation more efficient
         (by skipping a `max` computation and keeping the data lazily-loaded).
     **flox_kwargs
         Additional keyword arguments to be passed
