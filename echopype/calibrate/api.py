@@ -119,12 +119,14 @@ def _compute_cal(
                     )
                     first_valid_filter_time_per_channel[channel] = valid_ping_times[0]
 
-                slice_dict = {"first_valid_filter_time_per_channel": first_valid_filter_time_per_channel}
+                slice_dict = {
+                    "first_valid_filter_time_per_channel": first_valid_filter_time_per_channel
+                }
 
                 cal_ds = _compute_cal_ds(echodata, slice_dict=slice_dict)
 
             else:
-                # Will loop through filter_time for each channel and calibrate separately then merge         
+                # Will loop through filter_time for each channel and calibrate separately then merge
                 cal_ds_list = []  # List to accumulate calibration output
 
                 ed_beam_group = retrieve_correct_beam_group(
@@ -146,7 +148,9 @@ def _compute_cal(
                         # set again as datetime64[ns] since np.append sets times to int
                         np.append(filter_times[1:], None).astype("datetime64[ns]"),
                     ):
-                        end_time = None if next_time is None else next_time - np.timedelta64(1, "ns")
+                        end_time = (
+                            None if next_time is None else next_time - np.timedelta64(1, "ns")
+                        )
 
                         # TODO: filter_time=beam_group_start_time: consolidate
                         slice_dict = {}
@@ -172,7 +176,7 @@ def _compute_cal(
                 #             end_time = None
                 #         else:
                 #             end_time = filter_time_ch[f_seq + 1] - np.timedelta64(1, "ns")
-                        
+
                 #         # TODO: filter_time=beam_group_start_time: consolidate
                 #         slice_dict = {}
                 #         slice_dict["filter_time"] = filter_time
@@ -191,7 +195,6 @@ def _compute_cal(
                     join="outer",
                     compat="no_conflicts",
                 )
-
 
     # # Initialize slice dictionary
     # slice_dict = {}
