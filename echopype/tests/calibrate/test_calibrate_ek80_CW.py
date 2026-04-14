@@ -28,7 +28,7 @@ _TAU_RTOL_PYECHOLAB = 1e-6
 
 @pytest.fixture(scope="module")
 def cw_power_ds(ek80_path):
-    raw = ek80_path / _HAKE_RAW_REL
+    raw = ek80_path / "ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
     ed = ep.open_raw(raw, sonar_model="EK80")
     return ep.calibrate.compute_Sv(
         ed,
@@ -39,7 +39,7 @@ def cw_power_ds(ek80_path):
 
 @pytest.fixture(scope="module")
 def cw_complex_ds(ek80_path):
-    zarr_path = ek80_path / _COMPLEX_ZARR_REL
+    zarr_path = ek80_path / "RV_Svea/ci_subset_D20230626-T235835.zarr"
     ed = ep.open_converted(zarr_path, chunks={})
     return ep.calibrate.compute_Sv(
         ed,
@@ -80,12 +80,12 @@ def _assert_svs_close(
     assert np.allclose(ep_vals[m], ref_vals[m], rtol=rtol, atol=atol_db)
 
 
-def _load_power_ref(ek80_ext_path, which: str) -> dict:
+def _load_power_ref(ek80_ext_path, pkg_name: str) -> dict:
 
     subdir, fname = {
         "matecho": ("matecho", "power_refs_Hake_matecho.pkl"),
         "pyecholab": ("pyecholab", "power_refs_Hake_pyecholab.pkl"),
-    }[which]
+    }[pkg_name]
 
     p = ek80_ext_path / subdir / fname
 
@@ -159,8 +159,6 @@ def _ref_sv_to_da(ref: dict, ds_ep: xr.Dataset) -> xr.DataArray:
 
 
 # --- POWER SAMPLES CW
-
-_HAKE_RAW_REL = "ncei-wcsd/SH2306/Hake-D20230811-T165727.raw"
 
 
 def test_ek80_CW_power_tau_effective_matches_matecho(cw_power_ds, ek80_ext_path):
@@ -239,15 +237,13 @@ def test_ek80_CW_power_Sv_matches_pyecholab(cw_power_ds, ek80_ext_path):
 
 
 # --- COMPLEX
-_COMPLEX_ZARR_REL = "RV_Svea/ci_subset_D20230626-T235835.zarr"
 
-
-def _load_complex_ref(ek80_ext_path, which: str) -> dict:
+def _load_complex_ref(ek80_ext_path, pkg_name: str) -> dict:
 
     subdir, fname = {
         "matecho": ("matecho", "complex_refs_RV-Svea_matecho_38kHz.pkl"),
         "echoview": ("echoview", "complex_refs_RV-Svea_echoview_38kHz.pkl"),
-    }[which]
+    }[pkg_name]
 
     p = ek80_ext_path / subdir / fname
 
