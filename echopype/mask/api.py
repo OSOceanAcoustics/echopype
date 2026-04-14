@@ -2,17 +2,24 @@ import datetime
 import operator as op
 import pathlib
 import sys
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import dask
 import dask.array
 import numpy as np
+import pandas as pd
 import xarray as xr
+from flox.xarray import xarray_reduce
 
 # for seafloor detection
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 
+from ..commongrid.utils import (
+    _convert_bins_to_interval_index,
+    _parse_x_bin,
+    ping_time_bin_parsing_and_conversion,
+)
 from ..utils.io import validate_source
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
@@ -666,6 +673,194 @@ def frequency_differencing(
     da = da.assign_attrs(xr_dataarray_attrs)
 
     return da
+
+
+def regrid_mask(
+    mask_da: xr.DataArray,
+    range_da: xr.DataArray,
+    range_bin: str = "20m",
+    ping_time_bin: str = "20s",
+    third_dim: str = None,
+    func: Literal["logical-AND", "logical-OR"] = "logical-AND",
+    method: str = "map-reduce",
+    reindex: bool = False,
+    closed: Literal["left", "right"] = "left",
+    range_var_max: str = None,
+    **flox_kwargs,
+) -> xr.DataArray:
+    """
+    Regrid mask through downsampling via a logical AND operation.
+
+    Parameters
+    ----------
+    mask_da : xr.DataArray
+        Mask DataArray. Must be binary 0/1 or True/False.
+        Must have two dimensions: 'depth' and 'ping_time'.
+    range_bin : str, default '20m'
+        bin size along 'range_sample' or 'depth' in meters.
+    ping_time_bin : str, default '20s'
+        bin size along 'ping_time'
+    third_dim : str, default None
+        Name for non-binned region. If None, use 'xarray_reduce' to operate on 2D array. Else,
+        use 'xarray_reduce' to operate on 3D array with unbinned 3rd dimension.
+    func: {'logical-AND', 'logical-OR'}, default 'logical-AND'
+        When func == 'logical-AND', the output value is set to 1 or ``True`` only if
+        all values in the regrid bin are 1 or ``True``.
+        When func == 'logical-OR', the output value is set to 1 or ``True`` if
+        any value in the regrid bin is 1 or ``True``.
+    method: str, default 'map-reduce'
+        The flox strategy for reduction of dask arrays only.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    reindex: bool, default False
+        If False, reindex after the blockwise stage. If True, reindex at the blockwise stage.
+        Generally, `reindex=False` results in less memory usage at the cost of computation speed.
+        Can only be used when method='map-reduce'.
+        See flox `documentation <https://flox.readthedocs.io/en/latest/implementation.html>`_
+        for more details.
+    closed: {'left', 'right'}, default 'left'
+        Which side of bin interval is closed.
+    range_var_max: str, default None
+        Maximum value of the range variable. If this value is known, it is recommended
+        to provide it as an input as it makes the underlying computation more efficient
+        (by skipping a `max` computation and keeping the data lazily-loaded).
+    **flox_kwargs
+        Additional keyword arguments to be passed
+        to flox reduction function.
+
+    Returns
+    -------
+    A DataArray containing a regridded mask.
+    """
+
+    if method != "map-reduce" and reindex is not None:
+        raise ValueError(f"Passing in reindex={reindex} is only allowed when method='map_reduce'.")
+
+    if not isinstance(ping_time_bin, str):
+        raise TypeError("ping_time_bin must be a string")
+
+    if third_dim is None and len(mask_da.dims) != 2:
+        raise ValueError("Mask must have only 2 dimensions unless 'third_dim' is specified.")
+
+    if third_dim is not None and third_dim not in mask_da.dims:
+        raise ValueError(f"Mask must contain the specified '{third_dim}' as a dimension.")
+
+    if third_dim is not None and len(mask_da.dims) != 3:
+        raise ValueError("Mask must have 3 dimensions when 'third_dim' is specified.")
+
+    # Check if mask is binary (True/False or 1/0)
+    if not np.isin(mask_da.data, [1, 0]).all():
+        raise ValueError("Mask must be binary True/False or 1/0.")
+
+    # Check aggregation function
+    if func not in ["logical-AND", "logical-OR"]:
+        raise ValueError("'func' must be 'logical-AND' or 'logical-OR'.")
+
+    # Create bin information for the range variable
+    range_bin = _parse_x_bin(range_bin)
+    if range_var_max is None:
+        # This computes the range variable max since there might be NaNs in the data
+        range_var_max = range_da.max(skipna=True)
+    else:
+        # Parse string
+        range_var_max = _parse_x_bin(range_var_max)
+    # Add small value to ensure that we grab the last value
+    range_var_max = range_var_max + 1e-8
+    range_interval = np.arange(0, range_var_max + range_bin, range_bin)
+    range_interval = _convert_bins_to_interval_index(range_interval, closed=closed)
+
+    # Create bin information needed for ping_time
+    d_index = (
+        mask_da["ping_time"]
+        .resample(ping_time=ping_time_bin, skipna=True)
+        .first()
+        .indexes["ping_time"]
+    )
+    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)]).values
+    ping_interval = _convert_bins_to_interval_index(ping_interval, closed=closed)
+
+    # Copy mask
+    mask_copy = mask_da.copy()
+
+    # Set interval index for groups
+    if third_dim is not None:
+        mask_copy = mask_copy.transpose(third_dim, "ping_time", "depth")
+        mask_regridded_da = xarray_reduce(
+            mask_copy,
+            mask_copy[third_dim],
+            mask_copy["ping_time"],
+            range_da,
+            expected_groups=(None, ping_interval, range_interval),
+            isbin=[False, True, True],
+            method=method,
+            reindex=reindex,
+            func="mean",
+            skipna=False,
+            fill_value=0.0,
+            **flox_kwargs,
+        )
+    else:
+        mask_copy = mask_copy.transpose("ping_time", "depth")
+        mask_regridded_da = xarray_reduce(
+            mask_copy,
+            mask_copy["ping_time"],
+            range_da,
+            expected_groups=(ping_interval, range_interval),
+            isbin=[True, True],
+            method=method,
+            reindex=reindex,
+            func="mean",
+            skipna=False,
+            fill_value=0.0,
+            **flox_kwargs,
+        )
+
+    # TODO: may need benchmarking to see if rename is more costly
+    #       than creating a new object altogether
+    mask_regridded_da = mask_regridded_da.rename(
+        {
+            "ping_time_bins": "ping_time",
+            f"{range_da.name}_bins": range_da.name,
+        }
+    )
+    mask_regridded_da = mask_regridded_da.assign_coords(
+        {
+            "ping_time": [v.left for v in mask_regridded_da["ping_time"].values],
+            range_da.name: [v.left for v in mask_regridded_da[range_da.name].values],
+        }
+    )
+
+    # For logical-AND, if output is not 1, then the value becomes 0.
+    # For logical-OR, if output is not 0, then the value becomes 1.
+    if func == "logical-AND":
+        mask_regridded_da = xr.where(mask_regridded_da == 1.0, 1, 0)
+    elif func == "logical-OR":
+        mask_regridded_da = xr.where(mask_regridded_da != 0.0, 1, 0)
+
+    # Set to the original data type
+    mask_regridded_da = mask_regridded_da.astype(mask_da.dtype)
+
+    # Attach attributes
+    range_var = range_da.name
+    mask_regridded_da[range_var].attrs = {"long_name": "Range distance", "units": "m"}
+    ping_time_bin_resvalue, ping_time_bin_resunit_label = ping_time_bin_parsing_and_conversion(
+        ping_time_bin
+    )
+    mask_regridded_da = mask_regridded_da.assign_attrs(
+        {
+            "cell_methods": (
+                f"ping_time: mean (interval: {ping_time_bin_resvalue} {ping_time_bin_resunit_label} "  # noqa
+                "comment: ping_time is the interval start) "
+                f"{range_var}: mean (interval: {range_bin} meter "
+                f"comment: {range_var} is the interval start)"
+            ),
+            "binning_mode": "physical units",
+            "range_meter_interval": str(range_bin) + "m",
+            "ping_time_interval": ping_time_bin,
+        }
+    )
+
+    return mask_regridded_da
 
 
 # Registry of supported methods for bottom detection

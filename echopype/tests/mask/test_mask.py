@@ -1,12 +1,13 @@
-import pathlib
-
-import pytest
-
-import numpy as np
-import xarray as xr
-import dask.array
+from typing import List, Union, Optional
 import tempfile
+import pathlib
 import os
+
+import pandas as pd
+import xarray as xr
+import numpy as np
+import dask.array
+import pytest
 
 import echopype as ep
 import echopype.mask
@@ -1655,7 +1656,6 @@ def test_apply_mask_actual_range_comprehensive(mask_type, test_values, expected_
                 f"actual_range min doesn't match data min for {test_description}"
             assert actual_range[1] == actual_max_from_data, \
                 f"actual_range max doesn't match data max for {test_description}"
-                
 
 ### add test for seafloor
 
