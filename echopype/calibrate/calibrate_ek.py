@@ -91,8 +91,8 @@ class CalibrateEK(CalibrateBase):
             The calibrated dataset containing Sv or TS
         """
         # Select source of backscatter data
-        beam = self.echodata[self.ed_beam_group]
-        vend = self.echodata["Vendor_specific"].sel(channel=self.chan_sel)
+        beam = self.beam
+        vend = self.vend
 
         # Derived params
         wavelength = self.env_params["sound_speed"] / self.beam["frequency_nominal"]  # wavelength
@@ -122,7 +122,7 @@ class CalibrateEK(CalibrateBase):
                     ytx_dict=tx,
                     fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},
                     waveform_mode=self.waveform_mode,
-                    channel=self.chan_sel,
+                    channel=beam["channel"],
                     ping_time=beam["ping_time"],
                 )
             except Exception as e:
@@ -589,8 +589,8 @@ class CalibrateEK80(CalibrateEK):
                     ytx_dict=tx,
                     fs_deci_dict={k: 1 / np.diff(v[:2]) for (k, v) in tx_time.items()},
                     waveform_mode=self.waveform_mode,
-                    channel=self.chan_sel,
-                    ping_time=beam["ping_time"],
+                    channel=self.beam["channel"],
+                    ping_time=self.beam["ping_time"],
                 )
             except Exception as e:
                 logger.warning(
@@ -598,7 +598,7 @@ class CalibrateEK80(CalibrateEK):
                     "falling back to transmit_duration_nominal. Error: %s",
                     repr(e),
                 )
-                tau_effective = beam["transmit_duration_nominal"].isel(ping_time=0)
+                tau_effective = self.beam["transmit_duration_nominal"].isel(ping_time=0)
             # Use pulse_duration in place of tau_effective for GPT channels
             # TODO: below assumes that all transmit parameters are identical
             # and needs to be changed when allowing transmit parameters to vary by ping
