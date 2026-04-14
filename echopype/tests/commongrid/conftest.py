@@ -11,7 +11,7 @@ from echopype.consolidate import add_depth
 from echopype.commongrid.utils import (
     get_distance_from_latlon,
 )
-from echopype.testing import (
+from echopype.tests.mock_data import (
     _gen_Sv_echo_range_regular,
     _gen_Sv_echo_range_irregular,
     _get_expected_mvbs_val,
@@ -79,7 +79,7 @@ def mock_parameters():
         "channel_len": 2,
         "ping_time_len": 10,
         "depth_len": 20,
-        "ping_time_interval": "0.3S",
+        "ping_time_interval": "0.3s",
     }
 
 
@@ -389,7 +389,7 @@ def ds_Sv_echo_range_irregular(random_number_generator):
     depth_interval = [0.5, 0.32, 0.13]
     depth_ping_time_len = [100, 300, 200]
     ping_time_len = 600
-    ping_time_interval = "0.3S"
+    ping_time_interval = "0.3s"
     return _gen_Sv_echo_range_irregular(
         depth_interval=depth_interval,
         depth_ping_time_len=depth_ping_time_len,

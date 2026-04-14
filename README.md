@@ -116,7 +116,7 @@ NOAA Ocean Exploration, NOAA Fisheries,
 and the VOTO Foundation.
 We also acknowledge software engineering support from
 the University of Washington Scientific Software Engineering Center (SSEC),
-as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
+as part of the Schmidt Sciences Virtual Institute for Scientific Software (VISS) in 2023.
 
 <table align="center" border="0" cellpadding="12" cellspacing="0" style="border-collapse: collapse;">
   <tr>
@@ -153,4 +153,4 @@ Echopype is licensed under the open source [Apache 2.0 license](https://opensour
 
 ---------------
 
-Copyright (c) 2018-2024, Echopype Developers.
+Copyright (c) 2018-2026, Echopype Developers.
