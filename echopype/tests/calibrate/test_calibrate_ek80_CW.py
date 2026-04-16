@@ -16,13 +16,21 @@ def ek80_ext_path(test_path):
     return test_path["EK80_EXT"]
 
 
-# --- Shared tolerances / comparison settings
+# --- Comparison settings
+_SKIP_RS = 50
 
-_SKIP_RS = 100
-_SV_ATOL_DB = 1e-2
-_TAU_RTOL = 1e-3
-_TAU_RTOL_PYECHOLAB = 1e-6
+_SV_ATOL_DB = {
+    ("power", "matecho"): 5e-3,
+    ("power", "pyecholab"): 5.5e-3,
+    ("complex", "matecho"): 5.5e-3,
+    ("complex", "echoview"): 2e-3,
+}
 
+_TAU_RTOL = {
+    ("power", "matecho"): 1.15e-3,
+    ("power", "pyecholab"): 1.25e-3,
+    ("complex", "matecho"): 1.25e-3,
+}
 
 # --- DATASET FIXTURES
 
@@ -142,7 +150,7 @@ def _ref_sv_to_da(ref: dict, ds_ep: xr.Dataset) -> xr.DataArray:
     mats = []
 
     for f in freq_khz_vals:
-        mats.append(_pad_or_crop_2d(ref["Sv"][f], n_ping, n_range))
+        mats.append(_pad_or_crop_2d(np.asarray(ref["Sv"][f]), n_ping, n_range))
 
     stacked = np.stack(mats, axis=0)
 
@@ -160,81 +168,60 @@ def _ref_sv_to_da(ref: dict, ds_ep: xr.Dataset) -> xr.DataArray:
 
 # --- POWER SAMPLES CW
 
+@pytest.mark.parametrize(
+    "pkg_name, tau_rtol",
+    [
+        ("matecho", _TAU_RTOL[("power", "matecho")]),
+        ("pyecholab", _TAU_RTOL[("power", "pyecholab")]),
+    ],
+)
+def test_ek80_CW_power_tau_effective_matches_reference(
+    cw_power_ds, ek80_ext_path, pkg_name, tau_rtol
+):
+    """Check that tau_effective from echopype CW power calibration
+    matches the package reference values."""
 
-def test_ek80_CW_power_tau_effective_matches_matecho(cw_power_ds, ek80_ext_path):
-    """Check that tau_effective from echopype CW power
-    calibration matches Matecho reference values."""
-    
     ds = cw_power_ds
-
     tau_ep = _tau_ep_to_freq_vector(ds)
 
-    ref = _load_power_ref(ek80_ext_path, "matecho")
+    ref = _load_power_ref(ek80_ext_path, pkg_name)
     tau_ref = _ref_tau_to_da(ref)
 
-    tau_ep_aligned, tau_ref_aligned = xr.align(tau_ep, tau_ref, join="exact")
+    assert np.array_equal(tau_ep["freq_khz"].values, tau_ref["freq_khz"].values)
 
     np.testing.assert_allclose(
-        tau_ep_aligned.data,
-        tau_ref_aligned.data,
-        rtol=_TAU_RTOL,
+        tau_ep.data,
+        tau_ref.data,
+        rtol=tau_rtol,
         atol=0.0,
     )
 
+@pytest.mark.parametrize(
+    "pkg_name, sv_atol_db",
+    [
+        ("matecho", _SV_ATOL_DB[("power", "matecho")]),
+        ("pyecholab", _SV_ATOL_DB[("power", "pyecholab")]),
+    ],
+)
+def test_ek80_CW_power_Sv_matches_reference(
+    cw_power_ds, ek80_ext_path, pkg_name, sv_atol_db
+):
+    """Verify that calibrated Sv from echopype CW power mode
+    matches the package reference outputs."""
 
-def test_ek80_CW_power_Sv_matches_matecho(cw_power_ds, ek80_ext_path):
-    """Verify that calibrated Sv from echopype CW power
-    mode matches Matecho Sv reference within tolerance."""
-    
     ds = cw_power_ds
-
     sv_ep = ds["Sv"]
 
-    ref = _load_power_ref(ek80_ext_path, "matecho")
+    ref = _load_power_ref(ek80_ext_path, pkg_name)
     sv_ref = _ref_sv_to_da(ref, ds)
 
     _assert_svs_close(
         sv_ep,
         sv_ref,
         rtol=0.0,
-        atol_db=_SV_ATOL_DB,
+        atol_db=sv_atol_db,
         skip_range_samples=_SKIP_RS,
     )
-
-
-def test_ek80_CW_power_tau_effective_matches_pyecholab(cw_power_ds, ek80_ext_path):
-    """Validate that echopype tau_effective agrees
-    with PyEcholab CW power reference values."""
-    
-    ds = cw_power_ds
-
-    tau_ep = _tau_ep_to_freq_vector(ds)
-
-    ref = _load_power_ref(ek80_ext_path, "pyecholab")
-    tau_ref = _ref_tau_to_da(ref).sel(freq_khz=tau_ep["freq_khz"])
-
-    assert np.allclose(tau_ep.data, tau_ref.data, rtol=_TAU_RTOL_PYECHOLAB, atol=0.0)
-
-
-def test_ek80_CW_power_Sv_matches_pyecholab(cw_power_ds, ek80_ext_path):
-    """Verify that echopype calibrated Sv in CW power
-    mode matches PyEcholab reference outputs."""
-    
-    ds = cw_power_ds
-
-    sv_ep = ds["Sv"]
-
-    ref = _load_power_ref(ek80_ext_path, "pyecholab")
-    sv_ref = _ref_sv_to_da(ref, ds)
-
-    _assert_svs_close(
-        sv_ep,
-        sv_ref,
-        rtol=0.0,
-        atol_db=_SV_ATOL_DB,
-        skip_range_samples=_SKIP_RS,
-    )
-
 
 # --- COMPLEX
 
@@ -299,7 +286,6 @@ def _assert_2d_close(ep_da, ref_da, rtol=0.0, atol=1e-2, skip_range_samples=0):
 
     assert np.allclose(ep_vals[m], ref_vals[m], rtol=rtol, atol=atol)
 
-
 def test_ek80_CW_complex_tau_effective_matches_matecho(cw_complex_ds, ek80_ext_path):
     """Check that tau_effective from echopype CW complex
     calibration matches Matecho reference."""
@@ -316,18 +302,27 @@ def test_ek80_CW_complex_tau_effective_matches_matecho(cw_complex_ds, ek80_ext_p
     np.testing.assert_allclose(
         tau_ep,
         tau_ref,
-        rtol=_TAU_RTOL,
+        rtol=_TAU_RTOL[("complex", "matecho")],
         atol=0.0,
     )
 
 
-def test_ek80_CW_complex_Sv_matches_matecho(cw_complex_ds, ek80_ext_path):
-    """Verify that Sv from echopype CW complex
-    mode agrees with Matecho reference Sv."""
-    
+@pytest.mark.parametrize(
+    "pkg_name, sv_atol_db",
+    [
+        ("matecho", _SV_ATOL_DB[("complex", "matecho")]),
+        ("echoview", _SV_ATOL_DB[("complex", "echoview")]),
+    ],
+)
+def test_ek80_CW_complex_Sv_matches_reference(
+    cw_complex_ds, ek80_ext_path, pkg_name, sv_atol_db
+):
+    """Verify that Sv from echopype CW complex mode
+    agrees with the package reference Sv."""
+
     ds = cw_complex_ds
 
-    ref = _load_complex_ref(ek80_ext_path, "matecho")
+    ref = _load_complex_ref(ek80_ext_path, pkg_name)
     n_range = ref["Sv"].shape[1]
 
     ds38 = _select_ep_complex_38(ds, n_range=n_range)
@@ -339,29 +334,6 @@ def test_ek80_CW_complex_Sv_matches_matecho(cw_complex_ds, ek80_ext_path):
         sv_ep,
         sv_ref,
         rtol=0.0,
-        atol=_SV_ATOL_DB,
-        skip_range_samples=_SKIP_RS,
-    )
-
-
-def test_ek80_CW_complex_Sv_matches_echoview(cw_complex_ds, ek80_ext_path):
-    """Ensure echopype CW complex Sv matches
-    Echoview Sv reference for the ES38 channel."""
-    
-    ds = cw_complex_ds
-
-    ref = _load_complex_ref(ek80_ext_path, "echoview")
-    n_range = ref["Sv"].shape[1]
-
-    ds38 = _select_ep_complex_38(ds, n_range=n_range)
-
-    sv_ep = ds38["Sv"]
-    sv_ref = _ref_complex_var_to_da(ref, "Sv", ds38)
-
-    _assert_2d_close(
-        sv_ep,
-        sv_ref,
-        rtol=0.0,
-        atol=_SV_ATOL_DB,
+        atol=sv_atol_db,
         skip_range_samples=_SKIP_RS,
     )

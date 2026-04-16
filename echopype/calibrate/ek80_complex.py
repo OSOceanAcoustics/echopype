@@ -261,7 +261,7 @@ def get_transmit_signal(
                 "transmit_frequency_start",
                 "transmit_frequency_stop",
             ]:
-                tx_params[p] = fs_chan
+                tx_params[p] = np.unique(beam["frequency_nominal"].sel(channel=ch).values)
             else:
                 # Extract beam values and filter out NaNs
                 beam_values = np.unique(beam[p].sel(channel=ch))

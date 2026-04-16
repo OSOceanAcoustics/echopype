@@ -127,7 +127,7 @@ class CalibrateEK(CalibrateBase):
                 )
             except Exception as e:
                 logger.warning(
-                    "Could not compute tau_effective from transmit signal in power path; "
+                    "Could not compute tau_effective from transmit signal in power encoding mode; "
                     "falling back to transmit_duration_nominal. Error: %s",
                     repr(e),
                 )
@@ -148,7 +148,7 @@ class CalibrateEK(CalibrateBase):
                 ch_GPT = (vend["transceiver_type"] == "GPT").compute()
 
             # tau eff
-            tau_effective[ch_GPT] = beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
+            tau_effective[ch_GPT] = self.beam["transmit_duration_nominal"][ch_GPT].isel(ping_time=0)
 
             # Calc gain
             CSv = (
@@ -594,7 +594,8 @@ class CalibrateEK80(CalibrateEK):
                 )
             except Exception as e:
                 logger.warning(
-                    "Could not compute tau_effective from transmit signal in complex path; "
+                    "Could not compute tau_effective "
+                    "from transmit signal in complex encoding mode; "
                     "falling back to transmit_duration_nominal. Error: %s",
                     repr(e),
                 )
