@@ -49,7 +49,7 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
         "ek60.zip": "sha256:66735de0ac584ec8a150b54b1a54024a92195f64036134ffdc9d472d7e155bb2",
         "ek60_calibrate_chunks.zip": "sha256:bf435b1f7fc055f51afd55c4548713ba8e1eb0e919a0d74f4b9dd5f60b7fe327",
         "ek60_missing_channel_power.zip": "sha256:f3851534cdc6ad3ae1d7c52a11cb279305d316d0086017a305be997d4011e20e",
-        "ek80.zip": "sha256:9261b451412465774a6653969a19ae8d6cf17e346ec23c6cadde285c76b4d7b4",
+        "ek80.zip": "sha256:d3ad4c0d6e07106a9770660e9d751845dec7d2e03837cd931fef1e9b98e0438d",
         "ek80_bb_complex_multiplex.zip": "sha256:f4b23b872378e5b3b13e5536547fcb094f0230b2b0bef4de89ab18beff6c2d3e",
         "ek80_bb_with_calibration.zip": "sha256:53f018b6dae051cc86180e13cb3f28848750014dfcf84d97cf2191be2b164ccb",
         "ek80_duplicate_ping_times.zip": "sha256:11a2dcb5cf113fa1bb03a6724524ac17bdb0db66cb018b0a3ca7cad87067f4bb",
