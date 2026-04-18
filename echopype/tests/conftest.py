@@ -72,7 +72,7 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
         retry_if_failed=5,
     )
 
-    downloader = pooch.HTTPDownloader(timeout=120)
+    downloader = pooch.HTTPDownloader(timeout=300)
 
     def _unpack(fname, action, pooch_instance):
         z = Path(fname)
@@ -130,7 +130,7 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
     for b in bundles:
         url = base.format(version=ver) + b
         print(f"[echopype-ci] fetching bundle: {b}")
-        print(f"[echopype-ci]   → URL: {url}")
+        print(f"[echopype-ci]   -> URL: {url}")
         EP.fetch(b, processor=_unpack, progressbar=False, downloader=downloader)
     
     print(
