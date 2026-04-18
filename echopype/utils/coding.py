@@ -19,8 +19,12 @@ COMPRESSION_SETTINGS = {
     "zarr": {
         "float": {"compressors": [BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")]},
         "int": {"compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]},
-        "string": {"compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]},
-        "time": {"compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]},
+        "string": {
+            "compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]
+        },
+        "time": {
+            "compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]
+        },
     },
 }
 
