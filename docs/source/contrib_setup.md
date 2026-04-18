@@ -47,6 +47,20 @@ To create an environment for developing Echopype, we recommend the following ste
     pip install -e ".[plot]"
     ```
 
+For a fresh local setup, enable the Pooch-based test data fetch before running tests.
+
+On Linux/macOS:
+```shell
+export USE_POOCH=True
+```
+
+On Windows PowerShell:
+```shell
+$env:USE_POOCH="True"
+```
+
+This allows the required test data to be downloaded into the local Pooch cache on first run.
+
 :::{tip}
 We recommend using Mamba to get around Conda's sometimes slow or stuck behavior when solving dependencies.
 See [Mamba's documentation](https://mamba.readthedocs.io/en/latest/) for installation and usage.
