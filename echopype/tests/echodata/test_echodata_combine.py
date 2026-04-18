@@ -402,7 +402,8 @@ def test_combined_encodings(ek60_test_data):
 
     combined = echopype.combine_echodata(eds)
 
-    encodings_to_drop = {'chunks', 'preferred_chunks', 'compressor', 'filters'}
+    # TODO: lazy_encodings is empty in this current test, so test not actually functioning?
+    encodings_to_drop = {'chunks', 'preferred_chunks', 'compressors', 'filters'}
 
     group_checks = []
     for _, value in combined.group_map.items():
