@@ -43,9 +43,9 @@ DEFAULT_ENCODINGS = {
 
 
 EXPECTED_VAR_DTYPE = {
-    "channel": np.str_,
-    "cal_channel_id": np.str_,
-    "beam": np.str_,
+    "channel": object,
+    "cal_channel_id": object,
+    "beam": object,
     "channel_mode": np.float32,
     "beam_stabilisation": np.byte,
     "non_quantitative_processing": np.int16,
@@ -63,8 +63,8 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
             if name in EXPECTED_VAR_DTYPE:
                 expected_dtype = EXPECTED_VAR_DTYPE[name]
             elif np.issubdtype(var.dtype, np.object_):
-                # Defaulting to strings dtype for object data types
-                expected_dtype = np.str_
+                # Defaulting to variable-length UTF-8 string (object) for object data types
+                expected_dtype = object
             else:
                 # For everything else, this should be the same
                 expected_dtype = var.dtype
