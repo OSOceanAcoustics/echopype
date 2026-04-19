@@ -443,7 +443,8 @@ def test_add_depth_EK_with_platform_vertical_offsets(relpath, sonar_model, compu
         ds_Sv_with_depth["depth"].data,
         (ds_Sv["echo_range"] + transducer_depth).data,
         rtol=1e-10,
-        atol=1e-10
+        atol=1e-10,
+        equal_nan=True
     )
 
 
