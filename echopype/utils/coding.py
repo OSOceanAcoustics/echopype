@@ -17,10 +17,14 @@ DEFAULT_TIME_ENCODING = {
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
     "zarr": {
-        "float": {"compressor": BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")},
-        "int": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
-        "string": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
-        "time": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
+        "float": {"compressors": [BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")]},
+        "int": {"compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]},
+        "string": {
+            "compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]
+        },
+        "time": {
+            "compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]
+        },
     },
 }
 
