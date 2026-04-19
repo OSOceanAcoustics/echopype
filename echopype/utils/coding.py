@@ -19,7 +19,7 @@ COMPRESSION_SETTINGS = {
     "zarr": {
         "float": {"compressors": [BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")]},
         "int": {"compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]},
-        "string": {
+        "object": {
             "compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]
         },
         "time": {
@@ -43,9 +43,9 @@ DEFAULT_ENCODINGS = {
 
 
 EXPECTED_VAR_DTYPE = {
-    "channel": object,
-    "cal_channel_id": object,
-    "beam": object,
+    "channel": np.object_,
+    "cal_channel_id": np.object_,
+    "beam": np.object_,
     "channel_mode": np.float32,
     "beam_stabilisation": np.byte,
     "non_quantitative_processing": np.int16,
@@ -64,7 +64,7 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
                 expected_dtype = EXPECTED_VAR_DTYPE[name]
             elif np.issubdtype(var.dtype, np.object_):
                 # Defaulting to variable-length UTF-8 string (object) for object data types
-                expected_dtype = object
+                expected_dtype = np.object_
             else:
                 # For everything else, this should be the same
                 expected_dtype = var.dtype
@@ -119,7 +119,13 @@ def _get_dask_auto_chunk(
     tuple
         The chunks
     """
-    # Create a tuple filled with "auto" for each dimension in the variable's shape.
+    # Create a tuple filled with "auto" for each dimension in the variable's shape
+    # For object dtype (e.g., variable-length strings), Dask cannot auto-chunk
+    if np.issubdtype(variable.dtype, np.object_):
+        # Return a single chunk for each dimension (i.e., unchunked)
+        return {dim: size for dim, size in variable.sizes.items()}
+
+    # Otherwise, use Dask's auto_chunks for numeric/fixed-size types
     auto_tuple = tuple("auto" for _ in variable.shape)
 
     # Generate a tuple of chunk sizes using the dask 'auto_chunks' function.
@@ -162,8 +168,8 @@ def get_zarr_compression(var: xr.Variable, compression_settings: dict) -> dict:
         return compression_settings["float"]
     elif np.issubdtype(var.dtype, np.integer):
         return compression_settings["int"]
-    elif np.issubdtype(var.dtype, np.str_):
-        return compression_settings["string"]
+    elif np.issubdtype(var.dtype, np.str_) or np.issubdtype(var.dtype, object):
+        return compression_settings["object"]
     elif np.issubdtype(var.dtype, np.datetime64):
         return compression_settings["time"]
     else:
