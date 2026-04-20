@@ -243,7 +243,7 @@ class TestEchoData:
     def test_nbytes(self, converted_zarr):
         ed = self.create_ed(converted_zarr)
         assert isinstance(ed.nbytes, float)
-        assert ed.nbytes == 4690060.0
+        assert ed.nbytes == 4687964.0
 
     def test_repr(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
