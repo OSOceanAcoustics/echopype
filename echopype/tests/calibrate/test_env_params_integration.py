@@ -6,6 +6,8 @@ from xarray.testing import assert_identical
 
 import echopype as ep
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def azfp_path(test_path):

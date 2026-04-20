@@ -41,6 +41,7 @@ def ek80_ext_path(test_path):
     return test_path['EK80_EXT']
 
 
+@pytest.mark.integration
 def test_compute_Sv_returns_water_level(ek60_path):
 
     # get EchoData object that has the water_level variable under platform and compute Sv of it
@@ -126,6 +127,7 @@ def test_compute_Sv_ek60_matlab(ek60_path):
     check_output(ds_TS['TS'], 'Sp')
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek60_duplicated_freq(ek60_path):
 
     # TODO: add comparison of actual values in this test
@@ -145,6 +147,7 @@ def test_compute_Sv_ek60_duplicated_freq(ek60_path):
     assert isinstance(ds_TS, xr.Dataset)
 
 
+@pytest.mark.integration
 def test_compute_Sv_azfp(azfp_path):
     azfp_01a_path = str(azfp_path.joinpath('17082117.01A'))
     azfp_xml_path = str(azfp_path.joinpath('17041823.XML'))
@@ -274,6 +277,7 @@ def test_compute_sv_azfp6_matlab(azfp6_path):
         
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_CW_complex(ek80_path):
     """Test calibrate CW mode data encoded as complex samples."""
     ek80_raw_path = str(
@@ -290,6 +294,7 @@ def test_compute_Sv_ek80_CW_complex(ek80_path):
     assert isinstance(ds_TS, xr.Dataset) is True
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_BB_complex(ek80_path):
     """Test calibrate BB mode data encoded as complex samples."""
     ek80_raw_path = str(
@@ -306,6 +311,7 @@ def test_compute_Sv_ek80_BB_complex(ek80_path):
     assert isinstance(ds_TS, xr.Dataset) is True
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     """
     Tests calibration in CW mode data encoded as power samples
@@ -324,6 +330,7 @@ def test_compute_Sv_ek80_CW_power_BB_complex(ek80_path):
     assert isinstance(ds_Sv, xr.Dataset)
 
 
+@pytest.mark.integration
 def test_compute_Sv_ek80_CW_complex_BB_complex(ek80_cal_path, ek80_path):
     """
     Tests calibration for file containing both BB and CW mode data
@@ -395,6 +402,7 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1(ek80_path):
         assert not np.any(np.isnan(env_var.data))
 
                 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
     [
@@ -497,8 +505,8 @@ def test_check_echodata_backscatter_size(
 
     # Check that warning message is called
     warning_message = (
-        "The Echodata Backscatter Variables are large and can cause memory issues. "
-        "Consider modifying compute_Sv workflow: "
+        "The Echodata backscatter variables are large and can cause memory issues. "
+        "Consider modifying the workflow that uses compute_Sv as below: "
         "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) "
         "and after `compute_Sv` run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. "
         "This will ensure that the computation is lazily evaluated, "

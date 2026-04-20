@@ -1,7 +1,9 @@
 import pytest
 
-from echopype.testing import _gen_ping_data_dict_power_angle, _gen_ping_data_dict_complex
-
+from echopype.tests.mock_data import (
+    _gen_ping_data_dict_power_angle,
+    _gen_ping_data_dict_complex,
+)
 
 @pytest.fixture
 def irregular_ch_range_sample_len():

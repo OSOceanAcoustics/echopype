@@ -25,3 +25,4 @@ sphinx_rtd_theme
 sphinxcontrib-mermaid
 twine
 wheel
+pooch

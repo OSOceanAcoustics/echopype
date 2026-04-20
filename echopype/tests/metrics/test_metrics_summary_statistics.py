@@ -1,6 +1,8 @@
 import xarray as xr
 import numpy as np
 import pandas as pd
+import pytest
+
 from echopype.metrics.summary_statistics import (
     delta_z,
     convert_to_linear,
@@ -10,6 +12,8 @@ from echopype.metrics.summary_statistics import (
     evenness,
     aggregation,
 )
+
+pytestmark = pytest.mark.unit
 
 
 # Utility Function

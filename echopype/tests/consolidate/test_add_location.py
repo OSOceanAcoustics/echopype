@@ -1,4 +1,5 @@
 import math
+import sys
 
 import pytest
 import numpy as np
@@ -195,7 +196,6 @@ def test_add_location(
             _tests(ds_sel, location_type, nmea_sentence="GGA")
 
 
-@pytest.mark.integration
 @pytest.mark.parametrize(
     ("raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs"),
     [
@@ -219,7 +219,7 @@ def test_add_location(
             {
                 "waveform_mode": "CW",
                 "encode_mode": "complex"
-            }
+            },
         ),
         (
             "idx_bot/Hake-D20230711-T181910.raw",
@@ -249,7 +249,11 @@ def test_add_location_time_duplicates_value_error(
     )
 
     # Add duplicates to `time_dim`
-    ed["Platform"][time_dim_name].data[0] = ed["Platform"][time_dim_name].data[1]
+    # Make a writable copy before modifying the coordinate values
+    da = ed["Platform"][time_dim_name]
+    vals = da.to_numpy().copy()
+    vals[0] = vals[1]
+    ed["Platform"] = ed["Platform"].assign_coords({time_dim_name: (da.dims, vals)})
     
     # Check if the expected error is logged
     with pytest.raises(ValueError) as exc_info:

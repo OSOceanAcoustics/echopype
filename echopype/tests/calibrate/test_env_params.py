@@ -139,6 +139,7 @@ def test_harmonize_env_param_time_only_one_non_NaN_along_time1():
     assert 'time1' not in output_da.dims, "```harmonize_env_param_time``` should have dropped 'time1' dimension"
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("user_dict", "channel", "out_dict"),
     [
@@ -223,6 +224,7 @@ def test_sanitize_user_env_dict(user_dict, channel, out_dict):
             assert v == out_dict[p]
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("env_ext", "out_dict"),
     [
@@ -285,6 +287,7 @@ def test_get_env_params_AZFP(azfp_path, env_ext, out_dict):
             assert v == out_dict[p]
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("env_ext", "ref_formula_sound_speed", "ref_formula_absorption"),
     [
@@ -357,6 +360,7 @@ def test_get_env_params_EK60_calculate(
     assert env_dict["sound_absorption"].identical(absorption_ref)
 
 
+@pytest.mark.integration
 def test_get_env_params_EK60_from_data(ek60_path):
     """
     If one of T, S, P, pH does not exist, use values from data file
@@ -388,6 +392,7 @@ def test_get_env_params_EK60_from_data(ek60_path):
     assert env_dict["sound_absorption"].identical(ref_absorption)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("env_ext", "ref_formula_sound_speed", "ref_formula_absorption"),
     [
@@ -458,6 +463,7 @@ def test_get_env_params_EK80_calculate(
     assert env_dict["sound_absorption"].identical(absorption_ref)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("env_ext", "ref_formula_sound_speed", "ref_formula_absorption"),
     [

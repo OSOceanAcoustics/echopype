@@ -12,6 +12,8 @@ from echopype import open_raw
 import pytest
 from echopype.convert.parse_uls5 import ParseULS5
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def azfp_path(test_path):

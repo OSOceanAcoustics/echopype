@@ -9,6 +9,8 @@ if TYPE_CHECKING:
 from echopype.core import SONAR_MODELS
 import echopype.core
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.parametrize(
     ["sonar_model", "ext"],
