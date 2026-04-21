@@ -11,11 +11,11 @@ The current version supports:
 
 # flake8: noqa
 from .parse_ad2cp import ParseAd2cp
-from .parse_azfp import ParseAZFP
-from .parse_azfp6 import ParseAZFP6
 from .parse_base import ParseBase
 from .parse_ek60 import ParseEK60
 from .parse_ek80 import ParseEK80
+from .parse_uls5 import ParseULS5
+from .parse_uls6 import ParseULS6
 from .set_groups_ad2cp import SetGroupsAd2cp
 from .set_groups_azfp import SetGroupsAZFP
 from .set_groups_azfp6 import SetGroupsAZFP6
