@@ -4,6 +4,7 @@ from .api import (
     detect_shoal,
     detect_single_targets,
     frequency_differencing,
+    regrid_mask,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "detect_seafloor",
     "detect_shoal",
     "detect_single_targets",
+    "regrid_mask",
 ]

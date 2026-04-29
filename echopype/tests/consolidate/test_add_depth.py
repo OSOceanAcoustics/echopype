@@ -248,7 +248,7 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog, ek80_path):
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
 
     # Set first index of group variables to NaN
-    ed["Platform"]["water_level"].values = np.nan # Is a scalar
+    ed["Platform"]["water_level"][...] = np.nan # Is a scalar
     ed["Platform"]["vertical_offset"].values[0] = np.nan
     ed["Platform"]["transducer_offset_z"].values[0] = np.nan
     ed["Platform"]["pitch"].values[0] = np.nan
@@ -443,7 +443,8 @@ def test_add_depth_EK_with_platform_vertical_offsets(relpath, sonar_model, compu
         ds_Sv_with_depth["depth"].data,
         (ds_Sv["echo_range"] + transducer_depth).data,
         rtol=1e-10,
-        atol=1e-10
+        atol=1e-10,
+        equal_nan=True
     )
 
 

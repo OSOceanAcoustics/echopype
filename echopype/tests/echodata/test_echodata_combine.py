@@ -17,6 +17,8 @@ from echopype.echodata.combine import (
     _merge_attributes
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def ek60_diff_range_sample_test_data(test_path):
@@ -157,7 +159,7 @@ def test_combine_echodata(raw_datasets):
 
     eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
 
-    append_dims = {"filenames", "time1", "time2", "time3", "nmea_time", "ping_time"}
+    append_dims = {"filenames", "time1", "time2", "time3", "nmea_time", "ping_time", "filter_time"}
 
     combined = echopype.combine_echodata(eds)
 
@@ -400,7 +402,8 @@ def test_combined_encodings(ek60_test_data):
 
     combined = echopype.combine_echodata(eds)
 
-    encodings_to_drop = {'chunks', 'preferred_chunks', 'compressor', 'filters'}
+    # TODO: lazy_encodings is empty in this current test, so test not actually functioning?
+    encodings_to_drop = {'chunks', 'preferred_chunks', 'compressors', 'filters'}
 
     group_checks = []
     for _, value in combined.group_map.items():

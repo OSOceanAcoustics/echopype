@@ -53,7 +53,7 @@ def _retrieve_correct_beam_group_EK60(
 ) -> Optional[str]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK60-like data supplied by ``echodata``. Additionally, select the
+    with EK60-like data supplied by ``echodata``. Additionally, select the
     appropriate beam group corresponding to this input.
 
     Parameters
@@ -67,12 +67,9 @@ def _retrieve_correct_beam_group_EK60(
 
     Returns
     -------
-    power_ed_group: str, optional
+    power_group: str, optional
         The ``EchoData`` beam group path containing the power data
     """
-
-    # initialize power EchoData group value
-    power_ed_group = None
 
     # EK60-like sensors must have 'power' and 'CW' modes only
     if waveform_mode != "CW":
@@ -86,10 +83,8 @@ def _retrieve_correct_beam_group_EK60(
             "Provided echodata object does not correspond to an EK60-like "
             "sensor, but is labeled as data from an EK60-like sensor!"
         )
-    else:
-        power_ed_group = "Sonar/Beam_group1"
 
-    return power_ed_group
+    return "Sonar/Beam_group1"
 
 
 def _retrieve_correct_beam_group_EK80(
@@ -97,7 +92,7 @@ def _retrieve_correct_beam_group_EK80(
 ) -> Tuple[Optional[str], Optional[str]]:
     """
     Ensures that the provided ``waveform_mode`` and ``encode_mode`` are consistent
-    with the EK80-like data supplied by ``echodata``. Additionally, select the
+    with EK80-like data supplied by ``echodata``. Additionally, select the
     appropriate beam group corresponding to this input.
 
     Parameters
@@ -111,75 +106,37 @@ def _retrieve_correct_beam_group_EK80(
 
     Returns
     -------
-    power_ed_group: str, optional
+    power_group: str, optional
         The ``EchoData`` beam group path containing the power data
-    complex_ed_group: str, optional
+    complex_group: str, optional
         The ``EchoData`` beam group path containing the complex data
     """
+    if "waveform_encode_descr" not in echodata["Sonar"]:
+        raise ValueError(
+            "Echodata missing `waveform_encode_descr`. "
+            "Reconvert using the latest Echopype version."
+        )
 
-    # initialize power and complex EchoData group values
-    power_ed_group = None
-    complex_ed_group = None
+    # Get the waveform_encode descriptions indexed by beam group.
+    # The keys are beam group index, and values are encode and
+    # waveform descriptions.
+    descr = echodata["Sonar"]["waveform_encode_descr"]
 
-    transmit_type = echodata["Sonar/Beam_group1"]["transmit_type"]
-    # assume transmit_type identical for all pings in a channel
-    # TODO: change when allowing within-channel CW-BB switch
-    first_ping_transmit_type = transmit_type.isel(ping_time=0)
-    if waveform_mode == "BB":
-        # check BB waveform_mode, BB must always have complex data, can have 2 beam groups
-        # when echodata contains CW power and BB complex samples
-        if np.all(first_ping_transmit_type == "CW"):
-            raise ValueError("waveform_mode='BB', but complex data does not exist!")
-        elif echodata["Sonar/Beam_group2"] is not None:
-            power_ed_group = "Sonar/Beam_group2"
-            complex_ed_group = "Sonar/Beam_group1"
+    if encode_mode == "power":
+        match_str = "power"
+    elif encode_mode == "complex":
+        if waveform_mode == "CW":
+            match_str = "complex_CW"
         else:
-            complex_ed_group = "Sonar/Beam_group1"
-    else:
-        # CW can have complex or power data, so we just need to make sure that
-        # 1) complex samples always exist in Sonar/Beam_group1
-        # 2) power samples are in Sonar/Beam_group1 if only one beam group exists
-        # 3) power samples are in Sonar/Beam_group2 if two beam groups exist
+            match_str = "complex_FM"
+    idx_match = np.argwhere((descr == match_str).values).squeeze()
+    if idx_match.size == 0:
+        raise RuntimeError(
+            f"No beam group with the specified encode_mode {encode_mode} "
+            f"and waveform_mode {waveform_mode} found in the provided echodata!"
+        )
 
-        # Raise error if waveform_mode="CW" but CW data does not exist (not a single ping is CW)
-        # TODO: change when allowing within-channel CW-BB switch
-        if encode_mode == "complex" and np.all(first_ping_transmit_type != "CW"):
-            raise ValueError("waveform_mode='CW', but all data are broadband (BB)!")
-
-        if echodata["Sonar/Beam_group2"] is None:
-            if encode_mode == "power":
-                # power samples must be in Sonar/Beam_group1 (thus no complex samples)
-                if "backscatter_i" in echodata["Sonar/Beam_group1"].variables:
-                    raise RuntimeError("Data provided does not correspond to encode_mode='power'!")
-                else:
-                    power_ed_group = "Sonar/Beam_group1"
-            elif encode_mode == "complex":
-                # complex samples must be in Sonar/Beam_group1
-                if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
-                    raise RuntimeError(
-                        "Data provided does not correspond to encode_mode='complex'!"
-                    )
-                else:
-                    complex_ed_group = "Sonar/Beam_group1"
-
-        else:
-            # complex should be in Sonar/Beam_group1 and power in Sonar/Beam_group2
-            # the RuntimeErrors below should never be triggered
-            if "backscatter_i" not in echodata["Sonar/Beam_group1"].variables:
-                raise RuntimeError(
-                    "Complex data does not exist in Sonar/Beam_group1, "
-                    "input echodata object must have been incorrectly constructed!"
-                )
-            elif "backscatter_r" not in echodata["Sonar/Beam_group2"].variables:
-                raise RuntimeError(
-                    "Power data does not exist in Sonar/Beam_group2, "
-                    "input echodata object must have been incorrectly constructed!"
-                )
-            else:
-                complex_ed_group = "Sonar/Beam_group1"
-                power_ed_group = "Sonar/Beam_group2"
-
-    return power_ed_group, complex_ed_group
+    return f"Sonar/Beam_group{idx_match + 1}"  # Beam_groupX is 1-based, index is 0-based
 
 
 def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_mode: str) -> str:
@@ -207,24 +164,16 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
         The ``EchoData`` beam group path corresponding to the ``encode_mode`` input
     """
 
+    # TODO: can simplify the checks here since
+    #       1) checks under _retrieve_correct_beam_group_EK60 are redundant, and
+    #       2) only power data would exist for EK60-like data
+    #          and we have echodata["Sonar"]["waveform_encode_descr"] now
     if echodata.sonar_model in ["EK60", "ES70"]:
-        # initialize complex_data_location (needed only for EK60)
-        complex_ed_group = None
-
         # check modes against data for EK60 and get power EchoData group
-        power_ed_group = _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
+        return _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
     elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
-        # check modes against data for EK80 and get power/complex EchoData groups
-        power_ed_group, complex_ed_group = _retrieve_correct_beam_group_EK80(
-            echodata, waveform_mode, encode_mode
-        )
-
+        return _retrieve_correct_beam_group_EK80(echodata, waveform_mode, encode_mode)
     else:
         # raise error for unknown or unaccounted for sonar model
         raise RuntimeError("EchoData was produced by a non-Simrad or unknown Simrad echo sounder!")
-
-    if encode_mode == "complex":
-        return complex_ed_group
-    else:
-        return power_ed_group

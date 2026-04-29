@@ -103,7 +103,6 @@ def _save_groups_to_file(echodata, output_path, engine, compress=True, **kwargs)
     """Serialize all groups to file."""
     # TODO: in terms of chunking, would using rechunker at the end be faster and more convenient?
     # TODO: investigate chunking before we save Dataset to a file
-
     # Top-level group
     io.save_file(
         echodata["Top-level"],
@@ -515,12 +514,14 @@ def open_raw(
     # Set multi beam groups
     beam_groups = setgrouper.set_beam()
 
+    # TODO: dissolve this loop into set_beam() so it returns beam_group_type
+    #       since in set_beam() there's already info on what beam groups are what type
     beam_group_type = []
     for idx, beam_group in enumerate(beam_groups, start=1):
         if beam_group is not None:
             # fill in beam_group_type (only necessary for EK80, ES80, EA640)
-            if idx == 1:
-                # choose the appropriate description key for Beam_group1
+            if idx in [1, 2]:  # Beam_group3 can only have power-angle data (see set_groups_ek80.py)
+                # choose the appropriate description key for Beam_group1 and Beam_group2
                 beam_group_type.append("complex" if "backscatter_i" in beam_group else "power")
             else:
                 # provide None for all other beam groups (since the description does not have a key)

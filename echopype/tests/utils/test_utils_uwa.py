@@ -4,6 +4,8 @@ import numpy as np
 
 from echopype.utils.uwa import calc_absorption, calc_sound_speed
 
+pytestmark = pytest.mark.unit
+
 
 # Tolerance used here are set empirically
 # so the test captures a sort of current status

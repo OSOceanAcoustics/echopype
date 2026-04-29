@@ -2,6 +2,8 @@ import pytest
 import os.path
 import platform
 
+pytestmark = pytest.mark.unit
+
 EXPECTED_MESSAGE = "Testing log function"
 
 

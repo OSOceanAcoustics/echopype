@@ -1,4 +1,5 @@
 import math
+import sys
 
 import pytest
 import numpy as np
@@ -195,7 +196,6 @@ def test_add_location(
             _tests(ds_sel, location_type, nmea_sentence="GGA")
 
 
-@pytest.mark.integration
 @pytest.mark.parametrize(
     ("raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs"),
     [
@@ -219,7 +219,7 @@ def test_add_location(
             {
                 "waveform_mode": "CW",
                 "encode_mode": "complex"
-            }
+            },
         ),
         (
             "idx_bot/Hake-D20230711-T181910.raw",
@@ -328,16 +328,12 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
         if error_type == "missing":
             ed["Platform"] = ed["Platform"].drop_vars(f"longitude_{datagram_type.lower()}")
         elif error_type == "all_nan":
-            ed["Platform"][f"latitude_{datagram_type.lower()}"].data = (
-                [np.nan] * len(ed["Platform"][f"latitude_{datagram_type.lower()}"])
-            )
+            ed["Platform"][f"latitude_{datagram_type.lower()}"].data[:] = np.nan
     else:
         if error_type == "missing":
             ed["Platform"] = ed["Platform"].drop_vars("longitude")
         if error_type == "all_nan":
-            ed["Platform"]["latitude"].data = (
-                [np.nan] * len(ed["Platform"]["latitude"])
-            )
+            ed["Platform"]["latitude"].data[:] = np.nan
 
     # Check if the expected error is logged
     with pytest.raises(ValueError) as exc_info:
