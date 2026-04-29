@@ -410,7 +410,7 @@ def get_cal_params_EK(
             # loop through channel since transceiver can vary
             fs = []
             for ch in vend["channel"]:
-                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
+                tcvr_type = vend["transceiver_type"].sel(channel=ch).values.item().upper()
                 fs.append(default_params["receiver_sampling_frequency"][tcvr_type])
             return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
 
