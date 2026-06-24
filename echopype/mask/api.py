@@ -11,13 +11,9 @@ import pandas as pd
 import xarray as xr
 from flox.xarray import xarray_reduce
 
-# for seafloor detection
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
 from echopype.mask.single_target_detection.detect_from_Sp import detect_from_Sp
-
-# for single_target_detection
-from echopype.mask.single_target_detection.detect_from_Sv import detect_from_Sv
 
 from ..commongrid.utils import (
     _convert_bins_to_interval_index,
@@ -1002,7 +998,6 @@ def detect_shoal(
 
 # Registry of supported methods for single_target_detection
 METHODS_SINGLE_TARGET = {
-    "from_Sv": detect_from_Sv,
     "from_Sp": detect_from_Sp,
 }
 
@@ -1022,7 +1017,7 @@ def detect_single_targets(
         Acoustic dataset containing the fields required by the selected method.
     method : str
         Name of the detection method to use. Currently supported for CW:
-        ``"from_Sv"`` and ``"from_Sp"``.
+        ``"from_Sp"``
     params : dict
         Method-specific parameters. This argument is required and no defaults
         are assumed.
