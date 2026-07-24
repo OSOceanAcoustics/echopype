@@ -73,11 +73,11 @@ def test_data_samples(request, test_path):
     )
 
 
-def _check_swap(ds, ds_swap):
-    assert "channel" in ds.dims
-    assert "frequency_nominal" not in ds.dims
-    assert "frequency_nominal" in ds_swap.dims
-    assert "channel" not in ds_swap.dims
+def _check_swap(ds_with_dim_channel, ds_with_dim_freq):
+    assert "channel" in ds_with_dim_channel.dims
+    assert "frequency_nominal" not in ds_with_dim_channel.dims
+    assert "frequency_nominal" in ds_with_dim_freq.dims
+    assert "channel" not in ds_with_dim_freq.dims
 
 
 def test_swap_dims_channel_frequency(test_data_samples):
@@ -102,7 +102,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
         if 'azfp_cal_type' in range_kwargs:
             range_kwargs.pop('azfp_cal_type')
 
-    dup_freq_valueerror = (
+    dup_freq_value_error = (
         "Duplicated transducer nominal frequencies exist in the file. "
         "Operation is not valid."
     )
@@ -113,7 +113,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
         _check_swap(Sv, Sv_swapped)
     except Exception as e:
         assert isinstance(e, ValueError) is True
-        assert str(e) == dup_freq_valueerror
+        assert str(e) == dup_freq_value_error
 
     MVBS = ep.commongrid.compute_MVBS(Sv)
     try:
@@ -121,7 +121,7 @@ def test_swap_dims_channel_frequency(test_data_samples):
         _check_swap(Sv, MVBS_swapped)
     except Exception as e:
         assert isinstance(e, ValueError) is True
-        assert str(e) == dup_freq_valueerror
+        assert str(e) == dup_freq_value_error
 
 
 def _create_array_list_from_echoview_mats(paths_to_echoview_mat: List[pathlib.Path]) -> List[np.ndarray]:  # noqa: E501
@@ -288,29 +288,18 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
         # remove the temporary directory, if it was created
         temp_dir.cleanup()
 
-
+@pytest.mark.test2
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("sonar_model", "test_path_key", "raw_file_name", "paths_to_echoview_mat"),
+    ("sonar_model", "raw_file_name"),
     [
         # ek60_CW_power
         (
-            "EK60", "EK60", "DY1801_EK60-D20180211-T164025.raw",
-            [
-                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T1.mat',
-                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T2.mat',
-                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T3.mat',
-                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T4.mat',
-                'splitbeam/DY1801_EK60-D20180211-T164025_angles_T5.mat'
-            ],
+            "EK60", "DY1801_EK60-D20180211-T164025.raw",
         ),
         # ek80_CW_power
         (
-            "EK80", "EK80", "Summer2018--D20180905-T033113.raw",
-            [
-                'splitbeam/Summer2018--D20180905-T033113_angles_T2.mat',
-                'splitbeam/Summer2018--D20180905-T033113_angles_T1.mat',
-            ],
+            "EK80", "Summer2018--D20180905-T033113.raw",
         ),
     ],
     ids=[
@@ -318,7 +307,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
         "ek80_CW_power",
     ],
 )
-def test_add_splitbeam_angle_with_dim_swap(sonar_model, test_path_key, raw_file_name, test_path, paths_to_echoview_mat):
+def test_add_splitbeam_angle_with_dim_swap(sonar_model, raw_file_name, test_path):
     """
     Test adding split-beam angle to Sv dataset after swapping dimension/coordinate
     from channel to frequency_nominal.
@@ -326,7 +315,7 @@ def test_add_splitbeam_angle_with_dim_swap(sonar_model, test_path_key, raw_file_
     and contains the split-beam angle variables.
     """
 
-    ed = ep.open_raw(test_path[test_path_key] / raw_file_name, sonar_model=sonar_model)
+    ed = ep.open_raw(test_path[sonar_model] / raw_file_name, sonar_model=sonar_model)
 
     waveform_mode = "CW"
     encode_mode = "power"
@@ -334,11 +323,6 @@ def test_add_splitbeam_angle_with_dim_swap(sonar_model, test_path_key, raw_file_
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode=waveform_mode, encode_mode=encode_mode)
 
     ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
-
-    # swap dims in beam_groups to test with dim_0 = frequency_nominal
-    ed["Sonar/Beam_group1"] = ep.consolidate.swap_dims_channel_frequency(ed["Sonar/Beam_group1"])
-    if ed["Sonar"].sizes["beam_group"] > 1:
-        ed["Sonar/Beam_group2"] = ep.consolidate.swap_dims_channel_frequency(ed["Sonar/Beam_group2"])
 
     ds_Sv = ep.consolidate.add_splitbeam_angle(source_Sv=ds_Sv, echodata=ed,
                                                waveform_mode=waveform_mode,

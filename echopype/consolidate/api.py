@@ -502,6 +502,9 @@ def add_splitbeam_angle(
     # Check that `channel` or `frequency_nominal` is a dimension in the dataset
     dim_0 = get_dim_0(source_Sv)
 
+    # Grab corresponding channel values
+    Sv_channels = source_Sv["channel"].values
+
     # ensure that echodata was produced by EK60 or EK80-like sensors
     if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
         raise ValueError(
@@ -517,8 +520,12 @@ def add_splitbeam_angle(
     # and obtain the echodata group path corresponding to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
-    # Select beam group based on dim_0
-    ds_beam = echodata[ed_beam_group].sel({dim_0: source_Sv[dim_0].values})
+    # Select beam group based on channel
+    ds_beam = echodata[ed_beam_group].sel({"channel": Sv_channels})
+
+    # Swap dim for ds_beam if dim_0 is frequency_nominal
+    if dim_0 == "frequency_nominal":
+        ds_beam = swap_dims_channel_frequency(ds_beam)
 
     # Assemble angle param dict
     angle_param_list = [
@@ -556,18 +563,16 @@ def add_splitbeam_angle(
     else:
         if pulse_compression:  # with pulse compression
             # put receiver fs into the same dict for simplicity
-            pc_params = get_filter_coeff(
-                echodata["Vendor_specific"].sel({dim_0: source_Sv[dim_0].values})
-            )
+            pc_params = get_filter_coeff(echodata["Vendor_specific"].sel({"channel": Sv_channels}))
             pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
 
             # Add dictionary entry to keep/drop last hanning window's zero value
             pc_params["drop_last_hanning_zero"] = drop_last_hanning_zero
 
-            theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params, dim_0=dim_0)
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params)
         else:  # without pulse compression
             # operation is identical with CW complex data
-            theta, phi = get_angle_complex_samples(ds_beam, angle_params, dim_0=dim_0)
+            theta, phi = get_angle_complex_samples(ds_beam, angle_params)
 
     # add theta and phi to source_Sv input
     theta.attrs["long_name"] = "split-beam alongship angle"
