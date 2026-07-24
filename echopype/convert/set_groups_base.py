@@ -6,7 +6,6 @@ import numpy as np
 import pynmea2
 import xarray as xr
 
-from ..core import SONAR_MODELS
 from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, DEFAULT_TIME_ENCODING, set_time_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
@@ -113,6 +112,8 @@ class SetGroupsBase(abc.ABC):
         Replace nan in time coordinate to avoid xarray warning.
         """
         if len(time_val) == 1 and np.isnan(time_val[0]):
+            from ..core import SONAR_MODELS
+
             model_family = SONAR_MODELS[self.sonar_model]["family"]
             # set time_val to earliest ping_time among all channels
             if model_family in ["EX60", "EX80"]:
