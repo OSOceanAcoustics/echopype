@@ -9,7 +9,7 @@ from xarray import DataTree
 from ..core import SONAR_MODELS
 
 if TYPE_CHECKING:
-    from ..core import SONAR_MODELS, EngineHint, PathHint, SonarModelsHint
+    from ..core import EngineHint, PathHint, SonarModelsHint
 # fmt: on
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
