@@ -38,7 +38,7 @@ POSITION_VARIABLES = ["latitude", "longitude"]
 
 def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.Dataset:
     """
-    Use frequency_nominal in place of channel to be dataset dimension and coorindate.
+    Use frequency_nominal in place of channel to be dataset dimension and coordinate.
 
     This is useful because the nominal transducer frequencies are commonly used to
     refer to data collected from a specific transducer.

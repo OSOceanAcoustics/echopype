@@ -72,7 +72,7 @@ def test_ek_use_platform_vertical_offsets_output():
         },
         coords={"time2": time2_da}
     )
-    transducer_depth = ep.consolidate.ek_depth_utils.ek_use_platform_vertical_offsets(
+    transducer_depth = ek_use_platform_vertical_offsets(
         platform_ds,
         ping_time_da
     )
@@ -110,7 +110,7 @@ def test_ek_use_platform_angles_output():
         },
         coords={"time2": time2_da}
     )
-    echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_platform_angles(platform_ds, ping_time_da)  # noqa: E501
+    echo_range_scaling = ek_use_platform_angles(platform_ds, ping_time_da)  # noqa: E501
 
     # The two 1.0s here are from the interpolation
     assert np.allclose(echo_range_scaling.values, np.array([0.0, 0.0, 1.0, 1.0, 1/np.sqrt(2)]))
@@ -143,7 +143,7 @@ def test_ek_use_beam_angles_output(caplog):
     ep.utils.log.verbose(override=False)
 
     # Compute beam angle echo range scaling
-    echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
+    echo_range_scaling = ek_use_beam_angles(beam_ds)
 
     # Turn off logger verbosity
     ep.utils.log.verbose(override=True)
@@ -174,7 +174,7 @@ def test_warning_zero_vector(caplog):
     ep.utils.log.verbose(override=False)
     
     # Compute beam angle echo range scaling
-    echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
+    echo_range_scaling = ek_use_beam_angles(beam_ds)
     
     # Verify the correct warning
     assert "Some beam direction vectors are zero" in caplog.text
@@ -198,7 +198,7 @@ def test_warning_zero_vector(caplog):
     ],
 )
 
-def test_ek_depth_utils_dims(relpath, sonar_model, compute_Sv_kwargs, ek60_path, ek80_path):
+def test_utils_ek_depth_dims(relpath, sonar_model, compute_Sv_kwargs, ek60_path, ek80_path):
     """
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
     `ek_use_beam_angles` for correct dimensions.
@@ -233,7 +233,7 @@ def test_ek_depth_utils_dims(relpath, sonar_model, compute_Sv_kwargs, ek60_path,
 
 
 @pytest.mark.integration
-def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog, ek80_path):
+def test_utils_ek_depth_group_variable_NaNs_logger_warnings(caplog, ek80_path):
     """
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
     `ek_use_beam_angles` for correct logger warnings when NaNs exist in group
@@ -490,15 +490,19 @@ def test_add_depth_EK_with_platform_angles(subpath, sonar_model, compute_Sv_kwar
         equal_nan=True
     )
 
+
 @pytest.mark.integration
-@pytest.mark.parametrize("subpath, sonar_model, compute_Sv_kwargs", [
-    ("NBP_B050N-D20180118-T090228.raw", "EK60", {}),
-    ("ncei-wcsd/Summer2017-D20170620-T021537.raw", "EK60", {}),
+@pytest.mark.parametrize("subpath, sonar_model, compute_Sv_and_add_depth_shared_kwargs", [
+    ("NBP_B050N-D20180118-T090228.raw", "EK60", {"encode_mode": "power", "waveform_mode": "CW"}),
+    ("ncei-wcsd/Summer2017-D20170620-T021537.raw", "EK60", {"encode_mode": "power", "waveform_mode": "CW"}),
     ("ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw", "EK80", {"waveform_mode": "BB", "encode_mode": "complex"}),  # noqa: E501
     ("ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw", "EK80", {"waveform_mode": "CW", "encode_mode": "power"}),  # noqa: E501
 ])
-def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, ek60_path, ek80_path):  # noqa: E501
-    """Test `depth` values when using EK Beam angles to compute it."""
+def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_and_add_depth_shared_kwargs, ek60_path, ek80_path):  # noqa: E501
+    """
+    Test `depth` values when using EK Beam angles to compute it.
+    Note that compute_Sv and add_depth share similar kwargs, so we can use the same dictionary for both functions.
+    """
     base = ek60_path if sonar_model == "EK60" else ek80_path
     raw_file = base / subpath
     if not os.path.isfile(raw_file):
@@ -506,7 +510,7 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
 
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(raw_file, sonar_model=sonar_model)
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_and_add_depth_shared_kwargs)
 
     # Replace Beam Angle NaN values
     ed["Sonar/Beam_group1"]["beam_direction_x"].values = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0).values  # noqa: E501
@@ -514,13 +518,13 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
     ed["Sonar/Beam_group1"]["beam_direction_z"].values = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1).values  # noqa: E501
 
     # Compute `depth` using beam angle values
-    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True, **compute_Sv_and_add_depth_shared_kwargs)
 
     # Check history attribute
     history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[32:]
     assert history_attribute_without_time == (
-        ". `depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
+        ". `depth` calculated using: Sv `echo_range`, Echodata `Sonar/Beam_group1` Angles."
     )
 
     # Compute echo range scaling values
@@ -533,66 +537,32 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
         equal_nan=True,
     )
 
-    # Replace Beam Angle NaN values
-    ed["Sonar/Beam_group1"]["beam_direction_x"].values = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0).values  # noqa: E501
-    ed["Sonar/Beam_group1"]["beam_direction_y"].values = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna(0).values  # noqa: E501
-    ed["Sonar/Beam_group1"]["beam_direction_z"].values = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1).values  # noqa: E501
-
-    # Compute `depth` using beam angle values
-    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
-
-    # Check history attribute
-    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[32:]
-    assert history_attribute_without_time == (
-        ". `depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
-    )
-
-    # Compute echo range scaling values
-    echo_range_scaling = ek_use_beam_angles(ed["Sonar/Beam_group1"])
-
-    # Check if depth is equal to echo range scaling value * echo range
-    assert np.allclose(
-        ds_Sv_with_depth["depth"].data,
-        (echo_range_scaling * ds_Sv["echo_range"]).transpose("channel", "ping_time", "range_sample").data,  # noqa: E501
-        equal_nan=True
-    )
-
 
 @pytest.mark.integration
-@pytest.mark.parametrize("file, sonar_model, compute_Sv_and_add_depth_shared_kwargs", [
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
     ("NBP_B050N-D20180118-T090228.raw", "EK60", {"encode_mode": "power", "waveform_mode": "CW"}),
     ("ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw", "EK80", {"waveform_mode": "BB", "encode_mode": "complex"}),
     ("ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw", "EK80", {"waveform_mode": "CW", "encode_mode": "power"})
 ])
-def test_add_depth_with_dim_swap_and_beam_angles(file, sonar_model, compute_Sv_and_add_depth_shared_kwargs, ek80_path, ek60_path):
+def test_add_depth_with_dim_swap_and_beam_angles(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
     """
     Test adding depth to Sv dataset after swapping dimension/coordinate
     from channel to frequency_nominal.
     Asserts that the output dataset has swapped channel dim to frequency_nominal
     and contains the depth variable.
-
-    Note that compute_Sv and add_depth share similar kwargs, so we can use the same dictionary for both functions.
     """
     if sonar_model == "EK60":
         ed = ep.open_raw(ek60_path / file, sonar_model=sonar_model)
     else:
         ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
 
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_and_add_depth_shared_kwargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
 
     ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
 
     # swap dims in beam_group to test with dim_0 = frequency_nominal
     ed["Sonar/Beam_group1"] = ep.consolidate.swap_dims_channel_frequency(ed["Sonar/Beam_group1"])
-
-    # Replace Beam Angle NaN values
-    ed["Sonar/Beam_group1"]["beam_direction_x"].values = ed["Sonar/Beam_group1"]["beam_direction_x"].fillna(0).values
-    ed["Sonar/Beam_group1"]["beam_direction_y"].values = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna(0).values
-    ed["Sonar/Beam_group1"]["beam_direction_z"].values = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1).values
-
-    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True, **compute_Sv_and_add_depth_shared_kwargs)
-
+    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed)
     # Check that channel dim has been swapped to frequency_nominal
     assert "channel" not in ds_Sv_with_depth.sizes
     assert "frequency_nominal" in ds_Sv_with_depth.sizes
