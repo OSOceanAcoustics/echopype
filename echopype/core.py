@@ -57,6 +57,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseULS5,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP,
+        "family": "AZFP",
     },
     "AZFP6": {
         "validate_ext": validate_azfp_ext,
@@ -66,6 +67,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseULS6,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP6,
+        "family": "AZFP6",
     },
     "EK60": {
         "validate_ext": validate_ext(".raw"),
@@ -74,6 +76,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": True,
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
+        "family": "EX60",
     },
     "ES70": {
         "validate_ext": validate_ext(".raw"),
@@ -82,6 +85,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
+        "family": "EX60",
     },
     "EK80": {
         "validate_ext": validate_ext(".raw"),
@@ -90,6 +94,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": True,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
+        "family": "EX80",
     },
     "ES80": {
         "validate_ext": validate_ext(".raw"),
@@ -98,6 +103,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
+        "family": "EX80",
     },
     "EA640": {
         "validate_ext": validate_ext(".raw"),
@@ -106,6 +112,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
+        "family": "EX80",
     },
     "AD2CP": {
         "validate_ext": validate_ext(".ad2cp"),
@@ -115,5 +122,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseAd2cp,
         "parsed2zarr": None,
         "set_groups": SetGroupsAd2cp,
+        "family": "AD2CP",
     },
 }
