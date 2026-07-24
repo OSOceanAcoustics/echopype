@@ -9,6 +9,7 @@ import numpy as np
 import xarray as xr
 
 from ..calibrate.ek80_complex import get_filter_coeff
+from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.align import align_to_ping_time
@@ -476,7 +477,8 @@ def add_splitbeam_angle(
     echodata = open_source(echodata, "echodata", storage_options)
 
     # ensure that echodata was produced by EK60 or EK80-like sensors
-    if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+    model_family = SONAR_MODELS[echodata.sonar_model]["family"]
+    if model_family not in ["EX60", "EX80"]:
         raise ValueError(
             "The sonar model that produced echodata does not have split-beam "
             "transducers, split-beam angles cannot be added to source_Sv!"

@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 
+from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
 from ..utils.log import _init_logger
@@ -90,7 +91,8 @@ def _compute_cal(
         return cal_ds
 
     # Calibrate as a single dataset if not Ex80
-    if echodata.sonar_model not in ["EK80", "ES80", "EA640"]:
+    model_family = SONAR_MODELS[echodata.sonar_model]["family"]
+    if model_family not in ["EX80"]:
         cal_ds = _compute_cal_ds(echodata, slice_dict={})
 
     # If Ex80
