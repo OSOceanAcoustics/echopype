@@ -15,16 +15,20 @@ from ..utils.align import align_to_ping_time
 from ..utils.io import get_file_format, open_source
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
-from .ek_depth_utils import (
+from .split_beam_angle import (
+    get_angle_complex_samples,
+    get_angle_power_samples,
+)
+from .utils_ek_depth import (
     ek_use_beam_angles,
     ek_use_platform_angles,
     ek_use_platform_vertical_offsets,
 )
-from .loc_utils import check_and_drop_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
-from .split_beam_angle import (
-    get_angle_complex_samples,
-    get_angle_power_samples,
+from .utils_loc import (
+    check_and_drop_loc_time_dim_duplicates,
+    check_loc_vars_validity,
     get_dim_0,
+    sel_nmea,
 )
 
 logger = _init_logger(__name__)
@@ -78,6 +82,8 @@ def add_depth(
     use_platform_vertical_offsets: bool = False,
     use_platform_angles: bool = False,
     use_beam_angles: bool = False,
+    waveform_mode: Optional[str] = None,
+    encode_mode: Optional[str] = None,
 ) -> xr.Dataset:
     """
     Create a depth data variable based on data in Sv dataset, Echodata object, and/or
@@ -114,6 +120,10 @@ def add_depth(
         Currently only implemented for EK60/EK80 sonar models.
         If `tilt` is specified, Beam group angle values will not be used.
         In the current implementation cannot be used in tandem with `use_platform_angles`.
+    waveform_mode : Optional[str], default None
+        Type of transmit waveform. Must be specified when `use_beam_angles` is True.
+    encode_mode : Optional[str], default None
+        Type of encode mode. Must be specified when `use_beam_angles` is True.
 
     Returns
     -------
@@ -150,6 +160,12 @@ def add_depth(
     if tilt is not None and (use_beam_angles or use_platform_angles):
         logger.warning(
             "When `tilt` is specified, beam/platform angle variables will " "not be used."
+        )
+
+    if use_beam_angles and (waveform_mode is None or encode_mode is None):
+        raise ValueError(
+            "When `use_beam_angles` is True, both `waveform_mode` and `encode_mode` must be "
+            "specified."
         )
 
     if echodata:
@@ -212,15 +228,12 @@ def add_depth(
             # Compute echo range scaling in EK systems using platform angle data
             echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
         elif use_beam_angles:
-            dim_0 = get_dim_0(ds)
-            # Identify beam group name by checking `dim_0` values of `ds`
-            if echodata["Sonar/Beam_group1"][dim_0].equals(ds[dim_0]):
-                beam_group_name = "Beam_group1"
-            else:
-                beam_group_name = "Beam_group2"
+            # check that the appropriate waveform and encode mode have been given
+            # and obtain the echodata group path corresponding to encode_mode
+            ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
             # Compute echo range scaling in EK systems using beam angle data
-            echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"])
+            echo_range_scaling = ek_use_beam_angles(echodata[ed_beam_group])
 
     # Set orientation multiplier. 1 if facing downwards, -1 if facing upwards
     orientation_mult = 1 if downward else -1
@@ -241,7 +254,7 @@ def add_depth(
         history_attr + f" Sv `echo_range`"
         f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
         f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
-        f"{', Echodata `%s` Angles' % (beam_group_name) if (used_beam_angles) else ''}"
+        f"{', Echodata `%s` Angles' % (ed_beam_group) if (used_beam_angles) else ''}"
         "."
     )
     ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})

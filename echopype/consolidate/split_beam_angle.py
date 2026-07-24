@@ -29,31 +29,6 @@ SUPPORTED_BEAM_TYPES = [
     BEAM_TYPE_SPLIT_VARIANT_81,
 ]
 
-SUPPORTED_DIM_0_NAMES = ["channel", "frequency_nominal"]
-
-
-def get_dim_0(ds: xr.Dataset) -> str:
-    """
-    Get the name of the first dimension of the dataset.
-
-    Parameters
-    ----------
-    ds : xr.Dataset
-        The input dataset.
-
-    Returns
-    -------
-    str
-        The name of the first dimension.
-    """
-    dim_0 = list(ds.dims)[0]
-    if dim_0 in SUPPORTED_DIM_0_NAMES:
-        return dim_0
-    else:
-        raise ValueError(
-            f"The first dimension of the dataset must be one of {SUPPORTED_DIM_0_NAMES}."
-        )
-
 
 def _compute_angle_from_complex(
     bs: xr.DataArray, beam_type: int, sens: List[xr.DataArray], offset: List[xr.DataArray]

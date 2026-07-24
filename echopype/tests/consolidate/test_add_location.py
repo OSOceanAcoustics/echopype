@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 
 import echopype as ep
-from echopype.consolidate.loc_utils import sel_nmea
+from echopype.consolidate.utils_loc import sel_nmea
 # from echopype.testing import TEST_DATA_FOLDER
 
 

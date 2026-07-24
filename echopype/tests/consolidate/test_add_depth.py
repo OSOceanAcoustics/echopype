@@ -8,7 +8,7 @@ import os
 from echopype.utils.align import align_to_ping_time
 
 import echopype as ep
-from echopype.consolidate.ek_depth_utils import (
+from echopype.consolidate.utils_ek_depth import (
     ek_use_platform_vertical_offsets, ek_use_platform_angles, ek_use_beam_angles
 )
 
@@ -560,24 +560,26 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("file, sonar_model, compute_Sv_kwargs", [
-    ("NBP_B050N-D20180118-T090228.raw", "EK60", {}),
+@pytest.mark.parametrize("file, sonar_model, compute_Sv_and_add_depth_shared_kwargs", [
+    ("NBP_B050N-D20180118-T090228.raw", "EK60", {"encode_mode": "power", "waveform_mode": "CW"}),
     ("ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw", "EK80", {"waveform_mode": "BB", "encode_mode": "complex"}),
     ("ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw", "EK80", {"waveform_mode": "CW", "encode_mode": "power"})
 ])
-def test_add_depth_with_dim_swap(file, sonar_model, compute_Sv_kwargs, ek80_path, ek60_path):
+def test_add_depth_with_dim_swap_and_beam_angles(file, sonar_model, compute_Sv_and_add_depth_shared_kwargs, ek80_path, ek60_path):
     """
     Test adding depth to Sv dataset after swapping dimension/coordinate
     from channel to frequency_nominal.
     Asserts that the output dataset has swapped channel dim to frequency_nominal
     and contains the depth variable.
+
+    Note that compute_Sv and add_depth share similar kwargs, so we can use the same dictionary for both functions.
     """
     if sonar_model == "EK60":
         ed = ep.open_raw(ek60_path / file, sonar_model=sonar_model)
     else:
         ed = ep.open_raw(ek80_path / file, sonar_model=sonar_model)
 
-    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_kwargs)
+    ds_Sv = ep.calibrate.compute_Sv(ed, **compute_Sv_and_add_depth_shared_kwargs)
 
     ds_Sv = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
 
@@ -589,13 +591,39 @@ def test_add_depth_with_dim_swap(file, sonar_model, compute_Sv_kwargs, ek80_path
     ed["Sonar/Beam_group1"]["beam_direction_y"].values = ed["Sonar/Beam_group1"]["beam_direction_y"].fillna(0).values
     ed["Sonar/Beam_group1"]["beam_direction_z"].values = ed["Sonar/Beam_group1"]["beam_direction_z"].fillna(1).values
 
-    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
+    ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True, **compute_Sv_and_add_depth_shared_kwargs)
 
     # Check that channel dim has been swapped to frequency_nominal
     assert "channel" not in ds_Sv_with_depth.sizes
     assert "frequency_nominal" in ds_Sv_with_depth.sizes
     # Check that depth has been added
     assert "depth" in ds_Sv_with_depth.data_vars
+
+
+@pytest.mark.integration
+def test_add_depth_missing_beam_angle_kwargs_raises(ek80_path):
+    """
+    Test that add_depth raises when `use_beam_angles=True` but
+    waveform_mode/encode_mode are not provided.
+    """
+    ed = ep.open_raw(
+        ek80_path / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw",
+        sonar_model="EK80",
+    )
+    ds_Sv = ep.calibrate.compute_Sv(
+        ed,
+        waveform_mode="CW",
+        encode_mode="power",
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"When `use_beam_angles` is True, both `waveform_mode` and `encode_mode` must be specified\.",
+    ):
+        ep.consolidate.add_depth(
+            ds_Sv,
+            ed,
+            use_beam_angles=True,
+        )
 
 
 @pytest.mark.integration
