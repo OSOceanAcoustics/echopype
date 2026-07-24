@@ -696,3 +696,130 @@ def ping_time_bin_parsing_and_conversion(ping_time_bin: str):
     )
     ping_time_bin_resunit_label = timedelta_units[ping_time_bin_resunit]["unitstr"]
     return ping_time_bin_resvalue, ping_time_bin_resunit_label
+
+
+def _exact_integration_kernel(target_edges, source_edge, source_value):
+    """
+    Helper Kernel: Performs exact interval intersection to determine energy distribution.
+    """
+    target_edges = np.asanyarray(target_edges)
+    source_edge = np.asanyarray(source_edge)
+    source_value = np.asanyarray(source_value)
+
+    target_min, target_max = target_edges[0], target_edges[-1]
+
+    idx_start = np.searchsorted(source_edge, target_min, side="right") - 1
+    idx_end = np.searchsorted(source_edge, target_max, side="left") + 1
+
+    idx_start = max(0, idx_start)
+    idx_end = min(len(source_edge), idx_end)
+
+    source_edge_sub = source_edge[idx_start:idx_end]
+    source_val_sub = source_value[idx_start : max(idx_start, idx_end - 1)]
+
+    if len(source_edge_sub) < 2:
+        return np.full(len(target_edges) - 1, np.nan)
+
+    all_edges = np.concatenate([target_edges, source_edge_sub])
+    union_edges = np.unique(all_edges)
+
+    union_centers = 0.5 * (union_edges[:-1] + union_edges[1:])
+    union_widths = np.diff(union_edges)
+
+    source_indices = np.searchsorted(source_edge_sub, union_centers, side="right") - 1
+
+    valid_source = (source_indices >= 0) & (source_indices < len(source_val_sub))
+
+    atomic_energies = np.zeros_like(union_widths)
+    atomic_energies[valid_source] = (
+        source_val_sub[source_indices[valid_source]] * union_widths[valid_source]
+    )
+
+    target_indices = np.searchsorted(target_edges, union_centers, side="right") - 1
+
+    n_targets = len(target_edges) - 1
+
+    valid_target = (target_indices >= 0) & (target_indices < n_targets)
+
+    total_energy_per_target = np.bincount(
+        target_indices[valid_target], weights=atomic_energies[valid_target], minlength=n_targets
+    )
+
+    target_widths = target_edges[1:] - target_edges[:-1]
+
+    output_values = np.full(n_targets, np.nan)
+
+    valid_width = target_widths > 0
+    output_values[valid_width] = total_energy_per_target[valid_width] / target_widths[valid_width]
+
+    return output_values
+
+
+def _weighted_mean_kernel(target_ranges, source_ranges, source_values):
+    """
+    The Numba/Numpy kernel.
+    Resamples a single ping (1D array) from source geometry to target geometry.
+
+    Updated: Uses exact interval integration for high precision.
+
+    Parameters
+    ----------
+    target_ranges: np.ndarray
+        1D array of target bin centers to which the source data will be resampled.
+    source_ranges: np.ndarray
+        1D array of source bin centers representing the original data geometry.
+    source_values: np.ndarray
+        1D array of values corresponding to each source bin.
+
+    Returns
+    -------
+    output: np.ndarray
+        1D array of resampled values at the target bin centers.
+    """
+
+    valid_source_range_mask = ~np.isnan(source_ranges)
+    valid_target_range_mask = ~np.isnan(target_ranges)
+
+    if not np.any(valid_source_range_mask) or not np.any(valid_target_range_mask):
+        return np.full_like(target_ranges, np.nan)
+
+    source_range = source_ranges[valid_source_range_mask].astype(np.float64)
+    target_range_valid = target_ranges[valid_target_range_mask].astype(np.float64)
+
+    source_value = source_values[valid_source_range_mask].astype(np.float64)
+
+    # Define edges source
+    # Estimate bin edges from sample centers
+    if len(source_range) > 1:
+        source_mid = 0.5 * (source_range[:-1] + source_range[1:])
+        source_edge = np.concatenate(
+            (
+                [source_range[0] - (source_range[1] - source_range[0]) / 2],
+                source_mid,
+                [source_range[-1] + (source_range[-1] - source_range[-2]) / 2],
+            )
+        )
+    else:
+        source_edge = np.array([source_range[0] - 0.5, source_range[0] + 0.5])
+
+    # Define edges target
+    if len(target_range_valid) > 1:
+        target_mid = 0.5 * (target_range_valid[:-1] + target_range_valid[1:])
+        target_edges = np.concatenate(
+            (
+                [target_range_valid[0] - (target_range_valid[1] - target_range_valid[0]) / 2],
+                target_mid,
+                [target_range_valid[-1] + (target_range_valid[-1] - target_range_valid[-2]) / 2],
+            )
+        )
+    else:
+        target_edges = np.array([target_range_valid[0] - 0.5, target_range_valid[0] + 0.5])
+
+    source_value = np.nan_to_num(source_value, nan=0.0)
+
+    target_mean_power = _exact_integration_kernel(target_edges, source_edge, source_value)
+
+    output = np.full_like(target_ranges, np.nan, dtype=np.float64)
+    output[valid_target_range_mask] = target_mean_power
+
+    return output

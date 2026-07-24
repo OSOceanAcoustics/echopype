@@ -148,6 +148,23 @@ def raw_datasets(request):
         request.node.callspec.id
     )
 
+# TODO: Once combine_echodata is removed, this test and all other tests in this file should be removed as well
+def test_combine_echodata_deprecation_warning(raw_datasets):
+    (
+        files,
+        sonar_model,
+        xml_file,
+        _,
+    ) = raw_datasets
+
+    eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
+
+    with pytest.warns(
+        DeprecationWarning,
+        match="Echopype will stop supporting the `combine_echodata` function in the v0.12.1 release.",
+    ):
+        echopype.combine_echodata(eds)
+
 
 def test_combine_echodata(raw_datasets):
     (
