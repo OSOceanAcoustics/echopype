@@ -473,7 +473,7 @@ def open_raw(
     # Direct offload to zarr and rectangularization only available for some sonar models
     # No rectangularization for other sonar models not listed below
     model_family = SONAR_MODELS[sonar_model]["family"]
-    if model_family in ["EX60", "EX80"]:
+    if model_family in ["Ex60", "Ex80"]:
         # Perform rectangularization and offload to zarr
         # if the data expansion is too large to fit in memory
         parser.rectangularize_data(
@@ -495,7 +495,7 @@ def open_raw(
 
     # Top-level date_created varies depending on sonar model
     # Top-level is called "root" within tree
-    if model_family in ["EX60", "EX80"]:
+    if model_family in ["Ex60", "Ex80"]:
         tree_dict["/"] = setgrouper.set_toplevel(
             sonar_model=sonar_model,
             date_created=parser.config_datagram["timestamp"],
@@ -506,7 +506,7 @@ def open_raw(
         )
     tree_dict["Environment"] = setgrouper.set_env()
     tree_dict["Platform"] = setgrouper.set_platform()
-    if model_family in ["EX60", "EX80"]:
+    if model_family in ["Ex60", "Ex80"]:
         tree_dict["Platform/NMEA"] = setgrouper.set_nmea()
     tree_dict["Provenance"] = setgrouper.set_provenance()
     # Allocate a tree_dict entry for Sonar? Otherwise, a DataTree error occurs
@@ -531,7 +531,7 @@ def open_raw(
             tree_dict[f"Sonar/Beam_group{idx}"] = beam_group
 
     model_family = SONAR_MODELS[sonar_model]["family"]
-    if model_family == "EX80":
+    if model_family == "Ex80":
         tree_dict["Sonar"] = setgrouper.set_sonar(beam_group_type=beam_group_type)
     else:
         tree_dict["Sonar"] = setgrouper.set_sonar()

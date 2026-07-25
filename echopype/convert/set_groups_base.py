@@ -116,9 +116,9 @@ class SetGroupsBase(abc.ABC):
 
             model_family = SONAR_MODELS[self.sonar_model]["family"]
             # set time_val to earliest ping_time among all channels
-            if model_family in ["EX60", "EX80"]:
+            if model_family in ["Ex60", "Ex80"]:
                 return [np.array([v[0] for v in self.parser_obj.ping_time.values()]).min()]
-            elif model_family in ["AZFP", "AZFP6"]:
+            elif model_family == "AZFP":
                 return [self.parser_obj.ping_time[0]]
             else:
                 return NotImplementedError(

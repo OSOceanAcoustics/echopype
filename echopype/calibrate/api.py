@@ -92,7 +92,7 @@ def _compute_cal(
 
     # Calibrate as a single dataset if not Ex80
     model_family = SONAR_MODELS[echodata.sonar_model]["family"]
-    if model_family not in ["EX80"]:
+    if model_family not in ["Ex80"]:
         cal_ds = _compute_cal_ds(echodata, slice_dict={})
 
     # If Ex80

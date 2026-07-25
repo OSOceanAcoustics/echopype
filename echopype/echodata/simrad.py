@@ -170,11 +170,11 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
     #       2) only power data would exist for EK60-like data
     #          and we have echodata["Sonar"]["waveform_encode_descr"] now
     model_family = SONAR_MODELS[echodata.sonar_model]["family"]
-    if model_family == "EX60":
+    if model_family == "Ex60":
         # check modes against data for EK60 and get power EchoData group
         return _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
-    elif model_family == "EX80":
+    elif model_family == "Ex80":
         return _retrieve_correct_beam_group_EK80(echodata, waveform_mode, encode_mode)
     else:
         # raise error for unknown or unaccounted for sonar model

@@ -67,7 +67,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseULS6,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP6,
-        "family": "AZFP6",
+        "family": "AZFP",
     },
     "EK60": {
         "validate_ext": validate_ext(".raw"),
@@ -76,7 +76,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": True,
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
-        "family": "EX60",
+        "family": "Ex60",
     },
     "ES70": {
         "validate_ext": validate_ext(".raw"),
@@ -85,7 +85,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
-        "family": "EX60",
+        "family": "Ex60",
     },
     "EK80": {
         "validate_ext": validate_ext(".raw"),
@@ -94,7 +94,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": True,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
-        "family": "EX80",
+        "family": "Ex80",
     },
     "ES80": {
         "validate_ext": validate_ext(".raw"),
@@ -103,7 +103,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
-        "family": "EX80",
+        "family": "Ex80",
     },
     "EA640": {
         "validate_ext": validate_ext(".raw"),
@@ -112,7 +112,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
-        "family": "EX80",
+        "family": "Ex80",
     },
     "AD2CP": {
         "validate_ext": validate_ext(".ad2cp"),

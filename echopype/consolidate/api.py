@@ -478,7 +478,7 @@ def add_splitbeam_angle(
 
     # ensure that echodata was produced by EK60 or EK80-like sensors
     model_family = SONAR_MODELS[echodata.sonar_model]["family"]
-    if model_family not in ["EX60", "EX80"]:
+    if model_family not in ["Ex60", "Ex80"]:
         raise ValueError(
             "The sonar model that produced echodata does not have split-beam "
             "transducers, split-beam angles cannot be added to source_Sv!"

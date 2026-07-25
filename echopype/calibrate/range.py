@@ -121,7 +121,7 @@ def compute_range_EK(
     """
     # sound_speed should exist already
     model_family = SONAR_MODELS[sonar_model]["family"]
-    if model_family not in ["EX60", "EX80"]:
+    if model_family not in ["Ex60", "Ex80"]:
         raise ValueError(f"The specified sonar_model {sonar_model} is not supported!")
 
     if "sound_speed" not in env_params:
@@ -183,13 +183,13 @@ def range_mod_TVG_EK(
 
     model_family = SONAR_MODELS[sonar_model]["family"]
     # If EK60
-    if model_family == "EX60":
+    if model_family == "Ex60":
         range_meter = range_meter - mod_Ex60()
 
     # If EK80:
     # - compute range first assuming all channels have Ex80 style hardware
     # - change range for channels with Ex60 style hardware (GPT)
-    elif model_family == "EX80":
+    elif model_family == "Ex80":
         range_meter = range_meter - mod_Ex80()
 
         # Change range for all channels with GPT

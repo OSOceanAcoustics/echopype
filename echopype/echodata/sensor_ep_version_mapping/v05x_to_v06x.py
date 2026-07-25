@@ -25,9 +25,9 @@ def _get_sensor(sensor_model):
     """
 
     model_family = SONAR_MODELS[sensor_model]["family"]
-    if model_family == "EX60":
+    if model_family == "Ex60":
         return "EK60"
-    elif model_family == "EX80":
+    elif model_family == "Ex80":
         return "EK80"
     else:
         return sensor_model
