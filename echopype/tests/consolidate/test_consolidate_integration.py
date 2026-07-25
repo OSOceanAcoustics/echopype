@@ -355,8 +355,8 @@ def test_all_consolidate_functions_missing_channel_and_frequency_nominal_raises_
         encode_mode=encode_mode,
     )
 
-    # Remove both possible dimension coordinates
-    ds_Sv = ds_Sv.drop_vars(["frequency_nominal", "channel"])
+    # Remove channel
+    ds_Sv["Sv"] = ds_Sv["Sv"].isel(channel=0).drop_vars("channel")
 
     # Test that the same errors are raised for missing valid `dim_0` for all consolidate functions
     with pytest.raises(
