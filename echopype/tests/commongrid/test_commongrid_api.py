@@ -1282,7 +1282,7 @@ def test_resample_matches_echoview_match_geometry(test_path):
         atol=0.003,
         rtol=0,
     )
-    
+
 @pytest.mark.integration
 def test_resample_shared_depth_and_range_geometry(test_path):
     """

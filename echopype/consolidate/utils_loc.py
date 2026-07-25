@@ -13,9 +13,9 @@ logger = _init_logger(__name__)
 SUPPORTED_DIM_0_NAMES = ["channel", "frequency_nominal"]
 
 
-def get_dim_0(ds: xr.Dataset) -> str:
+def get_dim_0(da_Sv: xr.DataArray) -> str:
     """
-    Get the name of the first dimension of the dataset.
+    Get the name of the first dimension of the Sv data array.
 
     Parameters
     ----------
@@ -27,12 +27,12 @@ def get_dim_0(ds: xr.Dataset) -> str:
     str
         The name of the first dimension.
     """
-    dim_0 = list(ds.dims)[0]
+    dim_0 = list(da_Sv.dims)[0]
     if dim_0 in SUPPORTED_DIM_0_NAMES:
         return dim_0
     else:
         raise ValueError(
-            f"The first dimension of the dataset must be one of {SUPPORTED_DIM_0_NAMES}."
+            f"The first dimension of the the source Sv must be one of {SUPPORTED_DIM_0_NAMES}."
         )
 
 

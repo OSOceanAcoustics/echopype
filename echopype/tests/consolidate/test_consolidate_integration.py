@@ -328,7 +328,7 @@ def test_add_splitbeam_angle_with_dim_swap(sonar_model, raw_file_name, test_path
                                                waveform_mode=waveform_mode,
                                                encode_mode=encode_mode,
                                                to_disk=False)
-
+    print(ds_Sv["angle_alongship"].attrs["history"])
     # Check that channel dim has been swapped to frequency_nominal
     assert "channel" not in ds_Sv.sizes
     assert "frequency_nominal" in ds_Sv.sizes
@@ -361,7 +361,7 @@ def test_all_consolidate_functions_missing_channel_and_frequency_nominal_raises_
     # Test that the same errors are raised for missing valid `dim_0` for all consolidate functions
     with pytest.raises(
         ValueError,
-        match="The first dimension of the dataset must",
+        match="The first dimension of",
     ):
         ep.consolidate.add_splitbeam_angle(
             source_Sv=ds_Sv,
@@ -372,12 +372,12 @@ def test_all_consolidate_functions_missing_channel_and_frequency_nominal_raises_
         )
     with pytest.raises(
         ValueError,
-        match="The first dimension of the dataset must",
+        match="The first dimension of",
     ):
         ep.consolidate.add_location(ds_Sv, ed)
     with pytest.raises(
         ValueError,
-        match="The first dimension of the dataset must",
+        match="The first dimension of",
     ):
         ep.consolidate.add_depth(ds_Sv, ed)
 
