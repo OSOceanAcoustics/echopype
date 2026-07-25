@@ -260,7 +260,7 @@ def add_depth(
         history_attr + f" Sv `echo_range`"
         f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
         f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
-        f"{', Echodata `%s` Angles' % (ed_beam_group.replace("Sonar/", "")) if (used_beam_angles) else ''}"  # noqa
+        f"{', Echodata `%s` Angles' % (ed_beam_group.replace('Sonar/', '')) if (used_beam_angles) else ''}"  # noqa
         "."
     )
     ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})
