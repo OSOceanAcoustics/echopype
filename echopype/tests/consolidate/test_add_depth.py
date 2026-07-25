@@ -500,6 +500,7 @@ def test_add_depth_EK_with_platform_angles(subpath, sonar_model, compute_Sv_kwar
     ("ncei-wcsd/SH1707/Reduced_D20170826-T205615.raw", "EK80", {"waveform_mode": "BB", "encode_mode": "complex"}),  # noqa: E501
     ("ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw", "EK80", {"waveform_mode": "CW", "encode_mode": "power"}),  # noqa: E501
 ])
+@pytest.mark.test3
 def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, ek60_path, ek80_path):  # noqa: E501
     """
     Test `depth` values when using EK Beam angles to compute it.
@@ -526,7 +527,7 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
     history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
     history_attribute_without_time = history_attribute[32:]
     assert history_attribute_without_time == (
-        ". `depth` calculated using: Sv `echo_range`, Echodata `Sonar/Beam_group1` Angles."
+        ". `depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
     )
 
     # Compute echo range scaling values
