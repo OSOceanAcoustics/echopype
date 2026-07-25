@@ -162,12 +162,6 @@ def add_depth(
             "When `tilt` is specified, beam/platform angle variables will " "not be used."
         )
 
-    if use_beam_angles and (waveform_mode is None or encode_mode is None):
-        raise ValueError(
-            "When `use_beam_angles` is True, both `waveform_mode` and `encode_mode` must be "
-            "specified."
-        )
-
     if echodata:
         # Open Echodata
         echodata = open_source(echodata, "echodata", {})

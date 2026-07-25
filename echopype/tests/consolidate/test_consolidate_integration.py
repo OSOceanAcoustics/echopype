@@ -288,7 +288,7 @@ def test_add_splitbeam_angle(sonar_model, test_path_key, raw_file_name, test_pat
         # remove the temporary directory, if it was created
         temp_dir.cleanup()
 
-@pytest.mark.test2
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("sonar_model", "raw_file_name"),
