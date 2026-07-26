@@ -14,6 +14,13 @@
   </a>
 </div>
 
+<a href="https://scientific-python.org/specs/spec-0000/">
+  <img
+    src="https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038"
+    alt="SPEC 0 — Minimum Supported Dependencies"
+  >
+</a>
+
 <div>
   <a href="https://github.com/echostack-org/echopype/actions/workflows/build.yaml">
     <img src="https://github.com/echostack-org/echopype/actions/workflows/build.yaml/badge.svg"/>
@@ -54,6 +61,9 @@ at SciPy 2019 for background, discussions and a quick demo!
 
 Learn more about echopype in the official documentation at https://echopype.readthedocs.io. Check out executable examples in the companion repository https://github.com/echostack-org/echopype-examples.
 
+## Dependency support policy
+
+Echopype follows [Scientific Python SPEC 0](https://scientific-python.org/specs/spec-0000/) for its minimum supported Python and core dependency versions.
 
 ## Contributing
 
