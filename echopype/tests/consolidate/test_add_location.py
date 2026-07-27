@@ -236,8 +236,8 @@ def test_add_location(
 )
 def test_add_location_time_duplicates_warning(
     ek80_path, raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs,
-):   
-    """Tests that duplicate time values are handled with a warning, not an error.""" 
+):
+    """Tests that duplicate time values are handled with a warning, not an error."""
     # Open raw and compute the Sv dataset
     if parse_idx:
         ed = ep.open_raw(ek80_path / raw_path, include_idx=True, sonar_model=sonar_model)
@@ -254,7 +254,7 @@ def test_add_location_time_duplicates_warning(
     vals = da.to_numpy().copy()
     vals[0] = vals[1]
     ed["Platform"] = ed["Platform"].assign_coords({time_dim_name: (da.dims, vals)})
-    
+
     # Should succeed with a warning instead of raising ValueError
     with pytest.warns(UserWarning, match="Dropped 1 duplicate value"):
         ds_loc = ep.consolidate.add_location(
@@ -444,14 +444,14 @@ def test_add_location_lat_lon_0_NaN_warnings(
         ed["Platform"]["longitude"][0] = 0
 
     # Turn on logger verbosity
-    ep.utils.log.verbose(override=False)
+    ep.utils.log.verbose(override=True)
 
     # Run add location with 0 and NaN lat/lon values
     ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
-    
+
     # Check if the expected warnings are logged
     for warning in expected_warnings:
         assert any(warning in record.message for record in caplog.records)
-    
+
     # Turn off logger verbosity
-    ep.utils.log.verbose(override=True)
+    ep.utils.log.verbose(override=False)

@@ -76,7 +76,7 @@ def test_get_all_loggers():
     all_loggers = log._get_all_loggers()
     loggers = [logging.getLogger()]  # get the root logger
     loggers = loggers + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-
+    print(all_loggers)
     assert all_loggers == loggers
 
 
@@ -90,7 +90,7 @@ def run_verbose_test(logger, override, logfile, capsys):
 
     captured = capsys.readouterr()
 
-    if override is True:
+    if override is False:
         assert captured.out == ""
     else:
         assert EXPECTED_MESSAGE in captured.out
@@ -127,3 +127,19 @@ def test_verbose(id, override, logfile, capsys):
                 raise e
     else:
         run_verbose_test(logger, override, logfile, capsys)
+
+
+def test_verbose_per_package(capsys):
+    from echopype.utils import log
+
+    convert_logger = log._init_logger("echopype.convert.testing")
+    calibrate_logger = log._init_logger("echopype.calibrate.testing")
+
+    log.verbose(verbosity=False, package_verbosity={"echopype.convert.testing": True})
+
+    convert_logger.info("Testing convert function")
+    calibrate_logger.info("Testing calibrate function")
+
+    captured = capsys.readouterr()
+    assert "Testing convert function" in captured.out
+    assert captured.out.count(EXPECTED_MESSAGE) == 1
