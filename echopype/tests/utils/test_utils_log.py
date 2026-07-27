@@ -135,11 +135,11 @@ def test_verbose_per_package(capsys):
     convert_logger = log._init_logger("echopype.convert.testing")
     calibrate_logger = log._init_logger("echopype.calibrate.testing")
 
-    log.verbose(verbosity=False, package_verbosity={"echopype.convert.testing": True})
+    log.verbose(override=False, package_verbosity={"echopype.convert.testing": True})
 
     convert_logger.info("Testing convert function")
     calibrate_logger.info("Testing calibrate function")
 
     captured = capsys.readouterr()
-    assert "Testing convert function" in captured.out
-    assert captured.out.count(EXPECTED_MESSAGE) == 1
+    assert captured.out.count("Testing convert function") == 1
+    assert captured.out.count("Testing calibrate function") == 0
