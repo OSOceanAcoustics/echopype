@@ -47,19 +47,26 @@ def verbose(
     if not isinstance(override, bool):
         raise ValueError("override argument must be a boolean")
 
-    if package_verbosity is not None and not isinstance(package_verbosity, dict):
-        raise ValueError("package_verbosity argument must be a dictionary")
+    if package_verbosity is not None:
+        if not isinstance(package_verbosity, dict):
+            raise ValueError("package_verbosity argument must be a dictionary")
+        for logger_name, verbose in package_verbosity.items():
+            if not isinstance(logger_name, str):
+                raise ValueError(
+                    f"package_verbosity keys must be strings, got {logger_name} for {verbose}"
+                )
+            if not isinstance(verbose, bool):
+                raise ValueError(
+                    f"package_verbosity values must be booleans, got {verbose} for {logger_name}"
+                )
+    else:
+        package_verbosity = {}
 
     package_name = __name__.split(".")[0]  # Get the package name
     for logger in _get_all_loggers():
         if package_name not in logger.name:
             continue
-        logger_verbose = (
-            package_verbosity.get(logger.name, override)
-            if package_verbosity is not None
-            else override
-        )
-        _set_verbose(logger, logger_verbose)
+        _set_verbose(logger, package_verbosity.get(logger.name, override))
         handlers = [h.name for h in logger.handlers]
         if logfile is None:
             if LOGFILE_HANDLE_NAME in handlers:

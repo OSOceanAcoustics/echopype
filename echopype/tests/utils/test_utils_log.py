@@ -58,7 +58,7 @@ def test_set_verbose(verbose, capsys):
     # To pass through in caplog need to propagate
     # logger.propagate = True
 
-    log._set_verbose(verbose)
+    log._set_verbose(logger, verbose)
 
     logging_func(logger)
 
