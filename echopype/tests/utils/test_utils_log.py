@@ -76,7 +76,6 @@ def test_get_all_loggers():
     all_loggers = log._get_all_loggers()
     loggers = [logging.getLogger()]  # get the root logger
     loggers = loggers + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    print(all_loggers)
     assert all_loggers == loggers
 
 
@@ -104,7 +103,7 @@ def run_verbose_test(logger, override, logfile, capsys):
 @pytest.mark.parametrize(["id", "override", "logfile"], [
     ("fn", True, None),
     ("tn", False, None),
-    ("tf", False, 'test.log')
+    ("tf", True, 'test.log')
 ])
 def test_verbose(id, override, logfile, capsys):
     from echopype.utils import log

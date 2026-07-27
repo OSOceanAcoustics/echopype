@@ -64,9 +64,9 @@ def verbose(
 
     package_name = __name__.split(".")[0]  # Get the package name
     for logger in _get_all_loggers():
-        _set_verbose(logger, package_verbosity.get(logger.name, override))
         if package_name not in logger.name:
             continue
+        _set_verbose(logger, package_verbosity.get(logger.name, override))
         handlers = [h.name for h in logger.handlers]
         if logfile is None:
             if LOGFILE_HANDLE_NAME in handlers:
