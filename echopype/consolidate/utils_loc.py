@@ -10,6 +10,32 @@ from ..utils.log import _init_logger
 logger = _init_logger(__name__)
 
 
+SUPPORTED_DIM_0_NAMES = ["channel", "frequency_nominal"]
+
+
+def get_dim_0(da_Sv: xr.DataArray) -> str:
+    """
+    Get the name of the first dimension of the Sv data array.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The input dataset.
+
+    Returns
+    -------
+    str
+        The name of the first dimension.
+    """
+    dim_0 = list(da_Sv.dims)[0]
+    if dim_0 in SUPPORTED_DIM_0_NAMES:
+        return dim_0
+    else:
+        raise ValueError(
+            f"The first dimension of the the source Sv must be one of {SUPPORTED_DIM_0_NAMES}."
+        )
+
+
 def compute_invalid_check(lat_var: xr.DataArray, lon_var: xr.DataArray, validity_check: str):
     """Helper function to check if loc vars are invalid in 4 separate ways."""
     if validity_check == "missing":

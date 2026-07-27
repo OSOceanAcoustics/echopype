@@ -16,13 +16,21 @@ from ..utils.align import align_to_ping_time
 from ..utils.io import get_file_format, open_source
 from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
-from .ek_depth_utils import (
+from .split_beam_angle import (
+    get_angle_complex_samples,
+    get_angle_power_samples,
+)
+from .utils_ek_depth import (
     ek_use_beam_angles,
     ek_use_platform_angles,
     ek_use_platform_vertical_offsets,
 )
-from .loc_utils import check_and_drop_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
-from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
+from .utils_loc import (
+    check_and_drop_loc_time_dim_duplicates,
+    check_loc_vars_validity,
+    get_dim_0,
+    sel_nmea,
+)
 
 logger = _init_logger(__name__)
 
@@ -31,7 +39,7 @@ POSITION_VARIABLES = ["latitude", "longitude"]
 
 def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.Dataset:
     """
-    Use frequency_nominal in place of channel to be dataset dimension and coorindate.
+    Use frequency_nominal in place of channel to be dataset dimension and coordinate.
 
     This is useful because the nominal transducer frequencies are commonly used to
     refer to data collected from a specific transducer.
@@ -75,6 +83,8 @@ def add_depth(
     use_platform_vertical_offsets: bool = False,
     use_platform_angles: bool = False,
     use_beam_angles: bool = False,
+    waveform_mode: Optional[str] = None,
+    encode_mode: Optional[str] = None,
 ) -> xr.Dataset:
     """
     Create a depth data variable based on data in Sv dataset, Echodata object, and/or
@@ -111,6 +121,10 @@ def add_depth(
         Currently only implemented for EK60/EK80 sonar models.
         If `tilt` is specified, Beam group angle values will not be used.
         In the current implementation cannot be used in tandem with `use_platform_angles`.
+    waveform_mode : Optional[str], default None
+        Type of transmit waveform. Must be specified when `use_beam_angles` is True.
+    encode_mode : Optional[str], default None
+        Type of encode mode. Must be specified when `use_beam_angles` is True.
 
     Returns
     -------
@@ -118,6 +132,9 @@ def add_depth(
     """
     # Open Sv dataset
     ds = open_source(ds, "dataset", {})
+
+    # Check that `channel` or `frequency_nominal` is the first dimension in the Sv
+    _ = get_dim_0(ds["Sv"])  # return nothing since it's not used
 
     # Raise `ValueError` if `echodata` is needed but not passed in
     if (not echodata) and (use_platform_vertical_offsets or use_platform_angles or use_beam_angles):
@@ -159,6 +176,18 @@ def add_depth(
         ):
             raise NotImplementedError(
                 f"`use_platform/beam_...` not implemented yet for `{sonar_model}`."
+            )
+
+        # Raise error if sonar model EK80 and use_beam_angles is true but wave form and encode mode
+        # is not provided
+        if (
+            use_beam_angles
+            and sonar_model == "EK80"
+            and (waveform_mode is None or encode_mode is None)
+        ):
+            raise ValueError(
+                "When `use_beam_angles` is True and sonar model is EK80, "
+                "both `waveform_mode` and `encode_mode` must be specified."
             )
 
     # Initialize transducer depth to 0.0 (no effect on depth)
@@ -206,14 +235,12 @@ def add_depth(
             # Compute echo range scaling in EK systems using platform angle data
             echo_range_scaling = ek_use_platform_angles(echodata["Platform"], ds["ping_time"])
         elif use_beam_angles:
-            # Identify beam group name by checking channel values of `ds`
-            if echodata["Sonar/Beam_group1"]["channel"].equals(ds["channel"]):
-                beam_group_name = "Beam_group1"
-            else:
-                beam_group_name = "Beam_group2"
+            # check that the appropriate waveform and encode mode have been given
+            # and obtain the echodata group path corresponding to encode_mode
+            ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
             # Compute echo range scaling in EK systems using beam angle data
-            echo_range_scaling = ek_use_beam_angles(echodata[f"Sonar/{beam_group_name}"])
+            echo_range_scaling = ek_use_beam_angles(echodata[ed_beam_group])
 
     # Set orientation multiplier. 1 if facing downwards, -1 if facing upwards
     orientation_mult = 1 if downward else -1
@@ -234,7 +261,7 @@ def add_depth(
         history_attr + f" Sv `echo_range`"
         f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
         f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
-        f"{', Echodata `%s` Angles' % (beam_group_name) if (used_beam_angles) else ''}"
+        f"{', Echodata `%s` Angles' % (ed_beam_group.replace('Sonar/', '')) if (used_beam_angles) else ''}"  # noqa
         "."
     )
     ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})
@@ -287,6 +314,9 @@ def add_location(
     # Open dataset and echodata object
     ds = open_source(ds, "dataset", {})
     echodata = open_source(echodata, "echodata", {})
+
+    # Check that `channel` or `frequency_nominal` is the first dimension in the Sv
+    _ = get_dim_0(ds["Sv"])  # return nothing since it's not used
 
     # Grab lat lon names
     if echodata.sonar_model.startswith("EK") and datagram_type in ["MRU1", "IDX"]:
@@ -476,6 +506,12 @@ def add_splitbeam_angle(
     source_Sv = open_source(source_Sv, "dataset", storage_options)
     echodata = open_source(echodata, "echodata", storage_options)
 
+    # Check that `channel` or `frequency_nominal` is the first dimension in the Sv
+    dim_0 = get_dim_0(source_Sv["Sv"])  # return nothing since it's not used
+
+    # Grab corresponding channel values
+    Sv_channels = source_Sv["channel"].values
+
     # ensure that echodata was produced by EK60 or EK80-like sensors
     model_family = SONAR_MODELS[echodata.sonar_model]["family"]
     if model_family not in ["Ex60", "Ex80"]:
@@ -492,12 +528,12 @@ def add_splitbeam_angle(
     # and obtain the echodata group path corresponding to encode_mode
     ed_beam_group = retrieve_correct_beam_group(echodata, waveform_mode, encode_mode)
 
-    # check that source_Sv at least has a channel dimension
-    if "channel" not in source_Sv.variables:
-        raise ValueError("The input source_Sv Dataset must have a channel dimension!")
+    # Select channels in selected beam group
+    ds_beam = echodata[ed_beam_group].sel({"channel": Sv_channels})
 
-    # Select ds_beam channels from source_Sv
-    ds_beam = echodata[ed_beam_group].sel(channel=source_Sv["channel"].values)
+    # Swap dim for ds_beam if dim_0 is frequency_nominal
+    if dim_0 == "frequency_nominal":
+        ds_beam = swap_dims_channel_frequency(ds_beam)
 
     # Assemble angle param dict
     angle_param_list = [
@@ -514,10 +550,9 @@ def add_splitbeam_angle(
             raise ValueError(f"source_Sv does not contain the necessary parameter {p_name}!")
 
     # fail if source_Sv and ds_beam do not have the same lengths
-    # for ping_time, range_sample, and channel
+    # for dim_0, ping_time, range_sample
     same_size_lens = [
-        ds_beam.sizes[dim] == source_Sv.sizes[dim]
-        for dim in ["channel", "ping_time", "range_sample"]
+        ds_beam.sizes[dim] == source_Sv.sizes[dim] for dim in [dim_0, "ping_time", "range_sample"]
     ]
     if not same_size_lens:
         raise ValueError(
@@ -536,9 +571,7 @@ def add_splitbeam_angle(
     else:
         if pulse_compression:  # with pulse compression
             # put receiver fs into the same dict for simplicity
-            pc_params = get_filter_coeff(
-                echodata["Vendor_specific"].sel(channel=source_Sv["channel"].values)
-            )
+            pc_params = get_filter_coeff(echodata["Vendor_specific"].sel({"channel": Sv_channels}))
             pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
 
             # Add dictionary entry to keep/drop last hanning window's zero value
@@ -570,8 +603,7 @@ def add_splitbeam_angle(
         else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
     )
     history_attr = (
-        history_attr
-        + "Calculated using data stored in the Beam groups of the echodata object."  # noqa
+        history_attr + "Calculated using data stored in the Beam groups of the echodata object."
     )
     for da_name in ["angle_alongship", "angle_athwartship"]:
         source_Sv[da_name] = source_Sv[da_name].assign_attrs({"history": history_attr})
