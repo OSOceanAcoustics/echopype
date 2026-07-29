@@ -158,7 +158,7 @@ class ParseULS5(ParseAZFP):
 
         # Handling the case where there is only one value for each parameter
         for key, val in self.parameters.items():
-            if len(val) == 1:
+            if len(val) == 1 and key not in self.field_w_freq:
                 self.parameters[key] = val[0]
 
         # The last phase can be a Repeat phase, which switches back to the first phase

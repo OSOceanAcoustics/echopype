@@ -2,6 +2,7 @@ from typing import Dict
 
 import xarray as xr
 
+from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from .env_params import harmonize_env_param_time
 
@@ -119,17 +120,14 @@ def compute_range_EK(
         The range (``echo_range``) of the data in meters.
     """
     # sound_speed should exist already
-    if sonar_model in ("EK60", "ES70"):
-        ek_str = "EK60"
-    elif sonar_model in ("EK80", "ES80", "EA640"):
-        ek_str = "EK80"
-    else:
-        raise ValueError("The specified sonar_model is not supported!")
+    model_family = SONAR_MODELS[sonar_model]["family"]
+    if model_family not in ["Ex60", "Ex80"]:
+        raise ValueError(f"The specified sonar_model {sonar_model} is not supported!")
 
     if "sound_speed" not in env_params:
         raise RuntimeError(
             "sounds_speed not included in env_params, "
-            f"use echopype.calibrate.env_params.get_env_params_{ek_str}() to compute env_params "
+            "use echopype.calibrate.env_params.get_env_params_EK() to compute env_params "
         )
     else:
         sound_speed = env_params["sound_speed"]
@@ -183,14 +181,15 @@ def range_mod_TVG_EK(
             mod = mod.squeeze().drop_vars("time1")
         return mod
 
+    model_family = SONAR_MODELS[sonar_model]["family"]
     # If EK60
-    if sonar_model in ["EK60", "ES70"]:
+    if model_family == "Ex60":
         range_meter = range_meter - mod_Ex60()
 
     # If EK80:
     # - compute range first assuming all channels have Ex80 style hardware
     # - change range for channels with Ex60 style hardware (GPT)
-    elif sonar_model in ["EK80", "ES80", "EA640"]:
+    elif model_family == "Ex80":
         range_meter = range_meter - mod_Ex80()
 
         # Change range for all channels with GPT

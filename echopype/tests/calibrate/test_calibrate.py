@@ -193,7 +193,7 @@ def test_compute_Sv_azfp(azfp_path):
                 ds_cmp.echo_range.isel(channel=fidx, ping_time=0).values[None, :]
                 == ds_base['Output'][0]['Range'][fidx]
             )
-            
+
             assert np.allclose(
                 ds_cmp[cal_type_in_ds_cmp[cal_type]].isel(channel=fidx).values,
                 ds_base['Output'][0][cal_type][fidx],
@@ -217,20 +217,20 @@ def test_compute_Sv_offset_azfp(azfp_path):
     assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(125000.0, 190) == 1.4
     assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(769000.0, 1000) == 0.3
     assert ep.calibrate.calibrate_azfp._calc_azfp_Sv_offset(769000.0, 150) == 1.4
-    
+
     env_params = {
         'temperature': 20.,
         'salinity': 27.9,
         'pressure': 59,
     }
 
-    #Check loading an ULS5 file that has and pulse length not in dictionary 
+    #Check loading an ULS5 file that has and pulse length not in dictionary
     azfp_01a_path = str(azfp_path.joinpath('Sv_offset/23110713_2ping.01A'))
     azfp_xml_path = str(azfp_path.joinpath('Sv_offset/23110713.XML'))
     echodata = ep.open_raw(
         raw_file=azfp_01a_path, sonar_model='AZFP', xml_path=azfp_xml_path
     )
-    
+
     chan = echodata["Sonar/Beam_group1"]["channel"]
     Sv_ext = xr.DataArray([0.4, 0.4, 0., 0.], dims=["channel"], coords={"channel": chan}, name="Sv_offset")
     ds_Sv = ep.calibrate.compute_Sv(echodata=echodata, env_params=env_params)
@@ -262,7 +262,7 @@ def test_compute_sv_azfp6_matlab(azfp6_path):
 
     ds_base = loadmat(azfp_matlab_sv_path)
     ds_range = loadmat(azfp_matlab_range_path)
-    
+
     assert np.allclose(
         ds_sv.echo_range.isel(channel=0, ping_time=0).values[None, :],
         ds_range['range'],
@@ -274,7 +274,7 @@ def test_compute_sv_azfp6_matlab(azfp6_path):
         ds_base["sv"],
         atol=1e-13,
     )
-        
+
 
 
 @pytest.mark.integration
@@ -401,7 +401,7 @@ def test_compute_Sv_combined_ed_ping_time_extend_past_time1(ek80_path):
         # Check that no NaNs exist
         assert not np.any(np.isnan(env_var.data))
 
-                
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "raw_path, sonar_model, xml_path, waveform_mode, encode_mode",
@@ -486,7 +486,7 @@ def test_check_echodata_backscatter_size(
                     da.random.random((3, 100000, 1000))
                 )
             }
-        )  
+        )
     elif sonar_model in ["EK60", "AZFP"]:
         cal_obj.echodata["Sonar/Beam_group1"] = xr.Dataset(
             {
@@ -498,7 +498,7 @@ def test_check_echodata_backscatter_size(
         )
 
     # Turn on logger verbosity
-    ep.utils.log.verbose(override=False)
+    ep.utils.log.verbose(override=True)
 
     # Run Backscatter Size check
     cal_obj._check_echodata_backscatter_size()
@@ -513,9 +513,9 @@ def test_check_echodata_backscatter_size(
         "with the results stored directly in a Zarr store on disk, rather then in memory."
     )
     assert warning_message == caplog.records[0].message
-    
+
     # Turn off logger verbosity
-    ep.utils.log.verbose(override=True)
+    ep.utils.log.verbose(override=False)
 
 
 @pytest.mark.integration

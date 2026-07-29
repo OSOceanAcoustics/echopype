@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 
+from ..core import SONAR_MODELS
 from .echodata import EchoData
 
 
@@ -168,11 +169,12 @@ def retrieve_correct_beam_group(echodata: EchoData, waveform_mode: str, encode_m
     #       1) checks under _retrieve_correct_beam_group_EK60 are redundant, and
     #       2) only power data would exist for EK60-like data
     #          and we have echodata["Sonar"]["waveform_encode_descr"] now
-    if echodata.sonar_model in ["EK60", "ES70"]:
+    model_family = SONAR_MODELS[echodata.sonar_model]["family"]
+    if model_family == "Ex60":
         # check modes against data for EK60 and get power EchoData group
         return _retrieve_correct_beam_group_EK60(echodata, waveform_mode, encode_mode)
 
-    elif echodata.sonar_model in ["EK80", "ES80", "EA640"]:
+    elif model_family == "Ex80":
         return _retrieve_correct_beam_group_EK80(echodata, waveform_mode, encode_mode)
     else:
         # raise error for unknown or unaccounted for sonar model

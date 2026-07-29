@@ -19,6 +19,9 @@ pytestmark = pytest.mark.integration
 def azfp_path(test_path):
     return test_path["AZFP"]
 
+@pytest.fixture
+def azfp_single_frequency_path(test_path):
+    return test_path["AZFP_SINGLE_FREQUENCY"]
 
 def check_platform_required_scalar_vars(echodata):
     # check convention-required variables in the Platform group
@@ -155,6 +158,21 @@ def test_convert_azfp_01a_different_ranges(azfp_path):
     # check convention-required variables in the Platform group
     check_platform_required_scalar_vars(echodata)
 
+def test_convert_azfp_01a_single_frequency(azfp_single_frequency_path):
+    """Test converting a ULS5 AZFP file with one active frequency."""
+    echodata = open_raw(
+        raw_file=azfp_single_frequency_path / "14021117.01A",
+        sonar_model="AZFP",
+        xml_path=azfp_single_frequency_path / "14021116.XML",
+    )
+
+    beam = echodata["Sonar/Beam_group1"]
+
+    assert beam.sizes["channel"] == 1
+    assert beam.sizes["ping_time"] == 900
+    assert beam.sizes["range_sample"] == 751
+    assert beam["channel"].item() == "55062-125-1"
+    assert beam["frequency_nominal"].item() == 125_000
 
 def test_convert_azfp_01a_no_temperature_pressure_tilt(azfp_path):
     """Test converting file with no valid temperature, pressure and tilt data."""
