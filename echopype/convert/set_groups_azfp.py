@@ -29,7 +29,7 @@ class SetGroupsAZFP(SetGroupsBase):
     #        https://github.com/OSOceanAcoustics/echopype/issues/978).
     #   However, the mechanisms to expand these dimensions were preserved for
     #   flexibility and potential later use.
-    #   Note such expansion is still applied on AZFP data for 2 variables (see below).
+    #   Note such expansion is still applied on AZFP data for 2 variables (see belw).
 
     # Variables that need only the beam dimension added to them.
     beam_only_names = set()
