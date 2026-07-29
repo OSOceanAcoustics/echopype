@@ -52,7 +52,7 @@ def coerce_increasing_time(
         length of the local window before the reversed timestamp within which
         the median pinging interval is used to infer the next ping time
 
-    Usage
+    Examples
     -----
     >>> import xarray as xr
     >>> from echopype.qc.api import exist_reversed_time, coerce_increasing_time

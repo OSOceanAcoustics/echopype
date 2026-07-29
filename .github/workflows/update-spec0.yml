@@ -1,0 +1,23 @@
+name: Update dependency versions to meet SPEC 0
+
+on:
+  schedule:
+    # Day 3 of each quarter, after the quarterly SPEC 0 update
+    - cron: "0 0 3 1,4,7,10 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: scientific-python/spec0-action@6d7df2702c1dfc225a7ce5918616db9a6a652901 # v1.4
+        with:
+          update_all: 2

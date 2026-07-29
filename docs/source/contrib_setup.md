@@ -17,6 +17,7 @@ We will no longer use a `dev` branch.
 To create an environment for developing Echopype, we recommend the following steps:
 
 1. Fork the Echopype repository, clone your fork to your machine, then in `git remote` set your fork as the `origin` and the echostack-org repository as `upstream`:
+
     ```shell
     # Clone your fork
     git clone https://github.com/YOUR_GITHUB_USERNAME/echopype.git
@@ -55,7 +56,8 @@ suggest doing this with `conda` or `uv`.
 
   ```shell
   # Create .venv and install echopype in editable mode
-  # with the default development and testing dependencies
+  # with the default development and testing dependencies.
+  # The ~/.python-version file in the repository sets which version of Python is installed (3.12 at the moment).
   uv sync
   ```
 

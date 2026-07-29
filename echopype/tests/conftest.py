@@ -31,19 +31,39 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
     )
 
     bundles = [
-        "ad2cp.zip", "azfp.zip", "azfp6.zip", "ea640.zip", "ecs.zip", "ek60.zip",
-        "ek60_calibrate_chunks.zip", "ek60_missing_channel_power.zip", "ek80.zip",
-        "ek80_heading.zip", "ek80_bb_complex_multiplex.zip", "ek80_bb_with_calibration.zip",
-        "ek80_duplicate_ping_times.zip", "ek80_ext.zip", "ek80_invalid_env_datagrams.zip",
-        "ek80_missing_sound_velocity_profile.zip", "ek80_new.zip", "ek80_sequence.zip",
-        "es60.zip", "es70.zip", "es80.zip", "legacy_datatree.zip", "resample_to_geometry_example_data.zip",
+        "ad2cp.zip",
+        "azfp.zip",
+        "azfp_single_frequency.zip",
+        "azfp6.zip",
+        "ea640.zip",
+        "ecs.zip",
+        "ek60.zip",
+        "ek60_calibrate_chunks.zip",
+        "ek60_missing_channel_power.zip",
+        "ek80.zip",
+        "ek80_heading.zip",
+        "ek80_bb_complex_multiplex.zip",
+        "ek80_bb_with_calibration.zip",
+        "ek80_duplicate_ping_times.zip",
+        "ek80_ext.zip",
+        "ek80_invalid_env_datagrams.zip",
+        "ek80_missing_sound_velocity_profile.zip",
+        "ek80_new.zip",
+        "ek80_sequence.zip",
+        "es60.zip",
+        "es70.zip",
+        "es80.zip",
+        "legacy_datatree.zip",
+        "resample_to_geometry_example_data.zip",
         "ts_spectrum_example_data.zip",
+        "bi500_test_data.zip",
     ]
 
     # v0.11.1a2 checksums (GitHub release assets)
     registry = {
         "ad2cp.zip": "sha256:78c634c7345991177b267c4cbb31f391990d2629b7f4a546da20d5126978b98a",
         "azfp.zip": "sha256:fc75b48c81f266ce70d9db79a986fe8de4399c93bef35119acdc17a2d84aed49",
+        "azfp_single_frequency.zip": "sha256:71c7c095522208d0a4e773cf4dd082c93c8f27bb75ef729f4307586d6565dc5c",  # noqa: E501
         "azfp6.zip": "sha256:98228329333064fb4b44d3044296c79d58ac22f6d81f7f22cf770bacf0e882fd",
         "ea640.zip": "sha256:49f70bd6f2355cb3c4c7a5b31fc00f7ae8c8a9ae888f0df1efe759032f9580df",
         "ecs.zip": "sha256:dcc312baa1e9da4488f33bef625b1f86c8a92e3262e34fc90ccd0a4f90d1e313",
@@ -66,6 +86,7 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
         "legacy_datatree.zip": "sha256:820cd252047dbf35fa5fb04a9aafee7f7659e0fe4f7d421d69901c57deb6c9d5",  # noqa: E501
         "resample_to_geometry_example_data.zip": "sha256:1a45e3ac31ef16d742b16155dc4b7f62511abd8d25547f55fcd9146446f60d07",
         "ts_spectrum_example_data.zip": "sha256:dae603937d05d0d0a5dd41c90b9eafa3c540c95e0f6b298ceeddc7f23d163f4b",
+        "bi500_test_data.zip": "sha256:da0ec294cf1ea2906a8e4e435d648583a88d7d75a6f9d0b016595d644d54fb61",
     }
 
     EP = pooch.create(
@@ -170,6 +191,7 @@ def test_path():
         "ES70": TEST_DATA_FOLDER / "es70",
         "ES80": TEST_DATA_FOLDER / "es80",
         "AZFP": TEST_DATA_FOLDER / "azfp",
+        "AZFP_SINGLE_FREQUENCY": TEST_DATA_FOLDER / "azfp_single_frequency",
         "AZFP6": TEST_DATA_FOLDER / "azfp6",
         "AD2CP": TEST_DATA_FOLDER / "ad2cp",
         "EK80_MULTIPLEX": TEST_DATA_FOLDER / "ek80_bb_complex_multiplex",
@@ -183,7 +205,7 @@ def test_path():
         "LEGACY_DATATREE": TEST_DATA_FOLDER / "legacy_datatree",
         "RESAMPLE_GEOMETRY": TEST_DATA_FOLDER / "resample_to_geometry_example_data",
         "TS_SPECTRUM_EXAMPLE": TEST_DATA_FOLDER / "ts_spectrum_example_data",
-        "BI500": Path(__file__).resolve().parent.parent / "test_data" / "bi500",
+        "BI500": TEST_DATA_FOLDER / "bi500_test_data",
     }
 
 

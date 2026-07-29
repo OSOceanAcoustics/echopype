@@ -10,7 +10,7 @@ from .utils.io import init_ep_dir
 from .utils.log import verbose
 
 # Turn off verbosity for echopype
-verbose(override=True)
+verbose(override=False)
 
 init_ep_dir()
 

@@ -134,6 +134,8 @@ class ParseAZFP(ParseBase, abc.ABC):
 
         for freq_ch in range(self.unpacked_data["num_chan"][ping_num]):
             counts_byte_size = self.unpacked_data["num_bins"][ping_num][freq_ch]
+            if isinstance(counts_byte_size, (tuple, list)) and len(counts_byte_size) == 1:
+                counts_byte_size = counts_byte_size[0]
             if self.unpacked_data["data_type"][ping_num][freq_ch]:
                 if self.unpacked_data["avg_pings"][ping_num]:  # if pings are averaged over time
                     divisor = (
@@ -142,6 +144,7 @@ class ParseAZFP(ParseBase, abc.ABC):
                     )
                 else:
                     divisor = self.unpacked_data["range_samples_per_bin"][ping_num][freq_ch]
+
                 ls = unpack(
                     endian + "I" * counts_byte_size, raw.read(counts_byte_size * 4)
                 )  # Linear sum

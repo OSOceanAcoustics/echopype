@@ -857,6 +857,7 @@ def _combine(
     return tree_dict
 
 
+# TODO: Remove this function shortly prior to v0.12.1 release
 def combine_echodata(
     echodata_list: List[EchoData] = None,
     channel_selection: Optional[Union[List, Dict[str, list]]] = None,
@@ -943,6 +944,11 @@ def combine_echodata(
     >>> ed2 = echopype.open_raw(raw_file="EK60_file2.raw", sonar_model="EK60")
     >>> combined = echopype.combine_echodata(echodata_list=[ed1, ed2])
     """
+    warn(
+        "Echopype will stop supporting the `combine_echodata` function in the v0.12.1 release.",
+        category=DeprecationWarning,
+    )
+
     # return empty EchoData object, if no EchoData objects are provided
     if echodata_list is None:
         warn("No EchoData objects were provided, returning an empty EchoData object.")

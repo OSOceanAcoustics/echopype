@@ -7,9 +7,10 @@ root = Path("memory_artifacts")
 files = list(root.glob("**/memory_usage.csv"))
 
 groups = {
-    "integration": [],
-    "unit": [],
-    "windows": [],
+    "ubuntu-integration": [],
+    "ubuntu-unit": [],
+    "windows-integration": [],
+    "windows-unit": [],
 }
 
 PYTHON_LINE_STYLES = {
@@ -19,67 +20,78 @@ PYTHON_LINE_STYLES = {
 }
 
 colors = {
-    "integration": "orange",
-    "unit": "brown",
-    "windows": "purple",
+    "ubuntu-integration": "orange",
+    "ubuntu-unit": "brown",
+    "windows-integration": "purple",
+    "windows-unit": "teal",
 }
 
 
 def parse_label(name: str):
-    label = name.replace("memory-", "")
+    label = name.removeprefix("memory-")
+    parts = label.split("-")
 
-    if label.startswith("integration-"):
-        group = "integration"
-        pyver = label.split("-")[1]
-    elif label.startswith("unit-"):
-        group = "unit"
-        pyver = label.split("-")[1]
-    elif label.startswith("windows-"):
-        group = "windows"
-        pyver = label.split("-")[1]
-    else:
-        return None, None
+    if parts[0] == "integration":
+        return "ubuntu-integration", parts[1]
 
-    return group, pyver
+    if parts[0] == "unit":
+        return "ubuntu-unit", parts[1]
+
+    if parts[0] == "windows" and len(parts) >= 3:
+        job_type = parts[1]
+        pyver = parts[2]
+        return f"windows-{job_type}", pyver
+
+    return None, None
 
 
 all_x = []
 
-for f in sorted(files):
-    label = f.parent.name
-    group, pyver = parse_label(label)
-    if group is None:
+for file in sorted(files):
+    group, pyver = parse_label(file.parent.name)
+
+    if group not in groups:
         continue
 
     times = []
     used = []
 
-    with f.open() as fh:
-        reader = csv.DictReader(fh)
+    with file.open() as stream:
+        reader = csv.DictReader(stream)
         t0 = None
+
         for row in reader:
-            t = float(row["timestamp"])
+            timestamp = float(row["timestamp"])
+
             if t0 is None:
-                t0 = t
-            times.append((t - t0) / 60.0)
+                t0 = timestamp
+
+            times.append((timestamp - t0) / 60)
             used.append(float(row["mem_used_mb"]))
 
     if times:
         all_x.extend(times)
         groups[group].append((pyver, times, used))
 
-xmax = max(all_x) if all_x else 1
-
-fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+xmax = max(all_x, default=1)
 
 subplot_order = [
-    ("integration", "Ubuntu integration"),
-    ("unit", "Ubuntu unit"),
-    ("windows", "Windows"),
+    ("ubuntu-integration", "Ubuntu integration"),
+    ("ubuntu-unit", "Ubuntu unit"),
+    ("windows-integration", "Windows integration"),
+    ("windows-unit", "Windows unit"),
 ]
 
+fig, axes = plt.subplots(
+    4,
+    1,
+    figsize=(12, 13),
+    sharex=True,
+    sharey=True,
+)
+
 for ax, (group, title) in zip(axes, subplot_order):
-    for pyver, times, used in sorted(groups[group], key=lambda x: x[0]):
+    for pyver, times, used in sorted(groups[group]):
         ax.plot(
             times,
             used,
@@ -93,9 +105,14 @@ for ax, (group, title) in zip(axes, subplot_order):
     ax.set_ylabel("RAM used (MB)")
     ax.set_xlim(0, xmax)
     ax.legend(title="Python")
+    ax.grid(alpha=0.2)
 
 axes[-1].set_xlabel("Time since job start (minutes)")
 
 fig.suptitle("CI memory usage by job", fontsize=16)
 fig.tight_layout()
-fig.savefig("memory_all_jobs.png", dpi=150)
+fig.savefig(
+    "memory_all_jobs.png",
+    dpi=150,
+    bbox_inches="tight",
+)
