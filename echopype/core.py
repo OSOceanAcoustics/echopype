@@ -136,5 +136,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseBI500,
         "parsed2zarr": None,
         "set_groups": SetGroupsBI500,
+        "family": "BI500",
     },
 }

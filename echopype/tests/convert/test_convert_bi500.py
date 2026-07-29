@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -7,20 +5,11 @@ from echopype import open_raw
 
 pytestmark = pytest.mark.integration
 
-BI500_DATA_DIR = (
-    Path(__file__).resolve().parent.parent.parent / "test_data" / "bi500"
-)
 
-
-@pytest.fixture
-def bi500_path():
-    if not BI500_DATA_DIR.is_dir():
-        pytest.skip(f"BI500 test data not found at {BI500_DATA_DIR}")
-    return BI500_DATA_DIR
-
-
-def test_convert_bi500(bi500_path):
+def test_convert_bi500(test_path):
     """Verify BI500 raw files convert to EchoData with expected shapes."""
+    bi500_path = test_path["BI500"]
+
     echodata = open_raw(raw_file=str(bi500_path), sonar_model="BI500")
 
     assert echodata.sonar_model == "BI500"
