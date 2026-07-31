@@ -332,7 +332,7 @@ class Ad2cpDataPacket:
                 "ns",
             )  # type: ignore
         except ValueError:
-            return np.datetime64("NaT")  # type: ignore
+            return np.datetime64("NaT", "ns")  # type: ignore
 
     def is_burst(self) -> bool:
         """

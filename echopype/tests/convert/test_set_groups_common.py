@@ -38,7 +38,7 @@ def test_backscatter_concat_jitter_ping_time(mock_ping_data_dict_power_angle_jit
         ds_backscatter.append(ds_tmp)
 
     # Perform the concat across channels
-    merged_ds = xr.concat(ds_backscatter, dim="channel")
+    merged_ds = xr.concat(ds_backscatter, dim="channel", join="outer")
 
     # Check that the ping times are properly merged together
     # and that values didn't change
