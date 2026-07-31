@@ -10,6 +10,8 @@ from ..calibrate.utils import check_input_args_combination
 from ..core import SONAR_MODELS
 from .echodata import EchoData
 
+__all__ = ["check_input_args_combination", "retrieve_correct_beam_group"]
+
 
 def _retrieve_correct_beam_group_EK60(
     echodata: EchoData, waveform_mode: str, encode_mode: str
