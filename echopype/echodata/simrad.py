@@ -6,8 +6,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from ..core import SONAR_MODELS
 from ..calibrate.utils import check_input_args_combination
+from ..core import SONAR_MODELS
 from .echodata import EchoData
 
 
