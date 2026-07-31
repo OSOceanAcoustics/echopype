@@ -229,7 +229,7 @@ def test_combine_echodata(raw_datasets):
             drop_dims = [c_dim for c_dim in concat_dims if c_dim != dim]
 
             diff_concats.append(xr.concat([ed_subset.drop_dims(drop_dims) for ed_subset in eds_groups], dim=dim,  # noqa: E501
-                                coords="minimal", data_vars="minimal"))
+                                coords="minimal", data_vars="minimal", join="outer"))
 
         if len(diff_concats) < 1:
             test_ds = eds_groups[0]  # needed for groups that do not have append dims

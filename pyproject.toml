@@ -133,6 +133,11 @@ markers = [
     "integration: marks tests as integration tests",
 ]
 
+# Show each distinct warning once during the pytest session.
+filterwarnings = [
+    "once",
+]
+
 [tool.uv]
 exclude-newer = "7 days"
 default-groups = ["dev", "test"]

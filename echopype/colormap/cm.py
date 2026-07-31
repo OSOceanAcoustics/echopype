@@ -28,14 +28,9 @@ __cmap_colors = {
 
 
 def _create_cmap(rgb, under=None, over=None):
-    cmap = mpl.colors.ListedColormap(rgb)
-    if under is not None:
-        cmap.set_under(under)
-
-    if over is not None:
-        cmap.set_over(over)
-
-    return cmap
+    # When echopype supports only matplotlib>=3.11, the under and over can be in
+    # the constructor
+    return mpl.colors.ListedColormap(rgb).with_extremes(under=under, over=over)
 
 
 cmap_d = {}
@@ -60,23 +55,18 @@ for cmapname in cmapnames:
     rgb_with_alpha = np.zeros((rgb.shape[0], 4))
     rgb_with_alpha[:, :3] = rgb
     rgb_with_alpha[:, 3] = 1.0  # set alpha channel to 1
-    reg_map = mpl.colors.ListedColormap(rgb_with_alpha, "ep." + cmapname, rgb.shape[0])
-    if "under" in colors_d:
-        reg_map.set_under(colors_d["under"])
-
-    if "over" in colors_d:
-        reg_map.set_over(colors_d["over"])
+    reg_map = mpl.colors.ListedColormap(rgb_with_alpha, "ep." + cmapname)
+    reg_map = reg_map.with_extremes(
+        under=colors_d.get("under", None), over=colors_d.get("over", None)
+    )
     mpl.colormaps.register(cmap=reg_map)
 
     # Register the reversed map
-    reg_map_r = mpl.colors.ListedColormap(
-        rgb_with_alpha[::-1, :], "ep." + cmapname + "_r", rgb.shape[0]
+    reg_map_r = mpl.colors.ListedColormap(rgb_with_alpha[::-1, :], "ep." + cmapname + "_r")
+    reg_map_r = reg_map_r.with_extremes(
+        over=colors_d.get("under", None),
+        under=colors_d.get("over", None),
     )
-    if "under" in colors_d:
-        reg_map_r.set_over(colors_d["under"])
-
-    if "over" in colors_d:
-        reg_map_r.set_under(colors_d["over"])
     mpl.colormaps.register(cmap=reg_map_r)
 
 # make colormaps available to call

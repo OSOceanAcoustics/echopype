@@ -1762,7 +1762,7 @@ class SimradRawParser(_SimradDatagramParser):
                         raw_string[indx : indx + block_size],  # noqa
                         dtype=data["complex_dtype"],
                     )
-                    data["complex"].dtype = np.complex64
+                    data["complex"] = data["complex"].view(np.complex64)
                     if version == 3:
                         data["complex"] = data["complex"].reshape((-1, data["n_complex"]))
                 else:
