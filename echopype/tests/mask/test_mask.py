@@ -4,6 +4,7 @@ import pathlib
 import os
 
 import pandas as pd  # noqa: F401
+from echopype.calibrate import compute_TS
 import xarray as xr
 import numpy as np
 import dask.array
@@ -2305,160 +2306,11 @@ def _make_ds_from_Sp_minimal(n_ping=5, n_range=10) -> xr.Dataset:
     )
     return ds
 
+# ---------------------------------------------------------------------
+# Single-target detection tests
+# ---------------------------------------------------------------------
 
-# Tests: dispatcher generic
-@pytest.mark.unit
-def test_detect_single_targets_unknown_method_raises():
-    ds = _make_ds_from_Sv_minimal()
-    with pytest.raises(ValueError, match="Unsupported single-target method"):
-        detect_single_targets(
-            ds,
-            method="__bad__",
-            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
-        )
-
-@pytest.mark.unit
-def test_detect_single_targets_fm_not_implemented_raises():
-    ds = _make_ds_from_Sv_minimal()
-
-    with pytest.raises(NotImplementedError, match="FM single-target detection"):
-        detect_single_targets(
-            ds,
-            method="from_Sv",
-            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
-            waveform_mode="FM",
-        )
-
-
-@pytest.mark.unit
-def test_detect_single_targets_invalid_waveform_mode_raises():
-    ds = _make_ds_from_Sv_minimal()
-
-    with pytest.raises(ValueError, match="waveform_mode must be 'CW' or 'FM'"):
-        detect_single_targets(
-            ds,
-            method="from_Sv",
-            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
-            waveform_mode="BB",
-        )
-
-
-@pytest.mark.unit
-def test_detect_single_targets_params_required_raises():
-    ds = _make_ds_from_Sv_minimal()
-    with pytest.raises(ValueError, match="No parameters given"):
-        detect_single_targets(ds, method="from_Sv", params=None)
-
-
-@pytest.mark.unit
-def test_detect_single_targets_beam_type_missing_raises():
-    ds = _make_ds_from_Sv_minimal().drop_vars("beam_type")
-    with pytest.raises(ValueError, match="beam_type variable is missing"):
-        detect_single_targets(
-            ds,
-            method="from_Sv",
-            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
-        )
-
-
-@pytest.mark.unit
-def test_detect_single_targets_beam_type_not_split_raises():
-    ds = _make_ds_from_Sv_minimal()
-    ds["beam_type"] = xr.DataArray(
-        np.full(ds.sizes["channel"], 2, dtype=np.int16),
-        dims=("channel",),
-        coords={"channel": ds["channel"]},
-    )
-    with pytest.raises(ValueError, match="Only split-beam data supported"):
-        detect_single_targets(
-            ds,
-            method="from_Sv",
-            params={"channel": "chan1", "seafloor": np.zeros(ds.sizes["ping_time"])},
-        )
-
-
-# Tests: from-Sv validation + schema
-FROM_SV_REQ = {
-    "channel": "chan1",
-    "seafloor": None,
-    "min_threshold_db": -58.0,
-    "max_angle_oneway_compression_db": 2.0,
-    "max_phase_deviation_deg": 8.0,
-    "min_echo_length_pulse": 0.7,
-    "max_echo_length_pulse": 1.5,
-    # optional:
-    "min_echo_space_pulse": 1.0,
-    "min_echo_depth_m": 0.0,
-    "max_echo_depth_m": 1e9,
-    "floor_filter_tolerance_m": 0.0,
-}
-
-
-@pytest.mark.unit
-def test_detect_single_targets_from_Sv_missing_channel_param_raises():
-    ds = _make_ds_from_Sv_minimal()
-    p = dict(FROM_SV_REQ)
-    p.pop("channel")
-    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
-    with pytest.raises(ValueError, match=r"params\['channel'\]"):
-        detect_single_targets(ds, method="from_Sv", params=p)
-
-
-@pytest.mark.unit
-def test_detect_single_targets_from_Sv_channel_not_in_ds_raises():
-    ds = _make_ds_from_Sv_minimal(channels=("chan1",))
-    p = dict(FROM_SV_REQ)
-    p["channel"] = "chanX"
-    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
-    with pytest.raises(ValueError, match=r"Channel 'chanX' not found"):
-        detect_single_targets(ds, method="from_Sv", params=p)
-
-
-@pytest.mark.unit
-def test_detect_single_targets_from_Sv_wrong_dims_raises():
-    ds = _make_ds_from_Sv_wrong_dims_missing_range()
-    p = dict(FROM_SV_REQ)
-    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
-
-    with pytest.raises(ValueError, match=r"Missing required coordinate/dimension: 'range_sample'"):
-        detect_single_targets(ds, method="from_Sv", params=p)
-
-
-@pytest.mark.unit
-def test_detect_single_targets_from_Sv_returns_empty_with_required_fields():
-    ds = _make_ds_from_Sv_minimal()
-    p = dict(FROM_SV_REQ)
-    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
-
-    out = detect_single_targets(ds, method="from_Sv", params=p)
-
-    assert isinstance(out, xr.Dataset)
-    assert "target" in out.dims
-    assert out.sizes["target"] == 0
-
-    for v in ("ping_time", "range_sample", "frequency_nominal"):
-        assert v in out
-        assert out[v].dims == ("target",)
-        assert out[v].sizes["target"] == 0
-
-
-@pytest.mark.unit
-def test_detect_single_targets_concat_empty_is_stable():
-    ds = _make_ds_from_Sv_minimal()
-    p = dict(FROM_SV_REQ)
-    p["seafloor"] = np.zeros(ds.sizes["ping_time"])
-
-    out1 = detect_single_targets(ds, method="from_Sv", params=p)
-    out2 = detect_single_targets(ds, method="from_Sv", params=p)
-
-    outc = xr.concat([out1, out2], dim="target", data_vars="all")
-    assert "target" in outc.dims
-    assert outc.sizes["target"] == 0
-
-
-# Tests: from-Sp validation
 FROM_SP_REQ = {
-    "ts_threshold_db": -58.0,
     "pldl_db": 6.0,
     "min_norm_pulse": 0.7,
     "max_norm_pulse": 1.5,
@@ -2469,17 +2321,536 @@ FROM_SP_REQ = {
 }
 
 
+def _make_ds_from_Sp_minimal(
+    n_ping: int = 5,
+    n_range: int = 30,
+    background_db: float = -90.0,
+) -> xr.Dataset:
+    """Create a minimal single-channel Sp dataset for detector tests."""
+    ping_time = np.arange(n_ping)
+    range_sample = np.arange(n_range)
+
+    coords = {
+        "ping_time": ping_time,
+        "range_sample": range_sample,
+    }
+
+    sp = xr.DataArray(
+        np.full(
+            (n_ping, n_range),
+            background_db,
+            dtype=np.float64,
+        ),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="Sp",
+    )
+
+    echo_range = xr.DataArray(
+        np.tile(
+            np.linspace(1.0, float(n_range), n_range)[None, :],
+            (n_ping, 1),
+        ),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="echo_range",
+    )
+
+    angle_alongship = xr.DataArray(
+        np.zeros((n_ping, n_range), dtype=np.float64),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="angle_alongship",
+    )
+
+    angle_athwartship = xr.DataArray(
+        np.zeros((n_ping, n_range), dtype=np.float64),
+        dims=("ping_time", "range_sample"),
+        coords=coords,
+        name="angle_athwartship",
+    )
+
+    return xr.Dataset(
+        data_vars={
+            "Sp": sp,
+            "echo_range": echo_range,
+            "angle_alongship": angle_alongship,
+            "angle_athwartship": angle_athwartship,
+            "sound_absorption": xr.DataArray(
+                0.003,
+                name="sound_absorption",
+            ),
+            "sample_interval": xr.DataArray(
+                4e-5,
+                name="sample_interval",
+            ),
+            "tau_effective": xr.DataArray(
+                8e-4,
+                name="tau_effective",
+            ),
+            "frequency_nominal": xr.DataArray(
+                38000.0,
+                name="frequency_nominal",
+            ),
+            "beamwidth_alongship": xr.DataArray(
+                7.0,
+                name="beamwidth_alongship",
+            ),
+            "beamwidth_athwartship": xr.DataArray(
+                7.0,
+                name="beamwidth_athwartship",
+            ),
+            "angle_offset_alongship": xr.DataArray(
+                0.0,
+                name="angle_offset_alongship",
+            ),
+            "angle_offset_athwartship": xr.DataArray(
+                0.0,
+                name="angle_offset_athwartship",
+            ),
+            "beam_type": xr.DataArray(
+                np.int16(1),
+                name="beam_type",
+            ),
+            "channel": xr.DataArray(
+                "chan1",
+                name="channel",
+            ),
+        },
+        coords=coords,
+    )
+
+
+# ---------------------------------------------------------------------
+# Dispatcher validation
+# ---------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_detect_single_targets_unknown_method_raises():
+    ds = _make_ds_from_Sp_minimal()
+
+    with pytest.raises(
+        ValueError,
+        match="Unsupported single-target method",
+    ):
+        detect_single_targets(
+            ds,
+            method="__bad__",
+            params=dict(FROM_SP_REQ),
+        )
+
+
+@pytest.mark.unit
+def test_detect_single_targets_fm_not_implemented_raises():
+    ds = _make_ds_from_Sp_minimal()
+
+    with pytest.raises(
+        NotImplementedError,
+        match="FM single-target detection",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=dict(FROM_SP_REQ),
+            waveform_mode="FM",
+        )
+
+
+@pytest.mark.unit
+def test_detect_single_targets_invalid_waveform_mode_raises():
+    ds = _make_ds_from_Sp_minimal()
+
+    with pytest.raises(
+        ValueError,
+        match="waveform_mode must be 'CW' or 'FM'",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=dict(FROM_SP_REQ),
+            waveform_mode="BB",
+        )
+
+
+@pytest.mark.unit
+def test_detect_single_targets_params_required_raises():
+    ds = _make_ds_from_Sp_minimal()
+
+    with pytest.raises(
+        ValueError,
+        match="No parameters given",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=None,
+        )
+
+
+@pytest.mark.unit
+def test_detect_single_targets_beam_type_missing_raises():
+    ds = _make_ds_from_Sp_minimal().drop_vars("beam_type")
+
+    with pytest.raises(
+        ValueError,
+        match="beam_type variable is missing",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=dict(FROM_SP_REQ),
+        )
+
+
+@pytest.mark.unit
+def test_detect_single_targets_beam_type_not_split_raises():
+    ds = _make_ds_from_Sp_minimal()
+    ds["beam_type"] = xr.DataArray(
+        np.int16(2),
+        name="beam_type",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Only split-beam data supported",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=dict(FROM_SP_REQ),
+        )
+
+
+# ---------------------------------------------------------------------
+# Detector input validation
+# ---------------------------------------------------------------------
+
+
 @pytest.mark.unit
 def test_detect_single_targets_from_Sp_missing_required_param_raises():
     ds = _make_ds_from_Sp_minimal()
-    p = dict(FROM_SP_REQ)
-    p.pop("pldl_db")
-    with pytest.raises(ValueError, match=r"Missing required parameters"):
-        detect_single_targets(ds, method="from_Sp", params=p)
+    params = dict(FROM_SP_REQ)
+    params.pop("pldl_db")
+
+    with pytest.raises(
+        ValueError,
+        match="Missing required parameters",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=params,
+        )
 
 
 @pytest.mark.unit
-def test_detect_single_targets_from_Sp_missing_required_ds_var_raises():
-    ds = _make_ds_from_Sp_minimal().drop_vars("tau_effective")
-    with pytest.raises(ValueError, match=r"ds_sp missing required variable"):
-        detect_single_targets(ds, method="from_Sp", params=dict(FROM_SP_REQ))
+def test_detect_single_targets_from_Sp_unknown_param_raises():
+    ds = _make_ds_from_Sp_minimal()
+    params = dict(FROM_SP_REQ)
+    params["unknown_parameter"] = 42
+
+    with pytest.raises(
+        ValueError,
+        match="Unknown parameters",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=params,
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "missing_variable",
+    [
+        "Sp",
+        "echo_range",
+        "angle_alongship",
+        "angle_athwartship",
+        "tau_effective",
+        "sample_interval",
+        "sound_absorption",
+        "frequency_nominal",
+    ],
+)
+def test_detect_single_targets_from_Sp_missing_required_ds_var_raises(
+    missing_variable,
+):
+    ds = _make_ds_from_Sp_minimal().drop_vars(missing_variable)
+
+    with pytest.raises(
+        ValueError,
+        match="missing required variable",
+    ):
+        detect_single_targets(
+            ds,
+            method="from_Sp",
+            params=dict(FROM_SP_REQ),
+        )
+
+
+# ---------------------------------------------------------------------
+# Empty output and schema
+# ---------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_detect_single_targets_from_Sp_returns_empty_schema():
+    ds = _make_ds_from_Sp_minimal()
+
+    out = detect_single_targets(
+        ds,
+        method="from_Sp",
+        params=dict(FROM_SP_REQ),
+    )
+
+    assert isinstance(out, xr.Dataset)
+    assert "single_target" in out.dims
+    assert out.sizes["single_target"] == 0
+
+    required_variables = (
+        "channel",
+        "ping_time",
+        "range_sample",
+        "frequency_nominal",
+        "ping_index",
+        "iinf",
+        "isup",
+        "pulse_len_samples",
+        "norm_pulse_len",
+        "single_target_range",
+        "single_target_alongship_angle",
+        "single_target_athwartship_angle",
+        "single_target_alongship_angle_sd",
+        "single_target_athwartship_angle_sd",
+        "beam_comp_db",
+        "plike_peak",
+    )
+
+    for variable in required_variables:
+        assert variable in out
+        assert out[variable].dims == ("single_target",)
+        assert out[variable].sizes["single_target"] == 0
+
+
+@pytest.mark.unit
+def test_detect_single_targets_concat_empty_is_stable():
+    ds = _make_ds_from_Sp_minimal()
+
+    out1 = detect_single_targets(
+        ds,
+        method="from_Sp",
+        params=dict(FROM_SP_REQ),
+    )
+    out2 = detect_single_targets(
+        ds,
+        method="from_Sp",
+        params=dict(FROM_SP_REQ),
+    )
+
+    combined = xr.concat(
+        [out1, out2],
+        dim="single_target",
+    )
+
+    assert combined.sizes["single_target"] == 0
+
+    for variable in out1.data_vars:
+        assert combined[variable].dims == ("single_target",)
+
+
+# ---------------------------------------------------------------------
+# Echoview reference comparison
+# ---------------------------------------------------------------------
+
+@pytest.mark.skip(reason="Echoview reference data will be added from the notebook")
+@pytest.mark.integration
+def test_detect_single_targets_from_Sp_matches_echoview_reference(
+    echoview_single_target_reference_path,
+):
+    """
+    Compare echopype target locations against a fixed Echoview export.
+
+    The fixture should provide:
+      - source_Sp.nc
+      - echoview_single_targets.csv
+
+    Required CSV columns:
+      ping_index, range_sample
+    """
+    source_path = (
+        echoview_single_target_reference_path / "source_Sp.nc"
+    )
+    reference_path = (
+        echoview_single_target_reference_path
+        / "echoview_single_targets.csv"
+    )
+
+    if not source_path.exists() or not reference_path.exists():
+        pytest.skip(
+            "Echoview single-target reference files are unavailable."
+        )
+
+    ds_sp = xr.open_dataset(source_path)
+    reference = pd.read_csv(reference_path)
+
+    out = detect_single_targets(
+        ds_sp,
+        method="from_Sp",
+        params=dict(FROM_SP_REQ),
+    )
+
+    actual_locations = {
+        (int(ping), int(sample))
+        for ping, sample in zip(
+            out["ping_index"].values,
+            out["range_sample"].values,
+        )
+    }
+
+    reference_locations = {
+        (int(row.ping_index), int(row.range_sample))
+        for row in reference.itertuples()
+    }
+
+    assert actual_locations == reference_locations
+    
+@pytest.mark.unit
+def test_compute_TS_from_Sp_returns_expected_values():
+    ds_sp = xr.Dataset(
+        data_vars={
+            "Sp": (
+                ("channel", "ping_time", "range_sample"),
+                np.array(
+                    [
+                        [
+                            [-90.0, -80.0, -70.0],
+                            [-60.0, -50.0, -40.0],
+                        ]
+                    ]
+                ),
+            )
+        },
+        coords={
+            "channel": ["chan1"],
+            "ping_time": [0, 1],
+            "range_sample": [0, 1, 2],
+        },
+    )
+
+    point_locations = xr.Dataset(
+        data_vars={
+            "channel": (
+                "single_target",
+                np.array(["chan1", "chan1"], dtype=object),
+            ),
+            "ping_index": (
+                "single_target",
+                np.array([0, 1], dtype=np.int64),
+            ),
+            "range_sample": (
+                "single_target",
+                np.array([2, 1], dtype=np.int64),
+            ),
+            "beam_comp_db": (
+                "single_target",
+                np.array([1.5, 2.0], dtype=np.float64),
+            ),
+        },
+        coords={
+            "single_target": np.arange(2),
+        },
+    )
+
+    out = compute_TS(
+        ds_sp,
+        point_locations=point_locations,
+    )
+
+    np.testing.assert_allclose(
+        out["uncompensated_TS"].values,
+        [-70.0, -50.0],
+    )
+
+    np.testing.assert_allclose(
+        out["compensated_TS"].values,
+        [-68.5, -48.0],
+    )
+
+    assert out["uncompensated_TS"].dims == ("single_target",)
+    assert out["compensated_TS"].dims == ("single_target",)
+    
+    
+@pytest.mark.unit
+def test_compute_TS_from_Sp_requires_point_locations():
+    ds_sp = xr.Dataset(
+        {
+            "Sp": (
+                ("channel", "ping_time", "range_sample"),
+                np.zeros((1, 2, 3)),
+            )
+        },
+        coords={
+            "channel": ["chan1"],
+            "ping_time": [0, 1],
+            "range_sample": [0, 1, 2],
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="point_locations must be provided",
+    ):
+        compute_TS(ds_sp)
+        
+        
+@pytest.mark.unit
+def test_compute_TS_from_Sp_empty_targets():
+    ds_sp = xr.Dataset(
+        {
+            "Sp": (
+                ("channel", "ping_time", "range_sample"),
+                np.zeros((1, 2, 3)),
+            )
+        },
+        coords={
+            "channel": ["chan1"],
+            "ping_time": [0, 1],
+            "range_sample": [0, 1, 2],
+        },
+    )
+
+    point_locations = xr.Dataset(
+        data_vars={
+            "channel": (
+                "single_target",
+                np.array([], dtype=object),
+            ),
+            "ping_index": (
+                "single_target",
+                np.array([], dtype=np.int64),
+            ),
+            "range_sample": (
+                "single_target",
+                np.array([], dtype=np.int64),
+            ),
+            "beam_comp_db": (
+                "single_target",
+                np.array([], dtype=np.float64),
+            ),
+        },
+        coords={
+            "single_target": np.array([], dtype=np.int64),
+        },
+    )
+
+    out = compute_TS(
+        ds_sp,
+        point_locations=point_locations,
+    )
+
+    assert out.sizes["single_target"] == 0
+    assert "uncompensated_TS" in out
+    assert "compensated_TS" in out

@@ -1052,8 +1052,8 @@ def detect_single_targets(
 
     out = METHODS_SINGLE_TARGET[method](ds, params)
 
-    if not isinstance(out, xr.Dataset) or "target" not in out.dims:
-        raise TypeError(f"{method} must return an xr.Dataset with a 'target' dimension.")
+    if not isinstance(out, xr.Dataset) or "single_target" not in out.dims:
+        raise TypeError(f"{method} must return an xr.Dataset with a 'single_target' dimension.")
 
     required = ("ping_time", "range_sample", "frequency_nominal")
     missing = [v for v in required if v not in out]
@@ -1062,8 +1062,8 @@ def detect_single_targets(
             f"{method} output missing required field(s): {missing} (expected {list(required)})."
         )
 
-    bad_dims = [v for v in required if out[v].dims != ("target",)]
+    bad_dims = [v for v in required if out[v].dims != ("single_target",)]
     if bad_dims:
-        raise ValueError(f"{method} field(s) must have dims ('target',): {bad_dims}.")
+        raise ValueError(f"{method} field(s) must have dims ('single_target',): {bad_dims}.")
 
     return out

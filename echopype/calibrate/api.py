@@ -413,7 +413,110 @@ def compute_Sp(echodata: EchoData, **kwargs) -> xr.Dataset:
     return _compute_cal(cal_type="Sp", echodata=echodata, **kwargs)
 
 
-def compute_TS(echodata: EchoData, **kwargs):
+def _compute_TS_from_Sp(
+    source_Sp: xr.Dataset,
+    point_locations: xr.Dataset,
+) -> xr.Dataset:
+    """Compute single-target TS values from an Sp dataset."""
+
+    target_dim = "single_target"
+
+    if target_dim not in point_locations.dims:
+        raise ValueError("point_locations must use the 'single_target' dimension.")
+
+    if "channel" not in point_locations:
+        raise ValueError("point_locations must contain a 'channel' variable.")
+
+    if "beam_comp_db" not in point_locations:
+        raise ValueError("point_locations must contain a 'beam_comp_db' variable.")
+
+    if point_locations.sizes[target_dim] == 0:
+        return point_locations.assign(
+            uncompensated_TS=(
+                target_dim,
+                np.array([], dtype=np.float64),
+            ),
+            compensated_TS=(
+                target_dim,
+                np.array([], dtype=np.float64),
+            ),
+        )
+
+    target_dsets = []
+
+    for channel in np.unique(point_locations["channel"].values):
+        targets_channel = point_locations.where(
+            point_locations["channel"] == channel,
+            drop=True,
+        )
+
+        source_channel = source_Sp.sel(channel=channel)
+
+        ping_index = targets_channel["ping_index"].values.astype(int)
+        range_sample = targets_channel["range_sample"].values.astype(int)
+
+        uncompensated_ts_raw = source_channel["Sp"].isel(
+            ping_time=xr.DataArray(
+                ping_index,
+                dims=target_dim,
+            ),
+            range_sample=xr.DataArray(
+                range_sample,
+                dims=target_dim,
+            ),
+        )
+
+        uncompensated_ts = xr.DataArray(
+            uncompensated_ts_raw.values,
+            dims=(target_dim,),
+            coords={
+                target_dim: targets_channel[target_dim],
+            },
+            name="uncompensated_TS",
+        )
+
+        compensated_ts = xr.DataArray(
+            (uncompensated_ts.values + targets_channel["beam_comp_db"].values),
+            dims=(target_dim,),
+            coords={
+                target_dim: targets_channel[target_dim],
+            },
+            name="compensated_TS",
+        )
+
+        targets_channel = targets_channel.assign(
+            uncompensated_TS=uncompensated_ts,
+            compensated_TS=compensated_ts,
+        )
+
+        target_dsets.append(targets_channel)
+
+    result = xr.concat(
+        target_dsets,
+        dim=target_dim,
+    )
+
+    result["uncompensated_TS"].attrs = {
+        "long_name": ("Calculated target strength (re 1 m2) " "uncompensated for off-axis angle"),
+        "units": "dB",
+    }
+
+    result["compensated_TS"].attrs = {
+        "long_name": (
+            "Calculated target strength (re 1 m2) " "after compensation for off-axis angle"
+        ),
+        "units": "dB",
+    }
+
+    return result
+
+
+def compute_TS(
+    echodata: EchoData | xr.Dataset,
+    *,
+    point_locations: xr.Dataset | None = None,
+    **kwargs,
+) -> xr.Dataset:
     """
     Compute target strength (TS) from raw data.
 
@@ -425,11 +528,15 @@ def compute_TS(echodata: EchoData, **kwargs):
     ----------
     echodata : EchoData
         An `EchoData` object created by using `open_raw` or `open_converted`
+        point_locations : xr.Dataset, optional
+
+    Single-target locations produced by ``detect_from_Sp``.
+        Required when ``echodata`` is an Sp dataset rather than an EchoData object.
 
     env_params : dict, optional
         Environmental parameters needed for calibration.
         Users can supply `"sound speed"` and `"absorption"` directly,
-        or specify other variables that can be used to compute them,
+        or specify other variables that can be used to compok what nute them,
         including `"temperature"`, `"salinity"`, and `"pressure"`.
 
         For EK60 and EK80 echosounders, by default echopype uses
@@ -514,6 +621,19 @@ def compute_TS(echodata: EchoData, **kwargs):
     symbols in fisheries acoustics. ICES J. Mar. Sci. 59: 365-369.
     https://doi.org/10.1006/jmsc.2001.1158
     """
+
+    if isinstance(echodata, xr.Dataset):
+        if point_locations is None:
+            raise ValueError(
+                "point_locations must be provided when computing "
+                "single-target TS from an Sp dataset."
+            )
+
+        return _compute_TS_from_Sp(
+            source_Sp=echodata,
+            point_locations=point_locations,
+        )
+
     return _compute_cal(cal_type="TS", echodata=echodata, **kwargs)
 
 

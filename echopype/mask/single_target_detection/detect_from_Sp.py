@@ -167,11 +167,9 @@ def _beam_comp_db(ds_sp: xr.Dataset, params: dict) -> xr.DataArray:
         bw_al = ds_sp["beamwidth_alongship"].broadcast_like(th_al)
         bw_at = ds_sp["beamwidth_athwartship"].broadcast_like(th_at)
 
-        off_al = ds_sp["angle_offset_alongship"].broadcast_like(th_al)
-        off_at = ds_sp["angle_offset_athwartship"].broadcast_like(th_at)
-
-        x = 2.0 * (th_al - off_al) / bw_al
-        y = 2.0 * (th_at - off_at) / bw_at
+        # Angles from add_splitbeam_angle() are already offset-corrected.
+        x = 2.0 * th_al / bw_al
+        y = 2.0 * th_at / bw_at
 
         beam_comp_db = 6.0206 * (x**2 + y**2 - 0.18 * x**2 * y**2)
         return beam_comp_db.broadcast_like(ds_sp["Sp"])
@@ -184,14 +182,16 @@ def _phase1_simple(
     params: dict,
     beam_comp_db: xr.DataArray,
 ) -> xr.Dataset:
-    # Echoview split-beam Method 2 starts from a TS-like operand,
-    # then removes TVG/range and absorption to detect on power-like data.
-    # In echopype we start from Sp, so reconstruct the TS-like operand
-    # by adding the beam compensation before computing P_like.
-    ts_like = ds_sp["Sp"] + beam_comp_db
-
+    # Echoview Method 2 detects peaks on power-like data obtained by
+    # removing TVG/range and absorption from the TS operand.
+    #
+    # In echopype, Sp is already the uncompensated TS-like quantity,
+    # so reconstruct the power-like signal directly from Sp.
+    #
+    # Beam compensation is NOT part of the detection signal; it is only
+    # used as a peak-selection criterion and later for the final TS.
     plike_mat = _plike_from_sp(
-        ts_like,
+        ds_sp["Sp"],
         ds_sp["echo_range"],
         ds_sp["sound_absorption"],
     )
@@ -244,6 +244,8 @@ def _phase1_simple(
     plike_peak_list = []
     target_range_list = []
     beam_comp_db_list = []
+    angle_minor_sd_deg_list = []
+    angle_major_sd_deg_list = []
 
     for it in range(plike_np.shape[0]):
         peaks = np.where(cand_np[it])[0]
@@ -281,10 +283,13 @@ def _phase1_simple(
             seg_al = ali[iinf : isup + 1] * 180.0 / np.pi
             seg_ath = athi[iinf : isup + 1] * 180.0 / np.pi
 
-            if np.nanstd(seg_ath) > max_sd_minor_deg:
+            angle_minor_sd_deg = float(np.nanstd(seg_ath))
+            angle_major_sd_deg = float(np.nanstd(seg_al))
+
+            if angle_minor_sd_deg > max_sd_minor_deg:
                 continue
 
-            if np.nanstd(seg_al) > max_sd_major_deg:
+            if angle_major_sd_deg > max_sd_major_deg:
                 continue
 
             ping_index_list.append(it)
@@ -296,40 +301,85 @@ def _phase1_simple(
             plike_peak_list.append(float(plike_peak))
             target_range_list.append(float(range_np[it, p]))
             beam_comp_db_list.append(float(beam_comp_np[it, p]))
+            angle_minor_sd_deg_list.append(angle_minor_sd_deg)
+            angle_major_sd_deg_list.append(angle_major_sd_deg)
 
     return xr.Dataset(
         data_vars=dict(
-            ping_index=("target", np.array(ping_index_list, dtype=np.int64)),
-            range_sample=("target", np.array(range_sample_list, dtype=np.int64)),
-            iinf=("target", np.array(iinf_list, dtype=np.int64)),
-            isup=("target", np.array(isup_list, dtype=np.int64)),
-            pulse_len_samples=("target", np.array(pulse_len_samples_list, dtype=np.int64)),
-            norm_pulse_len=("target", np.array(norm_pulse_len_list, dtype=np.float64)),
-            plike_peak=("target", np.array(plike_peak_list, dtype=np.float64)),
-            target_range=("target", np.array(target_range_list, dtype=np.float64)),
-            beam_comp_db=("target", np.array(beam_comp_db_list, dtype=np.float64)),
+            ping_index=(
+                "single_target",
+                np.array(ping_index_list, dtype=np.int64),
+            ),
+            range_sample=(
+                "single_target",
+                np.array(range_sample_list, dtype=np.int64),
+            ),
+            iinf=(
+                "single_target",
+                np.array(iinf_list, dtype=np.int64),
+            ),
+            isup=(
+                "single_target",
+                np.array(isup_list, dtype=np.int64),
+            ),
+            pulse_len_samples=(
+                "single_target",
+                np.array(pulse_len_samples_list, dtype=np.int64),
+            ),
+            norm_pulse_len=(
+                "single_target",
+                np.array(norm_pulse_len_list, dtype=np.float64),
+            ),
+            plike_peak=(
+                "single_target",
+                np.array(plike_peak_list, dtype=np.float64),
+            ),
+            single_target_range=(
+                "single_target",
+                np.array(target_range_list, dtype=np.float64),
+            ),
+            beam_comp_db=(
+                "single_target",
+                np.array(beam_comp_db_list, dtype=np.float64),
+            ),
+            single_target_athwartship_angle_sd=(
+                "single_target",
+                np.array(angle_minor_sd_deg_list, dtype=np.float64),
+            ),
+            single_target_alongship_angle_sd=(
+                "single_target",
+                np.array(angle_major_sd_deg_list, dtype=np.float64),
+            ),
         ),
-        coords=dict(target=np.arange(len(range_sample_list), dtype=np.int64)),
+        coords={
+            "single_target": np.arange(
+                len(range_sample_list),
+                dtype=np.int64,
+            )
+        },
     )
 
 
 def _reject_overlaps_per_ping(feats: xr.Dataset) -> xr.Dataset:
-    if feats.sizes.get("target", 0) <= 1:
+    if feats.sizes.get("single_target", 0) <= 1:
         return feats
 
     ping_idx = feats["ping_index"].values
+    range_sample = feats["range_sample"].values
     iinf = feats["iinf"].values
     isup = feats["isup"].values
     plike_peak = feats["plike_peak"].values
 
-    keep = np.ones(feats.sizes["target"], dtype=bool)
+    keep = np.ones(feats.sizes["single_target"], dtype=bool)
 
     for it in np.unique(ping_idx):
         ii = np.where(ping_idx == it)[0]
         if ii.size <= 1:
             continue
 
-        order = ii[np.argsort(iinf[ii])]
+        # Echoview: screen pulses from low to high range/depth.
+        # Use peak sample order, not envelope-start order.
+        order = ii[np.argsort(range_sample[ii])]
         accepted = []
 
         for j in order:
@@ -343,36 +393,94 @@ def _reject_overlaps_per_ping(feats: xr.Dataset) -> xr.Dataset:
                 accepted.append(j)
                 continue
 
+            # If pulses overlap, reject the lower-power / lower-TS one.
             if plike_peak[j] >= plike_peak[k]:
                 keep[k] = False
                 accepted[-1] = j
             else:
                 keep[j] = False
 
-    return feats.isel(target=keep)
+    return feats.isel(single_target=keep)
 
 
 def _pack_targets(feats: xr.Dataset, ds_sp: xr.Dataset) -> xr.Dataset:
-    n_targets = feats.sizes.get("target", 0)
+    n_targets = feats.sizes.get("single_target", 0)
+    channel_value = ds_sp["channel"].item()
 
     if n_targets == 0:
         return xr.Dataset(
             data_vars=dict(
-                ping_time=("target", np.array([], dtype=ds_sp["ping_time"].dtype)),
-                range_sample=("target", np.array([], dtype=np.int64)),
-                frequency_nominal=("target", np.array([], dtype=np.float64)),
-                ping_index=("target", np.array([], dtype=np.int64)),
-                iinf=("target", np.array([], dtype=np.int64)),
-                isup=("target", np.array([], dtype=np.int64)),
-                pulse_len_samples=("target", np.array([], dtype=np.int64)),
-                norm_pulse_len=("target", np.array([], dtype=np.float64)),
-                target_range=("target", np.array([], dtype=np.float64)),
-                angle_major_deg=("target", np.array([], dtype=np.float64)),
-                angle_minor_deg=("target", np.array([], dtype=np.float64)),
-                beam_comp_db=("target", np.array([], dtype=np.float64)),
-                plike_peak=("target", np.array([], dtype=np.float64)),
+                channel=(
+                    "single_target",
+                    np.array([], dtype=object),
+                ),
+                ping_time=(
+                    "single_target",
+                    np.array([], dtype=ds_sp["ping_time"].dtype),
+                ),
+                range_sample=(
+                    "single_target",
+                    np.array([], dtype=np.int64),
+                ),
+                frequency_nominal=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                ping_index=(
+                    "single_target",
+                    np.array([], dtype=np.int64),
+                ),
+                iinf=(
+                    "single_target",
+                    np.array([], dtype=np.int64),
+                ),
+                isup=(
+                    "single_target",
+                    np.array([], dtype=np.int64),
+                ),
+                pulse_len_samples=(
+                    "single_target",
+                    np.array([], dtype=np.int64),
+                ),
+                norm_pulse_len=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                single_target_range=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                single_target_alongship_angle=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                single_target_athwartship_angle=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                single_target_athwartship_angle_sd=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                single_target_alongship_angle_sd=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                beam_comp_db=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
+                plike_peak=(
+                    "single_target",
+                    np.array([], dtype=np.float64),
+                ),
             ),
-            coords=dict(target=np.arange(0, dtype=np.int64)),
+            coords={
+                "single_target": np.arange(
+                    n_targets,
+                    dtype=np.int64,
+                )
+            },
             attrs=dict(method="from_Sp"),
         )
 
@@ -380,8 +488,8 @@ def _pack_targets(feats: xr.Dataset, ds_sp: xr.Dataset) -> xr.Dataset:
     p = feats["range_sample"].values.astype(np.int64)
 
     ping_time = ds_sp["ping_time"].values[it]
-    angle_major_deg = ds_sp["angle_alongship"].values[it, p] * 180.0 / np.pi
-    angle_minor_deg = ds_sp["angle_athwartship"].values[it, p] * 180.0 / np.pi
+    single_target_alongship_angle = ds_sp["angle_alongship"].values[it, p] * 180.0 / np.pi
+    single_target_athwartship_angle = ds_sp["angle_athwartship"].values[it, p] * 180.0 / np.pi
 
     fn = ds_sp["frequency_nominal"]
     if fn.ndim == 0:
@@ -390,24 +498,85 @@ def _pack_targets(feats: xr.Dataset, ds_sp: xr.Dataset) -> xr.Dataset:
         freq_val = float(fn.values[0])
 
     frequency_nominal = np.full(n_targets, freq_val, dtype=np.float64)
+    channel = np.full(
+        n_targets,
+        channel_value,
+        dtype=object,
+    )
 
     return xr.Dataset(
         data_vars=dict(
-            ping_time=("target", ping_time),
-            range_sample=("target", p),
-            frequency_nominal=("target", frequency_nominal),
-            ping_index=("target", it),
-            iinf=("target", feats["iinf"].values.astype(np.int64)),
-            isup=("target", feats["isup"].values.astype(np.int64)),
-            pulse_len_samples=("target", feats["pulse_len_samples"].values.astype(np.int64)),
-            norm_pulse_len=("target", feats["norm_pulse_len"].values.astype(np.float64)),
-            target_range=("target", feats["target_range"].values.astype(np.float64)),
-            angle_major_deg=("target", angle_major_deg.astype(np.float64)),
-            angle_minor_deg=("target", angle_minor_deg.astype(np.float64)),
-            beam_comp_db=("target", feats["beam_comp_db"].values.astype(np.float64)),
-            plike_peak=("target", feats["plike_peak"].values.astype(np.float64)),
+            channel=(
+                "single_target",
+                channel,
+            ),
+            ping_time=(
+                "single_target",
+                ping_time,
+            ),
+            range_sample=(
+                "single_target",
+                p,
+            ),
+            frequency_nominal=(
+                "single_target",
+                frequency_nominal,
+            ),
+            ping_index=(
+                "single_target",
+                it,
+            ),
+            iinf=(
+                "single_target",
+                feats["iinf"].values.astype(np.int64),
+            ),
+            isup=(
+                "single_target",
+                feats["isup"].values.astype(np.int64),
+            ),
+            pulse_len_samples=(
+                "single_target",
+                feats["pulse_len_samples"].values.astype(np.int64),
+            ),
+            norm_pulse_len=(
+                "single_target",
+                feats["norm_pulse_len"].values.astype(np.float64),
+            ),
+            single_target_range=(
+                "single_target",
+                feats["single_target_range"].values.astype(np.float64),
+            ),
+            single_target_alongship_angle=(
+                "single_target",
+                single_target_alongship_angle.astype(np.float64),
+            ),
+            single_target_athwartship_angle=(
+                "single_target",
+                single_target_athwartship_angle.astype(np.float64),
+            ),
+            single_target_athwartship_angle_sd=(
+                "single_target",
+                feats["single_target_athwartship_angle_sd"].values.astype(np.float64),
+            ),
+            single_target_alongship_angle_sd=(
+                "single_target",
+                feats["single_target_alongship_angle_sd"].values.astype(np.float64),
+            ),
+            beam_comp_db=(
+                "single_target",
+                feats["beam_comp_db"].values.astype(np.float64),
+            ),
+            plike_peak=(
+                "single_target",
+                feats["plike_peak"].values.astype(np.float64),
+            ),
         ),
-        coords=dict(target=np.arange(n_targets, dtype=np.int64)),
+        coords={
+            "single_target": np.arange(
+                n_targets,
+                dtype=np.int64,
+            )
+        },
         attrs=dict(method="from_Sp"),
     )
 
@@ -423,6 +592,7 @@ def detect_from_Sp(ds_sp: xr.Dataset, params: dict) -> xr.Dataset:
     params = _validate_params(params)
     ds_sp = _validate_from_Sp_dataset(ds_sp)
 
+    # no need for copy?
     ds_sp = ds_sp.copy()
 
     deg2rad = np.pi / 180.0
