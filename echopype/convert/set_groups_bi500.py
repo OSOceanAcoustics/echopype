@@ -22,10 +22,7 @@ class SetGroupsBI500(SetGroupsBase):
     beamgroups_possible = [
         {
             "name": "Beam_group1",
-            "descr": (
-                "contains backscatter power (uncalibrated) and other beam or"
-                " channel-specific data."
-            ),
+            "descr": ("Contains BI500 channel, ping, and echogram geometry metadata."),
         }
     ]
 
@@ -227,6 +224,253 @@ class SetGroupsBI500(SetGroupsBase):
         ds = ds.assign_attrs(sonar_attr_dict)
         return set_time_encodings(ds)
 
+    def set_calibrated(self) -> xr.Dataset:
+        """Create a dataset containing calibrated BI500 echogram products."""
+        parameters = self.parser_obj.parameters
+        ping_data = self.parser_obj.ping_data
+        unpacked_data = self.parser_obj.unpacked_data
+
+        ping_time = self._get_ping_time()
+        channel_id = self._get_channel_id()
+        frequency = float(parameters["frequency"][0])
+
+        sv = self._stack_samples(unpacked_data["pelagic"])
+        sv_bottom = self._stack_samples(unpacked_data["bottom"])
+
+        traces = self._collect_target_traces()
+        n_targets = len(traces["single_target_range"])
+
+        single_target = np.arange(
+            n_targets,
+            dtype=np.int64,
+        )
+
+        single_target_ping_index = np.asarray(
+            traces["ping_index"],
+            dtype=np.int64,
+        )
+
+        single_target_ping_time = ping_time[single_target_ping_index]
+
+        ds = xr.Dataset(
+            data_vars={
+                "Sv": (
+                    ["channel", "ping_time", "range_sample"],
+                    sv[np.newaxis, :, :].astype(np.float32),
+                    {
+                        "long_name": "Volume backscattering strength",
+                        "units": "dB",
+                        "comment": (
+                            "Nominally calibrated pelagic Sv recorded " "in the BI500 -Data file."
+                        ),
+                    },
+                ),
+                "Sv_bottom": (
+                    ["channel", "ping_time", "range_sample_bottom"],
+                    sv_bottom[np.newaxis, :, :].astype(np.float32),
+                    {
+                        "long_name": "Bottom volume backscattering strength",
+                        "units": "dB",
+                        "comment": (
+                            "Nominally calibrated bottom Sv recorded " "in the BI500 -Data file."
+                        ),
+                    },
+                ),
+                "frequency_nominal": (
+                    ["channel"],
+                    [frequency],
+                    {
+                        "long_name": "Transducer frequency",
+                        "standard_name": "sound_frequency",
+                        "units": "Hz",
+                        "valid_min": 0.0,
+                    },
+                ),
+                "pelagic_upper": (
+                    ["channel", "ping_time"],
+                    np.asarray(
+                        ping_data["pelagic_upper"],
+                        dtype=np.float64,
+                    )[np.newaxis, :],
+                    {
+                        "long_name": "Pelagic echogram upper depth bound",
+                        "units": "m",
+                    },
+                ),
+                "pelagic_lower": (
+                    ["channel", "ping_time"],
+                    np.asarray(
+                        ping_data["pelagic_lower"],
+                        dtype=np.float64,
+                    )[np.newaxis, :],
+                    {
+                        "long_name": "Pelagic echogram lower depth bound",
+                        "units": "m",
+                    },
+                ),
+                "bottom_upper": (
+                    ["channel", "ping_time"],
+                    np.asarray(
+                        ping_data["bottom_upper"],
+                        dtype=np.float64,
+                    )[np.newaxis, :],
+                    {
+                        "long_name": "Bottom echogram upper depth bound",
+                        "units": "m",
+                    },
+                ),
+                "bottom_lower": (
+                    ["channel", "ping_time"],
+                    np.asarray(
+                        ping_data["bottom_lower"],
+                        dtype=np.float64,
+                    )[np.newaxis, :],
+                    {
+                        "long_name": "Bottom echogram lower depth bound",
+                        "units": "m",
+                    },
+                ),
+                "single_target_identifier": (
+                    ["single_target"],
+                    single_target,
+                    {
+                        "long_name": "Index of single target detected",
+                    },
+                ),
+                "ping_index": (
+                    ["single_target"],
+                    single_target_ping_index,
+                    {
+                        "long_name": (
+                            "Index of the BI500 ping containing the " "single-target detection"
+                        ),
+                    },
+                ),
+                "single_target_ping_time": (
+                    ["single_target"],
+                    single_target_ping_time,
+                    {
+                        "long_name": "Ping time of single-target detection",
+                        "standard_name": "time",
+                    },
+                ),
+                "single_target_range": (
+                    ["single_target"],
+                    np.asarray(
+                        traces["single_target_range"],
+                        dtype=np.float64,
+                    ),
+                    {
+                        "long_name": "Range of single target detected",
+                        "units": "m",
+                    },
+                ),
+                "single_target_alongship_angle": (
+                    ["single_target"],
+                    np.asarray(
+                        traces["single_target_alongship_angle"],
+                        dtype=np.float64,
+                    ),
+                    {
+                        "long_name": (
+                            "Single target arrival angle in the " "minor beam coordinate"
+                        ),
+                        "units": "arc_degree",
+                        "valid_range": [-180.0, 180.0],
+                    },
+                ),
+                "single_target_athwartship_angle": (
+                    ["single_target"],
+                    np.asarray(
+                        traces["single_target_athwartship_angle"],
+                        dtype=np.float64,
+                    ),
+                    {
+                        "long_name": (
+                            "Single target arrival angle in the " "major beam coordinate"
+                        ),
+                        "units": "arc_degree",
+                        "valid_range": [-180.0, 180.0],
+                    },
+                ),
+                "Sp": (
+                    ["single_target"],
+                    np.asarray(
+                        traces["Sp"],
+                        dtype=np.float64,
+                    ),
+                    {
+                        "long_name": (
+                            "Calculated Target Strength (re 1 m2) "
+                            "uncompensated for off-axis angle"
+                        ),
+                        "units": "dB",
+                        "comment": (
+                            "Uncompensated target strength generated " "directly by BI500."
+                        ),
+                    },
+                ),
+                "TS": (
+                    ["single_target"],
+                    np.asarray(
+                        traces["TS"],
+                        dtype=np.float64,
+                    ),
+                    {
+                        "long_name": (
+                            "Calculated Target Strength (re 1 m2) "
+                            "after compensation for off-axis angle"
+                        ),
+                        "units": "dB",
+                        "comment": (
+                            "Beam-compensated target strength generated " "directly by BI500."
+                        ),
+                    },
+                ),
+            },
+            coords={
+                "channel": (
+                    ["channel"],
+                    [channel_id],
+                    self._varattrs["beam_coord_default"]["channel"],
+                ),
+                "ping_time": (
+                    ["ping_time"],
+                    ping_time,
+                    self._varattrs["beam_coord_default"]["ping_time"],
+                ),
+                "range_sample": (
+                    ["range_sample"],
+                    np.arange(sv.shape[1]),
+                    self._varattrs["beam_coord_default"]["range_sample"],
+                ),
+                "range_sample_bottom": (
+                    ["range_sample_bottom"],
+                    np.arange(sv_bottom.shape[1]),
+                    {
+                        "long_name": "Along-range bottom sample number, base 0",
+                    },
+                ),
+                "single_target": (
+                    ["single_target"],
+                    single_target,
+                    {
+                        "long_name": "Single-target detection index",
+                    },
+                ),
+            },
+            attrs={
+                "processing_function": "open_raw",
+                "source_sonar_model": "BI500",
+                "comment": (
+                    "The BI500 system generated these calibrated "
+                    "quantities directly; echopype did not recalibrate them."
+                ),
+            },
+        )
+
+        return set_time_encodings(ds)
+
     @staticmethod
     def _stack_samples(samples: list) -> np.ndarray:
         """Stack per-ping sample arrays, padding shorter pings with NaN."""
@@ -238,26 +482,36 @@ class SetGroupsBI500(SetGroupsBase):
         return stacked
 
     def _collect_target_traces(self) -> dict:
-        """Collect single-target detections, skipping zero placeholders."""
+        """Collect BI500 single-target values and their source ping indices."""
         trace_fields = {
-            "target_depth": "TargetDepth",
-            "compensated_ts": "CompTS",
-            "uncompensated_ts": "UncompTS",
-            "alongship": "Alongship",
-            "athwartship": "Athwartship",
+            "single_target_range": "TargetDepth",
+            "TS": "CompTS",
+            "Sp": "UncompTS",
+            "single_target_alongship_angle": "Alongship",
+            "single_target_athwartship_angle": "Athwartship",
         }
+
         collected = {name: [] for name in trace_fields}
+        collected["ping_index"] = []
+
         trace_idx = 0
-        for count in self.parser_obj.index_counts["echotrace_count"]:
+
+        for ping_index, count in enumerate(self.parser_obj.index_counts["echotrace_count"]):
+            # The parser inserts one zero placeholder when a ping has no traces.
             if count == 0:
                 trace_idx += 1
                 continue
+
             for _ in range(count):
-                for out_name, in_name in trace_fields.items():
-                    collected[out_name].append(
-                        float(self.parser_obj.unpacked_data[in_name][trace_idx])
+                collected["ping_index"].append(ping_index)
+
+                for output_name, parser_name in trace_fields.items():
+                    collected[output_name].append(
+                        float(self.parser_obj.unpacked_data[parser_name][trace_idx])
                     )
+
                 trace_idx += 1
+
         return collected
 
     def set_beam(self) -> List[xr.Dataset]:
@@ -265,15 +519,11 @@ class SetGroupsBI500(SetGroupsBase):
         parameters = self.parser_obj.parameters
         ping_data = self.parser_obj.ping_data
         vlog_data = self.parser_obj.vlog_data
-        unpacked_data = self.parser_obj.unpacked_data
 
         ping_time = self._get_ping_time()
         ping_time_vlog = self._get_ping_time_vlog()
         channel_id = self._get_channel_id()
         frequency = float(parameters["frequency"][0])
-
-        pelagic = self._stack_samples(unpacked_data["pelagic"])
-        bottom = self._stack_samples(unpacked_data["bottom"])
 
         ds = xr.Dataset(
             {
@@ -299,26 +549,6 @@ class SetGroupsBI500(SetGroupsBase):
                         "long_name": "Beam type",
                         "flag_values": [0, 1],
                         "flag_meanings": ["Single beam", "Split aperture beam"],
-                    },
-                ),
-                "backscatter_r": (
-                    ["channel", "ping_time", "range_sample"],
-                    pelagic[np.newaxis, :, :].astype(np.float32),
-                    {
-                        "long_name": self._varattrs["beam_var_default"]["backscatter_r"][
-                            "long_name"
-                        ],
-                        "units": "dB",
-                        "comment": "Pelagic echogram from BI500 -Data file.",
-                    },
-                ),
-                "backscatter_r_bottom": (
-                    ["channel", "ping_time", "range_sample_bottom"],
-                    bottom[np.newaxis, :, :].astype(np.float32),
-                    {
-                        "long_name": "Raw bottom echogram measurements",
-                        "units": "dB",
-                        "comment": "Bottom echogram from BI500 -Data file.",
                     },
                 ),
                 "echogram_type": (
@@ -392,16 +622,6 @@ class SetGroupsBI500(SetGroupsBase):
                         "standard_name": "time",
                     },
                 ),
-                "range_sample": (
-                    ["range_sample"],
-                    np.arange(pelagic.shape[1]),
-                    self._varattrs["beam_coord_default"]["range_sample"],
-                ),
-                "range_sample_bottom": (
-                    ["range_sample_bottom"],
-                    np.arange(bottom.shape[1]),
-                    {"long_name": "Along-range bottom sample number, base 0"},
-                ),
             },
         )
         return [set_time_encodings(ds)]
@@ -409,53 +629,41 @@ class SetGroupsBI500(SetGroupsBase):
     def set_vendor(self) -> xr.Dataset:
         """Set the Vendor_specific group."""
         parameters = self.parser_obj.parameters
-        traces = self._collect_target_traces()
-        n_targets = len(traces["target_depth"])
-        target_index = np.arange(n_targets)
 
-        ds = xr.Dataset(
+        return xr.Dataset(
             {
-                "target_depth": (
-                    ["target_index"],
-                    np.array(traces["target_depth"], dtype=np.float64),
-                    {"long_name": "Target depth", "units": "m", "positive": "down"},
+                "start_latitude": (
+                    [],
+                    float(parameters["start_latitude"][0]),
+                    {},
                 ),
-                "compensated_ts": (
-                    ["target_index"],
-                    np.array(traces["compensated_ts"], dtype=np.float64),
-                    {"long_name": "Compensated target strength", "units": "dB"},
+                "start_longitude": (
+                    [],
+                    float(parameters["start_longitude"][0]),
+                    {},
                 ),
-                "uncompensated_ts": (
-                    ["target_index"],
-                    np.array(traces["uncompensated_ts"], dtype=np.float64),
-                    {"long_name": "Uncompensated target strength", "units": "dB"},
+                "start_distance": (
+                    [],
+                    float(parameters["start_distance"][0]),
+                    {},
                 ),
-                "alongship": (
-                    ["target_index"],
-                    np.array(traces["alongship"], dtype=np.float64),
-                    {"long_name": "Single-target alongship angle", "units": "arc_degree"},
+                "stop_latitude": (
+                    [],
+                    float(parameters["stop_latitude"][0]),
+                    {},
                 ),
-                "athwartship": (
-                    ["target_index"],
-                    np.array(traces["athwartship"], dtype=np.float64),
-                    {"long_name": "Single-target athwartship angle", "units": "arc_degree"},
+                "stop_longitude": (
+                    [],
+                    float(parameters["stop_longitude"][0]),
+                    {},
                 ),
-                "start_latitude": ([], float(parameters["start_latitude"][0]), {}),
-                "start_longitude": ([], float(parameters["start_longitude"][0]), {}),
-                "start_distance": ([], float(parameters["start_distance"][0]), {}),
-                "stop_latitude": ([], float(parameters["stop_latitude"][0]), {}),
-                "stop_longitude": ([], float(parameters["stop_longitude"][0]), {}),
-                "stop_distance": ([], float(parameters["stop_distance"][0]), {}),
-            },
-            coords={
-                "target_index": (
-                    ["target_index"],
-                    target_index,
-                    {"long_name": "Single-target detection index"},
+                "stop_distance": (
+                    [],
+                    float(parameters["stop_distance"][0]),
+                    {},
                 ),
-            },
+            }
         )
-        return ds
 
     def set_provenance(self) -> xr.Dataset:
         """Set the Provenance group."""
