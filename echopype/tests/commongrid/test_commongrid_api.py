@@ -141,7 +141,7 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
         .indexes["ping_time"]
     )
     ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
-    
+
     sv_mean = _groupby_x_along_channels(
         ds_Sv,
         range_interval,
@@ -584,7 +584,7 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
     if operation == "MVBS":
         if range_var == "echo_range":
             # Turn on logger verbosity
-            ep.utils.log.verbose(override=False)
+            ep.utils.log.verbose(override=True)
 
         da = ep.commongrid.compute_MVBS(
             subset_ds_Sv,
@@ -604,7 +604,7 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
             assert any(expected_warning in record.message for record in caplog.records)
 
             # Turn off logger verbosity
-            ep.utils.log.verbose(override=True)
+            ep.utils.log.verbose(override=False)
     else:
         da = ep.commongrid.compute_NASC(subset_ds_Sv, range_bin="2m", skipna=skipna)["NASC"]
 

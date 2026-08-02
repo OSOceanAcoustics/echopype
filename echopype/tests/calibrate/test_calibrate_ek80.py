@@ -562,7 +562,8 @@ def test_assume_single_filter_time(sonar_model, compute_type, waveform_mode, enc
         vendor_specific_ds = ed["Vendor_specific"]
         vendor_specific_ds = xr.concat(
             [vendor_specific_ds, vendor_specific_ds],
-            dim="filter_time"
+            dim="filter_time",
+            data_vars="all"
         )
         first_time = vendor_specific_ds.coords["filter_time"].values[0]
         new_times = [first_time, pd.to_datetime(first_time) + pd.Timedelta(seconds=10)]
@@ -623,7 +624,8 @@ def test_multiple_filter_times_calibration(compute_type, ek80_path):
     ds_vendor_specific = ed_venc_mod["Vendor_specific"]
     ds_vendor_specific = xr.concat(
         [ds_vendor_specific, ds_vendor_specific],
-        dim="filter_time"
+        dim="filter_time",
+        data_vars="all",
     )
     first_time = ds_vendor_specific.coords["filter_time"].values[0]
     second_time = ed_venc_mod["Sonar/Beam_group1"]["ping_time"].values[30]

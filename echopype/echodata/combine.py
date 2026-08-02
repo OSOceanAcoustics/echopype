@@ -813,6 +813,7 @@ def _combine(
                         coords="minimal",
                         data_vars="minimal",
                         compat="no_conflicts",
+                        join="outer",
                     )
                     combined_ds = combined_ds.assign(sub_ds.variables)
 
