@@ -7,7 +7,7 @@
 #   contributor: null
 #   references: []
 #   notes: null
-#   files: {}
+#   files: []
 
 ad2cp.zip:
   documented_checksum: null
@@ -17,7 +17,7 @@ ad2cp.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 azfp.zip:
   documented_checksum: null
@@ -28,13 +28,7 @@ azfp.zip:
   references: []
   notes: null
   files:
-    17082117.01A:
-      instrument: AZFP
-      description: Standard test. Used with 17041823.XML.
-      source: null
-      contributor: null
-      references: []
-      notes: null
+  - 17082117.01A
 
 azfp6.zip:
   documented_checksum: null
@@ -44,7 +38,7 @@ azfp6.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ea640.zip:
   documented_checksum: null
@@ -55,13 +49,7 @@ ea640.zip:
   references: []
   notes: null
   files:
-    0001a-D20200321-T032026.raw:
-      instrument: EA640
-      description: Data of identical format to standard EK80 files, but with a different NME1 datagram (instead of NME0).
-      source: null
-      contributor: null
-      references: []
-      notes: null
+  - 0001a-D20200321-T032026.raw
 
 ecs.zip:
   documented_checksum: null
@@ -71,7 +59,7 @@ ecs.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek60.zip:
   documented_checksum: null
@@ -82,45 +70,11 @@ ek60.zip:
   references: []
   notes: null
   files:
-    DY1801_EK60-D20180211-T164025.raw:
-      instrument: EK60
-      description: Standard test with constant ranges across ping times
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    Winter2017-D20170115-T150122.raw:
-      instrument: EK60
-      description: Contains a change of recording length in the middle of the file
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    2015843-D20151023-T190636.raw:
-      instrument: EK60
-      description: Not used in tests but contains ranges are not constant across ping times
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    SH1701_consecutive_files_w_range_change:
-      instrument: EK60
-      description: Not used in tests.
-      source: null
-      contributor: null
-      references: []
-      notes: Folder on shared drive that contains sequential files with ranges that are not constant across ping times.
-
-    NBP_B050N-D20180118-T090228.raw:
-      instrument: EK60
-      description: split-beam setup without angle data
-      source: null
-      contributor: null
-      references: []
-      notes: null
+  - DY1801_EK60-D20180211-T164025.raw
+  - Winter2017-D20170115-T150122.raw
+  - 2015843-D20151023-T190636.raw
+  - SH1701_consecutive_files_w_range_change
+  - NBP_B050N-D20180118-T090228.raw
 
 ek60_calibrate_chunks.zip:
   documented_checksum: null
@@ -130,7 +84,7 @@ ek60_calibrate_chunks.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek60_missing_channel_power.zip:
   documented_checksum: null
@@ -140,7 +94,7 @@ ek60_missing_channel_power.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80.zip:
   documented_checksum: null
@@ -151,77 +105,15 @@ ek80.zip:
   references: []
   notes: null
   files:
-    D20190822-T161221.raw:
-      instrument: EK80
-      description: Contains channels that only record real power data
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    D20170912-T234910.raw:
-      instrument: EK80
-      description: Contains channels that only record complex power data
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    Summer2018--D20180905-T033113.raw:
-      instrument: EK80
-      description: Contains BB channels encoded in complex and CW channels encoded in power samples (reduced from 300 MB to 3.8 MB in test data updates).
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    Summer2018:
-      instrument: EK80
-      description: Contains channels with complex power data as well as channels with real power data. They can be combined.
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    2019118 group2survey-D20191214-T081342.raw:
-      instrument: EK80
-      description: Contains 6 channels but only 2 of those channels collect ping data
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    D20200528-T125932.raw:
-      instrument: EK80
-      description: Data collected from WBT mini (instead of WBT), from @emlynjdavies
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    Green2.Survey2.FM.short.slow.-D20191004-T211557.raw:
-      instrument: EK80
-      description: Contains 2-in-1 transducer, from @FletcherFT (reduced from 104.9 MB to 765 KB in test data updates)
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    raw4-D20220514-T172704.raw:
-      instrument: EK80
-      description: Contains RAW4 datagram, 1 channel only, from @cornejotux
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    D20210330-T123857.raw:
-      instrument: EK80
-      description: do not contain filter coefficients
-      source: null
-      contributor: null
-      references: []
-      notes: null
+  - D20190822-T161221.raw
+  - D20170912-T234910.raw
+  - Summer2018--D20180905-T033113.raw
+  - Summer2018
+  - 2019118 group2survey-D20191214-T081342.raw
+  - D20200528-T125932.raw
+  - Green2.Survey2.FM.short.slow.-D20191004-T211557.raw
+  - raw4-D20220514-T172704.raw
+  - D20210330-T123857.raw
 
 ek80_bb_complex_multiplex.zip:
   documented_checksum: null
@@ -231,7 +123,7 @@ ek80_bb_complex_multiplex.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80_bb_with_calibration.zip:
   documented_checksum: null
@@ -241,7 +133,7 @@ ek80_bb_with_calibration.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80_duplicate_ping_times.zip:
   documented_checksum: null
@@ -251,7 +143,7 @@ ek80_duplicate_ping_times.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80_ext.zip:
   documented_checksum: null
@@ -261,7 +153,7 @@ ek80_ext.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80_invalid_env_datagrams.zip:
   documented_checksum: null
@@ -271,7 +163,7 @@ ek80_invalid_env_datagrams.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80_missing_sound_velocity_profile.zip:
   documented_checksum: null
@@ -281,7 +173,7 @@ ek80_missing_sound_velocity_profile.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80_new.zip:
   documented_checksum: null
@@ -291,7 +183,7 @@ ek80_new.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ek80_sequence.zip:
   documented_checksum: null
@@ -301,7 +193,7 @@ ek80_sequence.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 es60.zip:
   documented_checksum: null
@@ -311,7 +203,7 @@ es60.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 es70.zip:
   documented_checksum: null
@@ -321,7 +213,7 @@ es70.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 es80.zip:
   documented_checksum: null
@@ -331,7 +223,7 @@ es80.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 legacy_datatree.zip:
   documented_checksum: null
@@ -341,7 +233,7 @@ legacy_datatree.zip:
   contributor: null
   references: []
   notes: null
-  files: {}
+  files: []
 
 ts_spectrum_example_data.zip:
   documented_checksum: null
@@ -350,63 +242,72 @@ ts_spectrum_example_data.zip:
   source: null
   contributor: null
   references:
-    - Andersen, L. N., et al. (2024). Quantitative processing of broadband data as implemented in a scientific split-beam echosounder. Methods in Ecology and Evolution, 15(2), 317–328. https://doi.org/10.1111/2041-210X.14261
-  notes: This pre-release is intended for staging new files in the release assets for an upcoming release.
+  - Andersen, L. N., et al. (2024). Quantitative processing of broadband data as implemented in a scientific split-beam echosounder.
+    Methods in Ecology and Evolution, 15(2), 317–328. https://doi.org/10.1111/2041-210X.14261
+  notes: null
   files:
-    IMR-D20211215-T143432-TSf.raw:
-      instrument: null
-      description: Broadband EK80 FM dataset from the CRIMAC broadband processing example described in Andersen et al. (2024).
-      source: null
-      contributor: null
-      references: []
-      notes: null
-
-    crimac_tsf_reference_outputs.npz:
-      instrument: null
-      description: Reference outputs generated from the same dataset using the CRIMAC broadband target strength processing workflow. These outputs are provided for convenience and can be used to validate the echopype implementation against the CRIMAC reference results.
-      source: null
-      contributor: null
-      references: []
-      notes: null
+  - IMR-D20211215-T143432-TSf.raw
+  - crimac_tsf_reference_outputs.npz
 
 resample_to_geometry_example_data.zip:
   documented_checksum: null
   instrument: null
-  description: Reference outputs generated using Echoview's Match Geometry algorithm after resampling all channels onto the 200 kHz channel geometry. These files are provided for validation purposes and can be used to compare the `echopype.commongrid.resample_to_geometry()` implementation against Echoview reference results.
+  description: Reference outputs generated using Echoview's Match Geometry algorithm after resampling all channels onto the
+    200 kHz channel geometry. These files are provided for validation purposes and can be used to compare the `echopype.commongrid.resample_to_geometry()`
+    implementation against Echoview reference results.
   source: null
   contributor: null
   references:
-    - Echoview Software Pty Ltd. Match Geometry Algorithm. https://support.echoview.com/WebHelp/Reference/Algorithms/Operators/Match_geometry_algorithm.htm
+  - Echoview Software Pty Ltd. Match Geometry Algorithm. https://support.echoview.com/WebHelp/Reference/Algorithms/Operators/Match_geometry_algorithm.htm
   notes: null
   files:
-    18kHz_regridded.sv.csv:
-      instrument: null
-      description: null
-      source: null
-      contributor: null
-      references: []
-      notes: null
+  - 18kHz_regridded.sv.csv
+  - 120kHz_regridded.sv.csv
+  - 200kHz.sv.csv
+  - Hake-D20230811-T165727.raw
 
-    120kHz_regridded.sv.csv:
-      instrument: null
-      description: null
-      source: null
-      contributor: null
-      references: []
-      notes: null
+azfp_single_frequency.zip:
+  documented_checksum: 71c7c095522208d0a4e773cf4dd082c93c8f27bb75ef729f4307586d6565dc5c
+  instrument: AZFP
+  description: ULS5 AZFP raw data and XML configuration for an instrument configured with only one active 125 kHz channel.
+  source: 'Provided by ZHANGGU in echopype issue #1256.'
+  contributor: ZHANGGU
+  references:
+  - '#421'
+  - '#1256'
+  - '#1714'
+  notes: Used by test_convert_azfp::test_convert_azfp_01a_single_frequency
+  files:
+  - 14021116.XML
+  - 14021117.01A
 
-    200kHz.sv.csv:
-      instrument: null
-      description: null
-      source: null
-      contributor: null
-      references: []
-      notes: null
+ek80_heading.zip:
+  documented_checksum: 141b9a482af22483097de6f928db4d7b0494d4f7a153f88cffd24c070e11fadb
+  instrument: ES80
+  description: ES80 raw data containing NMEA HDT messages used to test heading parsing when heading is unavailable from MRU
+    datagrams.
+  source: Collected during a sphere calibration of a 38 kHz ES80 on a fishing vessel (name deliberately omitted).
+  contributor: gavinmacaulay
+  references: []
+  notes: Used by test_convert_ek80::test_parse_NMEA_heading
+  files:
+  - D20260613-T230914.raw
 
-    Hake-D20230811-T165727.raw:
-      instrument: null
-      description: EK80 CW dataset from the NOAA NCEI/WCSD public fisheries acoustics archive and also used in the echopype Getting Started notebook.
-      source: null
-      contributor: null
-      references: []
-      notes: null
+bi500_test_data.zip:
+  documented_checksum: null
+  instrument: BI500
+  description: Example BI500 survey containing calibrated pelagic and bottom echograms together with stored single-target
+    detections.
+  source: null
+  contributor: jmjech
+  references:
+  - '#1258'
+  - '#1252'
+  notes: Used by test_convert_bi500
+  files:
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Data
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Info
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Ping
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Snap
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Vlog
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Work
