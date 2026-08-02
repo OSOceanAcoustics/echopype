@@ -1,6 +1,5 @@
 (contrib:test-data)=
-
-# Test data inventory
+# Managing test data
 
 echopype uses a collection of test data bundles to support unit and integration tests across different sonar models and file formats. These bundles are distributed through GitHub release assets and downloaded automatically using Pooch during testing.
 

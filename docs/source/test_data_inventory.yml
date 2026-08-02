@@ -16,7 +16,7 @@ ad2cp.zip:
   source: null
   contributor: null
   references: []
-  notes: null
+  notes: test
   files: []
 azfp.zip:
   documented_checksum: sha256:fc75b48c81f266ce70d9db79a986fe8de4399c93bef35119acdc17a2d84aed49

@@ -82,6 +82,10 @@ into these services.
 If your contribution requires new test data, contact the maintainers
 (@leewujung, @ctuguinay, @LOCEANlloydizard) to have them added to the test-data collection.
 
+Every new test-data bundle should also be documented in the test data inventory.
+See {ref}`contrib:test-data` for contributor instructions and
+{ref}`test-data-inventory` for the generated inventory of all registered bundles.
+
 ### Running the tests
 
 To run all Echopype tests:
