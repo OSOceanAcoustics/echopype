@@ -41,22 +41,12 @@ def _render_inventory(app):
         else:
             lines.append("\n**References:** NA\n")
 
-        files = metadata.get("files", {})
+        files = metadata.get("files", [])
         lines.append("\n### Files\n")
 
         if files:
-            lines.append("| File | Instrument | Description | Source | Contributor | Notes |\n")
-            lines.append("| :--- | :--------- | :---------- | :----- | :---------- | :---- |\n")
-
-            for filename, file_metadata in sorted(files.items()):
-                lines.append(
-                    f"| `{filename}` "
-                    f"| {_value(file_metadata.get('instrument'))} "
-                    f"| {_value(file_metadata.get('description'))} "
-                    f"| {_value(file_metadata.get('source'))} "
-                    f"| {_value(file_metadata.get('contributor'))} "
-                    f"| {_value(file_metadata.get('notes'))} |\n"
-                )
+            for filename in sorted(files):
+                lines.append(f"- `{filename}`\n")
         else:
             lines.append("NA\n")
 

@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFTST = ROOT / "echopype" / "tests" / "conftest.py"
 INVENTORY = ROOT / "docs" / "source" / "test_data_inventory.yml"
 
-
 REQUIRED_BUNDLE_KEYS = {
     "documented_checksum",
     "instrument",
@@ -24,15 +23,6 @@ REQUIRED_BUNDLE_KEYS = {
     "references",
     "notes",
     "files",
-}
-
-REQUIRED_FILE_KEYS = {
-    "instrument",
-    "description",
-    "source",
-    "contributor",
-    "references",
-    "notes",
 }
 
 
@@ -77,20 +67,32 @@ def main():
     inventory_bundles = set(inventory)
 
     missing = sorted(conftest_bundles - inventory_bundles)
+    extra = sorted(inventory_bundles - conftest_bundles)
+
     if missing:
         errors.append(
-            "Bundles listed in conftest.py but missing from inventory:\n  - "
+            "Bundles registered in echopype/tests/conftest.py but missing from "
+            "docs/source/test_data_inventory.yml:\n  - "
             + "\n  - ".join(missing)
+            + "\n\nAdd one inventory entry for each bundle, following the template "
+            "at the top of docs/source/test_data_inventory.yml."
         )
 
-    extra = sorted(inventory_bundles - conftest_bundles)
     if extra:
         errors.append(
-            "Bundles listed in inventory but not in conftest.py:\n  - " + "\n  - ".join(extra)
+            "Bundles listed in docs/source/test_data_inventory.yml but not "
+            "registered in echopype/tests/conftest.py:\n  - "
+            + "\n  - ".join(extra)
+            + "\n\nRemove obsolete entries or add the corresponding bundle to the "
+            "Pooch registry in echopype/tests/conftest.py."
         )
 
     for bundle in sorted(conftest_bundles & inventory_bundles):
         metadata = inventory[bundle]
+
+        if not isinstance(metadata, dict):
+            errors.append(f"{bundle}: inventory entry must be a mapping")
+            continue
 
         missing_keys = REQUIRED_BUNDLE_KEYS - set(metadata)
         if missing_keys:
@@ -101,23 +103,21 @@ def main():
         checksum = metadata.get("documented_checksum")
         if checksum is not None and checksum != registry[bundle]:
             errors.append(
-                f"{bundle}: documented_checksum does not match conftest.py registry\n"
+                f"{bundle}: documented_checksum does not match the Pooch registry.\n"
                 f"  inventory: {checksum}\n"
-                f"  registry:  {registry[bundle]}"
+                f"  registry:  {registry[bundle]}\n\n"
+                "Review the bundle metadata and file list, then update "
+                "documented_checksum to the registry value."
             )
 
-        files = metadata.get("files", {})
-        if files is None:
-            errors.append(f"{bundle}: files must be a mapping, not null")
-            continue
+        files = metadata.get("files", [])
 
-        for filename, file_metadata in files.items():
-            missing_file_keys = REQUIRED_FILE_KEYS - set(file_metadata)
-            if missing_file_keys:
-                errors.append(
-                    f"{bundle} / {filename}: missing required file keys: "
-                    + ", ".join(sorted(missing_file_keys))
-                )
+        if not isinstance(files, list):
+            errors.append(f"{bundle}: files must be a list")
+        elif not all(isinstance(filename, str) for filename in files):
+            errors.append(f"{bundle}: every entry in files must be a string")
+        elif len(files) != len(set(files)):
+            errors.append(f"{bundle}: files contains duplicate filenames")
 
     if errors:
         print("\nTEST DATA INVENTORY CHECK FAILED\n")
