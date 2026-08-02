@@ -16,7 +16,7 @@ ad2cp.zip:
   source: null
   contributor: null
   references: []
-  notes: test
+  notes: null
   files: []
 azfp.zip:
   documented_checksum: sha256:fc75b48c81f266ce70d9db79a986fe8de4399c93bef35119acdc17a2d84aed49
@@ -273,7 +273,7 @@ bi500_test_data.zip:
   instrument: BI500
   description: Example BI500 survey containing calibrated pelagic and bottom echograms together with stored single-target
     detections.
-  source: Provided by Jim Jech for BI500 support in echopype.
+  source: null
   contributor: jmjech
   references:
   - '#1258'
