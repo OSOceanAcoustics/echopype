@@ -3,6 +3,12 @@
 # If you wish to continue using _config.yml, make edits to that file and
 # re-generate this one.
 ###############################################################################
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 author = 'Echopype Developers'
 comments_config = {'hypothesis': False, 'utterances': False}
 copyright = '2026'
@@ -11,7 +17,7 @@ nb_execution_allow_errors = False
 nb_execution_excludepatterns = []
 nb_execution_in_temp = False
 nb_execution_timeout = -1
-extensions = ['sphinx_togglebutton', 'sphinx_copybutton', 'myst_nb', 'sphinx_thebe', 'sphinx_comments', 'sphinx_external_toc', 'sphinx.ext.intersphinx', 'sphinx_panels', 'sphinx_book_theme', 'sphinx_automodapi.automodapi', 'numpydoc', 'sphinx.ext.mathjax', 'sphinx.ext.ifconfig', 'sphinx.ext.githubpages', 'sphinxcontrib.mermaid', 'sphinx_jupyterbook_latex', 'sphinx_inline_tabs', 'sphinxcontrib.bibtex']  # noqa: E501
+extensions = ['sphinx_togglebutton', 'sphinx_copybutton', 'myst_nb', 'sphinx_thebe', 'sphinx_comments', 'sphinx_external_toc', 'sphinx.ext.intersphinx', 'sphinx_panels', 'sphinx_book_theme', 'sphinx_automodapi.automodapi', 'numpydoc', 'sphinx.ext.mathjax', 'sphinx.ext.ifconfig', 'sphinx.ext.githubpages', 'sphinxcontrib.mermaid', 'sphinx_jupyterbook_latex', 'sphinx_inline_tabs', 'sphinxcontrib.bibtex', 'test_data_inventory_ext']
 external_toc_exclude_missing = False
 external_toc_path = '_toc.yml'
 html_baseurl = ''
