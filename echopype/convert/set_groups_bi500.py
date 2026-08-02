@@ -224,6 +224,37 @@ class SetGroupsBI500(SetGroupsBase):
         ds = ds.assign_attrs(sonar_attr_dict)
         return set_time_encodings(ds)
 
+    @staticmethod
+    def _build_pelagic_echo_range(
+        upper: np.ndarray,
+        lower: np.ndarray,
+        sample_count: int,
+    ) -> np.ndarray:
+        """Construct pelagic sample-centre ranges from BI500 window bounds."""
+        sample_width = (lower - upper) / sample_count
+
+        return (
+            upper[:, np.newaxis]
+            + (np.arange(sample_count, dtype=np.float64) + 0.5) * sample_width[:, np.newaxis]
+        )
+
+    @staticmethod
+    def _build_bottom_echo_range(
+        bottom_depth: np.ndarray,
+        upper_offset: np.ndarray,
+        lower_offset: np.ndarray,
+        sample_count: int,
+    ) -> np.ndarray:
+        """Construct bottom-window sample-centre ranges."""
+        window_start = bottom_depth - upper_offset
+        window_stop = bottom_depth - lower_offset
+        sample_width = (window_stop - window_start) / sample_count
+
+        return (
+            window_start[:, np.newaxis]
+            + (np.arange(sample_count, dtype=np.float64) + 0.5) * sample_width[:, np.newaxis]
+        )
+
     def set_calibrated(self) -> xr.Dataset:
         """Create a dataset containing calibrated BI500 echogram products."""
         parameters = self.parser_obj.parameters
@@ -236,6 +267,41 @@ class SetGroupsBI500(SetGroupsBase):
 
         sv = self._stack_samples(unpacked_data["pelagic"])
         sv_bottom = self._stack_samples(unpacked_data["bottom"])
+
+        pelagic_upper = np.asarray(
+            ping_data["pelagic_upper"],
+            dtype=np.float64,
+        )
+        pelagic_lower = np.asarray(
+            ping_data["pelagic_lower"],
+            dtype=np.float64,
+        )
+
+        echo_range = self._build_pelagic_echo_range(
+            upper=pelagic_upper,
+            lower=pelagic_lower,
+            sample_count=sv.shape[1],
+        )
+
+        bottom_depth = np.asarray(
+            ping_data["bottom_depth"],
+            dtype=np.float64,
+        )
+        bottom_upper = np.asarray(
+            ping_data["bottom_upper"],
+            dtype=np.float64,
+        )
+        bottom_lower = np.asarray(
+            ping_data["bottom_lower"],
+            dtype=np.float64,
+        )
+
+        echo_range_bottom = self._build_bottom_echo_range(
+            bottom_depth=bottom_depth,
+            upper_offset=bottom_upper,
+            lower_offset=bottom_lower,
+            sample_count=sv_bottom.shape[1],
+        )
 
         traces = self._collect_target_traces()
         n_targets = len(traces["single_target_range"])
@@ -286,47 +352,51 @@ class SetGroupsBI500(SetGroupsBase):
                         "valid_min": 0.0,
                     },
                 ),
+                "echo_range": (
+                    ["channel", "ping_time", "range_sample"],
+                    echo_range[np.newaxis, :, :],
+                    {
+                        "long_name": "Range distance",
+                        "units": "m",
+                    },
+                ),
+                "echo_range_bottom": (
+                    ["channel", "ping_time", "range_sample_bottom"],
+                    echo_range_bottom[np.newaxis, :, :],
+                    {
+                        "long_name": "Bottom echogram range distance",
+                        "units": "m",
+                    },
+                ),
                 "pelagic_upper": (
                     ["channel", "ping_time"],
-                    np.asarray(
-                        ping_data["pelagic_upper"],
-                        dtype=np.float64,
-                    )[np.newaxis, :],
+                    pelagic_upper[np.newaxis, :],
                     {
-                        "long_name": "Pelagic echogram upper depth bound",
+                        "long_name": "Pelagic echogram upper range bound",
                         "units": "m",
                     },
                 ),
                 "pelagic_lower": (
                     ["channel", "ping_time"],
-                    np.asarray(
-                        ping_data["pelagic_lower"],
-                        dtype=np.float64,
-                    )[np.newaxis, :],
+                    pelagic_lower[np.newaxis, :],
                     {
-                        "long_name": "Pelagic echogram lower depth bound",
+                        "long_name": "Pelagic echogram lower range bound",
                         "units": "m",
                     },
                 ),
                 "bottom_upper": (
                     ["channel", "ping_time"],
-                    np.asarray(
-                        ping_data["bottom_upper"],
-                        dtype=np.float64,
-                    )[np.newaxis, :],
+                    bottom_upper[np.newaxis, :],
                     {
-                        "long_name": "Bottom echogram upper depth bound",
+                        "long_name": "Bottom echogram upper range offset",
                         "units": "m",
                     },
                 ),
                 "bottom_lower": (
                     ["channel", "ping_time"],
-                    np.asarray(
-                        ping_data["bottom_lower"],
-                        dtype=np.float64,
-                    )[np.newaxis, :],
+                    bottom_lower[np.newaxis, :],
                     {
-                        "long_name": "Bottom echogram lower depth bound",
+                        "long_name": "Bottom echogram lower range offset",
                         "units": "m",
                     },
                 ),
@@ -393,7 +463,7 @@ class SetGroupsBI500(SetGroupsBase):
                         "valid_range": [-180.0, 180.0],
                     },
                 ),
-                "Sp": (
+                "uncompensated_TS": (
                     ["single_target"],
                     np.asarray(
                         traces["Sp"],
@@ -410,7 +480,7 @@ class SetGroupsBI500(SetGroupsBase):
                         ),
                     },
                 ),
-                "TS": (
+                "compensated_TS": (
                     ["single_target"],
                     np.asarray(
                         traces["TS"],

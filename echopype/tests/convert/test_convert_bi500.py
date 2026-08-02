@@ -6,16 +6,21 @@ from echopype import open_raw
 pytestmark = pytest.mark.integration
 
 
-def test_convert_bi500(test_path):
-    """Verify BI500 conversion returns EchoData and calibrated products."""
+@pytest.fixture(scope="module")
+def bi500_output(test_path):
+    """Open BI500 test data once for all tests in this module."""
     bi500_path = test_path["BI500"]
 
-    echodata, ds_cal = open_raw(
+    return open_raw(
         raw_file=str(bi500_path),
         sonar_model="BI500",
     )
 
-    # EchoData structure
+
+def test_bi500_echodata_structure(bi500_output):
+    """Verify the BI500 EchoData structure and provenance."""
+    echodata, _ = bi500_output
+
     assert echodata.sonar_model == "BI500"
     assert len(echodata["Sonar/Beam_group1"].channel) == 1
 
@@ -26,7 +31,17 @@ def test_convert_bi500(test_path):
     assert "backscatter_r" not in beam
     assert "backscatter_r_bottom" not in beam
 
-    # Calibrated echogram products
+    assert echodata["Platform"].ping_time.shape == (3323,)
+
+    assert echodata["Provenance"].nation_code.values == 31
+    assert echodata["Provenance"].ship_code.values == 445
+    assert echodata["Provenance"].survey_code.values == 2000008
+
+
+def test_bi500_calibrated_echograms(bi500_output):
+    """Verify calibrated BI500 Sv products."""
+    _, ds_cal = bi500_output
+
     assert "Sv" in ds_cal
     assert "Sv_bottom" in ds_cal
 
@@ -53,7 +68,57 @@ def test_convert_bi500(test_path):
     assert sv.attrs["units"] == "dB"
     assert sv_bottom.attrs["units"] == "dB"
 
-    # Single-target products
+    assert ds_cal.channel.values[0] == "BI500-F11990-T01"
+    assert ds_cal["frequency_nominal"].shape == (1,)
+
+    assert ds_cal.attrs["source_sonar_model"] == "BI500"
+    assert ds_cal.attrs["processing_function"] == "open_raw"
+
+
+def test_bi500_echo_range(bi500_output):
+    """Verify reconstructed BI500 echo-range products."""
+    _, ds_cal = bi500_output
+
+    echo_range = ds_cal["echo_range"]
+    echo_range_bottom = ds_cal["echo_range_bottom"]
+
+    assert echo_range.dims == (
+        "channel",
+        "ping_time",
+        "range_sample",
+    )
+    assert echo_range_bottom.dims == (
+        "channel",
+        "ping_time",
+        "range_sample_bottom",
+    )
+
+    assert echo_range.shape == ds_cal["Sv"].shape
+    assert echo_range_bottom.shape == ds_cal["Sv_bottom"].shape
+
+    assert echo_range.attrs["units"] == "m"
+    assert echo_range_bottom.attrs["units"] == "m"
+
+    assert np.all(
+        np.diff(
+            echo_range.isel(channel=0).values,
+            axis=1,
+        )
+        > 0
+    )
+    assert np.all(
+        np.diff(
+            echo_range_bottom.isel(channel=0).values,
+            axis=1,
+        )
+        > 0
+    )
+
+
+def test_bi500_single_targets(bi500_output):
+    """Verify BI500 single-target products and ping linkage."""
+    _, ds_cal = bi500_output
+
     assert ds_cal.sizes["single_target"] == 8724
 
     required_target_variables = [
@@ -63,8 +128,8 @@ def test_convert_bi500(test_path):
         "single_target_range",
         "single_target_alongship_angle",
         "single_target_athwartship_angle",
-        "Sp",
-        "TS",
+        "uncompensated_TS",
+        "compensated_TS",
     ]
 
     for variable in required_target_variables:
@@ -73,16 +138,15 @@ def test_convert_bi500(test_path):
         assert ds_cal[variable].shape == (8724,)
 
     assert np.isfinite(ds_cal["single_target_range"].values).any()
-    assert np.isfinite(ds_cal["Sp"].values).any()
-    assert np.isfinite(ds_cal["TS"].values).any()
+    assert np.isfinite(ds_cal["uncompensated_TS"].values).any()
+    assert np.isfinite(ds_cal["compensated_TS"].values).any()
 
     assert ds_cal["single_target_range"].attrs["units"] == "m"
     assert ds_cal["single_target_alongship_angle"].attrs["units"] == "arc_degree"
     assert ds_cal["single_target_athwartship_angle"].attrs["units"] == "arc_degree"
-    assert ds_cal["Sp"].attrs["units"] == "dB"
-    assert ds_cal["TS"].attrs["units"] == "dB"
+    assert ds_cal["uncompensated_TS"].attrs["units"] == "dB"
+    assert ds_cal["compensated_TS"].attrs["units"] == "dB"
 
-    # Check target-to-ping linkage
     ping_index = ds_cal["ping_index"].values
 
     assert np.issubdtype(ping_index.dtype, np.integer)
@@ -93,16 +157,3 @@ def test_convert_bi500(test_path):
         ds_cal["single_target_ping_time"].values,
         ds_cal["ping_time"].values[ping_index],
     )
-
-    # General coordinates and metadata
-    assert echodata["Platform"].ping_time.shape == (3323,)
-    assert ds_cal.channel.values[0] == "BI500-F11990-T01"
-    assert ds_cal["frequency_nominal"].shape == (1,)
-
-    assert ds_cal.attrs["source_sonar_model"] == "BI500"
-    assert ds_cal.attrs["processing_function"] == "open_raw"
-
-    # Provenance
-    assert echodata["Provenance"].nation_code.values == 31
-    assert echodata["Provenance"].ship_code.values == 445
-    assert echodata["Provenance"].survey_code.values == 2000008
