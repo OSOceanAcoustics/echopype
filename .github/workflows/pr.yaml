@@ -1,12 +1,13 @@
-name: Test PR
-
 on:
   pull_request:
     paths-ignore:
       - "**/docker.yaml"
+
   push:
     branches:
+      - main
       - ci/*
+
   workflow_dispatch:
 
 concurrency:
