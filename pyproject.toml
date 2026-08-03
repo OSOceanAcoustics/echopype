@@ -33,24 +33,24 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "aiohttp",
-    "bottleneck",
-    "dask[array,distributed]",
-    "dask-image",
-    "flox>=0.7.2",
-    "fsspec",
-    "geopy",
-    "jinja2",
-    "netCDF4>1.6",
-    "numpy",
-    "pandas",
-    "psutil>=5.9.1",
+    "aiohttp>=3.10.0",
+    "bottleneck>=1.4.1",
+    "dask[array,distributed]>=2024.8.0",
+    "dask-image>=2025.11.0",
+    "flox>=0.9.9",
+    "fsspec>=2024.9.0",
+    "geopy>=2.5.0",
+    "jinja2>=3.1.5",
+    "netCDF4>=1.7.1.post2",
+    "numpy>=2.2.0",
+    "pandas>=2.3.0",
+    "psutil>=6.1.0",
     "pynmea2",
-    "pytz",
-    "requests",
-    "s3fs",
-    "scipy",
-    "typing-extensions",
+    "pytz>=2024.2",
+    "requests>=2.32.4",
+    "s3fs>=2024.9.0",
+    "scipy>=1.15.0",
+    "typing-extensions>=4.13.0",
     "xarray>=2026.01.0",
     "zarr>=3",
 ]
@@ -62,54 +62,54 @@ Documentation = "https://echopype.readthedocs.io"
 
 [project.optional-dependencies]
 plot = [
-    "matplotlib>=3.7",
+    "matplotlib>=3.10.0",
     "cmocean",
 ]
 
 [dependency-groups]
 test = [
-    "moto",
-    "pooch",
-    "pytest",
-    "pytest-cov",
-    "pytest-mock",
-    "pytest-xdist",
-    "matplotlib",
+    "moto>=5.0.12",
+    "pooch>=1.9.0",
+    "pytest>=8.3.3",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.1",
+    "pytest-xdist>=3.7.0",
+    "matplotlib>=3.10.0",
 ]
 
 docs = [
-    "jupyter-book",
-    "linkify-it-py",
-    "myst-nb",
-    "numpydoc",
-    "sphinx",
-    "sphinx-automodapi",
-    "sphinx-book-theme",
+    "jupyter-book>=1.0.3",
+    "linkify-it-py>=2.1.0",
+    "myst-nb>=1.1.2",
+    "numpydoc>=1.8.0",
+    "sphinx>=8.0.0",
+    "sphinx-automodapi>=0.18.0",
+    "sphinx-book-theme>=1.1.4",
     "sphinx-comments",
     "sphinx-copybutton",
-    "sphinx-external-toc",
+    "sphinx-external-toc>=1.1.0",
     "sphinx-jupyterbook-latex",
     "sphinx-panels",
     "sphinx-thebe",
-    "sphinx-togglebutton",
-    "sphinxcontrib-bibtex",
-    "sphinxcontrib-mermaid",
-    "sphinx-inline-tabs",
+    "sphinx-togglebutton>=0.4.4",
+    "sphinxcontrib-bibtex>=2.6.3",
+    "sphinxcontrib-mermaid>=1.0.0",
+    "sphinx-inline-tabs>=2025.12.21.14",
 ]
 
 dev = [
-    "black",
-    "check-manifest",
-    "codespell",
-    "ipykernel",
-    "isort",
-    "mypy",
-    "pre-commit",
-    "pylint",
-    "ruff",
-    "setuptools_scm",
-    "twine",
-    "wheel",
+    "black>=24.8.0",
+    "check-manifest>=0.50",
+    "codespell>=2.4.0",
+    "ipykernel>=6.30.0",
+    "isort>=6.0.0",
+    "mypy>=1.11.1",
+    "pre-commit>=4.0.0",
+    "pylint>=3.2.7",
+    "ruff>=0.5.6",
+    "setuptools_scm>=8.2.0",
+    "twine>=6.0.0",
+    "wheel>=0.44.0",
 ]
 
 [tool.setuptools]
@@ -131,6 +131,11 @@ cache_dir = ".cache"
 markers = [
     "unit: marks tests as unit tests",
     "integration: marks tests as integration tests",
+]
+
+# Show each distinct warning once during the pytest session.
+filterwarnings = [
+    "once",
 ]
 
 [tool.uv]

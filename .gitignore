@@ -34,3 +34,11 @@ _echopype_version.py
 !echopype/test_data
 echopype/test_data/*
 !echopype/test_data/README.md
+
+# Windows local test services
+/data/
+.ci_helpers/.state/
+.ci_helpers/minio.exe
+
+# Local uv lockfile
+uv.lock

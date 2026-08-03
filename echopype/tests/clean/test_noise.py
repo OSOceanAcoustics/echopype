@@ -54,7 +54,7 @@ def test_mask_functions_with_no_vertical_range_variables(range_var, ek60_path):
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
-    
+
     if range_var == "echo_range":
         # Drop `echo_range`
         ds_Sv = ds_Sv.drop_vars("echo_range")
@@ -115,7 +115,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
     ### Check for `nanmedian` warning:
 
     # Turn on logger verbosity
-    ep.utils.log.verbose(override=False)
+    ep.utils.log.verbose(override=True)
 
     # Compute transient noise mask
     ep.clean.mask_transient_noise(
@@ -135,7 +135,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
     assert any(expected_warning in record.message for record in caplog.records)
 
     # Turn off logger verbosity
-    ep.utils.log.verbose(override=True)
+    ep.utils.log.verbose(override=False)
 
     # Check for func value error:
     with pytest.raises(ValueError, match="Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`."):  # noqa: E501
@@ -160,7 +160,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
 )
 def test_pool_Sv_values(chunk, func, ek60_path):
     """
-    Manually check if the pooled Sv for transient noise masking contains 
+    Manually check if the pooled Sv for transient noise masking contains
     the correct nan boundary and the correct bin aggregate values.
     """
     # Open raw, calibrate, and add depth
@@ -413,7 +413,7 @@ def test_index_binning_pool_Sv_values(chunk, func, ek60_path):
             for range_sample_index in range(
                 num_range_sample_indices,
                 len(padded_chan_Sv["range_sample"]) - num_range_sample_indices
-            ): 
+            ):
                 # Grab pooled value
                 pooled_value = chan_pooled_Sv.isel(
                     ping_time=ping_time_index - num_side_pings,
@@ -810,7 +810,7 @@ def test_mask_attenuated_signal_outside_searching_range(ek60_path):
         num_side_pings,
         attenuation_signal_threshold
     )
-    
+
     # Check outputs
     assert np.allclose(attenuated_mask, xr.zeros_like(ds_Sv["Sv"], dtype=bool))
 

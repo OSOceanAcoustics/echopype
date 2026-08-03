@@ -45,7 +45,7 @@ def ek80_heading_path(test_path):
 def pytest_generate_tests(metafunc):
     """Dynamically parameterize tests for EK80 .raw files."""
     from echopype.tests import conftest as ct
-    
+
     ek80_new_root = ct.TEST_DATA_FOLDER / "ek80_new"
     ek80_new_files = sorted(ek80_new_root.glob("**/*.raw"))
 
@@ -582,7 +582,7 @@ def test_duplicate_ping_times(caplog, ek80_dupe_ping_path):
     Tests that RAW file with duplicate ping times can be parsed and that the correct warning has been raised.
     """  # noqa: E501
     # Turn on logger verbosity
-    log.verbose(override=False)
+    log.verbose(override=True)
 
     # Open RAW
     ed = open_raw(ek80_dupe_ping_path / "Hake-D20210913-T130612.raw", sonar_model="EK80")
@@ -597,7 +597,7 @@ def test_duplicate_ping_times(caplog, ek80_dupe_ping_path):
     assert not any(not_expected_warning in record.message for record in caplog.records)
 
     # Turn off logger verbosity
-    log.verbose(override=True)
+    log.verbose(override=False)
 
 
 @pytest.mark.unit
@@ -609,7 +609,7 @@ def test_check_unique_ping_time_duplicates(caplog, ek80_dupe_ping_path):
     logger = log._init_logger(__name__)
 
     # Turn on logger verbosity
-    log.verbose(override=False)
+    log.verbose(override=True)
 
     # Open duplicate ping time beam dataset
     ds_data = xr.open_zarr(ek80_dupe_ping_path / "duplicate_beam_ds.zarr")
@@ -621,7 +621,7 @@ def test_check_unique_ping_time_duplicates(caplog, ek80_dupe_ping_path):
     check_unique_ping_time_duplicates(ds_data, logger)
 
     # Turn off logger verbosity
-    log.verbose(override=True)
+    log.verbose(override=False)
 
     # Check if the expected warning is logged
     expected_warning = (

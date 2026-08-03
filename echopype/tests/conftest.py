@@ -56,6 +56,7 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
         "legacy_datatree.zip",
         "resample_to_geometry_example_data.zip",
         "ts_spectrum_example_data.zip",
+        "bi500_test_data.zip",
     ]
 
     # v0.11.1a2 checksums (GitHub release assets)
@@ -85,6 +86,7 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
         "legacy_datatree.zip": "sha256:820cd252047dbf35fa5fb04a9aafee7f7659e0fe4f7d421d69901c57deb6c9d5",  # noqa: E501
         "resample_to_geometry_example_data.zip": "sha256:1a45e3ac31ef16d742b16155dc4b7f62511abd8d25547f55fcd9146446f60d07",
         "ts_spectrum_example_data.zip": "sha256:dae603937d05d0d0a5dd41c90b9eafa3c540c95e0f6b298ceeddc7f23d163f4b",
+        "bi500_test_data.zip": "sha256:da0ec294cf1ea2906a8e4e435d648583a88d7d75a6f9d0b016595d644d54fb61",
     }
 
     EP = pooch.create(
@@ -203,6 +205,7 @@ def test_path():
         "LEGACY_DATATREE": TEST_DATA_FOLDER / "legacy_datatree",
         "RESAMPLE_GEOMETRY": TEST_DATA_FOLDER / "resample_to_geometry_example_data",
         "TS_SPECTRUM_EXAMPLE": TEST_DATA_FOLDER / "ts_spectrum_example_data",
+        "BI500": TEST_DATA_FOLDER / "bi500_test_data",
     }
 
 
