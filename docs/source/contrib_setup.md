@@ -88,46 +88,44 @@ See {ref}`contrib:test-data` for contributor instructions and
 
 ### Running the tests
 
-To run all Echopype tests:
+Most tests use data directly from the local Pooch cache. A subset of integration
+tests also require local HTTP and S3-compatible services. To run the full test
+suite, start these services first.
 
-```shell
-uv run pytest -vv
-```
-
-To run tests for specific modules, provide their paths separated by spaces:
-
-```shell
-uv run pytest -vv echopype/calibrate/calibrate_ek.py echopype/mask/api.py
-```
-
-To run specific test files:
-
-```shell
-uv run pytest -vv echopype/tests/convert/test_convert_azfp.py echopype/tests/clean/test_noise.py
-```
-
-Most tests use data directly from the local Pooch cache. Some integration tests
-also require local HTTP and S3-compatible services provided through Docker.
-
-On Linux/macOS, start the services with:
+On Linux/macOS:
 
 ```shell
 uv run python .ci_helpers/docker/setup-services.py --deploy
 ```
 
-When finished, stop the services with:
-
-```shell
-uv run python .ci_helpers/docker/setup-services.py --tear-down
-```
-
-On Windows PowerShell, start the services with:
+On Windows PowerShell:
 
 ```powershell
 uv run python .ci_helpers/setup-services-windows.py start
 ```
 
-When finished, stop the services with:
+Then run all Echopype tests:
+
+```shell
+uv run pytest -vv
+```
+
+If you are only working on a specific module or test file that does not rely on
+these services, you can run it directly without starting them, for example:
+
+```shell
+uv run pytest -vv echopype/tests/convert/test_convert_azfp.py
+```
+
+When finished, stop the services.
+
+On Linux/macOS:
+
+```shell
+uv run python .ci_helpers/docker/setup-services.py --tear-down
+```
+
+On Windows PowerShell:
 
 ```powershell
 uv run python .ci_helpers/setup-services-windows.py stop
