@@ -4,52 +4,18 @@
 
 # Echopype
 
-<div>
-  <a href="https://doi.org/10.5281/zenodo.3906999">
-    <img src="https://img.shields.io/badge/DOI-10.5281/zenodo.3906999-blue" alt="DOI">
-  </a>
-
-  <a href="https://raw.githubusercontent.com/echostack-org/echopype/main/LICENSE">
-    <img alt="GitHub License" src="https://img.shields.io/github/license/echostack-org/echopype">
-  </a>
-</div>
-
-<a href="https://scientific-python.org/specs/spec-0000/">
-  <img
-    src="https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038"
-    alt="SPEC 0 — Minimum Supported Dependencies"
-  >
-</a>
-
-<div>
-  <a href="https://github.com/echostack-org/echopype/actions/workflows/build.yaml">
-    <img src="https://github.com/echostack-org/echopype/actions/workflows/build.yaml/badge.svg"/>
-  </a>
-
-  <a href="https://results.pre-commit.ci/latest/github/echostack-org/echopype/main">
-    <img src="https://results.pre-commit.ci/badge/github/echostack-org/echopype/main.svg"/>
-  </a>
-
-  <a href="https://echopype.readthedocs.io/en/latest/?badge=latest">
-    <img src="https://readthedocs.org/projects/echopype/badge/?version=latest"/>
-  </a>
-
-  <a href="https://codecov.io/gh/echostack-org/echopype">
-    <img src="https://codecov.io/gh/echostack-org/echopype/branch/main/graph/badge.svg?token=GT98F919XR"/>
-  </a>
-</div>
-
-<div>
-  <a href="https://pypi.org/project/echopype/">
-    <img src="https://img.shields.io/pypi/v/echopype.svg"/>
-  </a>
-
-  <a href="https://anaconda.org/conda-forge/echopype">
-    <img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"/>
-  </a>
-</div>
-
-[![ssec](https://img.shields.io/badge/SSEC-Project-purple?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAOCAQAAABedl5ZAAAACXBIWXMAAAHKAAABygHMtnUxAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAMNJREFUGBltwcEqwwEcAOAfc1F2sNsOTqSlNUopSv5jW1YzHHYY/6YtLa1Jy4mbl3Bz8QIeyKM4fMaUxr4vZnEpjWnmLMSYCysxTcddhF25+EvJia5hhCudULAePyRalvUteXIfBgYxJufRuaKuprKsbDjVUrUj40FNQ11PTzEmrCmrevPhRcVQai8m1PRVvOPZgX2JttWYsGhD3atbHWcyUqX4oqDtJkJiJHUYv+R1JbaNHJmP/+Q1HLu2GbNoSm3Ft0+Y1YMdPSTSwQAAAABJRU5ErkJggg==&style=plastic)](https://escience.washington.edu/echopype/)
+<p align="center">
+  <a href="https://doi.org/10.5281/zenodo.3906999"><img src="https://img.shields.io/badge/DOI-10.5281/zenodo.3906999-blue" alt="DOI"></a>
+  <a href="https://raw.githubusercontent.com/echostack-org/echopype/main/LICENSE"><img src="https://img.shields.io/github/license/echostack-org/echopype" alt="License"></a>
+  <a href="https://scientific-python.org/specs/spec-0000/"><img src="https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038" alt="SPEC 0"></a>
+  <a href="https://github.com/echostack-org/echopype/actions/workflows/build.yaml"><img src="https://github.com/echostack-org/echopype/actions/workflows/build.yaml/badge.svg"></a>
+  <a href="https://results.pre-commit.ci/latest/github/echostack-org/echopype/main"><img src="https://results.pre-commit.ci/badge/github/echostack-org/echopype/main.svg"></a>
+  <a href="https://echopype.readthedocs.io"><img src="https://readthedocs.org/projects/echopype/badge/?version=latest"></a>
+  <a href="https://codecov.io/gh/echostack-org/echopype"><img src="https://codecov.io/gh/echostack-org/echopype/branch/main/graph/badge.svg?token=GT98F919XR"></a>
+  <a href="https://pypi.org/project/echopype/"><img src="https://img.shields.io/pypi/v/echopype.svg"></a>
+  <a href="https://anaconda.org/conda-forge/echopype"><img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"></a>
+  <a href="https://escience.washington.edu/echopype/"><img src="https://img.shields.io/badge/SSEC-Project-purple?logo=data:image/png;base64,...&style=plastic"></a>
+</p>
 
 Echopype is a package built to enable interoperability and scalability in ocean sonar data processing. These data are widely used for obtaining information about the distribution and abundance of marine animals, such as fish and krill. Our ability to collect large volumes of sonar data from a variety of ocean platforms has grown significantly in the last decade. However, most of the new data remain under-utilized. echopype aims to address the root cause of this problem - the lack of interoperable data format and scalable analysis workflows that adapt well with increasing data volume - by providing open-source tools as entry points for scientists to make discovery using these new data.
 
