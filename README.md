@@ -69,21 +69,11 @@ Echopype follows [Scientific Python SPEC 0](https://scientific-python.org/specs/
 
 You can find information about how to contribute to echopype at our [Contributing Page](https://echopype.readthedocs.io/en/latest/contrib_start.html#contributing-to-echopype).
 
-<!-- ## <img src="docs/source/images/GSoC-logo-horizontal.svg" alt="Google Summer of Code logo" width="300" style="padding-right: 50px; vertical-align: middle">
-
-In collaboration with the [Integrated Ocean Observing System (IOOS)](https://ioos.noaa.gov/), the Echopype team aims to recruit talented [Google Summer of Code (GSoC)](https://summerofcode.withgoogle.com/)
-participants to help us upgrade the robustness and scalability of the Echopype package.
-
-If you are a GSoC 2024 contributor, please head over to [GSoC contributor's guide](gsoc_contrib_guide.md) to get more information specific to the program. -->
-
-
-
 ## Echopype doesn't run on your data?
 
 Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-planning-digital/writing-a-proper-github-issue-97427d62a20f).
 
 [Pull requests](https://jarednielsen.com/learn-git-fork-pull-request/) are always welcome!
-
 
 ## Contributors
 
