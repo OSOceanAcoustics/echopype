@@ -532,10 +532,7 @@ class SetGroupsBI500(SetGroupsBase):
             attrs={
                 "processing_function": "open_raw",
                 "source_sonar_model": "BI500",
-                "comment": (
-                    "The BI500 system generated these calibrated "
-                    "quantities directly; echopype did not recalibrate them."
-                ),
+                "comment": ("Automatically generated calibrated quantities by the BI500 system."),
             },
         )
 

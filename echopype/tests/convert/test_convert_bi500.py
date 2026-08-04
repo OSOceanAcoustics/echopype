@@ -20,30 +20,177 @@ def bi500_output(test_path):
 def test_bi500_echodata_structure(bi500_output):
     """Verify the BI500 EchoData structure and provenance."""
     echodata, _ = bi500_output
+    beam = echodata["Sonar/Beam_group1"]
 
     assert echodata.sonar_model == "BI500"
-    assert len(echodata["Sonar/Beam_group1"].channel) == 1
-
-    beam = echodata["Sonar/Beam_group1"]
 
     # BI500 values are already calibrated and must not be exposed
     # as raw backscatter samples.
     assert "backscatter_r" not in beam
     assert "backscatter_r_bottom" not in beam
 
-    assert echodata["Platform"].ping_time.shape == (3323,)
-
     assert echodata["Provenance"].nation_code.values == 31
     assert echodata["Provenance"].ship_code.values == 445
     assert echodata["Provenance"].survey_code.values == 2000008
+
+
+def test_bi500_beam_group_dimensions(bi500_output):
+    """Verify Sonar/Beam_group1 dimensions and metadata variables."""
+    echodata, _ = bi500_output
+    beam = echodata["Sonar/Beam_group1"]
+
+    assert beam.sizes["channel"] == 1
+    assert beam.sizes["ping_time"] == 3323
+    assert beam.sizes["ping_time_vlog"] > 0
+
+    assert beam["frequency_nominal"].item() == 11990.0
+    assert beam["transceiver_channel_number"].item() == 1
+    assert beam["beam_type"].item() == 0
+    assert beam["channel"].item() == "BI500-F11990-T01"
+
+    ping_time_vars = [
+        "echogram_type",
+        "pelagic_upper",
+        "pelagic_lower",
+        "bottom_upper",
+        "bottom_lower",
+    ]
+    for variable in ping_time_vars:
+        assert variable in beam
+        if variable == "echogram_type":
+            assert beam[variable].dims == ("ping_time",)
+            assert beam[variable].shape == (3323,)
+        else:
+            assert beam[variable].dims == ("channel", "ping_time")
+            assert beam[variable].shape == (1, 3323)
+
+    vlog_size = beam.sizes["ping_time_vlog"]
+    vlog_vars = [
+        "echogram_type_vlog",
+        "pelagic_upper_vlog",
+        "pelagic_lower_vlog",
+        "bottom_upper_vlog",
+        "bottom_lower_vlog",
+    ]
+    for variable in vlog_vars:
+        assert variable in beam
+        if variable == "echogram_type_vlog":
+            assert beam[variable].dims == ("ping_time_vlog",)
+            assert beam[variable].shape == (vlog_size,)
+        else:
+            assert beam[variable].dims == ("channel", "ping_time_vlog")
+            assert beam[variable].shape == (1, vlog_size)
+
+
+def test_bi500_platform_group(bi500_output):
+    """Verify Platform group dimensions and vlog alignment."""
+    echodata, _ = bi500_output
+    platform = echodata["Platform"]
+    beam = echodata["Sonar/Beam_group1"]
+
+    assert platform.sizes["ping_time_vlog"] == beam.sizes["ping_time_vlog"]
+
+    ping_time_vars = [
+        "latitude",
+        "longitude",
+        "bottom_depth",
+        "vessel_log_distance",
+    ]
+    for variable in ping_time_vars:
+        assert variable in platform
+        assert platform[variable].dims == ("ping_time",)
+        assert platform[variable].shape == (3323,)
+
+    vlog_size = platform.sizes["ping_time_vlog"]
+    vlog_vars = [
+        "latitude_vlog",
+        "longitude_vlog",
+        "bottom_depth_vlog",
+        "vessel_log_distance_vlog",
+    ]
+    for variable in vlog_vars:
+        assert variable in platform
+        assert platform[variable].dims == ("ping_time_vlog",)
+        assert platform[variable].shape == (vlog_size,)
+
+    np.testing.assert_array_equal(
+        platform["ping_time"].values,
+        beam["ping_time"].values,
+    )
+
+
+def test_bi500_environment_and_vendor_groups(bi500_output):
+    """Verify Environment and Vendor_specific group contents."""
+    echodata, _ = bi500_output
+
+    environment = echodata["Environment"]
+    assert environment.sizes == {"channel": 1}
+    assert environment["absorption_indicative"].dims == ("channel",)
+    assert environment["absorption_indicative"].shape == (1,)
+    assert np.isnan(environment["absorption_indicative"].item())
+    assert np.isnan(environment["sound_speed_indicative"].values)
+
+    vendor = echodata["Vendor_specific"]
+    for variable in [
+        "start_latitude",
+        "start_longitude",
+        "start_distance",
+        "stop_latitude",
+        "stop_longitude",
+        "stop_distance",
+    ]:
+        assert variable in vendor
+        assert vendor[variable].dims == ()
+        assert np.isfinite(vendor[variable].values)
+
+
+def test_bi500_sonar_metadata(bi500_output):
+    """Verify Sonar group metadata attributes."""
+    echodata, _ = bi500_output
+    sonar = echodata["Sonar"]
+
+    assert sonar.attrs["sonar_manufacturer"] == "Bergen Integrator"
+    assert sonar.attrs["sonar_model"] == "BI500"
+    assert sonar.attrs["sonar_software_name"] == "BI500"
+    assert sonar.attrs["sonar_type"] == "echosounder"
+    assert isinstance(sonar.attrs["sonar_software_version"], str)
+    assert sonar.attrs["sonar_software_version"]
+
+
+def test_bi500_calibrated_coordinate_alignment(bi500_output):
+    """Verify calibrated dataset coordinates align with EchoData groups."""
+    echodata, ds_cal = bi500_output
+    beam = echodata["Sonar/Beam_group1"]
+    platform = echodata["Platform"]
+
+    np.testing.assert_array_equal(ds_cal["ping_time"].values, platform["ping_time"].values)
+    np.testing.assert_array_equal(ds_cal["channel"].values, beam["channel"].values)
+
+    assert ds_cal.sizes["range_sample"] == 500
+    assert ds_cal.sizes["range_sample_bottom"] == 150
+    np.testing.assert_array_equal(ds_cal["range_sample"].values, np.arange(500))
+    np.testing.assert_array_equal(ds_cal["range_sample_bottom"].values, np.arange(150))
+
+    window_vars = [
+        "pelagic_upper",
+        "pelagic_lower",
+        "bottom_upper",
+        "bottom_lower",
+    ]
+    for variable in window_vars:
+        assert ds_cal[variable].dims == ("channel", "ping_time")
+        assert ds_cal[variable].shape == (1, 3323)
+        np.testing.assert_array_equal(
+            ds_cal[variable].values,
+            beam[variable].values,
+        )
 
 
 def test_bi500_calibrated_echograms(bi500_output):
     """Verify calibrated BI500 Sv products."""
     _, ds_cal = bi500_output
 
-    assert "Sv" in ds_cal
-    assert "Sv_bottom" in ds_cal
+    assert ["Sv", "Sv_bottom"] == list(ds_cal.data_vars)
 
     sv = ds_cal["Sv"]
     sv_bottom = ds_cal["Sv_bottom"]
@@ -68,7 +215,6 @@ def test_bi500_calibrated_echograms(bi500_output):
     assert sv.attrs["units"] == "dB"
     assert sv_bottom.attrs["units"] == "dB"
 
-    assert ds_cal.channel.values[0] == "BI500-F11990-T01"
     assert ds_cal["frequency_nominal"].shape == (1,)
 
     assert ds_cal.attrs["source_sonar_model"] == "BI500"
@@ -81,20 +227,6 @@ def test_bi500_echo_range(bi500_output):
 
     echo_range = ds_cal["echo_range"]
     echo_range_bottom = ds_cal["echo_range_bottom"]
-
-    assert echo_range.dims == (
-        "channel",
-        "ping_time",
-        "range_sample",
-    )
-    assert echo_range_bottom.dims == (
-        "channel",
-        "ping_time",
-        "range_sample_bottom",
-    )
-
-    assert echo_range.shape == ds_cal["Sv"].shape
-    assert echo_range_bottom.shape == ds_cal["Sv_bottom"].shape
 
     assert echo_range.attrs["units"] == "m"
     assert echo_range_bottom.attrs["units"] == "m"
@@ -113,6 +245,29 @@ def test_bi500_echo_range(bi500_output):
         )
         > 0
     )
+
+
+def test_bi500_echo_range_within_window_bounds(bi500_output):
+    """Verify reconstructed echo ranges stay within BI500 window bounds."""
+    echodata, ds_cal = bi500_output
+
+    echo_range = ds_cal["echo_range"].isel(channel=0)
+    pelagic_upper = ds_cal["pelagic_upper"].isel(channel=0)
+    pelagic_lower = ds_cal["pelagic_lower"].isel(channel=0)
+
+    assert np.all(echo_range.min(dim="range_sample") >= pelagic_upper)
+    assert np.all(echo_range.max(dim="range_sample") <= pelagic_lower)
+
+    bottom_depth = echodata["Platform"]["bottom_depth"]
+    bottom_upper = ds_cal["bottom_upper"].isel(channel=0)
+    bottom_lower = ds_cal["bottom_lower"].isel(channel=0)
+    echo_range_bottom = ds_cal["echo_range_bottom"].isel(channel=0)
+
+    window_start = bottom_depth - bottom_upper
+    window_stop = bottom_depth - bottom_lower
+
+    assert np.all(echo_range_bottom.min(dim="range_sample_bottom") >= window_start)
+    assert np.all(echo_range_bottom.max(dim="range_sample_bottom") <= window_stop)
 
 
 def test_bi500_single_targets(bi500_output):
