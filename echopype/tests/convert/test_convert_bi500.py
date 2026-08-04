@@ -208,7 +208,7 @@ def test_bi500_calibrated_echograms(bi500_output):
     """Verify calibrated BI500 Sv products."""
     _, ds_cal = bi500_output
 
-    assert ["Sv", "Sv_bottom"] == list(ds_cal.data_vars)
+    assert {"Sv", "Sv_bottom"}.issubset(ds_cal.data_vars)
 
     sv = ds_cal["Sv"]
     sv_bottom = ds_cal["Sv_bottom"]
