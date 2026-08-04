@@ -17,17 +17,33 @@ def bi500_output(test_path):
     )
 
 
+def test_bi500_invalid_file_path(tmp_path):
+    """Verify that an error is raised when the folder lacks required BI500 files."""
+    invalid_path = tmp_path / "not_bi500_folder"
+    invalid_path.mkdir()
+    (invalid_path / "readme.txt").write_text("not bi500 data")
+
+    with pytest.raises(ValueError, match="Expecting a folder"):
+        open_raw(
+            raw_file=str(invalid_path),
+            sonar_model="BI500",
+        )
+
+
 def test_bi500_echodata_structure(bi500_output):
     """Verify the BI500 EchoData structure and provenance."""
     echodata, _ = bi500_output
     beam = echodata["Sonar/Beam_group1"]
 
     assert echodata.sonar_model == "BI500"
+    assert len(beam.channel) == 1
 
     # BI500 values are already calibrated and must not be exposed
     # as raw backscatter samples.
     assert "backscatter_r" not in beam
     assert "backscatter_r_bottom" not in beam
+
+    assert echodata["Platform"].ping_time.shape == (3323,)
 
     assert echodata["Provenance"].nation_code.values == 31
     assert echodata["Provenance"].ship_code.values == 445
@@ -88,6 +104,7 @@ def test_bi500_platform_group(bi500_output):
     platform = echodata["Platform"]
     beam = echodata["Sonar/Beam_group1"]
 
+    assert platform.sizes["ping_time"] == 3323
     assert platform.sizes["ping_time_vlog"] == beam.sizes["ping_time_vlog"]
 
     ping_time_vars = [
@@ -164,6 +181,7 @@ def test_bi500_calibrated_coordinate_alignment(bi500_output):
     platform = echodata["Platform"]
 
     np.testing.assert_array_equal(ds_cal["ping_time"].values, platform["ping_time"].values)
+    np.testing.assert_array_equal(ds_cal["ping_time"].values, beam["ping_time"].values)
     np.testing.assert_array_equal(ds_cal["channel"].values, beam["channel"].values)
 
     assert ds_cal.sizes["range_sample"] == 500
@@ -215,6 +233,7 @@ def test_bi500_calibrated_echograms(bi500_output):
     assert sv.attrs["units"] == "dB"
     assert sv_bottom.attrs["units"] == "dB"
 
+    assert ds_cal.channel.values[0] == "BI500-F11990-T01"
     assert ds_cal["frequency_nominal"].shape == (1,)
 
     assert ds_cal.attrs["source_sonar_model"] == "BI500"
@@ -227,6 +246,20 @@ def test_bi500_echo_range(bi500_output):
 
     echo_range = ds_cal["echo_range"]
     echo_range_bottom = ds_cal["echo_range_bottom"]
+
+    assert echo_range.dims == (
+        "channel",
+        "ping_time",
+        "range_sample",
+    )
+    assert echo_range_bottom.dims == (
+        "channel",
+        "ping_time",
+        "range_sample_bottom",
+    )
+
+    assert echo_range.shape == ds_cal["Sv"].shape
+    assert echo_range_bottom.shape == ds_cal["Sv_bottom"].shape
 
     assert echo_range.attrs["units"] == "m"
     assert echo_range_bottom.attrs["units"] == "m"
