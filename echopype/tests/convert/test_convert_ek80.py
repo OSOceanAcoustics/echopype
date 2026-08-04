@@ -9,7 +9,7 @@ import xarray as xr
 from echopype import open_raw, open_converted
 from echopype.calibrate import compute_Sv
 from echopype.convert.parse_ek80 import ParseEK80
-from echopype.convert.set_groups_ek80 import WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION  # noqa: E501
+from echopype.convert.set_groups_ek80 import SetGroupsEK80, WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION  # noqa: E501
 from echopype.utils import log
 from echopype.convert.utils.ek_duplicates import check_unique_ping_time_duplicates
 
@@ -37,6 +37,10 @@ def ek80_sequence_path(test_path):
 @pytest.fixture
 def ek80_new_path(test_path):
     return test_path["EK80_NEW"]
+
+@pytest.fixture
+def ek80_multiplex_path(test_path):
+    return test_path["EK80_MULTIPLEX"]
 
 def pytest_generate_tests(metafunc):
     """Dynamically parameterize tests for EK80 .raw files."""
@@ -673,3 +677,153 @@ def test_ek80_sequence_filter_coeff(ek80_sequence_path):
     ds_Sv = compute_Sv(ed, waveform_mode="BB", encode_mode="complex")
     assert ds_Sv["channel"].equals(ed["Vendor_specific"]["WBT_coeffs_imag"].dropna(dim="channel")["channel"])  # noqa: E501
     assert ds_Sv["channel"].equals(ed["Vendor_specific"]["PC_coeffs_imag"].dropna(dim="channel")["channel"])  # noqa: E501
+
+
+@pytest.mark.unit
+def test_parse_ek80_validate_channels():
+    """Validate requested EK80 channel_id values against the config datagram."""
+    parser = ParseEK80("dummy.raw", channels=["WBT 545612-15 ES200-7C"])
+    parser.config_datagram = {
+        "configuration": {
+            "WBT 545612-15 ES200-7C": {"channel_id": "WBT 545612-15 ES200-7C"},
+            "WBT 545612-16 ES120-7C": {"channel_id": "WBT 545612-16 ES120-7C"},
+        }
+    }
+    parser._validate_channels()
+    assert parser.channels == {"WBT 545612-15 ES200-7C"}
+
+    parser.channels = ["nonexistent-channel"]
+    with pytest.raises(ValueError, match="Requested channel_id"):
+        parser._validate_channels()
+
+
+@pytest.mark.unit
+def test_parse_ek80_is_selected():
+    """Check EK80 channel selection using channel_id strings."""
+    parser = ParseEK80("dummy.raw")
+    parser.channels = {"WBT 545612-15 ES200-7C"}
+    assert parser._is_selected("WBT 545612-15 ES200-7C")
+    assert not parser._is_selected("WBT 545612-16 ES120-7C")
+
+
+@pytest.mark.unit
+def test_set_groups_ek80_filters_sorted_channel():
+    """SetGroupsEK80 keeps only selected channel_id values in sorted_channel."""
+    parser = ParseEK80("dummy.raw", channels=["WBT 545612-16 ES120-7C"])
+    parser.config_datagram = {
+        "configuration": {
+            "WBT 545612-15 ES200-7C": {},
+            "WBT 545612-16 ES120-7C": {},
+        }
+    }
+    parser.ch_ids = {
+        "power": ["WBT 545612-15 ES200-7C"],
+        "complex": ["WBT 545612-16 ES120-7C"],
+        "angle": [],
+    }
+    parser.channels = {"WBT 545612-16 ES120-7C"}
+
+    set_groups = SetGroupsEK80(parser, "dummy.raw", "", None)
+    assert set_groups.sorted_channel["all"] == ["WBT 545612-16 ES120-7C"]
+    assert set_groups.sorted_channel["power"] == []
+    assert set_groups.sorted_channel["complex"] == ["WBT 545612-16 ES120-7C"]
+
+
+@pytest.mark.integration
+def test_open_raw_channels_subset_ek80_multi_beam(ek80_new_path):
+    """Parse and store a subset of EK80 channels across multiple beam groups."""
+    raw_file = ek80_new_path / "echopype-test-D20211004-T235714.raw"
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK80")
+    all_channels = list(echodata_all["Sonar"]["channel_all"].values)
+    assert len(all_channels) > 1
+
+    selected = all_channels[:1]
+    echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK80", channels=selected)
+    assert set(echodata_sub["Sonar"]["channel_all"].values) == set(selected)
+    assert set(echodata_sub["Sonar/Beam_group1"]["channel"].values).issubset(set(selected))
+    if echodata_sub["Sonar/Beam_group2"] is not None:
+        assert set(echodata_sub["Sonar/Beam_group2"]["channel"].values).issubset(set(selected))
+
+
+@pytest.mark.integration
+def test_open_raw_channels_ek80_sonar_vendor_consistency(ek80_new_path):
+    """Sonar and Vendor groups only contain the selected EK80 channels."""
+    raw_file = ek80_new_path / "echopype-test-D20211004-T235714.raw"
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK80")
+    selected = list(echodata_all["Sonar"]["channel_all"].values[:1])
+
+    echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK80", channels=selected)
+    assert list(echodata_sub["Sonar"]["channel_all"].values) == selected
+    assert list(echodata_sub["Vendor_specific"]["channel"].values) == selected
+
+
+@pytest.mark.integration
+def test_open_raw_channels_ek80_data_matches_full_parse(ek80_new_path):
+    """Selected-channel parse produces the same backscatter as indexing the full parse."""
+    raw_file = ek80_new_path / "echopype-test-D20211004-T235714.raw"
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK80")
+    selected = echodata_all["Sonar/Beam_group1"].channel.values[0]
+
+    echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK80", channels=[selected])
+    np.testing.assert_array_equal(
+        echodata_all["Sonar/Beam_group1"]["backscatter_r"]
+        .sel(channel=selected)
+        .values,
+        echodata_sub["Sonar/Beam_group1"]["backscatter_r"].values,
+    )
+
+
+@pytest.mark.integration
+def test_open_raw_channels_ek80_cw_fm_multiplex_fm_only(ek80_multiplex_path):
+    """Select a single FM channel from a CW-FM multiplex EK80 file."""
+    raw_file = ek80_multiplex_path / "CW_FM_power_complex_repeating.raw"
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK80", use_swap=True)
+    fm_channels = list(echodata_all["Sonar/Beam_group1"].channel.values)
+    assert len(fm_channels) >= 1
+
+    selected = fm_channels[0]
+    echodata_sub = open_raw(
+        raw_file=raw_file, sonar_model="EK80", use_swap=True, channels=[selected]
+    )
+    assert echodata_sub["Sonar/Beam_group1"].sizes["channel"] == 1
+    assert echodata_sub["Sonar/Beam_group1"].channel.item() == selected
+    assert selected in echodata_sub["Sonar"]["channel_all"].values
+    excluded = set(fm_channels) - {selected}
+    if echodata_all["Sonar/Beam_group2"] is not None:
+        cw_channels = set(echodata_all["Sonar/Beam_group2"].channel.values)
+        for ch in excluded | cw_channels:
+            assert ch not in echodata_sub["Sonar"]["channel_all"].values
+
+
+@pytest.mark.integration
+def test_open_raw_channels_ek80_cw_fm_multiplex_cw_only(ek80_multiplex_path):
+    """Select a single CW channel from a CW-FM multiplex EK80 file."""
+    raw_file = ek80_multiplex_path / "CW_FM_power_complex_repeating.raw"
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK80", use_swap=True)
+    assert echodata_all["Sonar/Beam_group2"] is not None
+    cw_channels = list(echodata_all["Sonar/Beam_group2"].channel.values)
+    assert len(cw_channels) >= 1
+
+    selected = cw_channels[0]
+    echodata_sub = open_raw(
+        raw_file=raw_file, sonar_model="EK80", use_swap=True, channels=[selected]
+    )
+    assert echodata_sub["Sonar/Beam_group2"] is not None
+    assert echodata_sub["Sonar/Beam_group2"].sizes["channel"] == 1
+    assert echodata_sub["Sonar/Beam_group2"].channel.item() == selected
+    assert selected in echodata_sub["Sonar"]["channel_all"].values
+    fm_channels = set(echodata_all["Sonar/Beam_group1"].channel.values)
+    for ch in fm_channels:
+        assert ch not in echodata_sub["Sonar"]["channel_all"].values
+
+
+@pytest.mark.integration
+def test_open_raw_channels_invalid_ek80(ek80_new_path):
+    """Raise when requested EK80 channel_id values are not in the file."""
+    raw_file = ek80_new_path / "echopype-test-D20211004-T235714.raw"
+    with pytest.raises(ValueError, match="Requested channel_id"):
+        open_raw(
+            raw_file=raw_file,
+            sonar_model="EK80",
+            channels=["nonexistent-channel"],
+        )

@@ -27,9 +27,11 @@ class SetGroupsBase(abc.ABC):
         compress=True,
         overwrite=True,
         params=None,
+        channels=None,
     ):
         # parser object ParseEK60/ParseAZFP/etc...
         self.parser_obj = parser_obj
+        self.channels = channels
 
         # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
         self.sonar_model = sonar_model
