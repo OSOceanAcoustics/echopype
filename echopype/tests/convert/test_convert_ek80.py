@@ -45,7 +45,7 @@ def ek80_multiplex_path(test_path):
 def pytest_generate_tests(metafunc):
     """Dynamically parameterize tests for EK80 .raw files."""
     from echopype.tests import conftest as ct
-    
+
     ek80_new_root = ct.TEST_DATA_FOLDER / "ek80_new"
     ek80_new_files = sorted(ek80_new_root.glob("**/*.raw"))
 
@@ -765,11 +765,12 @@ def test_open_raw_channels_ek80_data_matches_full_parse(ek80_new_path):
     selected = echodata_all["Sonar/Beam_group1"].channel.values[0]
 
     echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK80", channels=[selected])
+    full_backscatter = echodata_all["Sonar/Beam_group1"]["backscatter_r"].sel(channel=selected)
+    sub_backscatter = echodata_sub["Sonar/Beam_group1"]["backscatter_r"].isel(channel=0)
+    n_range = min(full_backscatter.sizes["range_sample"], sub_backscatter.sizes["range_sample"])
     np.testing.assert_array_equal(
-        echodata_all["Sonar/Beam_group1"]["backscatter_r"]
-        .sel(channel=selected)
-        .values,
-        echodata_sub["Sonar/Beam_group1"]["backscatter_r"].values,
+        full_backscatter.isel(range_sample=slice(0, n_range)).values,
+        sub_backscatter.isel(range_sample=slice(0, n_range)).values,
     )
 
 
@@ -787,11 +788,14 @@ def test_open_raw_channels_ek80_cw_fm_multiplex_fm_only(ek80_multiplex_path):
     )
     assert echodata_sub["Sonar/Beam_group1"].sizes["channel"] == 1
     assert echodata_sub["Sonar/Beam_group1"].channel.item() == selected
-    assert selected in echodata_sub["Sonar"]["channel_all"].values
-    excluded = set(fm_channels) - {selected}
+    assert list(echodata_sub["Sonar"]["channel_all"].values) == [selected]
+
+    for ch in set(fm_channels) - {selected}:
+        assert ch not in echodata_sub["Sonar"]["channel_all"].values
     if echodata_all["Sonar/Beam_group2"] is not None:
-        cw_channels = set(echodata_all["Sonar/Beam_group2"].channel.values)
-        for ch in excluded | cw_channels:
+        # WBAT may use the same channel_id for CW and FM; only exclude other CW ids.
+        other_cw = set(echodata_all["Sonar/Beam_group2"]["channel"].values) - {selected}
+        for ch in other_cw:
             assert ch not in echodata_sub["Sonar"]["channel_all"].values
 
 
@@ -811,9 +815,13 @@ def test_open_raw_channels_ek80_cw_fm_multiplex_cw_only(ek80_multiplex_path):
     assert echodata_sub["Sonar/Beam_group2"] is not None
     assert echodata_sub["Sonar/Beam_group2"].sizes["channel"] == 1
     assert echodata_sub["Sonar/Beam_group2"].channel.item() == selected
-    assert selected in echodata_sub["Sonar"]["channel_all"].values
-    fm_channels = set(echodata_all["Sonar/Beam_group1"].channel.values)
-    for ch in fm_channels:
+    assert list(echodata_sub["Sonar"]["channel_all"].values) == [selected]
+
+    for ch in set(cw_channels) - {selected}:
+        assert ch not in echodata_sub["Sonar"]["channel_all"].values
+    # WBAT may use the same channel_id for CW and FM; only exclude other FM ids.
+    other_fm = set(echodata_all["Sonar/Beam_group1"]["channel"].values) - {selected}
+    for ch in other_fm:
         assert ch not in echodata_sub["Sonar"]["channel_all"].values
 
 

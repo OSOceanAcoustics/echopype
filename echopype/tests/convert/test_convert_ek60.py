@@ -352,12 +352,9 @@ def test_open_raw_channels_ek60_data_matches_full_parse(ek60_path):
     selected = echodata_all["Sonar/Beam_group1"].channel.values[0]
 
     echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK60", channels=[selected])
-    np.testing.assert_array_equal(
-        echodata_all["Sonar/Beam_group1"]["backscatter_r"]
-        .sel(channel=selected)
-        .values,
-        echodata_sub["Sonar/Beam_group1"]["backscatter_r"].values,
-    )
+    full_backscatter = echodata_all["Sonar/Beam_group1"]["backscatter_r"].sel(channel=selected)
+    sub_backscatter = echodata_sub["Sonar/Beam_group1"]["backscatter_r"].isel(channel=0)
+    np.testing.assert_array_equal(full_backscatter.values, sub_backscatter.values)
 
 
 @pytest.mark.integration
