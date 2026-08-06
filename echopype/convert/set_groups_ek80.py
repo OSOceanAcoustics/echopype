@@ -92,6 +92,11 @@ class SetGroupsEK80(SetGroupsBase):
             "angle": self._sort_list(self.parser_obj.ch_ids["angle"]),
         }
 
+        if self.parser_obj.channels is not None:
+            selected = self.parser_obj.channels
+            for key in self.sorted_channel:
+                self.sorted_channel[key] = [ch for ch in self.sorted_channel[key] if ch in selected]
+
     @staticmethod
     def _sort_list(list_in: List[str]) -> List[str]:
         """

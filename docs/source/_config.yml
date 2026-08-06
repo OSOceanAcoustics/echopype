@@ -45,7 +45,8 @@ sphinx:
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
-    'sphinxcontrib.mermaid'
+    'sphinxcontrib.mermaid',
+    'test_data_inventory_ext',
   ]
   config:
     bibtex_reference_style: label

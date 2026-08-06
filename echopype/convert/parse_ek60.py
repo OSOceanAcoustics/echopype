@@ -11,6 +11,7 @@ class ParseEK60(ParseEK):
         idx_file="",
         storage_options={},
         sonar_model="EK60",
+        channels=None,
         **kwargs,
     ):
-        super().__init__(file, bot_file, idx_file, storage_options, sonar_model)
+        super().__init__(file, bot_file, idx_file, storage_options, sonar_model, channels=channels)

@@ -2,10 +2,13 @@ name: Test PR
 
 on:
   pull_request:
-    paths-ignore: ["**/docker.yaml", "docs"]
+    paths-ignore:
+      - "**/docker.yaml"
+
   push:
     branches:
       - ci/*
+
   workflow_dispatch:
 
 concurrency:
@@ -20,6 +23,25 @@ env:
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
 
 jobs:
+  test-data-inventory:
+    name: test-data-inventory
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install inventory dependencies
+        run: python -m pip install pyyaml
+
+      - name: Validate test-data inventory
+        run: python .ci_helpers/check_test_data_inventory.py
+
   unit-tests:
     name: unit--${{ matrix.python-version }}--${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
