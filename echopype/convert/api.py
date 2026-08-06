@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
 import fsspec
 from xarray import DataTree
@@ -353,6 +353,7 @@ def open_raw(
     storage_options: Optional[Dict[str, str]] = None,
     use_swap: Union[bool, Literal["auto"]] = False,
     max_chunk_size: str = "100MB",
+    channels: Optional[List[str]] = None,
 ) -> EchoData:
     """Create an EchoData object containing parsed data from a single raw data file.
 
@@ -394,6 +395,10 @@ def open_raw(
     max_mb : int
         The maximum data chunk size in Megabytes (MB), when offloading
         variables with a large memory footprint to a temporary zarr store
+    channels : list of str, optional
+        List of ``channel_id`` strings to parse and store.
+        Only supported for EK60, ES70, EK80, ES80, and EA640.
+        Includes all channels if not provided.
 
 
     Returns
@@ -451,6 +456,19 @@ def open_raw(
             f"Unsupported echosounder model: {sonar_model}\nMust be one of: {list(SONAR_MODELS)}"  # noqa
         )
 
+    model_family = SONAR_MODELS[sonar_model]["family"]
+    if channels is not None:
+        if not isinstance(channels, list):
+            raise TypeError("channels must be a list of strings.")
+        if not channels:
+            raise ValueError("channels must contain at least one channel_id.")
+        if not all(isinstance(channel, str) for channel in channels):
+            raise TypeError("channels must be a list of strings.")
+        if model_family not in ["Ex60", "Ex80"]:
+            raise ValueError(
+                "channels is only supported for EK60, ES70, EK80, ES80, and EA640 sonar models."
+            )
+
     # Check file extension and existence
     file_chk, xml_chk, bot_chk, idx_chk = _check_file(
         raw_file, sonar_model, xml_path, include_bot, include_idx, storage_options
@@ -466,13 +484,13 @@ def open_raw(
         idx_file=idx_chk,
         storage_options=storage_options,
         sonar_model=sonar_model,
+        channels=channels,
     )
     # Actually parse the raw datagrams from source file
     parser.parse_raw()
 
     # Direct offload to zarr and rectangularization only available for some sonar models
     # No rectangularization for other sonar models not listed below
-    model_family = SONAR_MODELS[sonar_model]["family"]
     if model_family in ["Ex60", "Ex80"]:
         # Perform rectangularization and offload to zarr
         # if the data expansion is too large to fit in memory
@@ -488,6 +506,7 @@ def open_raw(
         output_path=None,
         sonar_model=sonar_model,
         params=_set_convert_params(convert_params),
+        channels=channels,
     )
 
     # Setup tree dictionary

@@ -79,6 +79,13 @@ class SetGroupsEK60(SetGroupsBase):
             if len(self.parser_obj.ping_data_dict["power"][key]) != 0
         }
 
+        if self.parser_obj.channels is not None:
+            self.sorted_channel = {
+                key: value
+                for key, value in self.sorted_channel.items()
+                if value in self.parser_obj.channels
+            }
+
         # obtain corresponding frequency dict from sorted channels
         self.freq = [
             self.parser_obj.config_datagram["transceivers"][ch]["frequency"]

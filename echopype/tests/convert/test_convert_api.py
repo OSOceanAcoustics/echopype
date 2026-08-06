@@ -91,6 +91,32 @@ def test_raw2zarr(raw_file, sonar_model, use_swap, ek60_path):
         assert os.path.exists(output_save_path)
 
 
+@pytest.mark.unit
+def test_open_raw_channels_unsupported_sonar():
+    """Raise when channels is provided for an unsupported sonar model."""
+    with pytest.raises(ValueError, match="only supported"):
+        open_raw(
+            raw_file="dummy.raw",
+            sonar_model="AZFP",
+            xml_path="dummy.xml",
+            channels=["55030-125-1"],
+        )
+
+
+@pytest.mark.unit
+def test_open_raw_channels_empty_list():
+    """Raise when channels is an empty list."""
+    with pytest.raises(ValueError, match="at least one channel_id"):
+        open_raw(raw_file="dummy.raw", sonar_model="EK60", channels=[])
+
+
+@pytest.mark.unit
+def test_open_raw_channels_type_error():
+    """Raise when channels is not a list of strings."""
+    with pytest.raises(TypeError, match="list of strings"):
+        open_raw(raw_file="dummy.raw", sonar_model="EK60", channels="GPT 18 kHz")
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ["path_model", "raw_file", "sonar_model"],
