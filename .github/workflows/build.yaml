@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -43,7 +43,7 @@ jobs:
         run: python -m pip install --upgrade pip
 
       - name: Install echopype with test dependencies
-        run: python -m pip install -e ".[test,plot]"
+        run: python -m pip install -e . --group test
 
       - name: Run unit tests
         run: |
@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
         runs-on: [ubuntu-latest]
         experimental: [false]
 
@@ -108,7 +108,7 @@ jobs:
           df -h
 
       - name: Set up Python
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -134,10 +134,10 @@ jobs:
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
 
       - name: Install echopype with test dependencies
-        run: python -m pip install -e ".[test,plot]"
+        run: python -m pip install -e . --group test
 
       - name: Cache echopype test data
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.XDG_CACHE_HOME }}/echopype
           key: ep-data-${{ env.ECHOPYPE_DATA_VERSION }}

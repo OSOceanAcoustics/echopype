@@ -526,18 +526,12 @@ def detect_transient(ds: xr.Dataset, method: str, params: dict) -> xr.DataArray:
     (e.g. ``"fielding"``, ``"matecho"``). Any optional arguments omitted in
     ``params`` are filled by that method’s own defaults.
 
-    Common expectations
-    -------------------
-    - ``ds`` must contain Sv in dB (default variable name ``"Sv"``).
-    - Sv should include at least ``ping_time`` and a vertical/range coordinate
-      (e.g. ``range_sample`` or a ``depth``).
-    - Returned mask is aligned to Sv (same dims/order) with semantics
-      **True = VALID (keep)**, **False = transient noise**.
-
     Parameters
     ----------
     ds : xr.Dataset
-        Acoustic dataset with Sv and required coordinates.
+        Acoustic dataset with Sv and required coordinates. Must contain Sv in dB
+        (default variable name ``"Sv"``) and include at least ``ping_time`` and a vertical/range
+        coordinate (e.g. ``range_sample`` or a ``depth``).
     method : str
         Name of the detection method. Supported:
           - ``"fielding"``  → modified Fielding-style deep transient detector
@@ -547,9 +541,7 @@ def detect_transient(ds: xr.Dataset, method: str, params: dict) -> xr.DataArray:
         Method-specific keyword arguments (see below). Omitted keys fall back to
         the method’s defaults.
 
-    Method-specific arguments
-    -------------------------
-    fielding
+    When method == "fielding", params can contain:
         var_name : str, default "Sv"
             Name of the Sv variable (dB).
         range_var : str, default "depth"
@@ -570,7 +562,7 @@ def detect_transient(ds: xr.Dataset, method: str, params: dict) -> xr.DataArray:
             Number of initial pings treated as uncomputable in the auxiliary mask
             (note: they are still kept/VALID unless you decide otherwise).
 
-    matecho
+    When method == "matecho", params can contain:
         var_name : str, default "Sv"
             Name of the Sv variable (dB).
         range_var : str, default "depth"
@@ -594,7 +586,8 @@ def detect_transient(ds: xr.Dataset, method: str, params: dict) -> xr.DataArray:
         min_window : float, default 20
             Minimum usable window height (m); skip if smaller.
 
-    ryan (**TODO**)
+    When method == "ryan", params can contain:
+        ryan (**TODO**)
 
 
     Returns

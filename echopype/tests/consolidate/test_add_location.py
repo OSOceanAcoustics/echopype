@@ -234,10 +234,10 @@ def test_add_location(
         ),
     ],
 )
-def test_add_location_time_duplicates_value_error(
+def test_add_location_time_duplicates_warning(
     ek80_path, raw_path, sonar_model, datagram_type, parse_idx, time_dim_name, compute_Sv_kwargs,
-):   
-    """Tests for duplicate time value error in ``add_location``.""" 
+):
+    """Tests that duplicate time values are handled with a warning, not an error."""
     # Open raw and compute the Sv dataset
     if parse_idx:
         ed = ep.open_raw(ek80_path / raw_path, include_idx=True, sonar_model=sonar_model)
@@ -254,17 +254,20 @@ def test_add_location_time_duplicates_value_error(
     vals = da.to_numpy().copy()
     vals[0] = vals[1]
     ed["Platform"] = ed["Platform"].assign_coords({time_dim_name: (da.dims, vals)})
-    
-    # Check if the expected error is logged
-    with pytest.raises(ValueError) as exc_info:
-        # Run add location with duplicated time
-        ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
 
-    # Check if the specific error message is in the logs
-    assert (
-        f'Data contains duplicate time values in time_dim_name "{time_dim_name}". '
-        "Downstream interpolation on the position variables requires unique time values."
-    ) == str(exc_info.value)
+    # Should succeed with a warning instead of raising ValueError
+    with pytest.warns(UserWarning, match="Dropped 1 duplicate value"):
+        ds_loc = ep.consolidate.add_location(
+            ds=ds, echodata=ed, datagram_type=datagram_type
+        )
+
+    # Verify location was successfully added
+    assert "latitude" in ds_loc
+    assert "longitude" in ds_loc
+
+    # Verify latitude/longitude align with ping_time dimension
+    assert ds_loc["latitude"].sizes["ping_time"] == ds_loc.sizes["ping_time"]
+    assert ds_loc["longitude"].sizes["ping_time"] == ds_loc.sizes["ping_time"]
 
 
 @pytest.mark.integration
@@ -441,14 +444,14 @@ def test_add_location_lat_lon_0_NaN_warnings(
         ed["Platform"]["longitude"][0] = 0
 
     # Turn on logger verbosity
-    ep.utils.log.verbose(override=False)
+    ep.utils.log.verbose(override=True)
 
     # Run add location with 0 and NaN lat/lon values
     ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
-    
+
     # Check if the expected warnings are logged
     for warning in expected_warnings:
         assert any(warning in record.message for record in caplog.records)
-    
+
     # Turn off logger verbosity
-    ep.utils.log.verbose(override=True)
+    ep.utils.log.verbose(override=False)

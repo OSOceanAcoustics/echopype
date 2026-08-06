@@ -896,9 +896,7 @@ def detect_seafloor(
         Method-specific keyword arguments (see below). Unspecified keys use
         the method's defaults.
 
-    Method-specific arguments
-    -------------------------
-    basic
+    When method == "basic", params can contain:
         var_name : str
             Name of Sv variable (dB), e.g. ``"Sv"``.
         channel : str
@@ -913,7 +911,7 @@ def detect_seafloor(
         bin_skip_from_surface : int, default 200
             Number of shallow range bins to ignore before searching.
 
-    blackwell
+    When method == "blackwell", params can contain:
         var_name : str
             Name of the Sv variable to use (e.g., ``"Sv"``).
         channel : str

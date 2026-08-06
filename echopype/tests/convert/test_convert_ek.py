@@ -211,3 +211,27 @@ def test_pad_short_complex_pings():
         expected_output,
         equal_nan=True
     )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "sonar_model, file",
+    [
+        ("EK80", "DY1801_EK60-D20180211-T164025.raw"),
+        ("EK60", "D20190822-T161221.raw"),
+    ]
+)
+def test_wrong_sonar_model_ek60(sonar_model, file, ek60_path, ek80_path):
+    """Check appropriate ValueError when attempting to parse EK60 file with EK80 sonar_model."""
+    if sonar_model == "EK80":
+        raw_file_path = ek60_path / file  # DY1801_EK60-D20180211-T164025.raw is an EK60 file
+    else:
+        raw_file_path = ek80_path / file  # D20190822-T161221.raw is an EK80 file
+
+    with pytest.raises(ValueError) as excinfo:
+        open_raw(raw_file_path, sonar_model=sonar_model)
+
+    if sonar_model == "EK80":
+        assert f"Expected XML0 as the first datagram for EK80, but got CON0" == str(excinfo.value)
+    else:
+        assert f"Expected CON0 as the first datagram for EK60, but got XML0" == str(excinfo.value)

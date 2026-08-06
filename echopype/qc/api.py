@@ -52,6 +52,14 @@ def coerce_increasing_time(
         length of the local window before the reversed timestamp within which
         the median pinging interval is used to infer the next ping time
 
+    Examples
+    -----
+    >>> import xarray as xr
+    >>> from echopype.qc.api import exist_reversed_time, coerce_increasing_time
+    >>> ds = xr.open_dataset("my_dataset.nc")
+    >>> if exist_reversed_time(ds, "ping_time"):  # check for reversed time
+    ...     coerce_increasing_time(ds, "ping_time")  # correct the time coordinate in place
+
     Returns
     -------
     the input dataset but with specified time coordinate coerced to flow forward

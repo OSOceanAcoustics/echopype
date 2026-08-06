@@ -9,7 +9,7 @@ logo: _static/echopype_logo_square.png
 # Force re-execution of notebooks on each build.
 # See https://jupyterbook.org/content/execute.html
 execute:
-  execute_notebooks: 'off'
+  nb_execution_mode: 'off'
   timeout: -1
 
 # Define the name of the latex output file for PDF builds
@@ -45,7 +45,8 @@ sphinx:
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
-    'sphinxcontrib.mermaid'
+    'sphinxcontrib.mermaid',
+    'test_data_inventory_ext',
   ]
   config:
     bibtex_reference_style: label

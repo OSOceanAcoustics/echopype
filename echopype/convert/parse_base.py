@@ -361,6 +361,29 @@ class ParseEK(ParseBase):
         """Parse raw data file from Simrad EK60, EK80, and EA640 echosounders."""
         with RawSimradFile(self.source_file, "r", storage_options=self.storage_options) as fid:
             self.config_datagram = fid.read(1)
+
+            # Check that the first datagram is of the expected type for the sonar model
+            if self.config_datagram["type"] != "CON0" and self.sonar_model in [
+                "EK60",
+                "ES60",
+                "ES70",
+            ]:
+                # EK/ES60 and ES70 should have a CON0 datagram first
+                raise ValueError(
+                    f"Expected CON0 as the first datagram for {self.sonar_model}, "
+                    f"but got {self.config_datagram["type"]}"
+                )
+            elif self.config_datagram["type"] != "XML0" and self.sonar_model in [
+                "EK80",
+                "ES80",
+                "EA640",
+            ]:
+                # ES80/EK80 file should have an XML0 datagram first
+                raise ValueError(
+                    f"Expected XML0 as the first datagram for {self.sonar_model}, "
+                    f"but got {self.config_datagram["type"]}"
+                )
+
             self.config_datagram["timestamp"] = np.datetime64(
                 self.config_datagram["timestamp"].replace(tzinfo=None), "[ns]"
             )

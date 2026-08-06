@@ -1263,7 +1263,17 @@ class SetGroupsEK80(SetGroupsBase):
 
         # make values into numpy arrays
         for p in param_dict.keys():
-            param_dict[p] = np.array(param_dict[p])
+            values = [np.atleast_1d(value) for value in param_dict[p]]
+            lengths = {len(value) for value in values}
+            if len(lengths) == 1:
+                param_dict[p] = np.array(param_dict[p])
+            else:  # pad NaN for parameters that have different lengths across channel
+                max_len = max(lengths)
+                padded = np.full((len(values), max_len), np.nan)
+                for i, value in enumerate(values):
+                    value_array = np.asarray(value, dtype=float).reshape(-1)
+                    padded[i, : len(value_array)] = value_array
+                param_dict[p] = padded
 
         # Param size check
         if (
