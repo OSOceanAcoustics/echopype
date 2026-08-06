@@ -158,10 +158,11 @@ we use the [numpydoc style](https://numpydoc.readthedocs.io/en/latest/format.htm
 ### General setup
 
 Echopype documentation (https://echopype.readthedocs.io) is based on [Jupyter Book](https://jupyterbook.org/en/stable/intro.html),
-which are rendered under the hood with [Sphinx](https://www.sphinx-doc.org).
+which is rendered under the hood with [Sphinx](https://www.sphinx-doc.org).
 The documentation is hosted on [Read The Docs](https://readthedocs.org).
 
-To build the documentation locally, run:
+In most cases, contributors do not need to build the documentation locally, as it is automatically built and checked by Read the Docs for every pull request. However, if your changes affect the documentation, notebooks, or generated API documentation, you may wish to build it locally before opening a PR. To build the documentation locally, run:
+
 ```{tab} Conda
 
   ```shell
@@ -191,7 +192,6 @@ For some quick orientation of where things are:
 ### Versions
 
 ReadTheDocs defaults to having its `stable` version tracking the most recent release and the `main` version tracking the latest changes in the `main` branch of the repository. We follow this pattern for our documentation. See [RTD Versions](https://docs.readthedocs.io/en/stable/versions.html) for more information.
-
 
 
 (contrib:setup_CI)=
