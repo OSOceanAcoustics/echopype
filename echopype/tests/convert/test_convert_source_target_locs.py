@@ -18,6 +18,10 @@ from echopype.utils.coding import DEFAULT_ENCODINGS
 
 pytestmark = pytest.mark.integration
 
+@pytest.fixture(autouse=True)
+def use_temporary_working_directory(tmp_path, monkeypatch):
+    """Keep generated conversion outputs outside the repository."""
+    monkeypatch.chdir(tmp_path)
 
 def _check_file_group(data_file, engine, groups):
     tree = open_datatree(data_file, engine=engine)
