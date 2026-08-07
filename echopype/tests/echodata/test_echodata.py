@@ -541,21 +541,21 @@ def test_update_platform(
     # times have max interval of 2s
     # check times are > min(ed["Sonar/Beam_group1"]["ping_time"]) - 2s
     assert (
-        ed["Platform"]["time3"]
+        ed["Platform"]["time12"]
         > ed["Sonar/Beam_group1"]["ping_time"].min() - np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time < min(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
-        np.count_nonzero(ed["Platform"]["time3"] < ed["Sonar/Beam_group1"]["ping_time"].min()) <= 1
+        np.count_nonzero(ed["Platform"]["time12"] < ed["Sonar/Beam_group1"]["ping_time"].min()) <= 1
     )
     # check times are < max(ed["Sonar/Beam_group1"]["ping_time"]) + 2s
     assert (
-        ed["Platform"]["time3"]
+        ed["Platform"]["time12"]
         < ed["Sonar/Beam_group1"]["ping_time"].max() + np.timedelta64(2, "s")
     ).all()
     # check there is only 1 time > max(ed["Sonar/Beam_group1"]["ping_time"])
     assert (
-        np.count_nonzero(ed["Platform"]["time3"] > ed["Sonar/Beam_group1"]["ping_time"].max()) <= 1
+        np.count_nonzero(ed["Platform"]["time12"] > ed["Sonar/Beam_group1"]["ping_time"].max()) <= 1
     )
 
 
@@ -598,8 +598,8 @@ def test_update_platform_multidim(test_path):
 
     # Number of dimensions in Platform group and addition of time3 and time4
     assert len(ed["Platform"].dims) == len(platform_preexisting_dims) + 2
-    assert "time3" in ed["Platform"].dims
-    assert "time4" in ed["Platform"].dims
+    assert "time12" in ed["Platform"].dims
+    assert "time13" in ed["Platform"].dims
 
     # Dimension assignment
     assert ed["Platform"]["longitude"].dims[0] == ed["Platform"]["latitude"].dims[0]

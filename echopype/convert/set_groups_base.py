@@ -1,5 +1,6 @@
 import abc
 import warnings
+from collections.abc import Iterable
 from typing import List, Set
 
 import numpy as np
@@ -10,7 +11,11 @@ from ..echodata.convention import sonarnetcdf_1
 from ..utils.coding import COMPRESSION_SETTINGS, DEFAULT_TIME_ENCODING, set_time_encodings
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 
-NMEA_SENTENCE_DEFAULT = ["GGA", "GLL", "RMC"]
+NMEA_SENTENCE_LOCATION = ["GGA", "GLL", "RMC"]
+NMEA_SENTENCE_SPEED = ["RMC", "VTG"]
+NMEA_SENTENCE_HEADING = ["HDT"]
+
+KNOTS_TO_M_PER_S = 0.51444444444
 
 
 class SetGroupsBase(abc.ABC):
@@ -182,10 +187,12 @@ class SetGroupsBase(abc.ABC):
         raise NotImplementedError
 
     # TODO: move this to be part of parser as it is not a "set" operation
-    def _extract_NMEA_latlon(self):
-        """Get the lat and lon values from the raw nmea data"""
+    def _extract_selected_NMEA(
+        self, nmea_sentence_types: list
+    ) -> tuple[Iterable, Iterable, Iterable]:
+        """Parse out the selected NMEA messages."""
         messages = [string[3:6] for string in self.parser_obj.nmea["nmea_string"]]
-        idx_loc = np.argwhere(np.isin(messages, NMEA_SENTENCE_DEFAULT)).squeeze()
+        idx_loc = np.argwhere(np.isin(messages, nmea_sentence_types)).squeeze()
         if idx_loc.size == 1:  # in case of only 1 matching message
             idx_loc = np.expand_dims(idx_loc, axis=0)
         nmea_msg = []
@@ -199,6 +206,43 @@ class SetGroupsBase(abc.ABC):
                 pynmea2.ParseError,
             ):
                 nmea_msg.append(None)
+
+        msg_type = (
+            [x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg]
+            if nmea_msg
+            else [np.nan]
+        )
+
+        if nmea_msg:
+            time, _, _ = xr.coding.times.encode_cf_datetime(
+                np.array(self.parser_obj.nmea["timestamp"])[idx_loc],
+                **{
+                    "units": DEFAULT_TIME_ENCODING["units"],
+                    "calendar": DEFAULT_TIME_ENCODING["calendar"],
+                },
+            )
+            time = xr.coding.times.decode_cf_datetime(
+                time,
+                units=DEFAULT_TIME_ENCODING["units"],
+                calendar=DEFAULT_TIME_ENCODING["calendar"],
+            )
+        else:
+            time = [np.nan]
+
+        # There can be duplicate timestamps both due to a problem in earlier Simrad raw
+        # files and if multiple NMEA sentences are used with the same
+        # timestamp. Remove them here.
+        if nmea_msg:
+            time, indices = np.unique(time, return_index=True, sorted=False)
+            nmea_msg = list(np.array(nmea_msg)[indices])
+            msg_type = list(np.array(msg_type)[indices])
+
+        return nmea_msg, time, msg_type
+
+    # TODO: move this to be part of parser as it is not a "set" operation
+    def _extract_NMEA_latlon(self):
+        """Get the lat and lon values from the raw nmea data"""
+        nmea_msg, time, msg_type = self._extract_selected_NMEA(NMEA_SENTENCE_LOCATION)
         if nmea_msg:
             lat, lon = [], []
             for x in nmea_msg:
@@ -220,28 +264,59 @@ class SetGroupsBase(abc.ABC):
                     )
         else:
             lat, lon = [np.nan], [np.nan]
-        msg_type = (
-            [x.sentence_type if hasattr(x, "sentence_type") else np.nan for x in nmea_msg]
-            if nmea_msg
-            else [np.nan]
-        )
-        if nmea_msg:
-            time1, _, _ = xr.coding.times.encode_cf_datetime(
-                np.array(self.parser_obj.nmea["timestamp"])[idx_loc],
-                **{
-                    "units": DEFAULT_TIME_ENCODING["units"],
-                    "calendar": DEFAULT_TIME_ENCODING["calendar"],
-                },
-            )
-            time1 = xr.coding.times.decode_cf_datetime(
-                time1,
-                units=DEFAULT_TIME_ENCODING["units"],
-                calendar=DEFAULT_TIME_ENCODING["calendar"],
-            )
-        else:
-            time1 = [np.nan]
 
-        return time1, msg_type, lat, lon
+        return time, msg_type, lat, lon
+
+    # TODO: move this to be part of parser as it is not a "set" operation
+    def _extract_NMEA_speed(self):
+        """Get the speed over ground values from the raw nmea data"""
+        nmea_msg, time, msg_type = self._extract_selected_NMEA(NMEA_SENTENCE_SPEED)
+        if nmea_msg:
+            sog = []
+            for x in nmea_msg:
+                try:
+                    # pynmea2 has different names for speed over ground, depending on the NMEA
+                    # message that it comes from
+                    if x.sentence_type == "VTG":
+                        # VTG speed is returned as a Decimal, so fix that
+                        sog.append(
+                            float(x.spd_over_grnd_kts) * KNOTS_TO_M_PER_S
+                            if hasattr(x, "spd_over_grnd_kts") and x.spd_over_grnd_kts is not None
+                            else np.nan
+                        )
+                    else:  # only RMC so far
+                        sog.append(
+                            x.spd_over_grnd * KNOTS_TO_M_PER_S
+                            if hasattr(x, "spd_over_grnd") and x.spd_over_grnd is not None
+                            else np.nan
+                        )
+                except ValueError:
+                    sog.append(np.nan)
+        else:
+            sog = [np.nan]
+
+        return time, msg_type, sog
+
+    # TODO: move this to be part of parser as it is not a "set" operation
+    def _extract_NMEA_heading(self):
+        """Get heading values from the raw nmea data"""
+        nmea_msg, time, msg_type = self._extract_selected_NMEA(NMEA_SENTENCE_HEADING)
+        if nmea_msg:
+            heading = []
+            for x in nmea_msg:
+                try:
+                    # HDG speed is returned as a Decimal, so fix that
+                    heading.append(
+                        float(x.heading)
+                        if hasattr(x, "heading") and x.heading is not None
+                        else np.nan
+                    )
+                except ValueError:
+                    heading.append(np.nan)
+        else:
+            heading = [np.nan]
+
+        return time, msg_type, heading
 
     def _beam_groups_vars(self):
         """Stage beam_group coordinate and beam_group_descr variables sharing
@@ -467,9 +542,7 @@ class SetGroupsBase(abc.ABC):
             }
         )
 
-        return platform_ds.transpose(
-            "channel", "time1", "time2", "time3", "time4", missing_dims="ignore"
-        )
+        return platform_ds.transpose(missing_dims="ignore")
 
     def _add_seafloor_detection_data_to_vendor_ds(
         self,

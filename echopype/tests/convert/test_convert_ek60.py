@@ -367,3 +367,32 @@ def test_open_raw_channels_invalid_ek60(ek60_path):
             sonar_model="EK60",
             channels=["nonexistent-channel"],
         )
+
+
+def test_parse_speed_over_ground(ek60_path):
+    """Make sure we parse speed over ground from a RAW file."""
+
+    # This raw file has speed in NMEA VTG and RMC messages
+    echodata = open_raw(
+        raw_file=ek60_path/'NBP_B050N-D20180118-T090228.raw',
+        sonar_model='EK60'
+    )
+
+    # Check that there are data that are not NaN
+    assert (echodata["Platform"]['speed_over_ground'].sizes == {'time11': 584})
+    # this .raw file has nan's in the speed over ground data 
+    # assert (not np.any(np.isnan(echodata["Platform"]['speed_over_ground'])))
+
+
+@pytest.mark.unit
+def test_parse_NMEA_heading(ek60_path):
+    """Make sure we parse NMEA heading from a RAW file when MRU heading is not present."""
+
+    echodata = open_raw(
+        raw_file=ek60_path/'NBP_B050N-D20180118-T090228.raw',
+        sonar_model='EK60'
+    )
+
+    # Check that there are non-NaN data
+    assert (echodata["Platform"]['heading'].sizes == {'time10': 584})
+    assert (not np.any(np.isnan(echodata["Platform"]['heading'])))

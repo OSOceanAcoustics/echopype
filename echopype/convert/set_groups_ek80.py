@@ -334,11 +334,15 @@ class SetGroupsEK80(SetGroupsBase):
         time2 = np.array(time2) if time2 is not None else [np.nan]
         time3 = self.parser_obj.mru1.get("timestamp", None)
         time3 = np.array(time3) if time3 is not None else [np.nan]
+        time10, msg_type_heading, heading_nmea = self._extract_NMEA_heading()
+        time11, msg_type_sog, sog_nmea = self._extract_NMEA_speed()
 
-        # Handle potential nan timestamp for time1, time2, and time3
+        # Handle potential nan timestamps
         time1 = self._nan_timestamp_handler(time1)
         time2 = self._nan_timestamp_handler(time2)
         time3 = self._nan_timestamp_handler(time3)
+        time10 = self._nan_timestamp_handler(time10)
+        time11 = self._nan_timestamp_handler(time11)
 
         # Set MRU1 lat lon attributes
         latitude_mru1_attrs = self._varattrs["platform_var_default"]["latitude"].copy()
@@ -355,6 +359,26 @@ class SetGroupsEK80(SetGroupsBase):
                 "a wrapper of the Kongsberg Maritime Binary Datagrams."
             }
         ),
+
+        # If there is no heading data from an MRU but there is from the NMEA data, use that instead
+        if "heading" in self.parser_obj.mru0:
+            hdg_data = (
+                ["time2"],
+                np.array(self.parser_obj.mru0.get("heading", [np.nan])),
+                self._varattrs["platform_var_default"]["heading"],
+            )
+        elif len(heading_nmea) > 0:
+            hdg_data = (
+                ["time10"],
+                heading_nmea,
+                self._varattrs["platform_var_default"]["heading"],
+            )
+        else:
+            hdg_data = (
+                ["time2"],
+                [np.nan],
+                self._varattrs["platform_var_default"]["heading"],
+            )
 
         # Assemble variables into a dataset: variables filled with nan if do not exist
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
@@ -461,17 +485,7 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "sound_frequency",
                     },
                 ),
-                "heading": (
-                    ["time2"],
-                    np.array(self.parser_obj.mru0.get("heading", [np.nan])),
-                    {
-                        "long_name": "Platform heading (true)",
-                        "standard_name": "platform_orientation",
-                        "units": "degrees_north",
-                        "valid_min": 0.0,
-                        "valid_max": 360.0,
-                    },
-                ),
+                "heading": hdg_data,
                 "latitude_mru1": (
                     ["time3"],
                     np.array(self.parser_obj.mru1.get("latitude", [np.nan])),
@@ -481,6 +495,11 @@ class SetGroupsEK80(SetGroupsBase):
                     ["time3"],
                     np.array(self.parser_obj.mru1.get("longitude", [np.nan])),
                     longitude_mru1_attrs,
+                ),
+                "speed_over_ground": (
+                    ["time11"],
+                    np.array(sog_nmea),
+                    self._varattrs["platform_var_default"]["speed_over_ground"],
                 ),
             },
             coords={
@@ -518,6 +537,22 @@ class SetGroupsEK80(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
                         "orientation data from the Kongsberg Maritime Binary Datagram.",
+                    },
+                ),
+                "time10": (
+                    ["time10"],
+                    time10,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA heading data.",
+                    },
+                ),
+                "time11": (
+                    ["time11"],
+                    time11,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA speed data.",
                     },
                 ),
             },

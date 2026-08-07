@@ -439,7 +439,7 @@ class EchoData:
                 if v["ext_time_dim_name"] != "scalar"
             }
         )
-        time_dims_max = max([int(dim[-1]) for dim in platform.dims if dim.startswith("time")])
+        time_dims_max = max([int(dim[4:]) for dim in platform.dims if dim.startswith("time")])
         new_time_dims = [f"time{time_dims_max + i + 1}" for i in range(len(ext_time_dims))]
         # Map each new time dim name to the external time dim name:
         new_time_dims_mappings = {new: ext for new, ext in zip(new_time_dims, ext_time_dims)}

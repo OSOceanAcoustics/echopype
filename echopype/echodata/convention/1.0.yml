@@ -156,5 +156,16 @@ variable_and_varattributes:
     water_level:
       long_name: Distance from the platform coordinate system origin to the nominal water level along the z-axis
       units: m
+    speed_over_ground:
+      long_name: Speed over ground of the platform
+      standard_name: platform_speed_wrt_ground
+      units: m/s
+      valid_min: 0.0
+    heading:
+      long_name: Platform heading (true)
+      standard_name: platform_orientation
+      units: degrees_north
+      valid_min: 0.0
+      valid_max: 360.0
     sentence_type:
       long_name: NMEA sentence type

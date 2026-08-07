@@ -187,6 +187,8 @@ class SetGroupsEK60(SetGroupsBase):
         # Collect variables
         # Read lat/long from NMEA datagram
         time1, msg_type, lat, lon = self._extract_NMEA_latlon()
+        time10, msg_type_heading, heading = self._extract_NMEA_heading()
+        time11, msg_type_sog, sog = self._extract_NMEA_speed()
 
         # NMEA dataset: variables filled with np.nan if they do not exist
         platform_dict = {"platform_name": "", "platform_type": "", "platform_code_ICES": ""}
@@ -195,8 +197,10 @@ class SetGroupsEK60(SetGroupsBase):
         # are identical across channels
         ch = list(self.sorted_channel.keys())[0]
 
-        # Handle potential nan timestamp for time1 and time2
+        # Handle potential nan timestamp
         time1 = self._nan_timestamp_handler(time1)
+        time10 = self._nan_timestamp_handler(time10)
+        time11 = self._nan_timestamp_handler(time11)
 
         ds = xr.Dataset(
             {
@@ -250,6 +254,16 @@ class SetGroupsEK60(SetGroupsBase):
                         "position_offset_z",
                     ]
                 },
+                "heading": (
+                    ["time10"],
+                    np.array(heading),
+                    self._varattrs["platform_var_default"]["heading"],
+                ),
+                "speed_over_ground": (
+                    ["time11"],
+                    np.array(sog),
+                    self._varattrs["platform_var_default"]["speed_over_ground"],
+                ),
             },
             coords={
                 "time1": (
@@ -269,6 +283,22 @@ class SetGroupsEK60(SetGroupsBase):
                         "standard_name": "time",
                         "comment": "Time coordinate corresponding to platform motion and "
                         "orientation data.",
+                    },
+                ),
+                "time10": (
+                    ["time10"],
+                    time10,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA heading data.",
+                    },
+                ),
+                "time11": (
+                    ["time11"],
+                    time11,
+                    {
+                        **self._varattrs["platform_coord_default"]["time1"],
+                        "comment": "Time coordinate corresponding to NMEA speed data.",
                     },
                 ),
             },
