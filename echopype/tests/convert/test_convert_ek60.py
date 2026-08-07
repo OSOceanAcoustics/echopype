@@ -368,7 +368,7 @@ def test_open_raw_channels_invalid_ek60(ek60_path):
             channels=["nonexistent-channel"],
         )
 
-
+@pytest.mark.unit
 def test_parse_speed_over_ground(ek60_path):
     """Make sure we parse speed over ground from a RAW file."""
 
