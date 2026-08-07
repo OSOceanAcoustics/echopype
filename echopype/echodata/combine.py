@@ -874,12 +874,14 @@ def combine_echodata(
         Specifies what channels should be selected for an ``EchoData`` group
         with a ``channel`` dimension (before combination).
 
-        - if a list is provided, then each ``EchoData`` group with a ``channel`` dimension
-        will only contain the channels in the provided list
-        - if a dictionary is provided, the dictionary should have keys specifying only beam
-        groups (e.g. "Sonar/Beam_group1") and values as a list of channel names to select
-        within that beam group. The rest of the ``EchoData`` groups with a ``channel`` dimension
-        will have their selected channels chosen automatically.
+        - if a list is provided, then each ``EchoData`` group with a
+          ``channel`` dimension will only contain the channels in the
+          provided list
+        - if a dictionary is provided, the dictionary should have keys
+          specifying only beam groups (e.g. "Sonar/Beam_group1") and
+          values as a list of channel names to select within that beam
+          group. The rest of the ``EchoData`` groups with a ``channel``
+          dimension will have their selected channels chosen automatically.
 
     Returns
     -------

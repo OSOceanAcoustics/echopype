@@ -53,7 +53,7 @@ def coerce_increasing_time(
         the median pinging interval is used to infer the next ping time
 
     Examples
-    -----
+    --------
     >>> import xarray as xr
     >>> from echopype.qc.api import exist_reversed_time, coerce_increasing_time
     >>> ds = xr.open_dataset("my_dataset.nc")
