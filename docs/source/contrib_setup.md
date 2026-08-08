@@ -170,7 +170,7 @@ In most cases, contributors do not need to build the documentation locally, as i
   python -m pip install --group docs
 
   # Build the documentation
-  jupyter-book build docs/source --path-output docs
+  jupyter-book build -W --keep-going docs/source --path-output docs
   ```
 
 ```{tab} Uv
