@@ -27,16 +27,7 @@ Open raw and converted files
 .. _api-open_raw:
 
 .. automodule:: echopype
-   :members: open_raw
-
-.. automodule:: echopype
-   :members: open_converted
-
-Combine EchoData objects
-------------------------
-
-.. automodule:: echopype
-   :members: combine_echodata
+   :members: open_raw, open_converted, combine_echodata
 
 Data processing subpackages
 ---------------------------
@@ -97,4 +88,3 @@ Utilities
 .. automodapi:: echopype.utils.uwa
    :no-inheritance-diagram:
    :no-heading:
-   :members: calc_absorption, calc_sound_speed

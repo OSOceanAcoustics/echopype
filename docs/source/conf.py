@@ -45,3 +45,5 @@ use_multitoc_numbering = True
 bibtex_bibfiles = ['references.bib']
 bibtex_reference_style = 'author_year'
 bibtex_default_style = 'alpha'
+numpydoc_show_class_members = False
+suppress_warnings = ["etoc.toctree"]
