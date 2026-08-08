@@ -1,4 +1,5 @@
 import datetime
+from contextlib import contextmanager
 from typing import List
 
 import numpy as np
@@ -30,6 +31,60 @@ class SetGroupsBI500(SetGroupsBase):
         super().__init__(*args, **kwargs)
         self._beamgroups = self.beamgroups_possible
 
+    def _channel_items(self):
+        """Return parsed BI500 channel data, with single-channel fallback."""
+        channel_data = getattr(self.parser_obj, "channel_data", None)
+        if channel_data:
+            return channel_data.items()
+
+        return [
+            (
+                self._get_channel_id(),
+                {
+                    "file_type_map": self.parser_obj.file_type_map,
+                    "parameters": self.parser_obj.parameters,
+                    "ping_data": self.parser_obj.ping_data,
+                    "vlog_data": self.parser_obj.vlog_data,
+                    "index_counts": self.parser_obj.index_counts,
+                    "unpacked_data": self.parser_obj.unpacked_data,
+                },
+            )
+        ]
+
+    @contextmanager
+    def _use_channel_data(self, channel_data):
+        """Temporarily expose one parsed BI500 channel through legacy attributes."""
+        attr_names = (
+            "file_type_map",
+            "parameters",
+            "ping_data",
+            "vlog_data",
+            "index_counts",
+            "unpacked_data",
+        )
+        previous = {name: getattr(self.parser_obj, name) for name in attr_names}
+
+        try:
+            for name in attr_names:
+                setattr(self.parser_obj, name, channel_data[name])
+            yield
+        finally:
+            for name, value in previous.items():
+                setattr(self.parser_obj, name, value)
+
+    def set_platform(self) -> xr.Dataset:
+        """Set Platform data using the union of native BI500 channel timestamps."""
+        datasets = []
+        for _, channel_data in self._channel_items():
+            with self._use_channel_data(channel_data):
+                datasets.append(self._set_platform_single())
+
+        ds = datasets[0]
+        for other in datasets[1:]:
+            ds = ds.combine_first(other)
+
+        return set_time_encodings(ds)
+
     @staticmethod
     def _build_ping_time(dates, times) -> np.ndarray:
         """Combine BI500 YYYYMMDD date and seconds-since-midnight time arrays."""
@@ -58,7 +113,7 @@ class SetGroupsBI500(SetGroupsBase):
             np.array(vlog_data["time"], dtype=np.int64),
         )
 
-    def set_platform(self) -> xr.Dataset:
+    def _set_platform_single(self) -> xr.Dataset:
         """Set the Platform group."""
         ping_data = self.parser_obj.ping_data
         vlog_data = self.parser_obj.vlog_data
@@ -172,6 +227,26 @@ class SetGroupsBI500(SetGroupsBase):
         return f"BI500-F{frequency}-T{transceiver:02d}"
 
     def set_env(self) -> xr.Dataset:
+        """Set Environment data for all BI500 channels."""
+        datasets = []
+        for _, channel_data in self._channel_items():
+            with self._use_channel_data(channel_data):
+                datasets.append(self._set_env_single())
+
+        if len(datasets) == 1:
+            return datasets[0]
+
+        ds = xr.concat(
+            datasets,
+            dim="channel",
+            join="outer",
+            data_vars=["absorption_indicative"],
+            coords="minimal",
+            compat="override",
+        )
+        return set_time_encodings(ds)
+
+    def _set_env_single(self) -> xr.Dataset:
         """Set the Environment group."""
         channel_id = self._get_channel_id()
 
@@ -225,12 +300,12 @@ class SetGroupsBI500(SetGroupsBase):
         return set_time_encodings(ds)
 
     @staticmethod
-    def _build_pelagic_echo_range(
+    def _build_pelagic_depth(
         upper: np.ndarray,
         lower: np.ndarray,
         sample_count: int,
     ) -> np.ndarray:
-        """Construct pelagic sample-centre ranges from BI500 window bounds."""
+        """Construct pelagic sample-centre depths from BI500 depth bounds."""
         sample_width = (lower - upper) / sample_count
 
         return (
@@ -239,13 +314,13 @@ class SetGroupsBI500(SetGroupsBase):
         )
 
     @staticmethod
-    def _build_bottom_echo_range(
+    def _build_bottom_depth(
         bottom_depth: np.ndarray,
         upper_offset: np.ndarray,
         lower_offset: np.ndarray,
         sample_count: int,
     ) -> np.ndarray:
-        """Construct bottom-window sample-centre ranges."""
+        """Construct bottom-window sample-centre depths."""
         window_start = bottom_depth - upper_offset
         window_stop = bottom_depth - lower_offset
         sample_width = (window_stop - window_start) / sample_count
@@ -256,6 +331,26 @@ class SetGroupsBI500(SetGroupsBase):
         )
 
     def set_calibrated(self) -> xr.Dataset:
+        """Create calibrated BI500 products for all channels in one acquisition."""
+        datasets = []
+        for _, channel_data in self._channel_items():
+            with self._use_channel_data(channel_data):
+                datasets.append(self._set_calibrated_single())
+
+        if len(datasets) == 1:
+            return datasets[0]
+
+        ds = xr.concat(
+            datasets,
+            dim="channel",
+            join="outer",
+            data_vars="all",
+            coords="minimal",
+            compat="override",
+        )
+        return set_time_encodings(ds)
+
+    def _set_calibrated_single(self) -> xr.Dataset:
         """Create a dataset containing calibrated BI500 echogram products."""
         parameters = self.parser_obj.parameters
         ping_data = self.parser_obj.ping_data
@@ -276,13 +371,11 @@ class SetGroupsBI500(SetGroupsBase):
             ping_data["pelagic_lower"],
             dtype=np.float64,
         )
-
-        echo_range = self._build_pelagic_echo_range(
+        depth = self._build_pelagic_depth(
             upper=pelagic_upper,
             lower=pelagic_lower,
             sample_count=sv.shape[1],
         )
-
         bottom_depth = np.asarray(
             ping_data["bottom_depth"],
             dtype=np.float64,
@@ -295,16 +388,14 @@ class SetGroupsBI500(SetGroupsBase):
             ping_data["bottom_lower"],
             dtype=np.float64,
         )
-
-        echo_range_bottom = self._build_bottom_echo_range(
+        depth_bottom = self._build_bottom_depth(
             bottom_depth=bottom_depth,
             upper_offset=bottom_upper,
             lower_offset=bottom_lower,
             sample_count=sv_bottom.shape[1],
         )
-
         traces = self._collect_target_traces()
-        n_targets = len(traces["single_target_range"])
+        n_targets = len(traces["single_target_depth"])
 
         single_target = np.arange(
             n_targets,
@@ -352,20 +443,32 @@ class SetGroupsBI500(SetGroupsBase):
                         "valid_min": 0.0,
                     },
                 ),
-                "echo_range": (
+                "depth": (
                     ["channel", "ping_time", "range_sample"],
-                    echo_range[np.newaxis, :, :],
+                    depth[np.newaxis, :, :],
                     {
-                        "long_name": "Range distance",
+                        "long_name": "Pelagic echogram sample depth",
+                        "standard_name": "depth",
                         "units": "m",
+                        "positive": "down",
+                        "comment": (
+                            "Depth below the sea surface reconstructed from "
+                            "BI500 PelagicUpper and PelagicLower."
+                        ),
                     },
                 ),
-                "echo_range_bottom": (
+                "depth_bottom": (
                     ["channel", "ping_time", "range_sample_bottom"],
-                    echo_range_bottom[np.newaxis, :, :],
+                    depth_bottom[np.newaxis, :, :],
                     {
-                        "long_name": "Bottom echogram range distance",
+                        "long_name": "Bottom echogram sample depth",
+                        "standard_name": "depth",
                         "units": "m",
+                        "positive": "down",
+                        "comment": (
+                            "Depth below the sea surface reconstructed from BI500 BottomDepth, "
+                            "BottomUpper, and BottomLower."
+                        ),
                     },
                 ),
                 "pelagic_upper": (
@@ -424,15 +527,18 @@ class SetGroupsBI500(SetGroupsBase):
                         "standard_name": "time",
                     },
                 ),
-                "single_target_range": (
+                "single_target_depth": (
                     ["single_target"],
                     np.asarray(
-                        traces["single_target_range"],
+                        traces["single_target_depth"],
                         dtype=np.float64,
                     ),
                     {
-                        "long_name": "Range of single target detected",
+                        "long_name": "Depth of single target detected",
+                        "standard_name": "depth",
                         "units": "m",
+                        "positive": "down",
+                        "comment": "Target depth reported directly by BI500.",
                     },
                 ),
                 "single_target_alongship_angle": (
@@ -466,7 +572,7 @@ class SetGroupsBI500(SetGroupsBase):
                 "uncompensated_TS": (
                     ["single_target"],
                     np.asarray(
-                        traces["Sp"],
+                        traces["uncompensated_TS"],
                         dtype=np.float64,
                     ),
                     {
@@ -475,15 +581,13 @@ class SetGroupsBI500(SetGroupsBase):
                             "uncompensated for off-axis angle"
                         ),
                         "units": "dB",
-                        "comment": (
-                            "Uncompensated target strength generated " "directly by BI500."
-                        ),
+                        "comment": "Uncompensated target strength generated directly by BI500.",
                     },
                 ),
                 "compensated_TS": (
                     ["single_target"],
                     np.asarray(
-                        traces["TS"],
+                        traces["compensated_TS"],
                         dtype=np.float64,
                     ),
                     {
@@ -492,9 +596,7 @@ class SetGroupsBI500(SetGroupsBase):
                             "after compensation for off-axis angle"
                         ),
                         "units": "dB",
-                        "comment": (
-                            "Beam-compensated target strength generated " "directly by BI500."
-                        ),
+                        "comment": "Beam-compensated target strength generated directly by BI500.",
                     },
                 ),
             },
@@ -551,9 +653,9 @@ class SetGroupsBI500(SetGroupsBase):
     def _collect_target_traces(self) -> dict:
         """Collect BI500 single-target values and their source ping indices."""
         trace_fields = {
-            "single_target_range": "TargetDepth",
-            "TS": "CompTS",
-            "Sp": "UncompTS",
+            "single_target_depth": "TargetDepth",
+            "compensated_TS": "CompTS",
+            "uncompensated_TS": "UncompTS",
             "single_target_alongship_angle": "Alongship",
             "single_target_athwartship_angle": "Athwartship",
         }
@@ -582,6 +684,26 @@ class SetGroupsBI500(SetGroupsBase):
         return collected
 
     def set_beam(self) -> List[xr.Dataset]:
+        """Set Sonar/Beam_group1 for all BI500 channels."""
+        datasets = []
+        for _, channel_data in self._channel_items():
+            with self._use_channel_data(channel_data):
+                datasets.append(self._set_beam_single()[0])
+
+        if len(datasets) == 1:
+            return [datasets[0]]
+
+        ds = xr.concat(
+            datasets,
+            dim="channel",
+            join="outer",
+            data_vars="all",
+            coords="minimal",
+            compat="override",
+        )
+        return [set_time_encodings(ds)]
+
+    def _set_beam_single(self) -> List[xr.Dataset]:
         """Set the Sonar/Beam_group1 group."""
         parameters = self.parser_obj.parameters
         ping_data = self.parser_obj.ping_data
@@ -609,64 +731,107 @@ class SetGroupsBI500(SetGroupsBase):
                     [int(parameters["transceiver"][0])],
                     {"long_name": "Transceiver channel number"},
                 ),
-                "beam_type": (
-                    ["channel"],
-                    [0],
-                    {
-                        "long_name": "Beam type",
-                        "flag_values": [0, 1],
-                        "flag_meanings": ["Single beam", "Split aperture beam"],
-                    },
-                ),
                 "echogram_type": (
                     ["ping_time"],
                     np.array(ping_data["echogram_type"], dtype=np.int64),
-                    {"long_name": "Echogram data type"},
+                    {
+                        "long_name": "Echogram data type",
+                    },
                 ),
                 "echogram_type_vlog": (
                     ["ping_time_vlog"],
                     np.array(vlog_data["echogram_type"], dtype=np.int64),
-                    {"long_name": "Echogram data type from vlog"},
+                    {
+                        "long_name": "Echogram data type from vlog",
+                    },
                 ),
                 "pelagic_upper": (
                     ["channel", "ping_time"],
                     np.array(ping_data["pelagic_upper"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Pelagic echogram upper depth bound", "units": "m"},
+                    {
+                        "long_name": "Pelagic echogram upper depth bound",
+                        "units": "m",
+                        "positive": "down",
+                        "comment": "Referenced to the sea surface.",
+                    },
                 ),
                 "pelagic_lower": (
                     ["channel", "ping_time"],
                     np.array(ping_data["pelagic_lower"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Pelagic echogram lower depth bound", "units": "m"},
+                    {
+                        "long_name": "Pelagic echogram lower depth bound",
+                        "units": "m",
+                        "positive": "down",
+                        "comment": "Referenced to the sea surface.",
+                    },
                 ),
                 "pelagic_upper_vlog": (
                     ["channel", "ping_time_vlog"],
                     np.array(vlog_data["pelagic_upper"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Pelagic echogram upper depth bound from vlog", "units": "m"},
+                    {
+                        "long_name": "Pelagic echogram upper depth bound from vlog",
+                        "units": "m",
+                        "positive": "down",
+                        "comment": "Referenced to the sea surface.",
+                    },
                 ),
                 "pelagic_lower_vlog": (
                     ["channel", "ping_time_vlog"],
                     np.array(vlog_data["pelagic_lower"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Pelagic echogram lower depth bound from vlog", "units": "m"},
+                    {
+                        "long_name": "Pelagic echogram lower depth bound from vlog",
+                        "units": "m",
+                        "positive": "down",
+                        "comment": "Referenced to the sea surface.",
+                    },
                 ),
                 "bottom_upper": (
                     ["channel", "ping_time"],
                     np.array(ping_data["bottom_upper"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Bottom echogram upper depth bound", "units": "m"},
+                    {
+                        "long_name": "Bottom echogram upper depth offset",
+                        "units": "m",
+                        "comment": (
+                            "Referenced to the detected bottom; "
+                            "positive values are above the bottom."
+                        ),
+                    },
                 ),
                 "bottom_lower": (
                     ["channel", "ping_time"],
                     np.array(ping_data["bottom_lower"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Bottom echogram lower depth bound", "units": "m"},
+                    {
+                        "long_name": "Bottom echogram lower depth offset",
+                        "units": "m",
+                        "comment": (
+                            "Referenced to the detected bottom; "
+                            "positive values are above the bottom."
+                        ),
+                    },
                 ),
                 "bottom_upper_vlog": (
                     ["channel", "ping_time_vlog"],
                     np.array(vlog_data["bottom_upper"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Bottom echogram upper depth bound from vlog", "units": "m"},
+                    {
+                        "long_name": "Bottom echogram upper depth offset from vlog",
+                        "units": "m",
+                        "comment": (
+                            "Referenced to the detected bottom; "
+                            "positive values are above the bottom."
+                        ),
+                    },
                 ),
                 "bottom_lower_vlog": (
                     ["channel", "ping_time_vlog"],
                     np.array(vlog_data["bottom_lower"], dtype=np.float64)[np.newaxis, :],
-                    {"long_name": "Bottom echogram lower depth bound from vlog", "units": "m"},
+                    {
+                        "long_name": "Bottom echogram lower depth offset from vlog",
+                        "units": "m",
+                        "comment": (
+                            "Referenced to the detected bottom; "
+                            "positive values are above the bottom."
+                        ),
+                    },
                 ),
             },
             coords={
@@ -736,11 +901,19 @@ class SetGroupsBI500(SetGroupsBase):
         """Set the Provenance group."""
         prov_dict = echopype_prov_attrs(process_type="conversion")
 
-        source_files = [
-            self.parser_obj.file_type_map[file_type]
-            for file_type in self.parser_obj.file_types
-            if self.parser_obj.file_type_map.get(file_type)
-        ]
+        if getattr(self.parser_obj, "file_set_map", None):
+            source_files = [
+                file_type_map[file_type]
+                for file_type_map in self.parser_obj.file_set_map.values()
+                for file_type in self.parser_obj.file_types
+                if file_type_map.get(file_type)
+            ]
+        else:
+            source_files = [
+                self.parser_obj.file_type_map[file_type]
+                for file_type in self.parser_obj.file_types
+                if self.parser_obj.file_type_map.get(file_type)
+            ]
         if not source_files:
             source_files = [self.input_file]
 
