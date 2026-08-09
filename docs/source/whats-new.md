@@ -564,7 +564,7 @@ This is a minor release that includes important bug fixes, a number of new featu
 
 
 
-
+(v060-release-notes)=
 # v0.6.0 (2022 May 26)
 
 ## Overview
