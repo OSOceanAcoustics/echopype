@@ -170,13 +170,13 @@ In most cases, contributors do not need to build the documentation locally, as i
   python -m pip install --group docs
 
   # Build the documentation
-  jupyter-book build docs/source --path-output docs
+  jupyter-book build -W --keep-going docs/source --path-output docs
   ```
 
 ```{tab} Uv
 
   ```shell
-  uv run --group docs sphinx-build -b html ./docs/source ./docs/_build
+  uv run --group docs sphinx-build -W --keep-going -b html ./docs/source ./docs/_build
   ```
 
 To view the generated HTML files open `docs/_build/html/index.html` in your browser.
