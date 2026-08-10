@@ -72,8 +72,8 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
     if engine == "netcdf4":
         ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, engine=engine, **kwargs)
     elif engine == "zarr":
-        # Dask chunk according to dask formatted chunk encoding. As the zarr chunks are inherited
-        # from the dask formatted chunks, we avoid any potential chunking mismatch between the two.
+        # Rechunk Dask array according to dask formatted chunk encoding. The zarr chunks are based
+        # on the dask formatted chunks, so we avoid any potential chunking mismatch between them.
         # If we do not do this, we will need to call `ds.to_zrar(...,align_chunks=True,...)`, which
         # also "rechunks the Dask array to align with Zarr chunks before writing"
         # (https://docs.xarray.dev/en/latest/generated/xarray.Dataset.to_zarr.html).
