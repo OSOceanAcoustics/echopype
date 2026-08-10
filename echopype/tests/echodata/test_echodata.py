@@ -854,12 +854,11 @@ def test_echodata_delete(caplog, ek60_path):
 
 
 @pytest.mark.unit
-def test_to_zarr_no_consolidated_metadata_warning():
+def test_to_zarr_no_consolidated_metadata_warning(test_path):
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always", ZarrUserWarning)
         ed = open_raw(
-            "echopype/test_data/ek60/ncei-wcsd/"
-            "Summer2017-D20170719-T211347.raw",
+            test_path["EK60"] / "ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
             sonar_model="EK60",
         )
         ed.to_zarr(overwrite=True)
