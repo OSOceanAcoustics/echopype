@@ -5,8 +5,9 @@ import math
 import dask
 import warnings
 
-from echopype.utils.coding import _get_dask_auto_chunk, set_netcdf_encodings, _encode_time_dataarray, DEFAULT_TIME_ENCODING
+from echopype.utils.coding import _get_dask_auto_chunk, set_netcdf_encodings, _encode_time_dataarray, DEFAULT_TIME_ENCODING  # noqa: E501
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "chunk",
     ["auto", "5MB", "10MB", "30MB", "70MB", "100MB", "default"],
@@ -31,8 +32,9 @@ def test__get_dask_auto_chunk(chunk):
     if chunk in ["auto", "100MB", "default"]:
         assert chunk_byte_size == dask_data.nbytes, "Default chunk is not equal to data array size!"
     else:
-        assert chunk_byte_size <= dask.utils.parse_bytes(chunk), "Calculated chunk exceeded max chunk!"
+        assert chunk_byte_size <= dask.utils.parse_bytes(chunk), "Calculated chunk exceeded max chunk!"  # noqa: E501
         
+@pytest.mark.unit
 def test_set_netcdf_encodings():
     # create a test dataset
     ds = xr.Dataset(
@@ -85,7 +87,7 @@ def test_encode_time_dataarray_on_nanosecond_resolution_encoding():
         dtype='datetime64[ns]'
     )
 
-    # This should pass without error since int64 should be sufficient to encompass nanosecond scale granularity
+    # This should pass without error since int64 should be sufficient to encompass nanosecond scale granularity  # noqa: E501
     # between time differences in 2023 and 1970
     with warnings.catch_warnings():
         warnings.simplefilter("error")

@@ -6,10 +6,10 @@ from fsspec.mapping import FSMap
 from typing_extensions import Literal
 
 from .convert.parse_ad2cp import ParseAd2cp
-from .convert.parse_azfp import ParseAZFP
-from .convert.parse_azfp6 import ParseAZFP6
 from .convert.parse_ek60 import ParseEK60
 from .convert.parse_ek80 import ParseEK80
+from .convert.parse_uls5 import ParseULS5
+from .convert.parse_uls6 import ParseULS6
 from .convert.set_groups_ad2cp import SetGroupsAd2cp
 from .convert.set_groups_azfp import SetGroupsAZFP
 from .convert.set_groups_azfp6 import SetGroupsAZFP6
@@ -25,11 +25,19 @@ if TYPE_CHECKING:
 
 
 def validate_azfp_ext(test_ext: str):
-    if not re.fullmatch(r"\.\d{2}[a-zA-Z]", test_ext):
-        raise ValueError(
-            'Expecting a file in the form ".XXY" '
-            f"where XX is a number and Y is a letter but got {test_ext}"
-        )
+
+    err = ValueError(f"Expecting a aps6 or azfp file but got {test_ext}")
+    if test_ext.casefold() in (".azfp", ".aps6"):
+        return
+
+    err = ValueError(
+        'Expecting a file in the form ".XXY" '
+        f"where XX is a number and Y is a letter but got {test_ext}"
+    )
+    if re.fullmatch(r"\.\d{2}[a-zA-Z]", test_ext):
+        return
+
+    raise err
 
 
 def validate_ext(ext: str) -> Callable[[str], None]:
@@ -46,18 +54,20 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "xml": True,
         "accepts_bot": False,
         "accepts_idx": False,
-        "parser": ParseAZFP,
+        "parser": ParseULS5,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP,
+        "family": "AZFP",
     },
     "AZFP6": {
-        "validate_ext": validate_ext(".azfp"),
+        "validate_ext": validate_azfp_ext,
         "xml": False,
         "accepts_bot": False,
         "accepts_idx": False,
-        "parser": ParseAZFP6,
+        "parser": ParseULS6,
         "parsed2zarr": None,
         "set_groups": SetGroupsAZFP6,
+        "family": "AZFP",
     },
     "EK60": {
         "validate_ext": validate_ext(".raw"),
@@ -66,6 +76,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": True,
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
+        "family": "Ex60",
     },
     "ES70": {
         "validate_ext": validate_ext(".raw"),
@@ -74,6 +85,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK60,
         "set_groups": SetGroupsEK60,
+        "family": "Ex60",
     },
     "EK80": {
         "validate_ext": validate_ext(".raw"),
@@ -82,6 +94,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": True,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
+        "family": "Ex80",
     },
     "ES80": {
         "validate_ext": validate_ext(".raw"),
@@ -90,6 +103,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
+        "family": "Ex80",
     },
     "EA640": {
         "validate_ext": validate_ext(".raw"),
@@ -98,6 +112,7 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "accepts_idx": False,
         "parser": ParseEK80,
         "set_groups": SetGroupsEK80,
+        "family": "Ex80",
     },
     "AD2CP": {
         "validate_ext": validate_ext(".ad2cp"),
@@ -107,5 +122,6 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parser": ParseAd2cp,
         "parsed2zarr": None,
         "set_groups": SetGroupsAd2cp,
+        "family": "AD2CP",
     },
 }

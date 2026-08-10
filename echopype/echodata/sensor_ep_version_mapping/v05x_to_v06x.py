@@ -24,9 +24,10 @@ def _get_sensor(sensor_model):
         Sensor model name provided in ``ed['Top-level'].keywords``
     """
 
-    if sensor_model in ["EK60", "ES70"]:
+    model_family = SONAR_MODELS[sensor_model]["family"]
+    if model_family == "Ex60":
         return "EK60"
-    elif sensor_model in ["EK80", "ES80", "EA640"]:
+    elif model_family == "Ex80":
         return "EK80"
     else:
         return sensor_model

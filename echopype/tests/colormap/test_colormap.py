@@ -1,9 +1,11 @@
-import echopype.colormap
+import echopype.colormap  # noqa: F401
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 
 import pytest
+
+pytestmark = pytest.mark.unit
 
 
 @pytest.mark.parametrize(

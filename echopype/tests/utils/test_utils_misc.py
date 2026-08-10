@@ -3,6 +3,8 @@ import pytest
 import numpy as np
 from echopype.utils.misc import depth_from_pressure
 
+pytestmark = pytest.mark.unit
+
 
 def test_depth_from_pressure():
     # A single pressure value and defaults for the other arguments

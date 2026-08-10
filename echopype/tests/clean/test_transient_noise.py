@@ -148,7 +148,7 @@ def test_matecho_bottom_var_optional(ds_small):
 
     # Provide a synthetic shallow bottom to exercise the code path
     shallow = xr.DataArray(
-        np.full(ds_small.dims["ping_time"], 300.0),
+        np.full(ds_small.sizes["ping_time"], 300.0),
         dims=["ping_time"],
         coords=[ds_small["ping_time"]],
         name="bottom",

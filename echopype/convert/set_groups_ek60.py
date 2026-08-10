@@ -79,6 +79,13 @@ class SetGroupsEK60(SetGroupsBase):
             if len(self.parser_obj.ping_data_dict["power"][key]) != 0
         }
 
+        if self.parser_obj.channels is not None:
+            self.sorted_channel = {
+                key: value
+                for key, value in self.sorted_channel.items()
+                if value in self.parser_obj.channels
+            }
+
         # obtain corresponding frequency dict from sorted channels
         self.freq = [
             self.parser_obj.config_datagram["transceivers"][ch]["frequency"]
@@ -314,7 +321,12 @@ class SetGroupsEK60(SetGroupsBase):
         )
 
         # Merge with NMEA data
-        ds = xr.merge([ds, ds_plat], combine_attrs="override")
+        ds = xr.merge(
+            [ds, ds_plat],
+            compat="no_conflicts",
+            join="outer",
+            combine_attrs="override",
+        )
         ds = ds.assign_attrs(platform_dict)
 
         # If `.IDX` file exists and `.IDX` data is parsed
@@ -707,7 +719,10 @@ class SetGroupsEK60(SetGroupsBase):
 
         # Merge data from all channels
         ds = xr.merge(
-            [ds, xr.concat(ds_backscatter, dim="channel")], combine_attrs="override"
+            [ds, xr.concat(ds_backscatter, dim="channel", join="outer")],
+            compat="no_conflicts",
+            join="outer",
+            combine_attrs="override",
         )  # override keeps the Dataset attributes
 
         # Manipulate some Dataset dimensions to adhere to convention

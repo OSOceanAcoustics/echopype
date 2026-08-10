@@ -22,13 +22,13 @@ def align_to_ping_time(
     method : str, default 'nearest'
         Interpolation method. Not used if external time matches ping time or external
         DataArray is a single value.
-        For more interpolation methods please visit: https://docs.xarray.dev/en/stable/generated/xarray.DataArray.interp.html # noqa
+        For more interpolation methods please visit: https://docs.xarray.dev/en/stable/generated/xarray.DataArray.interp.html
 
     Returns
     -------
     aligned_da : xr.DataArray
         External non-echosounder data that is now aligned with the echosounder ping time.
-    """
+    """  # noqa: E501
     # Rename if the external time dimension is equal to ping time
     if ping_time_da.equals(
         external_da[external_time_name].rename({external_time_name: "ping_time"})

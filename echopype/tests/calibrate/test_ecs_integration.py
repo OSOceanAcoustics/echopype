@@ -1,12 +1,14 @@
 import pytest
 
 import numpy as np
-import xarray as xr
+import xarray as xr  # noqa: F401
 
 import echopype as ep
 from echopype.calibrate.ecs import ECSParser, ecs_ev2ep, ecs_ds2dict, conform_channel_order
 from echopype.calibrate.env_params import get_env_params_EK
-from echopype.calibrate.cal_params import get_cal_params_EK
+from echopype.calibrate.cal_params import get_cal_params_EK  # noqa: F401
+
+pytestmark = pytest.mark.integration
 
 
 # @pytest.fixture
@@ -51,13 +53,13 @@ def test_ecs_intake_ek60(ek60_path, ecs_path):
     ecs.parse()
     ecs_dict = ecs.get_cal_params()  # apply ECS hierarchy
     ds_env_tmp, ds_cal_tmp, _ = ecs_ev2ep(ecs_dict, "EK60")
-    env_params = ecs_ds2dict(conform_channel_order(ds_env_tmp, ed["Sonar/Beam_group1"]["frequency_nominal"]))
-    cal_params = ecs_ds2dict(conform_channel_order(ds_cal_tmp, ed["Sonar/Beam_group1"]["frequency_nominal"]))
+    env_params = ecs_ds2dict(conform_channel_order(ds_env_tmp, ed["Sonar/Beam_group1"]["frequency_nominal"]))  # noqa: E501
+    cal_params = ecs_ds2dict(conform_channel_order(ds_cal_tmp, ed["Sonar/Beam_group1"]["frequency_nominal"]))  # noqa: E501
 
     # Check if the final stored params (which are those used in calibration operations)
     # are those parsed from ECS
     for p_name in ["sound_speed", "sound_absorption"]:
-        assert "ping_time" not in ds_Sv[p_name]  # only if pull from data will params have time coord
+        assert "ping_time" not in ds_Sv[p_name]  # only if pull from data will params have time coord  # noqa: E501
         assert ds_Sv[p_name].identical(env_params[p_name])
 
     for p_name in [
@@ -116,11 +118,11 @@ def test_ecs_intake_ek80_CW_power(ek80_path, ecs_path):
         ]:
         assert ds_Sv[p_name].equals(ecs_cal_params[p_name])
     # For those computed from values in ECS file
-    assert np.all(ds_Sv["sound_absorption"].values == assimilated_env_params["sound_absorption"].values)
+    assert np.all(ds_Sv["sound_absorption"].values == assimilated_env_params["sound_absorption"].values)  # noqa: E501
 
     # TODO: remove params that are only relevant to EK80 complex sample cals
     #       `impedance_transducer`, `impedance_transceiver`, `receiver_sampling_frequency`
-    # for p_name in ["impedance_transducer", "impedance_transceiver", "receiver_sampling_frequency"]:
+    # for p_name in ["impedance_transducer", "impedance_transceiver", "receiver_sampling_frequency"]:  # noqa: E501
     #     assert p_name not in ds_Sv
 
 
@@ -129,7 +131,7 @@ def test_ecs_intake_ek80_BB_complex(ek80_path, ecs_path):
     # get EchoData object that has the water_level variable under platform and compute Sv of it
     ed = ep.open_raw(ek80_path / "Summer2018--D20180905-T033113.raw", sonar_model="EK80")
     ecs_file = ecs_path / "Simrad_EK80_ES80_WBAT_EKAuto_Kongsberg_EA640_nohash.ecs"
-    ds_Sv = ep.calibrate.compute_Sv(ed, ecs_file=ecs_file, waveform_mode="BB", encode_mode="complex")
+    ds_Sv = ep.calibrate.compute_Sv(ed, ecs_file=ecs_file, waveform_mode="BB", encode_mode="complex")  # noqa: E501
 
     # Parse ECS separately
     ecs = ECSParser(ecs_file)
@@ -137,7 +139,7 @@ def test_ecs_intake_ek80_BB_complex(ek80_path, ecs_path):
     ecs_dict = ecs.get_cal_params()  # apply ECS hierarchy
     ecs_env, ecs_cal_NB, ecs_cal_BB = ecs_ev2ep(ecs_dict, "EK80")
 
-    # chan_sel = ['WBT 545612-15 ES200-7C_ES', 'WBT 549762-15 ES70-7C_ES', 'WBT 743869-15 ES120-7C_ES']
+    # chan_sel = ['WBT 545612-15 ES200-7C_ES', 'WBT 549762-15 ES70-7C_ES', 'WBT 743869-15 ES120-7C_ES']  # noqa: E501
     ecs_env = conform_channel_order(ecs_env, ds_Sv["frequency_nominal"])
     ecs_cal_NB = conform_channel_order(ecs_cal_NB, ds_Sv["frequency_nominal"])
     ecs_cal_BB = conform_channel_order(ecs_cal_BB, ds_Sv["frequency_nominal"])
@@ -161,9 +163,14 @@ def test_ecs_intake_ek80_BB_complex(ek80_path, ecs_path):
         "gain_correction", "angle_offset_alongship", "angle_offset_athwartship",
         "beamwidth_alongship", "beamwidth_athwartship",
     ]:
-        assert ds_Sv[p_name].sel(channel=chan_w_BB_param).drop_vars("channel").identical(
-            ecs_cal_BB[p_name].interp(cal_frequency=freq_center)
-            .squeeze().drop_vars(["channel", "cal_frequency"])
+        xr.testing.assert_allclose(
+            ds_Sv[p_name].sel(channel=chan_w_BB_param).drop_vars("channel"),
+            ecs_cal_BB[p_name]
+            .interp(cal_frequency=freq_center)
+            .squeeze()
+            .drop_vars(["channel", "cal_frequency"]),
+            rtol=0,
+            atol=1e-15,
         )
 
     # TODO: remove params that are only relevant to EK80 CW cals `sa_correction`

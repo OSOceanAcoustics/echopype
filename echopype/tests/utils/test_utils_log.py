@@ -2,6 +2,8 @@ import pytest
 import os.path
 import platform
 
+pytestmark = pytest.mark.unit
+
 EXPECTED_MESSAGE = "Testing log function"
 
 
@@ -56,7 +58,7 @@ def test_set_verbose(verbose, capsys):
     # To pass through in caplog need to propagate
     # logger.propagate = True
 
-    log._set_verbose(verbose)
+    log._set_verbose(logger, verbose)
 
     logging_func(logger)
 
@@ -74,7 +76,6 @@ def test_get_all_loggers():
     all_loggers = log._get_all_loggers()
     loggers = [logging.getLogger()]  # get the root logger
     loggers = loggers + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-
     assert all_loggers == loggers
 
 
@@ -88,7 +89,7 @@ def run_verbose_test(logger, override, logfile, capsys):
 
     captured = capsys.readouterr()
 
-    if override is True:
+    if override is False:
         assert captured.out == ""
     else:
         assert EXPECTED_MESSAGE in captured.out
@@ -102,7 +103,7 @@ def run_verbose_test(logger, override, logfile, capsys):
 @pytest.mark.parametrize(["id", "override", "logfile"], [
     ("fn", True, None),
     ("tn", False, None),
-    ("tf", False, 'test.log')
+    ("tf", True, 'test.log')
 ])
 def test_verbose(id, override, logfile, capsys):
     from echopype.utils import log
@@ -125,3 +126,19 @@ def test_verbose(id, override, logfile, capsys):
                 raise e
     else:
         run_verbose_test(logger, override, logfile, capsys)
+
+
+def test_verbose_per_package(capsys):
+    from echopype.utils import log
+
+    convert_logger = log._init_logger("echopype.convert.testing")
+    calibrate_logger = log._init_logger("echopype.calibrate.testing")
+
+    log.verbose(override=False, package_verbosity={"echopype.convert.testing": True})
+
+    convert_logger.info("Testing convert function")
+    calibrate_logger.info("Testing calibrate function")
+
+    captured = capsys.readouterr()
+    assert captured.out.count("Testing convert function") == 1
+    assert captured.out.count("Testing calibrate function") == 0

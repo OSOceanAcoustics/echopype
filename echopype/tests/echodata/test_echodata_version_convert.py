@@ -16,6 +16,8 @@ import pytest
 from echopype.echodata.echodata import EchoData, XARRAY_ENGINE_MAP
 from echopype.echodata.api import open_converted
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def azfp_path(test_path):
@@ -200,16 +202,16 @@ def _get_conversion_file_lists(azfp_path, ek60_path, ek80_path):
                                 ek60_path / "ek60-combined-ep-v06x.nc",
                                 ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v06x.nc",
                                 ek80_path / "ek80-2018115-D20181213-T094600-ep-v06x.nc",
-                                ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v06x.nc",
-                                ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v06x.nc",
+                                ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v06x.nc",  # noqa: E501
+                                ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v06x.nc",  # noqa: E501
                                 azfp_path / "azfp-17082117_01A_17041823_XML-ep-v06x.nc"]
 
     converted_raw_paths_v05x = [ek60_path / "ek60-Summer2017-D20170615-T190214-ep-v05x.nc",
                                 ek60_path / "ek60-combined-ep-v05x.nc",
                                 ek80_path / "ek80-Summer2018--D20180905-T033113-ep-v05x.nc",
                                 ek80_path / "ek80-2018115-D20181213-T094600-ep-v05x.nc",
-                                ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v05x.nc",
-                                ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v05x.nc",
+                                ek80_path / "ek80-2019118-group2survey-D20191214-T081342-ep-v05x.nc",  # noqa: E501
+                                ek80_path / "ek80-Green2-Survey2-FM-short-slow-D20191004-T211557-ep-v05x.nc",  # noqa: E501
                                 azfp_path / "azfp-17082117_01A_17041823_XML-ep-v05x.nc"]
 
     return converted_raw_paths_v06x, converted_raw_paths_v05x

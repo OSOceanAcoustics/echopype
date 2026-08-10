@@ -17,10 +17,14 @@ DEFAULT_TIME_ENCODING = {
 COMPRESSION_SETTINGS = {
     "netcdf4": {"zlib": True, "complevel": 4},
     "zarr": {
-        "float": {"compressor": BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")},
-        "int": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
-        "string": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
-        "time": {"compressor": BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)},
+        "float": {"compressors": [BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")]},
+        "int": {"compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]},
+        "object": {
+            "compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]
+        },
+        "time": {
+            "compressors": [BloscCodec(cname="lz4", clevel=5, shuffle="shuffle", blocksize=0)]
+        },
     },
 }
 
@@ -34,13 +38,14 @@ DEFAULT_ENCODINGS = {
     "time3": DEFAULT_TIME_ENCODING,
     "time4": DEFAULT_TIME_ENCODING,
     "time5": DEFAULT_TIME_ENCODING,
+    "filter_time": DEFAULT_TIME_ENCODING,
 }
 
 
 EXPECTED_VAR_DTYPE = {
-    "channel": np.str_,
-    "cal_channel_id": np.str_,
-    "beam": np.str_,
+    "channel": np.object_,
+    "cal_channel_id": np.object_,
+    "beam": np.object_,
     "channel_mode": np.float32,
     "beam_stabilisation": np.byte,
     "non_quantitative_processing": np.int16,
@@ -58,8 +63,8 @@ def sanitize_dtypes(ds: xr.Dataset) -> xr.Dataset:
             if name in EXPECTED_VAR_DTYPE:
                 expected_dtype = EXPECTED_VAR_DTYPE[name]
             elif np.issubdtype(var.dtype, np.object_):
-                # Defaulting to strings dtype for object data types
-                expected_dtype = np.str_
+                # Defaulting to variable-length UTF-8 string (object) for object data types
+                expected_dtype = np.object_
             else:
                 # For everything else, this should be the same
                 expected_dtype = var.dtype
@@ -73,26 +78,20 @@ def _encode_time_dataarray(da):
     """Encodes and decode datetime64 array similar to writing to file"""
     if da.size == 0:
         return da
-    if da.dtype == np.int64:
-        encoded_data = da
-    elif da.dtype == np.float64:
+
+    if np.issubdtype(da.dtype, np.integer):
+        return np.asarray(da).astype("datetime64[ns]")
+
+    if da.dtype == np.float64:
         raise ValueError("Encoded time data array must be of type ```np.int64```.")
-    else:
-        # fmt: off
-        encoded_data, _, _ = coding.times.encode_cf_datetime(
-            da, **{
-                "units": DEFAULT_TIME_ENCODING["units"],
-                "calendar": DEFAULT_TIME_ENCODING["calendar"],
-            }
-        )
-        # fmt: on
-    return coding.times.decode_cf_datetime(
-        encoded_data,
-        **{
-            "units": DEFAULT_TIME_ENCODING["units"],
-            "calendar": DEFAULT_TIME_ENCODING["calendar"],
-        },
+
+    encoded_data, _, _ = coding.times.encode_cf_datetime(
+        da,
+        units=DEFAULT_TIME_ENCODING["units"],
+        calendar=DEFAULT_TIME_ENCODING["calendar"],
     )
+
+    return np.asarray(encoded_data).astype("datetime64[ns]")
 
 
 def _get_dask_auto_chunk(
@@ -114,7 +113,13 @@ def _get_dask_auto_chunk(
     tuple
         The chunks
     """
-    # Create a tuple filled with "auto" for each dimension in the variable's shape.
+    # Create a tuple filled with "auto" for each dimension in the variable's shape
+    # For object dtype (e.g., variable-length strings), Dask cannot auto-chunk
+    if np.issubdtype(variable.dtype, np.object_):
+        # Return a single chunk for each dimension (i.e., unchunked)
+        return {dim: size for dim, size in variable.sizes.items()}
+
+    # Otherwise, use Dask's auto_chunks for numeric/fixed-size types
     auto_tuple = tuple("auto" for _ in variable.shape)
 
     # Generate a tuple of chunk sizes using the dask 'auto_chunks' function.
@@ -164,8 +169,8 @@ def get_zarr_compression(var: xr.Variable, compression_settings: dict) -> dict:
         return compression_settings["float"]
     elif np.issubdtype(var.dtype, np.integer):
         return compression_settings["int"]
-    elif np.issubdtype(var.dtype, np.str_):
-        return compression_settings["string"]
+    elif np.issubdtype(var.dtype, np.str_) or np.issubdtype(var.dtype, object):
+        return compression_settings["object"]
     elif np.issubdtype(var.dtype, np.datetime64):
         return compression_settings["time"]
     else:

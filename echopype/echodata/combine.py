@@ -18,7 +18,7 @@ from .echodata import EchoData
 
 logger = _init_logger(__name__)
 
-POSSIBLE_TIME_DIMS = {"time1", "time2", "time3", "time4", "nmea_time", "ping_time"}
+POSSIBLE_TIME_DIMS = {"time1", "time2", "time3", "time4", "nmea_time", "ping_time", "filter_time"}
 APPEND_DIMS = {"filenames"}.union(POSSIBLE_TIME_DIMS)
 DATE_CREATED_ATTR = "date_created"
 CONVERSION_TIME_ATTR = "conversion_time"
@@ -813,6 +813,7 @@ def _combine(
                         coords="minimal",
                         data_vars="minimal",
                         compat="no_conflicts",
+                        join="outer",
                     )
                     combined_ds = combined_ds.assign(sub_ds.variables)
 
@@ -857,6 +858,7 @@ def _combine(
     return tree_dict
 
 
+# TODO: Remove this function shortly prior to v0.12.1 release
 def combine_echodata(
     echodata_list: List[EchoData] = None,
     channel_selection: Optional[Union[List, Dict[str, list]]] = None,
@@ -872,12 +874,14 @@ def combine_echodata(
         Specifies what channels should be selected for an ``EchoData`` group
         with a ``channel`` dimension (before combination).
 
-        - if a list is provided, then each ``EchoData`` group with a ``channel`` dimension
-        will only contain the channels in the provided list
-        - if a dictionary is provided, the dictionary should have keys specifying only beam
-        groups (e.g. "Sonar/Beam_group1") and values as a list of channel names to select
-        within that beam group. The rest of the ``EchoData`` groups with a ``channel`` dimension
-        will have their selected channels chosen automatically.
+        - if a list is provided, then each ``EchoData`` group with a
+          ``channel`` dimension will only contain the channels in the
+          provided list
+        - if a dictionary is provided, the dictionary should have keys
+          specifying only beam groups (e.g. "Sonar/Beam_group1") and
+          values as a list of channel names to select within that beam
+          group. The rest of the ``EchoData`` groups with a ``channel``
+          dimension will have their selected channels chosen automatically.
 
     Returns
     -------
@@ -943,6 +947,11 @@ def combine_echodata(
     >>> ed2 = echopype.open_raw(raw_file="EK60_file2.raw", sonar_model="EK60")
     >>> combined = echopype.combine_echodata(echodata_list=[ed1, ed2])
     """
+    warn(
+        "Echopype will stop supporting the `combine_echodata` function in the v0.12.1 release.",
+        category=DeprecationWarning,
+    )
+
     # return empty EchoData object, if no EchoData objects are provided
     if echodata_list is None:
         warn("No EchoData objects were provided, returning an empty EchoData object.")

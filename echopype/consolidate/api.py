@@ -9,6 +9,7 @@ import numpy as np
 import xarray as xr
 
 from ..calibrate.ek80_complex import get_filter_coeff
+from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.align import align_to_ping_time
@@ -20,7 +21,7 @@ from .ek_depth_utils import (
     ek_use_platform_angles,
     ek_use_platform_vertical_offsets,
 )
-from .loc_utils import check_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
+from .loc_utils import check_and_drop_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
 
 logger = _init_logger(__name__)
@@ -277,6 +278,11 @@ def add_location(
     Returns
     -------
     The input dataset with the location data added
+
+    Notes
+    -----
+    If duplicated time values are found in the latitude/longitude data, only the first entry is kept
+    for the interpolation operation, and a warning is issued.
     """
     # Open dataset and echodata object
     ds = open_source(ds, "dataset", {})
@@ -306,6 +312,28 @@ def add_location(
     # Copy dataset
     interp_ds = ds.copy()
 
+    # Build contextual warning message for duplicate timestamps.
+    # In the default NMEA case, multiple sentence types may be mixed,
+    # which can produce duplicate timestamps due to differing resolution.
+    extra_msg = ""
+
+    if nmea_sentence is None and datagram_type is None and "sentence_type" in echodata["Platform"]:
+        sentence_types = np.unique(echodata["Platform"]["sentence_type"].values)
+        sentence_types = [str(s) for s in sentence_types]
+
+        if len(sentence_types) > 1:
+            extra_msg = (
+                f" Multiple NMEA sentence types detected ({', '.join(sentence_types)}), "
+                "which may have different resolution and produce duplicate timestamps. "
+                "Consider specifying `nmea_sentence` to select a single GPS message type. "
+                "Only the first entry with the same timestamp will be used for interpolation."
+            )
+        elif len(sentence_types) == 1:
+            extra_msg = (
+                f"Duplicate timestamps found within NMEA sentence type {sentence_types[0]}. "
+                "Only the first entry with the same timestamp will be used for interpolation."
+            )
+
     # Select NMEA subset (if applicable) and interpolate location variables and place
     # into `interp_ds`.
     for loc_name, interp_loc_name in [(lat_name, "latitude"), (lon_name, "longitude")]:
@@ -316,8 +344,9 @@ def add_location(
             datagram_type=datagram_type,
         )
 
-        # Check if there are duplicates in time_dim_name for this NMEA subset
-        check_loc_time_dim_duplicates(loc_var, time_dim_name)
+        # Deduplicate time dimension if needed (e.g. multiple NMEA sentences
+        # at the same timestamp); required for downstream interpolation.
+        loc_var = check_and_drop_loc_time_dim_duplicates(loc_var, time_dim_name, extra_msg)
 
         interp_ds[interp_loc_name] = align_to_ping_time(
             loc_var, time_dim_name, ds["ping_time"], "linear"
@@ -350,6 +379,7 @@ def add_splitbeam_angle(
     pulse_compression: bool = False,
     storage_options: dict = {},
     to_disk: bool = True,
+    drop_last_hanning_zero: bool = False,
 ) -> xr.Dataset:
     """
     Add split-beam (alongship/athwartship) angles into the Sv dataset.
@@ -391,6 +421,11 @@ def add_splitbeam_angle(
         If ``False``, ``to_disk`` with split-beam angles added will be returned.
         ``to_disk=True`` is useful when ``source_Sv`` is a path and
         users only want to write the split-beam angle data to this path.
+
+    drop_last_hanning_zero: bool, default False
+        If true, uses the pyEcholab implementation of dropping the hanning window's
+        last index value (which is zero). Else, follows the CRIMAC implementation and
+        keeps the last zero. This is here for CI test purposes.
 
     Returns
     -------
@@ -442,7 +477,8 @@ def add_splitbeam_angle(
     echodata = open_source(echodata, "echodata", storage_options)
 
     # ensure that echodata was produced by EK60 or EK80-like sensors
-    if echodata.sonar_model not in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+    model_family = SONAR_MODELS[echodata.sonar_model]["family"]
+    if model_family not in ["Ex60", "Ex80"]:
         raise ValueError(
             "The sonar model that produced echodata does not have split-beam "
             "transducers, split-beam angles cannot be added to source_Sv!"
@@ -504,6 +540,10 @@ def add_splitbeam_angle(
                 echodata["Vendor_specific"].sel(channel=source_Sv["channel"].values)
             )
             pc_params["receiver_sampling_frequency"] = source_Sv["receiver_sampling_frequency"]
+
+            # Add dictionary entry to keep/drop last hanning window's zero value
+            pc_params["drop_last_hanning_zero"] = drop_last_hanning_zero
+
             theta, phi = get_angle_complex_samples(ds_beam, angle_params, pc_params)
         else:  # without pulse compression
             # operation is identical with CW complex data

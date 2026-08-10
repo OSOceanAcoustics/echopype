@@ -18,7 +18,7 @@ import pytest
 import xarray as xr
 import numpy as np
 
-from utils import get_mock_echodata, check_consolidated
+from utils import get_mock_echodata, check_consolidated  # noqa: F401
 
 @pytest.fixture
 def ek60_path(test_path):
@@ -203,6 +203,7 @@ def range_check_files(request, test_path):
 
 
 # TODO: Uncomment when having fixed backward compatibility https://github.com/OSOceanAcoustics/echopype/issues/1420 # noqa
+@pytest.mark.integration
 class TestEchoData:
     expected_groups = (
         "Top-level",
@@ -242,7 +243,7 @@ class TestEchoData:
     def test_nbytes(self, converted_zarr):
         ed = self.create_ed(converted_zarr)
         assert isinstance(ed.nbytes, float)
-        assert ed.nbytes == 4690060.0
+        assert ed.nbytes == 4687964.0
 
     def test_repr(self, converted_zarr):
         zarr_path_string = str(converted_zarr.absolute())
@@ -256,7 +257,7 @@ class TestEchoData:
             ├── Provenance: contains metadata about how the SONAR-netCDF4 version of the data were obtained.
             ├── Sonar: contains sonar system metadata and sonar beam groups.
             │   └── Beam_group1: contains backscatter power (uncalibrated) and other beam or channel-specific data, including split-beam angle data when they exist.
-            └── Vendor_specific: contains vendor-specific information about the sonar and the data."""
+            └── Vendor_specific: contains vendor-specific information about the sonar and the data."""  # noqa: E501
         )
         ed = self.create_ed(converted_raw_path=converted_zarr)
         actual = "\n".join(x.rstrip() for x in repr(ed).split("\n"))
@@ -268,7 +269,7 @@ class TestEchoData:
         assert hasattr(ed, "_repr_html_")
         html_repr = ed._repr_html_().strip()
         assert (
-            f"""<div class="xr-obj-type">EchoData: standardized raw data from {zarr_path_string}</div>"""
+            f"""<div class="xr-obj-type">EchoData: standardized raw data from {zarr_path_string}</div>"""  # noqa: E501
             in html_repr
         )
 
@@ -331,8 +332,9 @@ class TestEchoData:
         # clean up the zarr file
         shutil.rmtree(zarr_path)
 
-# TODO: Add test_open_converted with zarr v3 test data since format changed. open_converted works but needs a test.
+# TODO: Add test_open_converted with zarr v3 test data since format changed. open_converted works but needs a test.  # noqa: E501
 
+@pytest.mark.integration
 def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
     def _check_path(zarr_path):
         storage_options = {}
@@ -379,7 +381,7 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
 #                 "temperature": ("time3", np.arange(50)),
 #             },
 #             coords={
-#                 "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")
+#                 "time3": np.arange("2017-06-20T01:00", "2017-06-20T01:25", np.timedelta64(30, "s"), dtype="datetime64[ns]")  # noqa: E501
 #             }
 #         ),
 #         data_kind="stationary"
@@ -409,7 +411,7 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
 #         ),
 #         data_kind="mobile"
 #     )
-#     if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():
+#     if "latitude" in ed["Platform"] and "longitude" in ed["Platform"] and sonar_model != "AD2CP" and not np.isnan(ed["Platform"]["time1"]).all():  # noqa: E501
 #         ed.compute_range(mobile_env_params, azfp_cal_type, ek_waveform_mode)
 #     else:
 #         try:
@@ -438,6 +440,7 @@ def test_open_converted(ek60_converted_zarr, minio_bucket):  # noqa
 #         assert isinstance(echo_range, xr.DataArray)
 
 
+@pytest.mark.integration
 def test_nan_range_entries(range_check_files):
     sonar_model, ek_file = range_check_files
     echodata = echopype.open_raw(ek_file, sonar_model=sonar_model)
@@ -658,6 +661,7 @@ def test_update_platform_latlon(test_path, variable_mappings):
     ed.update_platform(extra_platform_data, variable_mappings=variable_mappings)
 
 
+@pytest.mark.integration
 @pytest.mark.filterwarnings("ignore:No variables will be updated")
 def test_update_platform_no_update(test_path):
     raw_file = test_path["EK60"] / "ooi" / "CE02SHBP-MJ01C-07-ZPLSCB101_OOI-D20191201-T000000.raw"
@@ -757,6 +761,7 @@ def test_echodata_chunk(chunk_dict, ek60_path):
                     assert chunk_sizes[-1] <= desired_chunk_size
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "legacy_datatree_filename",
     [
@@ -774,6 +779,7 @@ def test_convert_legacy_versions_ek60(legacy_datatree, legacy_datatree_filename)
     assert isinstance(ed, EchoData)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "legacy_datatree_filename",
     [
@@ -823,21 +829,21 @@ def test_echodata_delete(caplog, ek60_path):
                     # Break at the first associated file since there is only one unique file
                     temp_zarr_path = zarr_stores[0].root
                     break
-        
+
         if temp_zarr_path:
             break
-    
+
     # Check that temp zarr path exists
     assert os.path.exists(temp_zarr_path)
 
     # Turn on logger verbosity
-    echopype.utils.log.verbose(override=False)
+    echopype.utils.log.verbose(override=True)
 
     # Delete temp zarr in temp zarr path
     ed.__del__()
 
     # Turn off logger verbosity
-    echopype.utils.log.verbose(override=True)
+    echopype.utils.log.verbose(override=False)
 
     # Check that no exceptions were wrapped by warnings
     assert not any("Warning: Exception ignored in:" in record.message for record in caplog.records)

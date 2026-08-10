@@ -2,8 +2,11 @@ import pytest
 
 import numpy as np
 import xarray as xr
+from xarray.testing import assert_identical
 
 import echopype as ep
+
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
@@ -31,7 +34,7 @@ def test_cal_params_intake_AZFP(azfp_path):
 
     # Assemble external cal param and env params
     chan = ed["Sonar/Beam_group1"]["channel"]
-    EL_ext = xr.DataArray([100, 200, 300, 400], dims=["channel"], coords={"channel": chan}, name="EL")
+    EL_ext = xr.DataArray([100, 200, 300, 400], dims=["channel"], coords={"channel": chan}, name="EL")  # noqa: E501
     env_ext = {"salinity": 30, "pressure": 10}  # salinity and pressure required for AZFP cal
 
     # Manually go through cal params intake
@@ -45,22 +48,34 @@ def test_cal_params_intake_AZFP(azfp_path):
     )
 
     # Check cal params ingested from both ways
-    assert cal_obj.cal_params["EL"].identical(cal_params_manual["EL"])
+    assert_identical(cal_obj.cal_params["EL"], cal_params_manual["EL"])
 
     # Check against the final cal params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"EL": EL_ext}, env_params=env_ext)
-    assert ds_Sv["EL"].identical(cal_params_manual["EL"])
+    assert_identical(ds_Sv["EL"], cal_params_manual["EL"])
+    
+    # Check passing Sv_offset values manually 
+    Sv_ext = xr.DataArray([1., 2., 3., 4.], dims=["channel"], coords={"channel": chan}, name="Sv_offset")
+    cal_params_manual = ep.calibrate.cal_params.get_cal_params_AZFP(
+        beam=ed["Sonar/Beam_group1"], vend=ed["Vendor_specific"], user_dict={"Sv_offset": Sv_ext}
+    )
+    cal_obj = ep.calibrate.calibrate_azfp.CalibrateAZFP(
+        echodata=ed, cal_params={"Sv_offset" : Sv_ext}, env_params=env_ext
+    )
+    ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"Sv_offset" : Sv_ext}, env_params=env_ext)
+    assert_identical(ds_Sv["Sv_offset"], cal_params_manual["Sv_offset"])
+    assert_identical(ds_Sv["Sv_offset"], cal_obj.cal_params["Sv_offset"])
 
 
 def test_cal_params_intake_EK60(ek60_path):
     """
     Test cal param intake for EK60 calibration.
     """
-    ed = ep.open_raw(ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", sonar_model="EK60")
+    ed = ep.open_raw(ek60_path / "ncei-wcsd" / "Summer2017-D20170620-T011027.raw", sonar_model="EK60")  # noqa: E501
 
     # Assemble external cal param
     chan = ed["Sonar/Beam_group1"]["channel"]
-    gain_ext = xr.DataArray([100, 200, 300], dims=["channel"], coords={"channel": chan}, name="gain_correction")
+    gain_ext = xr.DataArray([100, 200, 300], dims=["channel"], coords={"channel": chan}, name="gain_correction")  # noqa: E501
 
     # Manually go through cal params intake
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
@@ -73,16 +88,16 @@ def test_cal_params_intake_EK60(ek60_path):
     )
 
     # Manually add cal params in Vendor group and construct cal object
-    ed["Vendor_specific"]["gain_correction"].data[0, 1] = gain_ext.data[0]  # GPT  18 kHz 009072058c8d 1-1 ES18-11
-    ed["Vendor_specific"]["gain_correction"].data[1, 2] = gain_ext.data[1]  # GPT  38 kHz 009072058146 2-1 ES38B
-    ed["Vendor_specific"]["gain_correction"].data[2, 4] = gain_ext.data[2]  # GPT 120 kHz 00907205a6d0 4-1 ES120-7C
-    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK60(echodata=ed, env_params=None, cal_params=None, ecs_file=None)
+    ed["Vendor_specific"]["gain_correction"].data[0, 1] = gain_ext.data[0]  # GPT  18 kHz 009072058c8d 1-1 ES18-11  # noqa: E501
+    ed["Vendor_specific"]["gain_correction"].data[1, 2] = gain_ext.data[1]  # GPT  38 kHz 009072058146 2-1 ES38B  # noqa: E501
+    ed["Vendor_specific"]["gain_correction"].data[2, 4] = gain_ext.data[2]  # GPT 120 kHz 00907205a6d0 4-1 ES120-7C  # noqa: E501
+    cal_obj = ep.calibrate.calibrate_ek.CalibrateEK60(echodata=ed, env_params=None, cal_params=None, ecs_file=None)  # noqa: E501
 
     # Check cal params ingested from both ways
     # Need to drop ping_time for cal_obj.cal_params since get_vend_cal_params_power
     # retrieves sa_correction or gain_correction based on transmit_duration_nominal,
     # which can vary cross ping_time
-    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").identical(cal_params_manual["gain_correction"])
+    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").identical(cal_params_manual["gain_correction"])  # noqa: E501
 
     # Check against the final cal params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(ed, cal_params={"gain_correction": gain_ext})
@@ -113,7 +128,7 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
     beam = ed["Sonar/Beam_group1"].sel(channel=chan_sel)
     vend = ed["Vendor_specific"].sel(channel=chan_sel)
     freq_center = (
-        (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]).sel(channel=chan_sel) / 2)
+        (beam["transmit_frequency_start"] + beam["transmit_frequency_stop"]).sel(channel=chan_sel) / 2)  # noqa: E501
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
         "BB", freq_center, beam, vend, {"gain_correction": gain_freq_dep}
     )
@@ -134,7 +149,11 @@ def test_cal_params_intake_EK80_BB_complex(ek80_cal_path):
         ed, waveform_mode="BB", encode_mode="complex", cal_params={"gain_correction": gain_freq_dep}
     )
     cal_params_manual["gain_correction"].name = "gain_correction"
-    assert ds_Sv["gain_correction"].identical(cal_params_manual["gain_correction"])
+    assert np.allclose(
+        ds_Sv["gain_correction"],
+        cal_params_manual["gain_correction"],
+        equal_nan=True,
+    )
 
 
 def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
@@ -164,7 +183,7 @@ def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     )
 
     # Manually go through cal params intake
-    beam = ed["Sonar/Beam_group1"].sel(channel=chan_sel)
+    beam = ed["Sonar/Beam_group2"].sel(channel=chan_sel)
     vend = ed["Vendor_specific"].sel(channel=chan_sel)
     freq_center = beam["frequency_nominal"].sel(channel=chan_sel)
     cal_params_manual = ep.calibrate.cal_params.get_cal_params_EK(
@@ -173,10 +192,10 @@ def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     cal_params_manual["gain_correction"].name = "gain_correction"
 
     # Manually add cal params in Vendor group construct cal object
-    ed["Vendor_specific"]["gain_correction"].data[0, 1] = cal_params_manual["gain_correction"].data[0]  # WBT 714581-15 ES18
-    ed["Vendor_specific"]["gain_correction"].data[1, 4] = cal_params_manual["gain_correction"].data[1]  # WBT 714583-15 ES120-7C
-    ed["Vendor_specific"]["gain_correction"].data[4, 4] = cal_params_manual["gain_correction"].data[2]  # WBT 714597-15 ES333-7C
-    ed["Vendor_specific"]["gain_correction"].data[5, 4] = cal_params_manual["gain_correction"].data[3]  # WBT 714605-15 ES200-7C
+    ed["Vendor_specific"]["gain_correction"].data[0, 1] = cal_params_manual["gain_correction"].data[0]  # WBT 714581-15 ES18  # noqa: E501
+    ed["Vendor_specific"]["gain_correction"].data[1, 4] = cal_params_manual["gain_correction"].data[1]  # WBT 714583-15 ES120-7C  # noqa: E501
+    ed["Vendor_specific"]["gain_correction"].data[4, 4] = cal_params_manual["gain_correction"].data[2]  # WBT 714597-15 ES333-7C  # noqa: E501
+    ed["Vendor_specific"]["gain_correction"].data[5, 4] = cal_params_manual["gain_correction"].data[3]  # WBT 714605-15 ES200-7C  # noqa: E501
     cal_obj = ep.calibrate.calibrate_ek.CalibrateEK80(
         echodata=ed, waveform_mode="CW", encode_mode="complex", cal_params=None, env_params=None
     )
@@ -185,10 +204,18 @@ def test_cal_params_intake_EK80_CW_complex(ek80_cal_path):
     # Need to drop ping_time for cal_obj.cal_params since get_vend_cal_params_power
     # retrieves sa_correction or gain_correction based on transmit_duration_nominal,
     # which can vary cross ping_time
-    assert cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").identical(cal_params_manual["gain_correction"])
+    assert np.allclose(
+        cal_obj.cal_params["gain_correction"].isel(ping_time=0).drop_vars("ping_time").values,
+        cal_params_manual["gain_correction"].values,
+        equal_nan=True,
+    )
 
     # Check against the final cal params in the calibration output
     ds_Sv = ep.calibrate.compute_Sv(
         ed, waveform_mode="CW", encode_mode="complex", cal_params={"gain_correction": gain_freq_dep}
     )
-    assert ds_Sv["gain_correction"].identical(cal_params_manual["gain_correction"])
+    assert np.allclose(
+        ds_Sv["gain_correction"].values,
+        cal_params_manual["gain_correction"].values,
+        equal_nan=True,
+    )

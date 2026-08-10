@@ -6,6 +6,8 @@ from echopype.qc.api import _clean_reversed
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def ds_time():
@@ -42,8 +44,8 @@ def ds_time():
     [
         (
             2,
-            np.array([0,1,2,3,4,2,3,4,6,8,10,11,12,13,15,17,19,13,15,17,21], dtype="datetime64[ns]"),
-            np.array([0,1,2,3,4,5,6,7,9,11,13,14,15,16,18,20,22,24,26,28,32], dtype="datetime64[ns]")
+            np.array([0,1,2,3,4,2,3,4,6,8,10,11,12,13,15,17,19,13,15,17,21], dtype="datetime64[ns]"),  # noqa: E501
+            np.array([0,1,2,3,4,5,6,7,9,11,13,14,15,16,18,20,22,24,26,28,32], dtype="datetime64[ns]")  # noqa: E501
         ),
         (
             6,
@@ -70,13 +72,13 @@ def test__clean_reversed(win_len, input_arr, expected_arr):
 def test_coerce_increasing_time(ds_time):
     # fixed timestamp follows monotonically increasing order
     coerce_increasing_time(ds_time, "time")
-    assert np.argwhere(ds_time["time"].diff(dim="time").data < np.timedelta64(0, "ns")).flatten().size == 0
+    assert np.argwhere(ds_time["time"].diff(dim="time").data < np.timedelta64(0, "ns")).flatten().size == 0  # noqa: E501
 
 
 def test_exist_reversed_time(ds_time):
     # data has reversed timestamps to begin with
-    assert exist_reversed_time(ds_time, "time") == True
+    assert exist_reversed_time(ds_time, "time") == True  # noqa: E712
 
     # after correction there are no reversed timestamps
     coerce_increasing_time(ds_time, "time")
-    assert exist_reversed_time(ds_time, "time") == False
+    assert exist_reversed_time(ds_time, "time") == False  # noqa: E712

@@ -53,7 +53,7 @@ def test_align_to_ping_time_values(method, expected_aligned_da):
         [0, 1, 2, 3],
         coords={
             "time1": np.array(
-                ["2017-06-20T01:10:00", "2017-06-20T01:20:00", "2017-06-20T01:30:00", "2017-06-20T01:40:00"],
+                ["2017-06-20T01:10:00", "2017-06-20T01:20:00", "2017-06-20T01:30:00", "2017-06-20T01:40:00"],  # noqa: E501
                 dtype="datetime64[ns]"
             )
         },
@@ -287,9 +287,9 @@ def test_align_to_ping_time_glider_azfp(azfp_path):
     # To check that the correct extrapolation calculation was made, we take all values with times
     # before the first non-NaN pitch value and check that there is a single unique value and that
     # this single unique value matches the first non-NaN pitch value. Extrapolation was done on the
-    # 'left-side' of this array because the pitch data starts before the Echosounder started pinging.
+    # 'left-side' of this array because the pitch data starts before the Echosounder started pinging.  # noqa: E501
     first_non_NaN_pitch = glider_ds["m_pitch"].dropna("time").isel(time=0)
     assert np.isclose(
         first_non_NaN_pitch.values, 
-        np.unique(aligned_da.where(first_non_NaN_pitch["time"].values > aligned_da["ping_time"], drop=True))
+        np.unique(aligned_da.where(first_non_NaN_pitch["time"].values > aligned_da["ping_time"], drop=True))  # noqa: E501
     )

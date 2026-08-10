@@ -31,11 +31,7 @@ def get_pooch_data_path() -> Path:
     """Return path to the Pooch test data cache."""
     ver = os.getenv("ECHOPYPE_DATA_VERSION", "v0.11.1a2")
     cache_dir = Path(pooch.os_cache("echopype")) / ver
-    if not cache_dir.exists():
-        raise FileNotFoundError(
-            f"Pooch cache directory not found: {cache_dir}\n"
-            "Make sure test data was fetched via conftest.py"
-        )
+    cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
 

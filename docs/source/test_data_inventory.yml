@@ -1,0 +1,288 @@
+########## Template
+# bundle_name.zip:
+#   documented_checksum: null
+#   instrument: null
+#   description: null
+#   source: null
+#   contributor: null
+#   references: []
+#   notes: null
+#   files: []
+
+ad2cp.zip:
+  documented_checksum: sha256:78c634c7345991177b267c4cbb31f391990d2629b7f4a546da20d5126978b98a
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+azfp.zip:
+  documented_checksum: sha256:fc75b48c81f266ce70d9db79a986fe8de4399c93bef35119acdc17a2d84aed49
+  instrument: AZFP
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files:
+  - 17082117.01A
+azfp6.zip:
+  documented_checksum: sha256:98228329333064fb4b44d3044296c79d58ac22f6d81f7f22cf770bacf0e882fd
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ea640.zip:
+  documented_checksum: sha256:49f70bd6f2355cb3c4c7a5b31fc00f7ae8c8a9ae888f0df1efe759032f9580df
+  instrument: EA640
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files:
+  - 0001a-D20200321-T032026.raw
+ecs.zip:
+  documented_checksum: sha256:dcc312baa1e9da4488f33bef625b1f86c8a92e3262e34fc90ccd0a4f90d1e313
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek60.zip:
+  documented_checksum: sha256:66735de0ac584ec8a150b54b1a54024a92195f64036134ffdc9d472d7e155bb2
+  instrument: EK60
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files:
+  - DY1801_EK60-D20180211-T164025.raw
+  - Winter2017-D20170115-T150122.raw
+  - 2015843-D20151023-T190636.raw
+  - SH1701_consecutive_files_w_range_change
+  - NBP_B050N-D20180118-T090228.raw
+ek60_calibrate_chunks.zip:
+  documented_checksum: sha256:bf435b1f7fc055f51afd55c4548713ba8e1eb0e919a0d74f4b9dd5f60b7fe327
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek60_missing_channel_power.zip:
+  documented_checksum: sha256:f3851534cdc6ad3ae1d7c52a11cb279305d316d0086017a305be997d4011e20e
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80.zip:
+  documented_checksum: sha256:d3ad4c0d6e07106a9770660e9d751845dec7d2e03837cd931fef1e9b98e0438d
+  instrument: EK80
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files:
+  - D20190822-T161221.raw
+  - D20170912-T234910.raw
+  - Summer2018--D20180905-T033113.raw
+  - Summer2018
+  - 2019118 group2survey-D20191214-T081342.raw
+  - D20200528-T125932.raw
+  - Green2.Survey2.FM.short.slow.-D20191004-T211557.raw
+  - raw4-D20220514-T172704.raw
+  - D20210330-T123857.raw
+ek80_bb_complex_multiplex.zip:
+  documented_checksum: sha256:f4b23b872378e5b3b13e5536547fcb094f0230b2b0bef4de89ab18beff6c2d3e
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80_bb_with_calibration.zip:
+  documented_checksum: sha256:53f018b6dae051cc86180e13cb3f28848750014dfcf84d97cf2191be2b164ccb
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80_duplicate_ping_times.zip:
+  documented_checksum: sha256:11a2dcb5cf113fa1bb03a6724524ac17bdb0db66cb018b0a3ca7cad87067f4bb
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80_ext.zip:
+  documented_checksum: sha256:b04cd5305cea1823045740fe13ae4f12bf2982c0f8614c9871e0d1dcc4b28fd3
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80_invalid_env_datagrams.zip:
+  documented_checksum: sha256:dece27d90f30d1a13b56d99350c3254e81622af3199fda0112d3b9e1d7db270c
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80_missing_sound_velocity_profile.zip:
+  documented_checksum: sha256:1635585026ae5c4ffdff09ca4d63aeff0b33471c5ee0e1b8a520f87469535852
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80_new.zip:
+  documented_checksum: sha256:f799cde453762c46ad03fee178c76cd9fbb00eec92a5d1038c32f6a9479b2e57
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ek80_sequence.zip:
+  documented_checksum: sha256:9d8fac39dd31f587d55b9978ba4d2b52bbc85daa85d320ef2ac34b3ae947bb1f
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+es60.zip:
+  documented_checksum: sha256:a6c2a15c664ef8b6ac17cb36a28162c271fca361509cf43313038f1bdc9b6c7c
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+es70.zip:
+  documented_checksum: sha256:a6b4f27f33f09bace26264de6984fdb4111a3a0337bc350c3c1d25c8b3effc7c
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+es80.zip:
+  documented_checksum: sha256:b37ee01462f46efe055702c20be67d2b8c6b786844b183b16ffc249c7c5ec704
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+legacy_datatree.zip:
+  documented_checksum: sha256:820cd252047dbf35fa5fb04a9aafee7f7659e0fe4f7d421d69901c57deb6c9d5
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references: []
+  notes: null
+  files: []
+ts_spectrum_example_data.zip:
+  documented_checksum: sha256:dae603937d05d0d0a5dd41c90b9eafa3c540c95e0f6b298ceeddc7f23d163f4b
+  instrument: null
+  description: null
+  source: null
+  contributor: null
+  references:
+  - Andersen, L. N., et al. (2024). Quantitative processing of broadband data as implemented in a scientific split-beam echosounder.
+    Methods in Ecology and Evolution, 15(2), 317–328. https://doi.org/10.1111/2041-210X.14261
+  notes: This pre-release is intended for staging new files in the release assets for an upcoming release.
+  files:
+  - IMR-D20211215-T143432-TSf.raw
+  - crimac_tsf_reference_outputs.npz
+resample_to_geometry_example_data.zip:
+  documented_checksum: sha256:1a45e3ac31ef16d742b16155dc4b7f62511abd8d25547f55fcd9146446f60d07
+  instrument: null
+  description: Reference outputs generated using Echoview's Match Geometry algorithm after resampling all channels onto the
+    200 kHz channel geometry. These files are provided for validation purposes and can be used to compare the `echopype.commongrid.resample_to_geometry()`
+    implementation against Echoview reference results.
+  source: null
+  contributor: null
+  references:
+  - Echoview Software Pty Ltd. Match Geometry Algorithm. https://support.echoview.com/WebHelp/Reference/Algorithms/Operators/Match_geometry_algorithm.htm
+  notes: null
+  files:
+  - 18kHz_regridded.sv.csv
+  - 120kHz_regridded.sv.csv
+  - 200kHz.sv.csv
+  - Hake-D20230811-T165727.raw
+azfp_single_frequency.zip:
+  documented_checksum: sha256:71c7c095522208d0a4e773cf4dd082c93c8f27bb75ef729f4307586d6565dc5c
+  instrument: AZFP
+  description: ULS5 AZFP raw data and XML configuration for an instrument configured with only one active 125 kHz channel.
+  source: 'Provided by ZHANGGU in echopype issue #1256.'
+  contributor: ZHANGGU
+  references:
+  - '#421'
+  - '#1256'
+  - '#1714'
+  notes: Used by test_convert_azfp::test_convert_azfp_01a_single_frequency
+  files:
+  - 14021116.XML
+  - 14021117.01A
+ek80_heading.zip:
+  documented_checksum: sha256:141b9a482af22483097de6f928db4d7b0494d4f7a153f88cffd24c070e11fadb
+  instrument: ES80
+  description: ES80 raw data containing NMEA HDT messages used to test heading parsing when heading is unavailable from MRU
+    datagrams.
+  source: Collected during a sphere calibration of a 38 kHz ES80 on a fishing vessel (name deliberately omitted).
+  contributor: gavinmacaulay
+  references: []
+  notes: Used by test_convert_ek80::test_parse_NMEA_heading
+  files:
+  - D20260613-T230914.raw
+bi500_test_data.zip:
+  documented_checksum: sha256:da0ec294cf1ea2906a8e4e435d648583a88d7d75a6f9d0b016595d644d54fb61
+  instrument: BI500
+  description: Example BI500 survey containing calibrated pelagic and bottom echograms together with stored single-target
+    detections.
+  source: null
+  contributor: jmjech
+  references:
+  - '#1258'
+  - '#1252'
+  notes: Used by test_convert_bi500
+  files:
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Data
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Info
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Ping
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Snap
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Vlog
+  - N031-S445-S2000008-F011990-T01-D20000921-T034142-Work

@@ -12,8 +12,8 @@ If you're new to GitHub, checking out these tips for [creating issues on GitHub]
 
 
 ## Contribute to code and documentation
-We use the fork-branch-pull request (PR) workflow to add new code into Echopype.
-If you are new to this workflow, check out this [tutorial](https://medium.com/swlh/forks-and-pull-requests-how-to-contribute-to-github-repos-8843fac34ce8).
+We follow [trunk-based development](https://www.atlassian.com/continuous-delivery/continuous-integration/trunk-based-development) and use the fork-branch-pull request (PR) workflow to add new code into Echopype. If you are new to this workflow, check out this [tutorial](https://medium.com/swlh/forks-and-pull-requests-how-to-contribute-to-github-repos-8843fac34ce8). Further details for setting up the developing environment are in the
+[](contrib:setup) section.
 
 :::{tip}
 - See [](contrib:roadmap) for ideas of what functions to add

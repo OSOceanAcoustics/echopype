@@ -7,6 +7,7 @@ import pytest
 
 from echopype import open_raw
 from echopype.convert import ParseEK60
+from echopype.convert.set_groups_ek60 import SetGroupsEK60
 
 
 @pytest.fixture
@@ -21,6 +22,7 @@ def ek60_missing_channel_power_path(test_path):
 def es60_path(test_path):
     return test_path["ES60"]
 
+@pytest.mark.integration
 def test_convert_ek60_matlab_raw(ek60_path):
     """Compare parsed Beam group data with Matlab outputs."""
     ek60_raw_path = str(
@@ -89,6 +91,7 @@ def test_convert_ek60_matlab_raw(ek60_path):
         )
 
 
+@pytest.mark.integration
 def test_convert_ek60_echoview_raw(ek60_path):
     """Compare parsed power data (count) with csv exported by EchoView."""
     ek60_raw_path = str(
@@ -156,6 +159,7 @@ def test_convert_ek60_echoview_raw(ek60_path):
     assert np.allclose(echodata["Platform"]["water_level"], 9.14999962, rtol=0)
 
 
+@pytest.mark.integration
 def test_convert_ek60_duplicate_frequencies(ek60_path):
     """Convert a file with duplicate frequencies"""
 
@@ -181,6 +185,7 @@ def test_convert_ek60_duplicate_frequencies(ek60_path):
     assert np.all(ed['Sonar/Beam_group1'].channel.values == truth_chan_vals)
 
 
+@pytest.mark.integration
 def test_convert_ek60_splitbeam_no_angle(ek60_path):
     """Convert a file from a split-beam setup that does not record angle data."""
 
@@ -194,6 +199,7 @@ def test_convert_ek60_splitbeam_no_angle(ek60_path):
     assert "angle_alongship" not in ed["Sonar/Beam_group1"]
 
 
+@pytest.mark.integration
 def test_convert_es60_no_unicode_error(es60_path):
     """Convert a file should not give unicode error"""
 
@@ -259,3 +265,105 @@ def test_converting_ek60_raw_with_missing_channel_power(ek60_missing_channel_pow
     # Check that all empty power channels do not exist in the EchoData Beam group
     for _, empty_power_channel_name in empty_power_chs.items():
         assert empty_power_channel_name not in ed["Sonar/Beam_group1"]["channel"]
+
+
+@pytest.mark.unit
+def test_parse_ek60_validate_channels():
+    """Validate requested EK60 channel_id values against the config datagram."""
+    parser = ParseEK60("dummy.raw", channels=["GPT  18 kHz 009072034d45 1-1 ES18-11"])
+    parser.config_datagram = {
+        "transceivers": {
+            1: {"channel_id": "GPT  18 kHz 009072034d45 1-1 ES18-11"},
+            2: {"channel_id": "GPT  38 kHz 009072033fa2 2-1 ES38B"},
+        }
+    }
+    parser._validate_channels()
+    assert parser.channels == {"GPT  18 kHz 009072034d45 1-1 ES18-11"}
+
+    parser.channels = ["nonexistent-channel"]
+    with pytest.raises(ValueError, match="Requested channel_id"):
+        parser._validate_channels()
+
+
+@pytest.mark.unit
+def test_parse_ek60_is_selected():
+    """Check EK60 channel selection using integer channel indices."""
+    parser = ParseEK60("dummy.raw")
+    parser.config_datagram = {
+        "transceivers": {
+            1: {"channel_id": "GPT  18 kHz 009072034d45 1-1 ES18-11"},
+        }
+    }
+    parser.channels = {"GPT  18 kHz 009072034d45 1-1 ES18-11"}
+    assert parser._is_selected(1)
+    assert not parser._is_selected(99)
+
+
+@pytest.mark.unit
+def test_set_groups_ek60_filters_sorted_channel():
+    """SetGroupsEK60 keeps only selected channel_id values in sorted_channel."""
+    parser = ParseEK60("dummy.raw", channels=["GPT  38 kHz 009072033fa2 2-1 ES38B"])
+    parser.config_datagram = {
+        "transceivers": {
+            1: {"channel_id": "GPT  18 kHz 009072034d45 1-1 ES18-11", "frequency": 18000.0},
+            2: {"channel_id": "GPT  38 kHz 009072033fa2 2-1 ES38B", "frequency": 38000.0},
+        }
+    }
+    parser.ping_data_dict["power"] = {1: [1], 2: [1]}
+    parser.channels = {"GPT  38 kHz 009072033fa2 2-1 ES38B"}
+
+    set_groups = SetGroupsEK60(parser, "dummy.raw", "", None)
+    assert list(set_groups.sorted_channel.values()) == ["GPT  38 kHz 009072033fa2 2-1 ES38B"]
+
+
+@pytest.mark.integration
+def test_open_raw_channels_subset_ek60(ek60_path):
+    """Parse and store only a single EK60 channel by channel_id."""
+    raw_file = str(ek60_path / "DY1801_EK60-D20180211-T164025.raw")
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK60")
+    all_channels = list(echodata_all["Sonar/Beam_group1"].channel.values)
+    assert len(all_channels) > 1
+
+    selected = all_channels[0]
+    echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK60", channels=[selected])
+    assert echodata_sub["Sonar/Beam_group1"].sizes["channel"] == 1
+    assert echodata_sub["Sonar/Beam_group1"].channel.item() == selected
+
+
+@pytest.mark.integration
+def test_open_raw_channels_multiple_ek60(ek60_path):
+    """Parse and store multiple EK60 channels by channel_id."""
+    raw_file = str(ek60_path / "DY1801_EK60-D20180211-T164025.raw")
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK60")
+    all_channels = list(echodata_all["Sonar/Beam_group1"].channel.values)
+    assert len(all_channels) >= 2
+
+    selected = all_channels[:2]
+    echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK60", channels=selected)
+    assert echodata_sub["Sonar/Beam_group1"].sizes["channel"] == 2
+    assert set(echodata_sub["Sonar/Beam_group1"].channel.values) == set(selected)
+
+
+@pytest.mark.integration
+def test_open_raw_channels_ek60_data_matches_full_parse(ek60_path):
+    """Selected-channel parse produces the same backscatter as indexing the full parse."""
+    raw_file = str(ek60_path / "DY1801_EK60-D20180211-T164025.raw")
+    echodata_all = open_raw(raw_file=raw_file, sonar_model="EK60")
+    selected = echodata_all["Sonar/Beam_group1"].channel.values[0]
+
+    echodata_sub = open_raw(raw_file=raw_file, sonar_model="EK60", channels=[selected])
+    full_backscatter = echodata_all["Sonar/Beam_group1"]["backscatter_r"].sel(channel=selected)
+    sub_backscatter = echodata_sub["Sonar/Beam_group1"]["backscatter_r"].isel(channel=0)
+    np.testing.assert_array_equal(full_backscatter.values, sub_backscatter.values)
+
+
+@pytest.mark.integration
+def test_open_raw_channels_invalid_ek60(ek60_path):
+    """Raise when requested EK60 channel_id values are not in the file."""
+    raw_file = str(ek60_path / "DY1801_EK60-D20180211-T164025.raw")
+    with pytest.raises(ValueError, match="Requested channel_id"):
+        open_raw(
+            raw_file=raw_file,
+            sonar_model="EK60",
+            channels=["nonexistent-channel"],
+        )

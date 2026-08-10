@@ -6,4 +6,4 @@ See the following sections:
 
 - [**Adaptation of SONAR-netCDF4 convention**](data-format:sonarnetcdf4-adaptation) details echopype's adaptation of the [ICES SONAR-netCDF4 convention version 1](https://ices-library.figshare.com/articles/report/The_SONAR-netCDF4_convention_for_sonar_data_Version_1_0/18624056) to create standardized data that fully leverage the power of label-aware manipulation and enhance coherence of data representation for scientific echosounders.
 - [**Raw converted data**](data-format:raw-data) describes the standardized [`EchoData` object](data-format:echodata-object) and provides instrument-specific examples on raw data unpacked and organized ("converted" via [`open_raw`](echopype.open_raw)) into `EchoData` objects.
-- [**Changes in recent versions**](data-format-changes.md) describes significant changes in data structures in recent major versions of echopype.
+- **{doc}`data-format-changes`** describes significant changes in data structures in recent major versions of echopype.

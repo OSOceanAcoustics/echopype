@@ -14,6 +14,8 @@ from echopype.calibrate.cal_params import (
     get_vend_cal_params_power,
 )
 
+pytestmark = pytest.mark.unit
+
 DATA = np.random.rand(2, 200)
 TIME_COORDINATES = np.ones(200) * 1000
 
@@ -194,7 +196,7 @@ def test_param2da(p_val, channel, da_output):
             None,
             marks=pytest.mark.xfail(
                 strict=True,
-                reason="input sa_correction contains a 'channel' coordinate but it is not identical with input channel",
+                reason="input sa_correction contains a 'channel' coordinate but it is not identical with input channel",  # noqa: E501
             ),
         ),
         # input individual param:
@@ -255,7 +257,7 @@ def test_param2da(p_val, channel, da_output):
             None,
             marks=pytest.mark.xfail(
                 strict=True,
-                reason="input sa_correction contains a list of wrong length that does not match that of channel",
+                reason="input sa_correction contains a list of wrong length that does not match that of channel",  # noqa: E501
             ),
         ),
     ],
@@ -462,7 +464,7 @@ def test_get_interp_da(freq_center, da_param, alternative, da_output):
                 },
             ),
         ),
-        # input param is an xr.DataArray with coordinate 'channel' but wrong length: this should fail
+        # input param is an xr.DataArray with coordinate 'channel' but wrong length: this should fail  # noqa: E501
         pytest.param(
             {
                 "EL": xr.DataArray(
@@ -475,7 +477,7 @@ def test_get_interp_da(freq_center, da_param, alternative, da_output):
             None,
             marks=pytest.mark.xfail(
                 strict=True,
-                reason="Fail since lengths of input data array channel and data channel are not identical",
+                reason="Fail since lengths of input data array channel and data channel are not identical",  # noqa: E501
             ),
         ),
     ],
@@ -827,7 +829,7 @@ def test_get_cal_params_EK60(beam_EK, vend_EK, freq_center, user_dict, out_dict)
                 name="sa_correction",
             ),
         ),
-        # with NaN entry in transmit_duration_nominal but channel order is different in vend and beam
+        # with NaN entry in transmit_duration_nominal but channel order is different in vend and beam  # noqa: E501
         (
             "sa_correction",
             xr.DataArray(

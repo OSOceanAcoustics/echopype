@@ -99,7 +99,12 @@ def bottom_blackwell(
     phi = phi.transpose("range_sample", "ping_time")
 
     ping_time = Sv_sel.coords["ping_time"]
-    r = depth_sel.isel(ping_time=0).values
+
+    # Use the ping with the deepest valid depth instead of assuming ping_time=0
+    max_depth_per_ping = depth_sel.max(dim="range_sample", skipna=True)
+    deepest_ping_idx = int(max_depth_per_ping.argmax(dim="ping_time").values)
+
+    r = depth_sel.isel(ping_time=deepest_ping_idx).values
 
     # Define core detection range
     r0_idx = np.nanargmin(abs(r - r0))

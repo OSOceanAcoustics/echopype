@@ -1,48 +1,21 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/docs/source/_static/echopype_logo_banner.png" width="400">
+  <img src="https://raw.githubusercontent.com/echostack-org/echopype/main/docs/source/_static/echopype_logo_banner.png" width="400">
 </div>
 
 # Echopype
 
-<div>
-  <a href="https://doi.org/10.5281/zenodo.3906999">
-    <img src="https://img.shields.io/badge/DOI-10.5281/zenodo.3906999-blue" alt="DOI">
-  </a>
-
-  <a href="https://raw.githubusercontent.com/OSOceanAcoustics/echopype/master/LICENSE">
-    <img alt="GitHub License" src="https://img.shields.io/github/license/OSOceanAcoustics/echopype">
-  </a>
-</div>
-
-<div>
-  <a href="https://github.com/OSOceanAcoustics/echopype/actions/workflows/build.yaml">
-    <img src="https://github.com/OSOceanAcoustics/echopype/actions/workflows/build.yaml/badge.svg"/>
-  </a>
-
-  <a href="https://results.pre-commit.ci/latest/github/OSOceanAcoustics/echopype/master">
-    <img src="https://results.pre-commit.ci/badge/github/OSOceanAcoustics/echopype/master.svg"/>
-  </a>
-
-  <a href="https://echopype.readthedocs.io/en/latest/?badge=latest">
-    <img src="https://readthedocs.org/projects/echopype/badge/?version=latest"/>
-  </a>
-
-  <a href="https://codecov.io/gh/OSOceanAcoustics/echopype">
-    <img src="https://codecov.io/gh/OSOceanAcoustics/echopype/branch/master/graph/badge.svg?token=GT98F919XR"/>
-  </a>
-</div>
-
-<div>
-  <a href="https://pypi.org/project/echopype/">
-    <img src="https://img.shields.io/pypi/v/echopype.svg"/>
-  </a>
-
-  <a href="https://anaconda.org/conda-forge/echopype">
-    <img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"/>
-  </a>
-</div>
-
-[![ssec](https://img.shields.io/badge/SSEC-Project-purple?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAOCAQAAABedl5ZAAAACXBIWXMAAAHKAAABygHMtnUxAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAMNJREFUGBltwcEqwwEcAOAfc1F2sNsOTqSlNUopSv5jW1YzHHYY/6YtLa1Jy4mbl3Bz8QIeyKM4fMaUxr4vZnEpjWnmLMSYCysxTcddhF25+EvJia5hhCudULAePyRalvUteXIfBgYxJufRuaKuprKsbDjVUrUj40FNQ11PTzEmrCmrevPhRcVQai8m1PRVvOPZgX2JttWYsGhD3atbHWcyUqX4oqDtJkJiJHUYv+R1JbaNHJmP/+Q1HLu2GbNoSm3Ft0+Y1YMdPSTSwQAAAABJRU5ErkJggg==&style=plastic)](https://escience.washington.edu/echopype/)
+<p align="center">
+  <a href="https://doi.org/10.5281/zenodo.3906999"><img src="https://img.shields.io/badge/DOI-10.5281/zenodo.3906999-blue" alt="DOI"></a>
+  <a href="https://raw.githubusercontent.com/echostack-org/echopype/main/LICENSE"><img src="https://img.shields.io/github/license/echostack-org/echopype" alt="License"></a>
+  <a href="https://scientific-python.org/specs/spec-0000/"><img src="https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038" alt="SPEC 0"></a>
+  <a href="https://github.com/echostack-org/echopype/actions/workflows/build.yaml"><img src="https://github.com/echostack-org/echopype/actions/workflows/build.yaml/badge.svg"></a>
+  <a href="https://results.pre-commit.ci/latest/github/echostack-org/echopype/main"><img src="https://results.pre-commit.ci/badge/github/echostack-org/echopype/main.svg"></a>
+  <a href="https://echopype.readthedocs.io"><img src="https://readthedocs.org/projects/echopype/badge/?version=latest"></a>
+  <a href="https://codecov.io/gh/echostack-org/echopype"><img src="https://codecov.io/gh/echostack-org/echopype/branch/main/graph/badge.svg?token=GT98F919XR"></a>
+  <a href="https://pypi.org/project/echopype/"><img src="https://img.shields.io/pypi/v/echopype.svg"></a>
+  <a href="https://anaconda.org/conda-forge/echopype"><img src="https://img.shields.io/conda/vn/conda-forge/echopype.svg"></a>
+  <a href="https://escience.washington.edu/echopype/"><img src="https://img.shields.io/badge/SSEC-Project-purple?logo=data:image/png;base64,...&style=plastic"></a>
+</p>
 
 Echopype is a package built to enable interoperability and scalability in ocean sonar data processing. These data are widely used for obtaining information about the distribution and abundance of marine animals, such as fish and krill. Our ability to collect large volumes of sonar data from a variety of ocean platforms has grown significantly in the last decade. However, most of the new data remain under-utilized. echopype aims to address the root cause of this problem - the lack of interoperable data format and scalable analysis workflows that adapt well with increasing data volume - by providing open-source tools as entry points for scientists to make discovery using these new data.
 
@@ -52,21 +25,15 @@ at SciPy 2019 for background, discussions and a quick demo!
 
 ## Documentation
 
-Learn more about echopype in the official documentation at https://echopype.readthedocs.io. Check out executable examples in the companion repository https://github.com/OSOceanAcoustics/echopype-examples.
+Learn more about echopype in the official documentation at https://echopype.readthedocs.io. Check out executable examples in the companion repository https://github.com/echostack-org/echopype-examples.
 
+## Dependency support policy
+
+Echopype follows [Scientific Python SPEC 0](https://scientific-python.org/specs/spec-0000/) for its minimum supported Python and core dependency versions.
 
 ## Contributing
 
-You can find information about how to contribute to echopype at our [Contributing Page](https://echopype.readthedocs.io/en/latest/contributing.html).
-
-<!-- ## <img src="docs/source/images/GSoC-logo-horizontal.svg" alt="Google Summer of Code logo" width="300" style="padding-right: 50px; vertical-align: middle">
-
-In collaboration with the [Integrated Ocean Observing System (IOOS)](https://ioos.noaa.gov/), the Echopype team aims to recruit talented [Google Summer of Code (GSoC)](https://summerofcode.withgoogle.com/)
-participants to help us upgrade the robustness and scalability of the Echopype package.
-
-If you are a GSoC 2024 contributor, please head over to [GSoC contributor's guide](gsoc_contrib_guide.md) to get more information specific to the program. -->
-
-
+You can find information about how to contribute to echopype at our [Contributing Page](https://echopype.readthedocs.io/en/latest/contrib_start.html#contributing-to-echopype).
 
 ## Echopype doesn't run on your data?
 
@@ -74,10 +41,9 @@ Please report any bugs by [creating issues on GitHub](https://medium.com/nyc-pla
 
 [Pull requests](https://jarednielsen.com/learn-git-fork-pull-request/) are always welcome!
 
-
 ## Contributors
 
-[![Contributors](https://contrib.rocks/image?repo=OSOceanAcoustics/echopype)](https://github.com/OSOceanAcoustics/echopype/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=echostack-org/echopype)](https://github.com/echostack-org/echopype/graphs/contributors)
 
 Wu-Jung Lee ([@leewujung](https://github.com/leewujung))
 founded the echopype project in 2018 and continue to be the primary contributor
@@ -92,7 +58,7 @@ have contributed significantly to the code.
 Valentina Staneva ([@valentina-s](https://github.com/valentina-s)) is also part of the development team. Lloyd Izard ([@LOCEANlloydizard](https://github.com/LOCEANlloydizard)) joined the project in 2025
 and is an active contributor.
 
-A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/OSOceanAcoustics/echopype/graphs/contributors).
+A complete list of direct contributors is on our [GitHub Contributors Page](https://github.com/echostack-org/echopype/graphs/contributors).
 
 
 ## Acknowledgement
@@ -116,35 +82,32 @@ NOAA Ocean Exploration, NOAA Fisheries,
 and the VOTO Foundation.
 We also acknowledge software engineering support from
 the University of Washington Scientific Software Engineering Center (SSEC),
-as part of the Schmidt Futures Virtual Institute for Scientific Software (VISS) in 2023.
+as part of the Schmidt Sciences Virtual Institute for Scientific Software (VISS) in 2023.
 
 <table align="center" border="0" cellpadding="12" cellspacing="0" style="border-collapse: collapse;">
   <tr>
     <td align="center" style="border: 0;">
       <a href="https://oceanexplorer.noaa.gov/news/oer-updates/2021/fy21-ffo-schedule.html" style="text-decoration:none;">
-        <img src="assets/logos/noaa.png" alt="NOAA" width="120">
+        <img src="docs/source/_static/logos/noaa.png" alt="NOAA" width="120">
       </a>
     </td>
     <td align="center" style="border: 0;">
       <a href="https://www.nsf.gov/awardsearch/showAward?AWD_ID=1849930&HistoricalAwards=false" style="text-decoration:none;">
-        <img src="assets/logos/nsf.png" alt="NSF" width="120">
+        <img src="docs/source/_static/logos/nsf.png" alt="NSF" width="120">
       </a>
     </td>
     <td align="center" style="border: 0;">
       <a href="https://escience.washington.edu/software-engineering/ssec/" style="text-decoration:none;">
-        <img src="assets/logos/ssec.png" alt="SSEC" width="120">
+        <img src="docs/source/_static/logos/ssec.png" alt="SSEC" width="120">
       </a>
     </td>
     <td align="center" style="border: 0;">
       <a href="https://voiceoftheocean.org/" style="text-decoration:none;">
-        <img src="assets/logos/voto.png" alt="VOTO Foundation" width="120">
+        <img src="docs/source/_static/logos/voto.png" alt="VOTO Foundation" width="120">
       </a>
     </td>
   </tr>
 </table>
-
-
-
 
 
 ## License
@@ -153,4 +116,4 @@ Echopype is licensed under the open source [Apache 2.0 license](https://opensour
 
 ---------------
 
-Copyright (c) 2018-2024, Echopype Developers.
+Copyright (c) 2018-2026, Echopype Developers.

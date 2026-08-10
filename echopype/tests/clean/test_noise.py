@@ -54,7 +54,7 @@ def test_mask_functions_with_no_vertical_range_variables(range_var, ek60_path):
         sonar_model="EK60"
     )
     ds_Sv = ep.calibrate.compute_Sv(ed)
-    
+
     if range_var == "echo_range":
         # Drop `echo_range`
         ds_Sv = ds_Sv.drop_vars("echo_range")
@@ -115,7 +115,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
     ### Check for `nanmedian` warning:
 
     # Turn on logger verbosity
-    ep.utils.log.verbose(override=False)
+    ep.utils.log.verbose(override=True)
 
     # Compute transient noise mask
     ep.clean.mask_transient_noise(
@@ -135,10 +135,10 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
     assert any(expected_warning in record.message for record in caplog.records)
 
     # Turn off logger verbosity
-    ep.utils.log.verbose(override=True)
+    ep.utils.log.verbose(override=False)
 
     # Check for func value error:
-    with pytest.raises(ValueError, match="Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`."):
+    with pytest.raises(ValueError, match="Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`."):  # noqa: E501
         ep.clean.mask_transient_noise(
             ds_Sv,
             depth_bin=depth_bin,
@@ -160,7 +160,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
 )
 def test_pool_Sv_values(chunk, func, ek60_path):
     """
-    Manually check if the pooled Sv for transient noise masking contains 
+    Manually check if the pooled Sv for transient noise masking contains
     the correct nan boundary and the correct bin aggregate values.
     """
     # Open raw, calibrate, and add depth
@@ -413,7 +413,7 @@ def test_index_binning_pool_Sv_values(chunk, func, ek60_path):
             for range_sample_index in range(
                 num_range_sample_indices,
                 len(padded_chan_Sv["range_sample"]) - num_range_sample_indices
-            ): 
+            ):
                 # Grab pooled value
                 pooled_value = chan_pooled_Sv.isel(
                     ping_time=ping_time_index - num_side_pings,
@@ -453,7 +453,7 @@ def test_index_binning_pool_Sv_values(chunk, func, ek60_path):
     ],
 )
 def test_index_binning_transient_noise_mask_values(chunk, func, ek60_path):
-    """Manually check if impulse noise mask removes transient noise values when using index binning."""
+    """Manually check if impulse noise mask removes transient noise values when using index binning."""  # noqa: E501
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(ek60_path / "from_echopy/JR161-D20061118-T010645.raw", sonar_model="EK60")
     ds_Sv = ep.calibrate.compute_Sv(ed)
@@ -584,20 +584,20 @@ def test_downsample_upsample_along_depth(chunk, ek60_path):
                     channel=channel_index, ping_time=ping_time_index, depth_bins=depth_bin_index
                 ).data
                 flox_downsampled_bin_Sv_indices = np.where(
-                    upsampled_Sv.isel(channel=channel_index, ping_time=ping_time_index).data == flox_downsampled_bin_Sv
+                    upsampled_Sv.isel(channel=channel_index, ping_time=ping_time_index).data == flox_downsampled_bin_Sv  # noqa: E501
                 )[0]
                 manual_downsampled_bin_Sv = _lin2log(
                     np.nanmean(
                         ds_Sv["Sv"].compute().isel(
-                        channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices
+                        channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices  # noqa: E501
                         ).pipe(_log2lin)
                     )
                 )
-                assert np.isclose(manual_downsampled_bin_Sv, flox_downsampled_bin_Sv, atol=1e-10, rtol=1e-10)
+                assert np.isclose(manual_downsampled_bin_Sv, flox_downsampled_bin_Sv, atol=1e-10, rtol=1e-10)  # noqa: E501
 
                 # Check that depth bins encapsulated the correct original resolution depth values
                 manual_depth_array = original_resolution_depth.isel(
-                    channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices
+                    channel=channel_index, ping_time=ping_time_index, range_sample=flox_downsampled_bin_Sv_indices  # noqa: E501
                 ).data
                 flox_depth_bin = downsampled_Sv["depth_bins"].data[depth_bin_index]
                 for manual_depth in manual_depth_array:
@@ -761,11 +761,11 @@ def test_impulse_noise_mask_values(chunk, use_index_binning, ek60_path):
                 # Compute left and right subtraction values
                 left_subtracted_value = row_array[num_side_pings] - row_array[0]
                 right_subtracted_value = row_array[num_side_pings] - row_array[num_side_pings * 2]
-                # Check negation of impulse condition if middle array value and subtraction values are not NaN
+                # Check negation of impulse condition if middle array value and subtraction values are not NaN  # noqa: E501
                 if not (
-                    np.isnan(row_array[num_side_pings]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)
+                    np.isnan(row_array[num_side_pings]) or np.isnan(left_subtracted_value) or np.isnan(right_subtracted_value)  # noqa: E501
                 ):
-                    assert (left_subtracted_value <= impulse_noise_threshold or right_subtracted_value <= impulse_noise_threshold)
+                    assert (left_subtracted_value <= impulse_noise_threshold or right_subtracted_value <= impulse_noise_threshold)  # noqa: E501
 
 
 @pytest.mark.integration
@@ -810,7 +810,7 @@ def test_mask_attenuated_signal_outside_searching_range(ek60_path):
         num_side_pings,
         attenuation_signal_threshold
     )
-    
+
     # Check outputs
     assert np.allclose(attenuated_mask, xr.zeros_like(ds_Sv["Sv"], dtype=bool))
 

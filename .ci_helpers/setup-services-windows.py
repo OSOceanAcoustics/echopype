@@ -3,7 +3,7 @@
 Spin up local services for Windows CI without Docker:
 - Start a MinIO server on localhost:9000
 - Seed S3 from the Pooch cache (unzipped test bundles)
-- Start a simple HTTP server on :8080 that exposes ./data (mirrors Linux job)
+- Start a simple HTTP server on :8080 that exposes /data
 - Write PID files for clean teardown
 
 Usage:
@@ -17,6 +17,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from urllib.request import urlretrieve
 
@@ -30,7 +31,10 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 MINIO_PID = STATE_DIR / "minio.pid"
 HTTP_PID = STATE_DIR / "http.pid"
 
-# Use localhost everywhere to match tests (which hit http://localhost:9000/...)
+HTTP_ROOT = pathlib.Path(tempfile.gettempdir()) / "echopype-test-services"
+HTTP_DATA = HTTP_ROOT / "data"
+
+# Use localhost everywhere to match tests.
 MINIO_ENDPOINT = "http://localhost:9000/"
 MINIO_USER = "minioadmin"
 MINIO_PASS = "minioadmin"
@@ -84,7 +88,10 @@ def start_minio() -> None:
 
     for _ in range(60):
         try:
-            with urllib.request.urlopen(MINIO_ENDPOINT + "minio/health/ready", timeout=1):
+            with urllib.request.urlopen(
+                MINIO_ENDPOINT + "minio/health/ready",
+                timeout=1,
+            ):
                 break
         except Exception:
             time.sleep(1)
@@ -93,8 +100,7 @@ def start_minio() -> None:
 
 
 def seed_s3_from_pooch() -> None:
-    """Upload unzipped Pooch bundles into MinIO under the 'data/' prefix,
-    and also mirror a local ./data/ folder for the HTTP server."""
+    """Upload unzipped Pooch bundles into MinIO and prepare HTTP test data."""
     cache = get_pooch_cache()
 
     # Seed S3 (MinIO)
@@ -118,26 +124,34 @@ def seed_s3_from_pooch() -> None:
         print(f"Uploading {d} -> {tgt}", flush=True)
         fs.put(str(d), tgt, recursive=True)
 
-    # Build local ./data for HTTP tests that hit http://localhost:8080/data/...
-    local_data = pathlib.Path("data")
-    local_data.mkdir(exist_ok=True)
+    # Build a temporary data mirror for HTTP tests that hit
+    # http://localhost:8080/data/...
+    shutil.rmtree(HTTP_ROOT, ignore_errors=True)
+    HTTP_DATA.mkdir(parents=True, exist_ok=True)
+
     for d in cache.iterdir():
         if d.suffix == ".zip":
             continue
-        dst = local_data / d.name
-        if not dst.exists():
-            if d.is_dir():
-                shutil.copytree(d, dst)
-            else:
-                shutil.copy2(d, dst)
+        dst = HTTP_DATA / d.name
+        if d.is_dir():
+            shutil.copytree(d, dst)
+        else:
+            shutil.copy2(d, dst)
 
 
 def start_http_server() -> None:
-    """Serve the repository root so /data/... exists on :8080."""
-    root = pathlib.Path(".").absolute()
+    """Serve the temporary HTTP root so /data/... exists on :8080."""
+    root = HTTP_ROOT.absolute()
     print(f"Starting local HTTP server on :8080 (root={root})", flush=True)
     proc = subprocess.Popen(
-        [sys.executable, "-m", "http.server", "8080", "--directory", str(root)],
+        [
+            sys.executable,
+            "-m",
+            "http.server",
+            "8080",
+            "--directory",
+            str(root),
+        ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -175,6 +189,7 @@ def cmd_start(no_http: bool) -> None:
 def cmd_stop() -> None:
     stop_pid_file(HTTP_PID)
     stop_pid_file(MINIO_PID)
+    shutil.rmtree(HTTP_ROOT, ignore_errors=True)
     print("Services stopped.", flush=True)
 
 
@@ -182,7 +197,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("start")
-    s.add_argument("--no-http", action="store_true", help="Do not start the local HTTP server")
+    s.add_argument(
+        "--no-http",
+        action="store_true",
+        help="Do not start the local HTTP server",
+    )
     sub.add_parser("stop")
     args = ap.parse_args()
     if args.cmd == "start":

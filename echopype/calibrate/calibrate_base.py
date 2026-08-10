@@ -119,8 +119,8 @@ class CalibrateBase(abc.ABC):
         # Raise Warning if above 2.0
         if total_gb > 2.0:
             logger.warning(
-                "The Echodata Backscatter Variables are large and can cause memory issues. "
-                "Consider modifying compute_Sv workflow: "
+                "The Echodata backscatter variables are large and can cause memory issues. "
+                "Consider modifying the workflow that uses compute_Sv as below: "
                 "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) "
                 "and after `compute_Sv` run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. "
                 "This will ensure that the computation is lazily evaluated, "

@@ -355,8 +355,13 @@ def get_cal_params_AZFP(beam: xr.DataArray, vend: xr.DataArray, user_dict: dict)
             if p == "equivalent_beam_angle":
                 out_dict[p] = beam[p]  # has only channel dim
 
+            elif p == "Sv_offset" and p in vend:
+                out_dict[p] = vend[
+                    p
+                ]  # Sv_offset may not be in echodata, will be calculated in calibrateAZFP
+
             # Params from Vendor_specific group
-            elif p in ["EL", "DS", "TVR", "VTX0", "Sv_offset"]:
+            elif p in ["EL", "DS", "TVR", "VTX0"]:
                 out_dict[p] = vend[p]  # these params only have the channel dimension
 
     return out_dict
@@ -410,7 +415,7 @@ def get_cal_params_EK(
             # loop through channel since transceiver can vary
             fs = []
             for ch in vend["channel"]:
-                tcvr_type = vend["transceiver_type"].sel(channel=ch).data.tolist().upper()
+                tcvr_type = vend["transceiver_type"].sel(channel=ch).values.item().upper()
                 fs.append(default_params["receiver_sampling_frequency"][tcvr_type])
             return xr.DataArray(fs, dims=["channel"], coords={"channel": vend["channel"]})
 

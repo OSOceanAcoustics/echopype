@@ -3,13 +3,13 @@
 
 title: ""
 author: Echopype Developers
-copyright: "2024"
+copyright: "2026"
 logo: _static/echopype_logo_square.png
 
 # Force re-execution of notebooks on each build.
 # See https://jupyterbook.org/content/execute.html
 execute:
-  execute_notebooks: 'off'
+  nb_execution_mode: 'off'
   timeout: -1
 
 # Define the name of the latex output file for PDF builds
@@ -23,9 +23,9 @@ bibtex_bibfiles:
 
 # Information about where the book exists on the web
 repository:
-  url: https://github.com/OSOceanAcoustics/echopype  # Online location of your book
+  url: https://github.com/echostack-org/echopype
   path_to_book: docs/source  # Optional path to your book, relative to the repository root
-  branch: main  # Which branch of the repository should be used when creating links (optional)
+  branch: main
 
 # Add GitHub buttons to your book
 # See https://jupyterbook.org/customize/config.html#add-a-link-to-your-repository
@@ -45,7 +45,8 @@ sphinx:
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
-    'sphinxcontrib.mermaid'
+    'sphinxcontrib.mermaid',
+    'test_data_inventory_ext',
   ]
   config:
     bibtex_reference_style: label

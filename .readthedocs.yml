@@ -1,39 +1,22 @@
-# .readthedocs.yml
-# Read the Docs configuration file
-# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
-
-# Required
 version: 2
 
-# Set the version of Python and other tools you might need
 build:
   os: ubuntu-22.04
   tools:
     python: "3.12"
-  jobs:
-    pre_build:
-      # Generate the Sphinx configuration for this Jupyter Book so it builds.
-      - "jupyter-book config sphinx docs/source"
+    nodejs: "22"
 
-# Build documentation in the docs/ directory with Sphinx
 sphinx:
-   configuration: docs/source/conf.py
+  configuration: docs/source/conf.py
+  fail_on_warning: true
 
-# Build documentation with MkDocs
-#mkdocs:
-#  configuration: mkdocs.yml
-
-# Optionally build your docs in additional formats such as PDF and ePub
 formats: []
 
-# Optionally set the version of Python and requirements required to build your docs
 python:
-   install:
-      - requirements: docs/requirements.txt
-      - method: pip
-        path: .
-        extra_requirements:
-           - plot
-      - method: setuptools
-        path: .
-#   system_packages: true
+  install:
+    - method: uv
+      command: sync
+      extras:
+        - plot
+      groups:
+        - docs

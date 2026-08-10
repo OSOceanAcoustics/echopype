@@ -5,11 +5,14 @@
 
 (contrib:roadmap_dependency)=
 ## Dependency
-Echopype depends on many libraries in the scientific Python ecosystem, and therefore need to keep up with their updates. The two big ticket items that we hope to resolve soon are:
-- Upgrade to use Numpy version 2
-- Upgrade to use Zarr version 3
 
-See the [`requirements.txt`](https://github.com/OSOceanAcoustics/echopype/blob/main/requirements.txt) file for the current pinned versions. We aim to remove the specification of maximum version (e.g., zarr<3) whenever possible.
+Echopype depends on many libraries in the scientific Python ecosystem and therefore needs to keep up with their evolution.
+Recent milestones include:
+- Migration to `pyproject.toml`-based packaging
+- Support for NumPy 2
+- Support for Zarr 3
+
+Project metadata and dependencies are managed through `pyproject.toml`. We aim to keep dependency constraints as permissive as possible while maintaining compatibility across supported Python versions.
 
 
 
@@ -21,7 +24,7 @@ Echopype currently support converting files from [a few echosounder models](conv
   - The new Gridded group introduced in SONAR-netCDF4 v2.0
   - [Australia IMOS SOOP-BA conventions](https://imos.org.au/fileadmin/user_upload/shared/SOOP/BASOOP/SOOP-BA_NetCDF_Conventions_Version_2.2.pdf)
 - Add support for data from other echosounder models, including:
-  - Simrad EK/BI500 ([unfinished PR](https://github.com/OSOceanAcoustics/echopype/pull/1252))
+  - Simrad EK/BI500 ([unfinished PR](https://github.com/echostack-org/echopype/pull/1252))
   - Biosonics [DT4](https://www.biosonicsinc.com/download/dt4-file-format-specification/) files
 
 
@@ -29,14 +32,15 @@ Echopype currently support converting files from [a few echosounder models](conv
 (contrib:roadmap_algorithms)=
 ## Rule-based algorithms
 We plan to add more common rule-based (i.e. non-ML) echosounder data analysis algorithms into Echopype. The high priority items are:
-- Full support for broadband processing (in the `calibrate` subpackage)
-  - currently `calibrate.compute_Sv` supports generating band-averaged Sv for broadband data
+- Expanded support for broadband processing (in the `calibrate` subpackage)
+  - broadband Sv processing is currently supported to compute band-averaged Sv from broadband data
+  - ongoing development includes TS spectrum, Sv spectrum, and related broadband analysis workflows
 - Noise removal (in the `clean` subpackage)
   - currently `clean` contains a handful of noise removal functions from {cite:t}`Ryan2015`.
   - there are many others that can be useful, including [a more efficient algorithm for detecting transient noise](https://github.com/open-ocean-sounding/echopy/blob/96bb25f83490529a5373aeb3b423f03c9605f7a6/echopy/processing/mask_transient.py#L87C5-L87C13)
 - Regridding (in the `commongrid` subpackage)
   - currently `commongrid` contains functions produce MVBS and NASC
-  - need a function to [regrid Sv with integrated output preserved](https://github.com/OSOceanAcoustics/echopype/issues/726)
+  - need a function to [regrid Sv with integrated output preserved](https://github.com/echostack-org/echopype/issues/726)
   - need a function to [regrid a mask to a different grid](https://support.echoview.com/WebHelp/Reference/Algorithms/Operators/#match_geometry_)
 - Bottom detection (in the `mask` subpackage)
 - Swarm or school detection (in the `mask` subpackage)
@@ -47,7 +51,7 @@ We plan to add more common rule-based (i.e. non-ML) echosounder data analysis al
   - water column profile-based (rather than water column average-based) Sv and TS computation
 
 :::{note}
-Echopype is designed to be used as a programmatic API and not for manual editing. For interactive visualization, check out [Echoshader](https://github.com/OSOceanAcoustics/echoshader).
+Echopype is designed to be used as a programmatic API and not for manual editing. For interactive visualization, check out [Echoshader](https://github.com/echostack-org/echoshader).
 :::
 
 

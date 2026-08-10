@@ -278,7 +278,7 @@ class ECSParser:
         Returns
         -------
         A dictionary containing calibration parameters as interpreted by Echoview.
-        """
+        """  # noqa: E501
         # Create template based on sources
         sources = self.parsed_params["sourcecal"].keys()
         ev_cal_params = dict().fromkeys(sources)

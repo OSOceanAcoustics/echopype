@@ -2,33 +2,123 @@ name: Test PR
 
 on:
   pull_request:
-    paths-ignore: ["**/docker.yaml", "docs"]
+    paths-ignore:
+      - "**/docker.yaml"
+
   push:
     branches:
       - ci/*
+
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 env:
-  NUM_WORKERS: 2
+  NUM_WORKERS: auto
   USE_POOCH: "True"
   ECHOPYPE_DATA_VERSION: v0.11.1a2
-  ECHOPYPE_DATA_BASEURL: https://github.com/OSOceanAcoustics/echopype/releases/download/{version}/
+  ECHOPYPE_DATA_BASEURL: https://github.com/echostack-org/echopype/releases/download/{version}/
   XDG_CACHE_HOME: ${{ github.workspace }}/.cache
 
 jobs:
-  test:
-    name: ${{ matrix.python-version }}--${{ matrix.runs-on }}
+  test-data-inventory:
+    name: test-data-inventory
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install inventory dependencies
+        run: python -m pip install pyyaml
+
+      - name: Validate test-data inventory
+        run: python .ci_helpers/check_test_data_inventory.py
+
+  unit-tests:
+    name: unit--${{ matrix.python-version }}--${{ matrix.runs-on }}
+    runs-on: ${{ matrix.runs-on }}
+    if: ${{ !contains(github.event.pull_request.title, '[skip ci]') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+        runs-on: [ubuntu-latest]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Set environment variables
+        run: echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+
+      - name: Install echopype with test dependencies
+        run: python -m pip install -e . --group test
+
+      - name: Start memory monitor
+        shell: bash
+        run: |
+          mkdir -p ci_monitor
+          nohup bash .ci_helpers/memory_usage/monitor_memory_linux.sh >/dev/null 2>&1 &
+          echo $! > ci_monitor/monitor.pid
+
+      - name: Run unit tests
+        run: |
+          pytest -m unit -vvv -rx --numprocesses=auto \
+            --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
+
+      - name: Stop memory monitor
+        if: always()
+        shell: bash
+        run: |
+          if [ -f ci_monitor/monitor.pid ]; then
+            kill "$(cat ci_monitor/monitor.pid)" || true
+          fi
+
+      - name: Upload memory CSV
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-unit-${{ matrix.python-version }}-${{ matrix.runs-on }}
+          path: ci_monitor/memory_usage.csv
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./coverage.xml
+          flags: unit
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          name: codecov-unit
+          fail_ci_if_error: false
+
+  integration-tests:
+    name: integration--${{ matrix.python-version }}--${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, '[skip ci]') }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
         runs-on: [ubuntu-latest]
         experimental: [false]
-
 
     services:
       # TODO: figure out how to update tag when there's a new one
@@ -43,7 +133,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags.
 
@@ -66,28 +156,23 @@ jobs:
           echo "After cleanup:"
           df -h
 
-
       - name: Set up Python
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
-
+          cache: pip
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
-
       - name: Set environment variables
         run: echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
 
-      - name: Remove docker-compose python
-        run: sed -i "/docker-compose/d" requirements-dev.txt
-
-      - name: Install dev tools
-        run: python -m pip install -r requirements-dev.txt
+      - name: Install echopype with test dependencies
+        run: python -m pip install -e . --group test
 
       - name: Cache echopype test data
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.XDG_CACHE_HOME }}/echopype
           key: ep-data-${{ env.ECHOPYPE_DATA_VERSION }}
@@ -98,9 +183,6 @@ jobs:
       - name: Install error reporter
         if: ${{ matrix.python-version == '3.13' }}
         run: python -m pip install pytest-github-actions-annotate-failures
-
-      - name: Install echopype
-        run: python -m pip install -e ".[plot]"
 
       - name: Print installed packages
         run: python -m pip list
@@ -138,52 +220,144 @@ jobs:
           du -h -d 3 ${{ env.XDG_CACHE_HOME }} || true
           docker system df || true
 
-      - name: Running all tests
+      - name: Start memory monitor
+        shell: bash
         run: |
-          pytest -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
+          mkdir -p ci_monitor
+          nohup bash .ci_helpers/memory_usage/monitor_memory_linux.sh >/dev/null 2>&1 &
+          echo $! > ci_monitor/monitor.pid
+
+      - name: Running integration tests
+        run: |
+          pytest -m integration -vvv -rx --numprocesses=${{ env.NUM_WORKERS }} --max-worker-restart=3 \
           --cov=echopype --cov-report=xml --log-cli-level=WARNING --disable-warnings
 
+      - name: Stop memory monitor
+        if: always()
+        shell: bash
+        run: |
+          if [ -f ci_monitor/monitor.pid ]; then
+            kill "$(cat ci_monitor/monitor.pid)" || true
+          fi
+
+      - name: Upload memory CSV
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-integration-${{ matrix.python-version }}-${{ matrix.runs-on }}
+          path: ci_monitor/memory_usage.csv
+
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
-          flags: unittests
+          flags: integration
           env_vars: RUNNER_OS,PYTHON_VERSION
-          name: codecov-umbrella
+          name: codecov-integration
           fail_ci_if_error: false
 
-  test-windows:
-    name: ${{ matrix.python-version }}--windows
+  test-windows-unit:
+    name: unit--${{ matrix.python-version }}--windows
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, '[skip ci]') }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6.2.0
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
-      - name: Install deps (dev + pooch + s3)
+      - name: Install echopype with test dependencies
         run: |
-          python -m pip install -r requirements-dev.txt
-          python -m pip install "pooch>=1.8" fsspec s3fs
-          python -m pip install pytest pytest-cov pytest-xdist pytest-mock
+          python -m pip install -e . --group test
 
       - name: Install error reporter
         if: ${{ matrix.python-version == '3.13' }}
         run: python -m pip install pytest-github-actions-annotate-failures
 
-      - name: Install echopype
-        run: python -m pip install -e ".[plot]"
+      - name: Start memory monitor
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ci_monitor | Out-Null
+          $p = Start-Process pwsh -ArgumentList "-File", ".ci_helpers/memory_usage/monitor_memory_windows.ps1" -PassThru -WindowStyle Hidden
+          $p.Id | Out-File ci_monitor/monitor.pid -Encoding ascii
+
+      - name: Running unit tests
+        shell: pwsh
+        env:
+          PY_COLORS: "1"
+        run: >
+          python -m pytest -m unit -vvv -rx
+          --numprocesses $env:NUM_WORKERS
+          --cov echopype --cov-report xml
+          --log-cli-level WARNING --disable-warnings
+
+      - name: Stop memory monitor
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path ci_monitor/monitor.pid) {
+            $monitorPid = Get-Content ci_monitor/monitor.pid
+            Stop-Process -Id $monitorPid -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload memory CSV
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-windows-unit-${{ matrix.python-version }}
+          path: ci_monitor/memory_usage.csv
+
+      - name: Upload code coverage
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./coverage.xml
+          flags: windows-unit
+          env_vars: RUNNER_OS
+          name: codecov-windows-unit
+          fail_ci_if_error: false
+
+  test-windows-integration:
+    name: integration--${{ matrix.python-version }}--windows
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, '[skip ci]') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install echopype with test dependencies
+        run: |
+          python -m pip install -e . --group test
+          python -m pip install "pooch>=1.8" s3fs
+
+      - name: Install error reporter
+        if: ${{ matrix.python-version == '3.13' }}
+        run: python -m pip install pytest-github-actions-annotate-failures
 
       - name: Pre-fetch all Pooch assets
         run: python -m pytest --collect-only -q
@@ -191,25 +365,78 @@ jobs:
       - name: Start local services
         run: python .ci_helpers/setup-services-windows.py start
 
-      - name: Running all Tests
+      - name: Start memory monitor
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ci_monitor | Out-Null
+          $p = Start-Process pwsh -ArgumentList "-File", ".ci_helpers/memory_usage/monitor_memory_windows.ps1" -PassThru -WindowStyle Hidden
+          $p.Id | Out-File ci_monitor/monitor.pid -Encoding ascii
+
+      - name: Running integration tests
         shell: pwsh
         env:
           PY_COLORS: "1"
         run: >
-          python -m pytest -vvv -rx
+          python -m pytest -m integration -vvv -rx
           --numprocesses $env:NUM_WORKERS --max-worker-restart 3
           --cov echopype --cov-report xml
           --log-cli-level WARNING --disable-warnings
 
+      - name: Stop memory monitor
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path ci_monitor/monitor.pid) {
+            $monitorPid = Get-Content ci_monitor/monitor.pid
+            Stop-Process -Id $monitorPid -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload memory CSV
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-windows-integration-${{ matrix.python-version }}
+          path: ci_monitor/memory_usage.csv
+
       - name: Upload code coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
-          flags: unittests
+          flags: windows-integration
           env_vars: RUNNER_OS
-          name: codecov-windows
+          name: codecov-windows-integration
           fail_ci_if_error: false
 
       - name: Teardown services
         if: always()
         run: python .ci_helpers/setup-services-windows.py stop
+
+  memory-summary:
+    name: memory-summary
+    runs-on: ubuntu-latest
+    needs:
+      - unit-tests
+      - integration-tests
+      - test-windows-unit
+      - test-windows-integration
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download all memory artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: memory_artifacts
+
+      - name: Install matplotlib
+        run: python -m pip install matplotlib
+
+      - name: Build memory summary
+        run: python .ci_helpers/memory_usage/build_memory_summary.py
+
+      - name: Upload combined memory plot
+        uses: actions/upload-artifact@v7
+        with:
+          name: memory-summary
+          path: memory_all_jobs.png

@@ -10,10 +10,12 @@ import xarray as xr
 import numpy as np
 import netCDF4
 import pytest
-from tempfile import TemporaryDirectory
-from pathlib import Path
+from tempfile import TemporaryDirectory  # noqa: F401
+from pathlib import Path  # noqa: F401
 
 from echopype import open_raw, open_converted
+
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(scope="session")
@@ -178,7 +180,7 @@ def _check_raw_output(
             if "pulse_compressed" in echodata[f"Sonar/Beam_group{i}"]:
                 pulse_compressed_vector = np.zeros(3)
                 pulse_compressed_vector[pulse_compressed - 1] = 1
-                assert (echodata[f"Sonar/Beam_group{i}"]["pulse_compressed"] == pulse_compressed_vector).all()
+                assert (echodata[f"Sonar/Beam_group{i}"]["pulse_compressed"] == pulse_compressed_vector).all()  # noqa: E501
         base.close()
 
         # check raw data transmit samples

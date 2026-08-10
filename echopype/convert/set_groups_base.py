@@ -27,9 +27,11 @@ class SetGroupsBase(abc.ABC):
         compress=True,
         overwrite=True,
         params=None,
+        channels=None,
     ):
         # parser object ParseEK60/ParseAZFP/etc...
         self.parser_obj = parser_obj
+        self.channels = channels
 
         # Used for when a sonar that is not AZFP/EK60/EK80 can still be saved
         self.sonar_model = sonar_model
@@ -112,26 +114,26 @@ class SetGroupsBase(abc.ABC):
         Replace nan in time coordinate to avoid xarray warning.
         """
         if len(time_val) == 1 and np.isnan(time_val[0]):
+            from ..core import SONAR_MODELS
+
+            model_family = SONAR_MODELS[self.sonar_model]["family"]
             # set time_val to earliest ping_time among all channels
-            if self.sonar_model in ["EK60", "ES70", "EK80", "ES80", "EA640"]:
+            if model_family in ["Ex60", "Ex80"]:
                 ping_times = [v[0] for v in self.parser_obj.ping_time.values()]
-                # If ping_times are empty or contain empty arrays
+                # Partial/truncated raw files can yield no channels or empty ping arrays
                 if len(ping_times) == 0 or all(
-                    hasattr(t, '__len__') and len(t) == 0 for t in ping_times
+                    hasattr(t, "__len__") and len(t) == 0 for t in ping_times
                 ):
                     return [np.nan]
-
-                earliest_ping_time = np.array(ping_times).min()
-                return [earliest_ping_time]
-
-            if self.sonar_model in ["AZFP", "AZFP6"]:
+                return [np.array(ping_times).min()]
+            elif model_family == "AZFP":
                 return [self.parser_obj.ping_time[0]]
-
-            return NotImplementedError(
-                f"Nan timestamp handling has not been implemented for {self.sonar_model}!"
-            )
-
-        return time_val
+            else:
+                return NotImplementedError(
+                    f"Nan timestamp handling has not been implemented for {self.sonar_model}!"
+                )
+        else:
+            return time_val
 
     def set_nmea(self) -> xr.Dataset:
         """Set the Platform/NMEA group."""
