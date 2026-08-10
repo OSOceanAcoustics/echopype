@@ -105,11 +105,9 @@ def dispersion(ds: xr.Dataset, range_var="echo_range") -> xr.DataArray:
     """
     dz = delta_z(ds, range_var=range_var)
     sv = convert_to_linear(ds, "Sv")
-    #cm = center_of_mass(ds)
+    # cm = center_of_mass(ds)
     cm = center_of_mass(ds, range_var=range_var)
-    return ((ds[range_var] - cm) ** 2 * sv * dz).sum(dim=range_var) / (sv * dz).sum(
-        dim=range_var
-    )
+    return ((ds[range_var] - cm) ** 2 * sv * dz).sum(dim=range_var) / (sv * dz).sum(dim=range_var)
 
 
 def evenness(ds: xr.Dataset, range_var="echo_range") -> xr.DataArray:
