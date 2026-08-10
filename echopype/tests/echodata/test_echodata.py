@@ -4,9 +4,10 @@ import os
 import fsspec
 from pathlib import Path
 import shutil
+import warnings
 
 from xarray import DataTree
-from zarr.errors import GroupNotFoundError
+from zarr.errors import GroupNotFoundError, ZarrUserWarning
 
 import echopype
 from echopype.echodata import EchoData
@@ -850,3 +851,23 @@ def test_echodata_delete(caplog, ek60_path):
 
     # Check that it doesn't exist
     assert not os.path.exists(temp_zarr_path)
+
+
+@pytest.mark.unit
+def test_to_zarr_no_consolidated_metadata_warning():
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always", ZarrUserWarning)
+        ed = open_raw(
+            "echopype/test_data/ek60/ncei-wcsd/"
+            "Summer2017-D20170719-T211347.raw",
+            sonar_model="EK60",
+        )
+        ed.to_zarr(overwrite=True)
+
+        assert not any(
+            isinstance(w.message, ZarrUserWarning)
+            and "Consolidated metadata is currently not part in the Zarr format 3 specification"
+            in str(w.message)
+            for w in caught_warnings
+        )
+
