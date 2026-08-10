@@ -19,16 +19,16 @@ pytestmark = pytest.mark.unit
 # Utility Function
 
 
-def create_test_ds(Sv, echo_range):
+def create_test_ds(Sv, echo_range, range_var="echo_range"):
     freq = [30]
     time = pd.date_range("2021-08-28", periods=2)
     reference_time = pd.Timestamp("2021-08-27")  # noqa: F841
-    r_b = [0, 1, 2]
+    range_vals = [0, 1, 2]
 
     testDS = xr.Dataset(
         data_vars=dict(
-            Sv=(["frequency", "ping_time", "range_sample"], Sv),
-            echo_range=(["frequency", "ping_time", "range_sample"], echo_range),
+            Sv=(["frequency", "ping_time", range_var], Sv),
+            **{range_var: (["frequency", "ping_time", range_var], echo_range)},
         ),
         coords={
             'frequency': xr.DataArray(
@@ -42,10 +42,10 @@ def create_test_ds(Sv, echo_range):
                 name='ping_time',
                 dims=['ping_time'],
             ),
-            'range_sample': xr.DataArray(
-                r_b,
-                name='range_sample',
-                dims=['range_sample'],
+            range_var: xr.DataArray(
+                range_vals,
+                name=range_var,
+                dims=[range_var],
             ),
         },
     )
