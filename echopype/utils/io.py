@@ -72,10 +72,16 @@ def save_file(ds, path, mode, engine, group=None, compression_settings=None, **k
     if engine == "netcdf4":
         ds.to_netcdf(path=path, mode=mode, group=group, encoding=encoding, engine=engine, **kwargs)
     elif engine == "zarr":
-        # Ensure that encoding and chunks match
+        # Dask chunk according to dask formatted chunk encoding. As the zarr chunks are inherited
+        # from the dask formatted chunks, we avoid any potential chunking mismatch between the two.
+        # If we do not do this, we will need to call `ds.to_zrar(...,align_chunks=True,...)`, which
+        # also "rechunks the Dask array to align with Zarr chunks before writing"
+        # (https://docs.xarray.dev/en/latest/generated/xarray.Dataset.to_zarr.html).
         for var, enc in encoding.items():
             if isinstance(ds[var].data, DaskArray):
-                ds[var] = ds[var].chunk(enc.get("chunks", {}))
+                ds[var] = ds[var].chunk(enc.get("dask_formatted_chunks", {}))
+                # # Remove dask_formatted_chunks from encoding
+                encoding[var].pop("dask_formatted_chunks")
         # Set consolidated to False to avoid warning about consolidated metadata not being supported
         # by Zarr 3
         # TODO remove consolidated=False when Zarr 3 supports consolidated metadata

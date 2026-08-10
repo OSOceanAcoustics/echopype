@@ -855,6 +855,12 @@ def test_echodata_delete(caplog, ek60_path):
 
 @pytest.mark.unit
 def test_to_zarr_no_consolidated_metadata_warning(test_path):
+    """
+    This test checks that we explicitly use `consolidated=False`, otherwise
+    xarray will attempt to write consolidated metadata but Zarr v3 does not
+    support this yet.
+    TODO remove this test once Zarr v3 supports consolidated metadata.
+    """
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always", ZarrUserWarning)
         ed = open_raw(
@@ -862,7 +868,6 @@ def test_to_zarr_no_consolidated_metadata_warning(test_path):
             sonar_model="EK60",
         )
         ed.to_zarr(overwrite=True)
-
         assert not any(
             isinstance(w.message, ZarrUserWarning)
             and "Consolidated metadata is currently not part in the Zarr format 3 specification"
@@ -870,3 +875,21 @@ def test_to_zarr_no_consolidated_metadata_warning(test_path):
             for w in caught_warnings
         )
 
+
+@pytest.mark.unit
+def test_to_zarr_no_deprecated_chunk_warning(test_path):
+    """
+    This test checks that dask rechunking receives dictionary and not tuple.
+    """
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        ed = open_raw(
+            test_path["EK60"] / "ncei-wcsd/SH1701/TEST-D20170114-T202932.raw",
+            sonar_model="EK60",
+        )
+        ed.to_zarr(overwrite=True)
+    assert not any(
+        isinstance(w.message, FutureWarning)
+        and "Supplying chunks as dimension-order tuples" in str(w.message)
+        for w in caught_warnings
+    )
