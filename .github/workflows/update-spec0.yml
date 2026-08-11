@@ -18,6 +18,6 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: scientific-python/spec0-action@6d7df2702c1dfc225a7ce5918616db9a6a652901 # v1.4
+      - uses: scientific-python/spec0-action@1dd0542907c81856ac19ff52fa715db1850797cf # v1.5
         with:
           update_all: 2
