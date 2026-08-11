@@ -3,6 +3,7 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 import xarray as xr
+from dask.array import Array as DaskArray
 from dask.array.core import auto_chunks
 from dask.utils import parse_bytes
 from xarray import coding
@@ -217,17 +218,21 @@ def set_zarr_encodings(
                 #    tolerance then no need to rechunk
                 if chunk_diff < chunk_size_tolerance:
                     rechunk = False
-                    chunks = existing_chunks
+                    dask_formatted_chunks = existing_chunks
 
             if rechunk:
                 # Use dask auto chunk to determine the optimal chunk
                 # spread for optimal chunk size
-                chunks = _get_dask_auto_chunk(val, chunk_size=chunk_size)
-                # Dask expects chunk dictionary but Zarr expects list-like iterable of
-                # values in encoding
-                chunks = [*chunks.values()]
+                dask_formatted_chunks = _get_dask_auto_chunk(val, chunk_size=chunk_size)
 
-            encoding[name]["chunks"] = chunks
+            # Dask expects chunk dictionary but Zarr expects list-like iterable of
+            # values in encoding
+            zarr_formatted_chunks = [*dask_formatted_chunks.values()]
+
+            encoding[name]["chunks"] = zarr_formatted_chunks
+            # Add temporary dask formatted_chunks to encoding for use in dask rechunking
+            if isinstance(ds[name].data, DaskArray):
+                encoding[name]["dask_formatted_chunks"] = dask_formatted_chunks
         if PREFERRED_CHUNKS in encoding[name]:
             # Remove 'preferred_chunks', use chunks only instead
             encoding[name].pop(PREFERRED_CHUNKS)
