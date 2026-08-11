@@ -23,12 +23,10 @@ def create_test_ds(Sv, echo_range, range_var="echo_range"):
     freq = [30]
     time = pd.date_range("2021-08-28", periods=2)
     reference_time = pd.Timestamp("2021-08-27")  # noqa: F841
-    range_vals = [0, 1, 2]
 
     testDS = xr.Dataset(
         data_vars=dict(
             Sv=(["frequency", "ping_time", range_var], Sv),
-            **{range_var: (["frequency", "ping_time", range_var], echo_range)},
         ),
         coords={
             'frequency': xr.DataArray(
@@ -43,7 +41,7 @@ def create_test_ds(Sv, echo_range, range_var="echo_range"):
                 dims=['ping_time'],
             ),
             range_var: xr.DataArray(
-                range_vals,
+                echo_range,
                 name=range_var,
                 dims=[range_var],
             ),
@@ -58,7 +56,7 @@ def create_test_ds(Sv, echo_range, range_var="echo_range"):
 def test_abundance():
     """Compares summary_statistics.py calculation of abundance with verified outcomes"""
     Sv = np.array([[[20, 40, 60], [50, 20, 30]]])
-    echo_range = np.array([[[1, 2, 3], [2, 3, 4]]])
+    echo_range = np.array([1, 2, 3])
     
     ab_ds1 = create_test_ds(Sv, echo_range)
     ab_ds1_SOL = np.array([[60.04321374, 30.41392685]])
@@ -70,9 +68,9 @@ def test_abundance():
 def test_center_of_mass():
     """Compares summary_statistics.py calculation of center_of_mass with verified outcomes"""
     Sv = np.array([[[20, 40, 60], [50, 20, 30]]])
-    echo_range = np.array([[[1, 2, 3], [2, 3, 4]]])
+    echo_range = np.array([1, 2, 3])
     cm_ds1 = create_test_ds(Sv, echo_range)
-    cm_ds1_SOL = np.array([[2.99009901, 3.90909090]])
+    cm_ds1_SOL = np.array([[2.99009901, 2.90909090]])
     assert np.allclose(
         center_of_mass(cm_ds1), cm_ds1_SOL, rtol=1e-09
     ), 'Calculated output does not match expected output'
@@ -81,7 +79,7 @@ def test_center_of_mass():
 def test_inertia():
     """Compares summary_statistics.py calculation of inertia with verified outcomes"""
     Sv = np.array([[[20, 40, 60], [50, 20, 30]]])
-    echo_range = np.array([[[1, 2, 3], [2, 3, 4]]])
+    echo_range = np.array([1, 2, 3])
     in_ds1 = create_test_ds(Sv, echo_range)
     in_ds1_SOL = np.array([[0.00980296, 0.08264463]])
     assert np.allclose(
@@ -92,7 +90,7 @@ def test_inertia():
 def test_evenness():
     """Compares summary_statistics.py calculation of evenness with verified outcomes"""
     Sv = np.array([[[20, 40, 60], [50, 20, 30]]])
-    echo_range = np.array([[[1, 2, 3], [2, 3, 4]]])
+    echo_range = np.array([1, 2, 3])
     ev_ds1 = create_test_ds(Sv, echo_range)
     ev_ds1_SOL = np.array([[1.019998, 1.198019802]])
     assert np.allclose(
@@ -103,7 +101,7 @@ def test_evenness():
 def test_aggregation():
     """Compares summary_statistics.py calculation of aggregation with verified outcomes"""
     Sv = np.array([[[20, 40, 60], [50, 20, 30]]])
-    echo_range = np.array([[[1, 2, 3], [2, 3, 4]]])
+    echo_range = np.array([1, 2, 3])
     ag_ds1 = create_test_ds(Sv, echo_range)
     ag_ds1_SOL = np.array([[0.9803940792, 0.8347107438]])
     assert np.allclose(
