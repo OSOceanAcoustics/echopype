@@ -5,7 +5,15 @@ import math
 import dask
 import warnings
 
-from echopype.utils.coding import _get_dask_auto_chunk, set_netcdf_encodings, _encode_time_dataarray, DEFAULT_TIME_ENCODING  # noqa: E501
+from echopype.utils.coding import (
+    _get_dask_auto_chunk,
+    set_netcdf_encodings,
+    set_time_encodings,
+    set_zarr_encodings,
+    _encode_time_dataarray,
+    COMPRESSION_SETTINGS,
+    DEFAULT_TIME_ENCODING,
+)
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
@@ -136,3 +144,88 @@ def test_encode_time_dataarray_on_encoded_time_data():
     # Check to see if value error is raised when we pass in an encoded float datetime array
     with pytest.raises(ValueError, match="Encoded time data array must be of type ```np.int64```."):
         _encode_time_dataarray(encoded_datetime_array.astype(np.float64))
+
+
+# Regression tests for zero-length / all-NaN handling on partial/truncated raw files.
+# See PR #1624.
+
+@pytest.mark.unit
+def test_set_time_encodings_skips_all_nan_time_var():
+    """All-NaN time variables must be skipped so xarray's encoder isn't called on them."""
+    ds = xr.Dataset(
+        {
+            "ping_time": xr.DataArray(np.array([np.nan, np.nan]), dims="ping_time"),
+            "backscatter_r": xr.DataArray(np.zeros((2, 3)), dims=("ping_time", "range_sample")),
+        }
+    )
+
+    new_ds = set_time_encodings(ds)
+
+    # Values are preserved and no encoding was forced onto the all-NaN time var.
+    assert np.all(np.isnan(new_ds["ping_time"].values))
+    assert new_ds["ping_time"].encoding == {}
+
+
+@pytest.mark.unit
+def test_set_time_encodings_all_nan_mixed_with_valid_time():
+    """A valid time var should still be encoded when another time var is all-NaN."""
+    valid_times = np.array(
+        ["2024-01-01T00:00:00", "2024-01-01T00:00:01"], dtype="datetime64[ns]"
+    )
+    ds = xr.Dataset(
+        {
+            "ping_time": xr.DataArray(np.array([np.nan, np.nan]), dims="ping_time"),
+            "time1": xr.DataArray(valid_times, dims="time1"),
+        }
+    )
+
+    new_ds = set_time_encodings(ds)
+
+    assert np.all(np.isnan(new_ds["ping_time"].values))
+    assert new_ds["ping_time"].encoding == {}
+    assert np.issubdtype(new_ds["time1"].dtype, np.datetime64)
+    assert new_ds["time1"].encoding == DEFAULT_TIME_ENCODING
+
+
+@pytest.mark.unit
+def test_set_zarr_encodings_zero_length_dim_sets_chunks_to_none():
+    """A variable with a zero-length dim must not trigger division by zero in chunk calc."""
+    ds = xr.Dataset(
+        {
+            "backscatter_r": xr.DataArray(
+                np.zeros((0, 3), dtype=np.float32), dims=("ping_time", "range_sample")
+            ),
+        }
+    )
+
+    encoding = set_zarr_encodings(ds, COMPRESSION_SETTINGS["zarr"])
+
+    assert encoding["backscatter_r"]["chunks"] is None
+
+
+@pytest.mark.unit
+def test_set_zarr_encodings_scalar_variable_sets_chunks_to_none():
+    """A scalar (zero-dim) variable must be given chunks=None rather than tripping the chunker."""
+    ds = xr.Dataset({"scalar_var": xr.DataArray(np.float32(1.5))})
+
+    encoding = set_zarr_encodings(ds, COMPRESSION_SETTINGS["zarr"])
+
+    assert encoding["scalar_var"]["chunks"] is None
+
+
+@pytest.mark.unit
+def test_set_zarr_encodings_normal_variable_still_chunked():
+    """Sanity check: non-empty, non-scalar variables still receive a chunk list."""
+    ds = xr.Dataset(
+        {
+            "backscatter_r": xr.DataArray(
+                np.zeros((10, 20), dtype=np.float32), dims=("ping_time", "range_sample")
+            ),
+        }
+    )
+
+    encoding = set_zarr_encodings(ds, COMPRESSION_SETTINGS["zarr"])
+
+    chunks = encoding["backscatter_r"]["chunks"]
+    assert chunks is not None
+    assert len(chunks) == 2
