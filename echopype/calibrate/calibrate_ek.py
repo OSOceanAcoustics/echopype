@@ -350,7 +350,6 @@ class CalibrateEK80(CalibrateEK):
             self.env_params = ecs_ds2dict(
                 conform_channel_order(ds_env, self.beam["frequency_nominal"])
             )
-            ds_cal_BB = conform_channel_order(ds_cal_BB, self.beam["frequency_nominal"])
             ds_cal_NB = self._scale_ecs_cal_params_NB(
                 conform_channel_order(ds_cal_NB, self.beam["frequency_nominal"]),
                 self.beam,
@@ -358,6 +357,7 @@ class CalibrateEK80(CalibrateEK):
             cal_params_dict = ecs_ds2dict(ds_cal_NB)
 
             if ds_cal_BB is not None:
+                ds_cal_BB = conform_channel_order(ds_cal_BB, self.beam["frequency_nominal"])
                 # get_cal_params_EK fill in empty params at param level, not channel level,
                 # so need to do freq-dep interpolation here
                 self.cal_params = self._assimilate_ecs_cal_params(cal_params_dict, ds_cal_BB)
