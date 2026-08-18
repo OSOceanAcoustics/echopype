@@ -176,7 +176,17 @@ def test_combine_echodata(raw_datasets):
 
     eds = [echopype.open_raw(file, sonar_model, xml_file) for file in files]
 
-    append_dims = {"filenames", "time1", "time2", "time3", "nmea_time", "ping_time", "filter_time"}
+    append_dims = {
+        "filenames",
+        "time1",
+        "time2",
+        "time3",
+        "time10",
+        "time11",
+        "nmea_time",
+        "ping_time",
+        "filter_time",
+    }
 
     combined = echopype.combine_echodata(eds)
 
@@ -227,7 +237,6 @@ def test_combine_echodata(raw_datasets):
         for dim in concat_dims:
 
             drop_dims = [c_dim for c_dim in concat_dims if c_dim != dim]
-
             diff_concats.append(xr.concat([ed_subset.drop_dims(drop_dims) for ed_subset in eds_groups], dim=dim,  # noqa: E501
                                 coords="minimal", data_vars="minimal", join="outer"))
 

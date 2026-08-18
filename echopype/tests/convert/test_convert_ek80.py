@@ -42,6 +42,11 @@ def ek80_new_path(test_path):
 def ek80_multiplex_path(test_path):
     return test_path["EK80_MULTIPLEX"]
 
+@pytest.fixture
+def ek80_heading_path(test_path):
+    return test_path["EK80_HEADING"]
+
+
 def pytest_generate_tests(metafunc):
     """Dynamically parameterize tests for EK80 .raw files."""
     from echopype.tests import conftest as ct
@@ -504,7 +509,7 @@ def test_parse_mru0_mru1(ek80_path):
     # Check dimensions
     assert (
         echodata["Platform"].sizes
-        == {'channel': 1, 'time1': 1, 'time2': 43, 'time3': 43}
+        == {'channel': 1, 'time1': 1, 'time2': 43, 'time3': 43, 'time10': 1, 'time11': 1}
     )
 
     # Check no NaN values in MRU data
@@ -518,6 +523,35 @@ def test_parse_mru0_mru1(ek80_path):
     ]
     for mru_var_name in mru_var_names:
         assert not np.any(np.isnan(echodata["Platform"][mru_var_name]))
+
+
+@pytest.mark.unit
+def test_parse_speed_over_ground(ek80_path):
+    """Make sure we parse speed over ground from a RAW file."""
+
+    # This raw file has speed in NMEA VTG and RMC messages
+    echodata = open_raw(
+        raw_file=ek80_path/'vessel_speed'/'khr2405-D20241001-T024415.raw',
+        sonar_model='EK80'
+    )
+
+    # Check that there are data that are not NaN
+    assert (echodata["Platform"]['speed_over_ground'].sizes == {'time11': 220})
+    assert (not np.any(np.isnan(echodata["Platform"]['speed_over_ground'])))
+
+
+@pytest.mark.unit
+def test_parse_NMEA_heading(ek80_heading_path):
+    """Make sure we parse NMEA heading from a RAW file when MRU heading is not present."""
+
+    echodata = open_raw(
+        raw_file=ek80_heading_path/'D20260613-T230914.raw',
+        sonar_model='ES80'
+    )
+
+    # Check that there are non-NaN data
+    assert (echodata["Platform"]['heading'].sizes == {'time10': 911})
+    assert (not np.any(np.isnan(echodata["Platform"]['heading'])))
 
 
 @pytest.mark.unit
