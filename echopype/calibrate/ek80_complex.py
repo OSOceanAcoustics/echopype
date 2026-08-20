@@ -9,6 +9,272 @@ from scipy import signal
 from ..convert.set_groups_ek80 import DECIMATION, FILTER_IMAG, FILTER_REAL
 
 
+def _get_transducer_halves(
+    pc: xr.DataArray,
+) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
+    """Calculate half-transducer pulse-compressed signals.
+
+    Equivalent to CRIMAC ``calcTransducerHalves`` for 4-sector transducers.
+    """
+    if pc.sizes["beam"] != 4:
+        raise NotImplementedError(
+            "Transducer halves are only defined for 4-sector split-beam data."
+        )
+
+    pc_fore = 0.5 * (pc.isel(beam=2) + pc.isel(beam=3))
+    pc_aft = 0.5 * (pc.isel(beam=0) + pc.isel(beam=1))
+    pc_star = 0.5 * (pc.isel(beam=0) + pc.isel(beam=3))
+    pc_port = 0.5 * (pc.isel(beam=1) + pc.isel(beam=2))
+
+    return pc_fore, pc_aft, pc_star, pc_port
+
+
+def _get_splitbeam_angles(
+    pc: xr.DataArray,
+    gamma_alongship,
+    gamma_athwartship,
+) -> tuple[xr.DataArray, xr.DataArray]:
+    """Calculate raw split-beam physical angles before angle-offset correction.
+
+    For 4-sector data this follows CRIMAC ``calcAngles``. For 3-sector data,
+    the sector geometry follows the same convention used by ``add_splitbeam_angle``.
+    Angle offsets are not applied here because TS(f) beam compensation applies
+    frequency-dependent offsets later.
+    """
+    if pc.sizes["beam"] == 4:
+        pc_fore, pc_aft, pc_star, pc_port = _get_transducer_halves(pc)
+
+        y_theta = pc_fore * np.conj(pc_aft)
+        y_phi = pc_star * np.conj(pc_port)
+
+        theta = np.rad2deg(
+            np.arcsin(np.arctan2(np.imag(y_theta), np.real(y_theta)) / gamma_alongship)
+        )
+
+        phi = np.rad2deg(np.arcsin(np.arctan2(np.imag(y_phi), np.real(y_phi)) / gamma_athwartship))
+    else:
+        raise NotImplementedError(
+            f"Split-beam angle calculation is not implemented for {pc.sizes['beam']} sectors."
+        )
+
+    theta.name = "angle_alongship"
+    phi.name = "angle_athwartship"
+
+    return theta, phi
+
+
+def _compute_power_from_complex_signal(
+    signal: xr.DataArray,
+    z_et,
+    z_er,
+) -> xr.DataArray:
+    """Calculate received electrical power from sector-level complex samples.
+
+    The input is expected to retain the ``beam`` dimension. The function
+    averages over transducer sectors internally before converting the
+    complex signal to received electrical power.
+
+    Equivalent to CRIMAC ``calcPower``.
+    """
+    prx = (
+        signal["beam"].size
+        * np.abs(signal.mean(dim="beam")) ** 2
+        / (2 * np.sqrt(2)) ** 2
+        * (np.abs(z_er + z_et) / np.abs(z_er)) ** 2
+        / np.abs(z_et)
+    )
+
+    prx = prx.where(prx > 0, 1e-20)
+    prx.name = "received_power"
+
+    return prx
+
+
+def _align_autocorrelation(
+    mf_auto: np.ndarray,
+    pc_target: np.ndarray,
+) -> np.ndarray:
+    """Align matched-filter autocorrelation to target echo.
+
+    Equivalent to CRIMAC ``alignAuto``.
+    """
+    idx_peak_auto = np.argmax(np.abs(mf_auto))
+    idx_peak_target = np.argmax(np.abs(pc_target))
+
+    left_samples = idx_peak_target
+    right_samples = len(pc_target) - idx_peak_target
+
+    idx_start = max(0, idx_peak_auto - left_samples)
+    idx_stop = min(len(mf_auto), idx_peak_auto + right_samples)
+
+    return mf_auto[idx_start:idx_stop]
+
+
+def _extract_target_from_range_gate(
+    pc_avg_1d: np.ndarray,
+    range_1d: np.ndarray,
+    theta_raw: np.ndarray,
+    phi_raw: np.ndarray,
+    target_range: float,
+    target_range_min: float | None,
+    target_range_max: float | None,
+    split_front: float,
+    n_fft: int,
+):
+    """Extract target echo and peak angles from a known range gate."""
+    if target_range_min is not None and target_range_max is not None:
+        target_mask = (range_1d >= target_range_min) & (range_1d <= target_range_max)
+    else:
+        idx_target = int(np.nanargmin(np.abs(range_1d - target_range)))
+        n_before = int(np.floor(split_front * n_fft))
+        n_after = n_fft - n_before
+        idx_start = max(0, idx_target - n_before)
+        idx_stop = min(range_1d.size, idx_target + n_after)
+
+        target_mask = np.zeros(range_1d.size, dtype=bool)
+        target_mask[idx_start:idx_stop] = True
+
+    if not np.any(target_mask):
+        raise ValueError("No samples found inside target range gate.")
+
+    pc_target = pc_avg_1d[target_mask]
+
+    idx_peak = int(np.nanargmax(np.abs(pc_target) ** 2))
+    theta_t = float(theta_raw[target_mask][idx_peak])
+    phi_t = float(phi_raw[target_mask][idx_peak])
+
+    return pc_target, theta_t, phi_t, target_mask
+
+
+def _compute_ts_spectrum(
+    pc_target: np.ndarray,
+    mf_auto_red: np.ndarray,
+    NFFT: int,
+    frequency: np.ndarray,
+    fs_dec: float,
+):
+    """Compute target, autocorrelation, and normalised DFTs for TS spectrum.
+
+    Equivalent to CRIMAC ``calcDFTforTS``, with explicit NFFT.
+    """
+    frequency_index = np.mod(
+        np.floor(frequency / fs_dec * NFFT).astype(int),
+        NFFT,
+    )
+
+    pc_target_spectrum = np.fft.fft(pc_target, n=NFFT)[frequency_index]
+    mf_auto_red_spectrum = np.fft.fft(mf_auto_red, n=NFFT)[frequency_index]
+
+    normalized_spectrum = pc_target_spectrum / mf_auto_red_spectrum
+
+    return pc_target_spectrum, mf_auto_red_spectrum, normalized_spectrum
+
+
+def _compute_ts_spectrum_calibrated(
+    power_spectrum: np.ndarray,
+    target_range: float,
+    frequency: np.ndarray,
+    sound_speed: float,
+    absorption_f: np.ndarray,
+    transmit_power: float,
+    gain_f: np.ndarray,
+):
+    """Apply CRIMAC-style TS(f) calibration equation.
+
+    Equivalent to CRIMAC ``calcTSf``.
+    """
+    wavelength_f = sound_speed / frequency
+
+    return (
+        10 * np.log10(power_spectrum)
+        + 40 * np.log10(target_range)
+        + 2 * absorption_f * target_range
+        - 10 * np.log10(transmit_power * wavelength_f**2 * gain_f**2 / (16 * np.pi**2))
+    )
+
+
+def _compute_ts_spectrum_power(
+    normalized_spectrum: np.ndarray,
+    n_beams: int,
+    z_et: float,
+    z_er: float,
+):
+    """Convert normalised TS(f) spectrum to received power spectrum.
+
+    Equivalent to CRIMAC ``calcPowerFreqTS``.
+    """
+    return _compute_complex_power(
+        normalized_spectrum=normalized_spectrum,
+        n_beams=n_beams,
+        z_et=z_et,
+        z_er=z_er,
+    )
+
+
+def _get_autocorrelation(
+    matched_filter: np.ndarray,
+    n_window: int,
+):
+    """Get matched-filter autocorrelation spectrum.
+
+    Equivalent to CRIMAC ``calcAutoCorrelation``.
+    """
+    mf_auto = (
+        np.convolve(
+            matched_filter,
+            np.conj(matched_filter[::-1]),
+            mode="full",
+        )
+        / np.linalg.norm(matched_filter) ** 2
+    )
+
+    mf_auto_spectrum = np.fft.fft(mf_auto, n=n_window)
+
+    return mf_auto, mf_auto_spectrum
+
+
+def _get_pulse_compressed_signal(
+    beam: xr.Dataset,
+    matched_filter: Dict,
+) -> xr.DataArray:
+    """Calculate pulse-compressed complex samples for each transducer sector.
+
+    Equivalent to CRIMAC ``calcPulseCompressedSignals``.
+    """
+    pc = compress_pulse(
+        backscatter=beam["backscatter_r"] + 1j * beam["backscatter_i"],
+        chirp=matched_filter,
+    )
+    pc = pc / get_norm_fac(chirp=matched_filter)
+    pc.name = "pulse_compressed_signal"
+
+    return pc
+
+
+def _get_average_signal(
+    signal: xr.DataArray,
+) -> xr.DataArray:
+    """Average complex signal over transducer sectors.
+
+    Equivalent to CRIMAC ``calcAverageSignal``.
+    """
+    out = signal.mean(dim="beam")
+    out.name = "average_signal"
+
+    return out
+
+
+def _compute_complex_power(
+    normalized_spectrum: np.ndarray,
+    n_beams: int,
+    z_et: float,
+    z_er: float,
+):
+    impedance_factor = (np.abs(z_er + z_et) / np.abs(z_er)) ** 2 / np.abs(z_et)
+
+    return n_beams * (np.abs(normalized_spectrum) / (2 * np.sqrt(2))) ** 2 * impedance_factor
+
+
 def tapered_chirp(
     fs,
     transmit_duration_nominal,
