@@ -120,7 +120,9 @@ if os.getenv("USE_POOCH") == "True" and os.getenv("PYTEST_XDIST_WORKER") is None
                     time.sleep(1)
 
         with ZipFile(z, "r") as f:
-            f.extractall(out)
+            for member in f.infolist():
+                member.filename = member.filename.replace("\\", "/")
+                f.extract(member, out)
 
             # flatten single nested dir if needed
             try:

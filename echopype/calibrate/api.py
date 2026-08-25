@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import xarray as xr
 
@@ -23,7 +25,7 @@ logger = _init_logger(__name__)
 
 
 def _compute_cal(
-    cal_type,
+    cal_type: str,
     echodata: EchoData,
     env_params=None,
     cal_params=None,
@@ -32,9 +34,20 @@ def _compute_cal(
     encode_mode=None,
     assume_single_filter_time=None,
     drop_last_hanning_zero=False,
+    **kwargs,
 ):
-    # Make waveform_mode "FM" equivalent to "BB"
-    waveform_mode = "BB" if waveform_mode == "FM" else waveform_mode
+    # Make waveform_mode "FM" equivalent to "BB".
+    # Accept legacy "BB" for backward compatibility.
+    # Ref: https://github.com/echostack-org/echopype/issues/1651
+    if waveform_mode == "BB":
+        warnings.warn(
+            "'BB' is deprecated and will be removed in a future release. "
+            "Please use 'FM' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    waveform_mode = "BB" if waveform_mode in ("FM", "BB") else waveform_mode
 
     # TODO: consolidate the below block with simrad.py::check_input_args_combination()
     # Check on waveform_mode, encode_mode inputs, and assumption on single filter time
@@ -82,13 +95,27 @@ def _compute_cal(
         # Check Echodata backscatter data size and recommend chunking if data is too large
         cal_obj._check_echodata_backscatter_size()
 
-        # Perform calibration
-        if cal_type == "Sv":
-            cal_ds = cal_obj.compute_Sv()
-        else:
-            cal_ds = cal_obj.compute_TS()
+        compute_methods = {
+            "Sp": "compute_Sp",
+            "TS": "compute_TS",
+            "Sv": "compute_Sv",
+            # add Sp_spectrum??
+            "TS_spectrum": "compute_TS_spectrum",
+        }
 
-        return cal_ds
+        try:
+            method_name = compute_methods[cal_type]
+        except KeyError:
+            raise ValueError(f"Unsupported calibration type: {cal_type}") from None
+
+        compute_method = getattr(cal_obj, method_name, None)
+
+        if compute_method is None:
+            raise ValueError(
+                f"{cal_type} calibration is not supported for " f"{echodata.sonar_model} data."
+            )
+
+        return compute_method(**kwargs)
 
     # Calibrate as a single dataset if not Ex80
     model_family = SONAR_MODELS[echodata.sonar_model]["family"]
@@ -164,7 +191,10 @@ def _compute_cal(
 
                         # Calibrate and drop filter_time
                         cal_ds_iteration = _compute_cal_ds(echodata, slice_dict)
-                        cal_ds_list.append(cal_ds_iteration.drop_vars("filter_time"))
+                        if "filter_time" in cal_ds_iteration:
+                            cal_ds_iteration = cal_ds_iteration.drop_vars("filter_time")
+
+                        cal_ds_list.append(cal_ds_iteration)
 
                 # # Alternative?
                 # for channel in echodata[ed_beam_group]["channel"].values:
@@ -204,12 +234,27 @@ def _compute_cal(
         """Add attributes to backscattering strength dataset.
         cal_type: Sv or TS
         """
-        ds["range_sample"].attrs = {"long_name": "Along-range sample number, base 0"}
-        ds["echo_range"].attrs = {"long_name": "Range distance", "units": "m"}
+        if "range_sample" in ds:
+            ds["range_sample"].attrs = {"long_name": "Along-range sample number, base 0"}
+
+        if "echo_range" in ds:
+            ds["echo_range"].attrs = {
+                "long_name": "Range distance",
+                "units": "m",
+            }
+
+        if "frequency" in ds:
+            ds["frequency"].attrs = {
+                "long_name": "Frequency",
+                "units": "Hz",
+            }
+
         ds[cal_type].attrs = {
             "long_name": {
-                "Sv": "Volume backscattering strength (Sv re 1 m-1)",
+                "Sp": "Point scattering strength (Sp re 1 m^2)",
                 "TS": "Target strength (TS re 1 m^2)",
+                "Sv": "Volume backscattering strength (Sv re 1 m-1)",
+                "TS_spectrum": "Frequency-dependent target strength spectrum (TS(f) re 1 m^2)",
             }[cal_type],
             "units": "dB",
         }
@@ -348,7 +393,133 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     return _compute_cal(cal_type="Sv", echodata=echodata, **kwargs)
 
 
-def compute_TS(echodata: EchoData, **kwargs):
+def compute_Sv_spectrum(echodata: EchoData, **kwargs) -> xr.Dataset:
+    """
+    Compute frequency-dependent volume backscattering strength Sv(f)
+    from broadband EK80 complex data.
+
+    Notes
+    -----
+    This functionality is not yet implemented.
+    """
+    raise NotImplementedError("compute_Sv_spectrum is not yet implemented.")
+
+
+def compute_Sp(echodata: EchoData, **kwargs) -> xr.Dataset:
+    """
+    Compute point scattering strength (Sp) from raw data.
+
+    For CW data, Sp is computed from received power samples on the range grid.
+    For EK80 broadband/FM complex data, Sp is computed after pulse compression
+    and represents a band-averaged point-scattering-strength echogram.
+    """
+    return _compute_cal(cal_type="Sp", echodata=echodata, **kwargs)
+
+
+def _compute_TS_from_Sp(
+    source_Sp: xr.Dataset,
+    point_locations: xr.Dataset,
+) -> xr.Dataset:
+    """Compute single-target TS values from an Sp dataset."""
+
+    target_dim = "single_target"
+
+    if target_dim not in point_locations.dims:
+        raise ValueError("point_locations must use the 'single_target' dimension.")
+
+    if "channel" not in point_locations:
+        raise ValueError("point_locations must contain a 'channel' variable.")
+
+    if "beam_comp_db" not in point_locations:
+        raise ValueError("point_locations must contain a 'beam_comp_db' variable.")
+
+    if point_locations.sizes[target_dim] == 0:
+        return point_locations.assign(
+            uncompensated_TS=(
+                target_dim,
+                np.array([], dtype=np.float64),
+            ),
+            compensated_TS=(
+                target_dim,
+                np.array([], dtype=np.float64),
+            ),
+        )
+
+    target_dsets = []
+
+    for channel in np.unique(point_locations["channel"].values):
+        targets_channel = point_locations.where(
+            point_locations["channel"] == channel,
+            drop=True,
+        )
+
+        source_channel = source_Sp.sel(channel=channel)
+
+        ping_index = targets_channel["ping_index"].values.astype(int)
+        range_sample = targets_channel["range_sample"].values.astype(int)
+
+        uncompensated_ts_raw = source_channel["Sp"].isel(
+            ping_time=xr.DataArray(
+                ping_index,
+                dims=target_dim,
+            ),
+            range_sample=xr.DataArray(
+                range_sample,
+                dims=target_dim,
+            ),
+        )
+
+        uncompensated_ts = xr.DataArray(
+            uncompensated_ts_raw.values,
+            dims=(target_dim,),
+            coords={
+                target_dim: targets_channel[target_dim],
+            },
+            name="uncompensated_TS",
+        )
+
+        compensated_ts = xr.DataArray(
+            (uncompensated_ts.values + targets_channel["beam_comp_db"].values),
+            dims=(target_dim,),
+            coords={
+                target_dim: targets_channel[target_dim],
+            },
+            name="compensated_TS",
+        )
+
+        targets_channel = targets_channel.assign(
+            uncompensated_TS=uncompensated_ts,
+            compensated_TS=compensated_ts,
+        )
+
+        target_dsets.append(targets_channel)
+
+    result = xr.concat(
+        target_dsets,
+        dim=target_dim,
+    )
+
+    result["uncompensated_TS"].attrs = {
+        "long_name": ("Calculated target strength (re 1 m2) " "uncompensated for off-axis angle"),
+        "units": "dB",
+    }
+
+    result["compensated_TS"].attrs = {
+        "long_name": (
+            "Calculated target strength (re 1 m2) " "after compensation for off-axis angle"
+        ),
+        "units": "dB",
+    }
+
+    return result
+
+
+def compute_TS(
+    echodata: EchoData | xr.Dataset,
+    *,
+    point_locations: xr.Dataset | None = None,
+    **kwargs,
+) -> xr.Dataset:
     """
     Compute target strength (TS) from raw data.
 
@@ -360,11 +531,15 @@ def compute_TS(echodata: EchoData, **kwargs):
     ----------
     echodata : EchoData
         An `EchoData` object created by using `open_raw` or `open_converted`
+        point_locations : xr.Dataset, optional
+
+    Single-target locations produced by ``detect_from_Sp``.
+        Required when ``echodata`` is an Sp dataset rather than an EchoData object.
 
     env_params : dict, optional
         Environmental parameters needed for calibration.
         Users can supply `"sound speed"` and `"absorption"` directly,
-        or specify other variables that can be used to compute them,
+        or specify other variables that can be used to compok what nute them,
         including `"temperature"`, `"salinity"`, and `"pressure"`.
 
         For EK60 and EK80 echosounders, by default echopype uses
@@ -449,4 +624,62 @@ def compute_TS(echodata: EchoData, **kwargs):
     symbols in fisheries acoustics. ICES J. Mar. Sci. 59: 365-369.
     https://doi.org/10.1006/jmsc.2001.1158
     """
+
+    if isinstance(echodata, xr.Dataset):
+        if point_locations is None:
+            raise ValueError(
+                "point_locations must be provided when computing "
+                "single-target TS from an Sp dataset."
+            )
+
+        return _compute_TS_from_Sp(
+            source_Sp=echodata,
+            point_locations=point_locations,
+        )
+
     return _compute_cal(cal_type="TS", echodata=echodata, **kwargs)
+
+
+def compute_TS_spectrum(echodata: EchoData, **kwargs) -> xr.Dataset:
+    """
+    Compute broadband frequency-dependent target strength spectrum, TS(f),
+    from EK80 broadband/FM complex data.
+
+    Parameters
+    ----------
+    point_locations : xr.Dataset
+        Locations of targets for which TS(f) should be computed.
+        Must contain ``channel``, ``ping_time``, and ``target_range`` for each
+        ``target_id``. If ``target_range_min`` and ``target_range_max`` are
+        provided, they define the target echo segment. Otherwise, the segment
+        is built around ``target_range`` using ``NFFT`` and ``split_front``.
+
+    NFFT : int, optional
+        Number of FFT points used to compute the target spectrum. If not
+        provided, a value is inferred from the output frequency grid.
+
+    n_f_points : int, optional
+        Number of frequency points in the output TS(f) spectrum. Used when
+        ``frequency_resolution`` is not provided.
+
+    split_front : float, default 0.25
+        Each echo spectrum is computed from a segment of the complex echo signal.
+        This parameter specifies how to position that segment around the target location
+        when only ``target_range`` is provided. For example, if ``split_front=0.25``,
+        then 25% of the NFFT window is placed before ``target_range`` and the remaining
+        75% after it.
+
+    window : str, tuple, float or None, default None
+        Window passed directly to ``scipy.signal.get_window``. If ``None``,
+        a rectangular/boxcar window is used.
+
+    frequency_resolution : float, optional
+        Desired spacing of the output frequency grid in Hz. Used to define the
+        frequency grid on which TS(f) is evaluated.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing beam-compensated frequency-dependent target strength, TS(f).
+    """
+    return _compute_cal(cal_type="TS_spectrum", echodata=echodata, **kwargs)

@@ -11,9 +11,9 @@ import pandas as pd
 import xarray as xr
 from flox.xarray import xarray_reduce
 
-# for seafloor detection
 from echopype.mask.seafloor_detection.bottom_basic import bottom_basic
 from echopype.mask.seafloor_detection.bottom_blackwell import bottom_blackwell
+from echopype.mask.single_target_detection.detect_from_Sp import detect_from_Sp
 
 from ..commongrid.utils import (
     _convert_bins_to_interval_index,
@@ -992,3 +992,76 @@ def detect_shoal(
         raise ValueError(f"Unsupported shoal detection method: {method}")
 
     return METHODS_SHOAL[method](ds, **params)
+
+
+# Registry of supported methods for single_target_detection
+METHODS_SINGLE_TARGET = {
+    "from_Sp": detect_from_Sp,
+}
+
+
+def detect_single_targets(
+    ds: xr.Dataset,
+    method: str,
+    params: dict,
+    waveform_mode: Literal["CW", "FM"] = "CW",
+) -> xr.Dataset:
+    """
+    Run single-target detection using the selected method.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Acoustic dataset containing the fields required by the selected method.
+    method : str
+        Name of the detection method to use. Currently supported for CW:
+        ``"from_Sp"``
+    params : dict
+        Method-specific parameters. This argument is required and no defaults
+        are assumed.
+    waveform_mode : {"CW", "FM"}, default "CW"
+        Transmit waveform mode. FM single-target detection is not yet implemented.
+
+    Returns
+    -------
+    xr.Dataset
+        Per-target detection results with dimension ``target``.
+    """
+
+    if waveform_mode == "FM":
+        raise NotImplementedError("FM single-target detection is not yet implemented. ")
+
+    if waveform_mode != "CW":
+        raise ValueError("waveform_mode must be 'CW' or 'FM'.")
+
+    if method not in METHODS_SINGLE_TARGET:
+        raise ValueError(f"Unsupported single-target method: {method}")
+
+    if params is None:
+        raise ValueError("No parameters given.")
+
+    if "beam_type" not in ds:
+        raise ValueError("beam_type variable is missing from dataset.")
+
+    beam_vals = np.unique(ds["beam_type"].values)
+
+    if not np.all(np.isin(beam_vals, [1, 65])):
+        raise ValueError(f"Only split-beam data supported (beam_type 1 or 65). Found: {beam_vals}")
+
+    out = METHODS_SINGLE_TARGET[method](ds, params)
+
+    if not isinstance(out, xr.Dataset) or "single_target" not in out.dims:
+        raise TypeError(f"{method} must return an xr.Dataset with a 'single_target' dimension.")
+
+    required = ("ping_time", "range_sample", "frequency_nominal")
+    missing = [v for v in required if v not in out]
+    if missing:
+        raise ValueError(
+            f"{method} output missing required field(s): {missing} (expected {list(required)})."
+        )
+
+    bad_dims = [v for v in required if out[v].dims != ("single_target",)]
+    if bad_dims:
+        raise ValueError(f"{method} field(s) must have dims ('single_target',): {bad_dims}.")
+
+    return out
