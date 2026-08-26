@@ -27,7 +27,7 @@ Open raw and converted files
 .. _api-open_raw:
 
 .. automodule:: echopype
-   :members: open_raw, open_converted, combine_echodata
+   :members: open_raw, open_converted
 
 Data processing subpackages
 ---------------------------
