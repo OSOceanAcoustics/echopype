@@ -582,7 +582,6 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
 
     # Compute MVBS / Compute NASC
     if operation == "MVBS":
-        if range_var == "echo_range":
         da = ep.commongrid.compute_MVBS(
             subset_ds_Sv,
             range_var=range_var,
