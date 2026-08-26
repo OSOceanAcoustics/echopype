@@ -1,5 +1,5 @@
-import logging
 import re
+import warnings
 from typing import Literal, Optional, Tuple, Union
 
 import numpy as np
@@ -10,8 +10,6 @@ from geopy import distance
 
 from ..consolidate.api import POSITION_VARIABLES
 from ..utils.compute import _lin2log, _log2lin
-
-logger = logging.getLogger(__name__)
 
 
 def compute_raw_MVBS(
@@ -585,7 +583,7 @@ def _groupby_x_along_channels(
 
     # Set correct range_var just in case
     if x_var == "distance_nmi" and range_var != "depth":
-        logger.warning("x_var is 'distance_nmi', setting range_var to 'depth'")
+        warnings.warn("x_var is 'distance_nmi', setting range_var to 'depth'", category=UserWarning)
         range_var = "depth"
 
     # average should be done in linear domain
@@ -603,8 +601,9 @@ def _groupby_x_along_channels(
     )
     for array_name, array in named_arrays.items():
         if np.isnan(array).any():
-            logging.warning(
-                f"The ```{array_name}``` coordinate array contain NaNs. {aggregation_msg}"
+            warnings.warn(
+                f"The ```{array_name}``` coordinate array contain NaNs. {aggregation_msg}",
+                category=UserWarning,
             )
 
     # Use the first dimension as the grouping dimension for generality

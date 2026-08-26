@@ -10,7 +10,6 @@ from echopype import open_raw, open_converted
 from echopype.calibrate import compute_Sv
 from echopype.convert.parse_ek80 import ParseEK80
 from echopype.convert.set_groups_ek80 import SetGroupsEK80, WIDE_BAND_TRANS, PULSE_COMPRESS, FILTER_IMAG, FILTER_REAL, DECIMATION  # noqa: E501
-from echopype.utils import log
 from echopype.convert.utils.ek_duplicates import check_unique_ping_time_duplicates
 
 
@@ -552,9 +551,6 @@ def test_duplicate_ping_times(caplog, ek80_dupe_ping_path):
     """
     Tests that RAW file with duplicate ping times can be parsed and that the correct warning has been raised.
     """  # noqa: E501
-    # Turn on logger verbosity
-    log.verbose(override=True)
-
     # Open RAW
     ed = open_raw(ek80_dupe_ping_path / "Hake-D20210913-T130612.raw", sonar_model="EK80")
 
@@ -567,21 +563,12 @@ def test_duplicate_ping_times(caplog, ek80_dupe_ping_path):
     not_expected_warning = ("All duplicate ping_time entries' will be removed, resulting in potential data loss.")  # noqa: E501
     assert not any(not_expected_warning in record.message for record in caplog.records)
 
-    # Turn off logger verbosity
-    log.verbose(override=False)
-
 
 @pytest.mark.unit
 def test_check_unique_ping_time_duplicates(caplog, ek80_dupe_ping_path):
     """
     Checks that `check_unique_ping_time_duplicates` raises a warning when the data for duplicate ping times is not unique.
     """  # noqa: E501
-    # Initialize logger
-    logger = log._init_logger(__name__)
-
-    # Turn on logger verbosity
-    log.verbose(override=True)
-
     # Open duplicate ping time beam dataset
     ds_data = xr.open_zarr(ek80_dupe_ping_path / "duplicate_beam_ds.zarr")
 
@@ -589,10 +576,7 @@ def test_check_unique_ping_time_duplicates(caplog, ek80_dupe_ping_path):
     ds_data["backscatter_r"][0,0,0] = 0
 
     # Check for ping time duplicates
-    check_unique_ping_time_duplicates(ds_data, logger)
-
-    # Turn off logger verbosity
-    log.verbose(override=False)
+    check_unique_ping_time_duplicates(ds_data)
 
     # Check if the expected warning is logged
     expected_warning = (

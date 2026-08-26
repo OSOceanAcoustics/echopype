@@ -139,14 +139,8 @@ def test_ek_use_beam_angles_output(caplog):
         coords={"channel": channel_da}
     )
 
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=True)
-
     # Compute beam angle echo range scaling
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
-
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=False)
 
     # Verify the correct warning
     assert "Beam direction vector was not normalized" in caplog.text
@@ -170,9 +164,6 @@ def test_warning_zero_vector(caplog):
         }
     )
 
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=True)
-
     # Compute beam angle echo range scaling
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
 
@@ -182,9 +173,6 @@ def test_warning_zero_vector(caplog):
     # Check that channel 0 output is NaN and channel 1 output is 0
     assert np.isnan(echo_range_scaling.values[0])
     assert np.isclose(echo_range_scaling.values[1], 0.0)
-
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=False)
 
 
 @pytest.mark.integration
@@ -257,9 +245,6 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog, ek80_path):
     ed["Sonar/Beam_group1"]["beam_direction_y"].values[0] = np.nan
     ed["Sonar/Beam_group1"]["beam_direction_z"].values[0] = np.nan
 
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=True)
-
     # Run EK depth util functions:
     ek_use_platform_vertical_offsets(platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"])
     ek_use_platform_angles(platform_ds=ed["Platform"], ping_time_da=ds_Sv["ping_time"])
@@ -286,9 +271,6 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog, ek80_path):
         )
         assert any(expected_warning in record.message for record in caplog.records)
 
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=False)
-
 
 @pytest.mark.integration
 def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog, ek80_path):
@@ -303,9 +285,6 @@ def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog, ek80_path):
     # Open EK Raw file and Compute Sv
     ed = ep.open_raw(raw_file, sonar_model="EK80")
     ds_Sv = ep.calibrate.compute_Sv(ed, waveform_mode="CW", encode_mode="power")
-
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=True)
 
     # Run `add_depth` with `tilt`, `depth_offset` as Non-NaN, using beam group angles,
     # and platform vertical offset values
@@ -328,9 +307,6 @@ def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog, ek80_path):
     )
     for warning in [depth_offset_warning, tilt_warning]:
         assert any(warning in record.message for record in caplog.records)
-
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=False)
 
 
 @pytest.mark.integration

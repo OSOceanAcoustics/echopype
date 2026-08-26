@@ -10,12 +10,12 @@ channel-transducer structure from different EK80 setups.
 import re
 import struct
 import sys
+import warnings
 import xml.etree.ElementTree as ET
 from collections import Counter
 
 import numpy as np
 
-from ...utils.log import _init_logger
 from ...utils.misc import camelcase2snakecase
 from .ek_date_conversion import nt_to_unix
 
@@ -29,8 +29,6 @@ __all__ = [
     "SimradConfigParser",
     "SimradRawParser",
 ]
-
-logger = _init_logger(__name__)
 
 
 class _SimradDatagramParser(object):
@@ -185,8 +183,12 @@ class SimradDepthParser(_SimradDatagramParser):
 
             if len(set(lengths)) != 1:
                 min_indx = min(lengths)
-                logger.warning("Data lengths mismatched:  d:%d, r:%d, u:%d, t:%d", *lengths)
-                logger.warning("  Using minimum value:  %d", min_indx)
+                warnings.warn(
+                    "Data lengths mismatched:  "
+                    f"d:{lengths[0]}, r:{lengths[1]}, u:{lengths[2]}, t:{lengths[3]} "
+                    f"Using minimum value:  {min_indx}",
+                    category=BytesWarning,
+                )
                 data["transceiver_count"] = min_indx
 
             else:
@@ -274,10 +276,10 @@ class SimradBottomParser(_SimradDatagramParser):
 
         if version == 0:
             if len(data["depth"]) != data["transceiver_count"]:
-                logger.warning(
-                    "# of depth values %d does not match transceiver count %d",
-                    len(data["depth"]),
-                    data["transceiver_count"],
+                warnings.warn(
+                    f"# of depth values {len(data['depth'])} does not match transceiver "
+                    "count {data['transceiver_count']}",
+                    category=BytesWarning,
                 )
 
                 data["transceiver_count"] = len(data["depth"])
@@ -1431,12 +1433,12 @@ class SimradConfigParser(_SimradDatagramParser):
                 transducer_header = self._transducer_headers[sounder_name]
                 _sounder_name_used = sounder_name
             except KeyError:
-                logger.warning(
-                    "Unknown sounder_name:  %s, (no one of %s)",
-                    sounder_name,
-                    list(self._transducer_headers.keys()),
+                warnings.warn(
+                    f"Unknown sounder_name:  {sounder_name}, "
+                    "(no one of {list(self._transducer_headers.keys())}) "
+                    "will use ER60 transducer config fields as default",
+                    category=UserWarning,
                 )
-                logger.warning("Will use ER60 transducer config fields as default")
 
                 transducer_header = self._transducer_headers["ER60"]
                 _sounder_name_used = "ER60"
@@ -1506,7 +1508,11 @@ class SimradConfigParser(_SimradDatagramParser):
 
         if version == 0:
             if data["transceiver_count"] != len(data["transceivers"]):
-                logger.warning("Mismatch between 'transceiver_count' and actual # of transceivers")
+                warnings.warn(
+                    "Mismatch between 'transceiver_count' and actual # of transceivers "
+                    f"{data['transceiver_count']} != {len(data['transceivers'])}",
+                    category=UserWarning,
+                )
                 data["transceiver_count"] = len(data["transceivers"])
 
             sounder_name = data["sounder_name"]
@@ -1527,12 +1533,12 @@ class SimradConfigParser(_SimradDatagramParser):
                 transducer_header = self._transducer_headers[sounder_name]
                 _sounder_name_used = sounder_name
             except KeyError:
-                logger.warning(
-                    "Unknown sounder_name:  %s, (no one of %s)",
-                    sounder_name,
-                    list(self._transducer_headers.keys()),
+                warnings.warn(
+                    f"Unknown sounder_name:  {sounder_name}, "
+                    f"(no one of {list(self._transducer_headers.keys())}) "
+                    "will use ER60 transducer config fields as default",
+                    category=UserWarning,
                 )
-                logger.warning("Will use ER60 transducer config fields as default")
 
                 transducer_header = self._transducer_headers["ER60"]
                 _sounder_name_used = "ER60"
@@ -1784,21 +1790,27 @@ class SimradRawParser(_SimradDatagramParser):
         if version == 0:
             if data["count"] > 0:
                 if (int(data["mode"]) & 0x1) and (len(data.get("power", [])) != data["count"]):
-                    logger.warning(
-                        "Data 'count' = %d, but contains %d power samples.  Ignoring power."
+                    warnings.warn(
+                        f"Data 'count' = {data['count']}, "
+                        f"but contains {len(data.get('power', []))} "
+                        "power samples.  Ignoring power.",
+                        category=BytesWarning,
                     )
                     data["mode"] &= ~(1 << 0)
 
                 if (int(data["mode"]) & 0x2) and (len(data.get("angle", [])) != data["count"]):
-                    logger.warning(
-                        "Data 'count' = %d, but contains %d angle samples.  Ignoring angle."
+                    warnings.warn(
+                        f"Data 'count' = {data['count']}, "
+                        f"but contains {len(data.get('angle', []))} "
+                        "angle samples.  Ignoring angle.",
+                        category=BytesWarning,
                     )
                     data["mode"] &= ~(1 << 1)
 
                 if data["mode"] == 0:
-                    logger.warning(
-                        "Data 'count' = %d, but mode == 0.  Setting count to 0",
-                        data["count"],
+                    warnings.warn(
+                        f"Data 'count' = {data['count']}, but mode == 0.  " "Setting count to 0",
+                        category=BytesWarning,
                     )
                     data["count"] = 0
 

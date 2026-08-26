@@ -1,10 +1,8 @@
 import abc
+import warnings
 
 from ..echodata import EchoData
-from ..utils.log import _init_logger
 from .ecs import ECSParser
-
-logger = _init_logger(__name__)
 
 
 class CalibrateBase(abc.ABC):
@@ -19,9 +17,10 @@ class CalibrateBase(abc.ABC):
         # Set ECS to overwrite user-provided dict
         if self.ecs_file is not None:
             if env_params is not None or cal_params is not None:
-                logger.warning(
+                warnings.warn(
                     "The ECS file takes precedence when it is provided. "
-                    "Parameter values provided in 'env_params' and 'cal_params' will not be used!"
+                    "Parameter values provided in 'env_params' and 'cal_params' will not be used!",
+                    category=UserWarning,
                 )
 
             # Parse ECS file to a dict
@@ -118,11 +117,12 @@ class CalibrateBase(abc.ABC):
 
         # Raise Warning if above 2.0
         if total_gb > 2.0:
-            logger.warning(
+            warnings.warn(
                 "The Echodata backscatter variables are large and can cause memory issues. "
                 "Consider modifying the workflow that uses compute_Sv as below: "
                 "Prior to `compute_Sv` run `echodata.chunk(CHUNK_DICTIONARY) "
                 "and after `compute_Sv` run `ds_Sv.to_zarr(ZARR_STORE, compute=True)`. "
                 "This will ensure that the computation is lazily evaluated, "
-                "with the results stored directly in a Zarr store on disk, rather then in memory."
+                "with the results stored directly in a Zarr store on disk, rather then in memory.",
+                category=ResourceWarning,
             )

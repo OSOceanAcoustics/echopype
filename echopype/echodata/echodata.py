@@ -16,9 +16,8 @@ from zarr.errors import GroupNotFoundError
 if TYPE_CHECKING:
     from ..core import EngineHint, FileFormatHint, PathHint, SonarModelsHint
 
-from ..echodata.utils_platform import _clip_by_time_dim, get_mappings_expanded
+from ..echodata.utils_platform import clip_by_time_dim, get_mappings_expanded
 from ..utils.coding import sanitize_dtypes, set_time_encodings
-from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
 from .widgets.utils import tree_repr
@@ -36,8 +35,6 @@ TVG_CORRECTION_FACTOR = {
     "ES80": 0,
     "EA640": 0,
 }
-
-logger = _init_logger(__name__)
 
 
 class EchoData:
@@ -427,9 +424,7 @@ class EchoData:
         # Retain only variable_mappings items where
         # either the Platform group or extra_platform_data
         # contain the corresponding variables or contain valid (not all nan) data
-        mappings_expanded = get_mappings_expanded(
-            logger, extra_platform_data, variable_mappings, platform
-        )
+        mappings_expanded = get_mappings_expanded(extra_platform_data, variable_mappings, platform)
 
         # Create names for required new time dimensions
         ext_time_dims = list(
@@ -451,7 +446,7 @@ class EchoData:
                 k: v for k, v in mappings_expanded.items() if v["ext_time_dim_name"] == ext_time_dim
             }
             ext_vars = [v["external_var"] for v in mappings_selected.values()]
-            ext_ds = _clip_by_time_dim(
+            ext_ds = clip_by_time_dim(
                 extra_platform_data[ext_vars], ext_time_dim, self["Sonar/Beam_group1"]["ping_time"]
             )
 

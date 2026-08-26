@@ -114,9 +114,6 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
 
     ### Check for `nanmedian` warning:
 
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=True)
-
     # Compute transient noise mask
     ep.clean.mask_transient_noise(
         ds_Sv,
@@ -133,9 +130,6 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
         "described here: https://github.com/OSOceanAcoustics/echopype/issues/1352"
     )
     assert any(expected_warning in record.message for record in caplog.records)
-
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=False)
 
     # Check for func value error:
     with pytest.raises(ValueError, match="Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`."):  # noqa: E501

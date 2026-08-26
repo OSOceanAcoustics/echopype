@@ -836,14 +836,8 @@ def test_echodata_delete(caplog, ek60_path):
     # Check that temp zarr path exists
     assert os.path.exists(temp_zarr_path)
 
-    # Turn on logger verbosity
-    echopype.utils.log.verbose(override=True)
-
     # Delete temp zarr in temp zarr path
     ed.__del__()
-
-    # Turn off logger verbosity
-    echopype.utils.log.verbose(override=False)
 
     # Check that no exceptions were wrapped by warnings
     assert not any("Warning: Exception ignored in:" in record.message for record in caplog.records)

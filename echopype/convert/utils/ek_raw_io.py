@@ -7,17 +7,15 @@ Contains low-level functions called by ./ek_raw_parsers.py
 """
 
 import struct
+import warnings
 from io import SEEK_CUR, SEEK_END, SEEK_SET, BufferedReader, FileIO
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem
 
-from ...utils.log import _init_logger
 from . import ek_raw_parsers as parsers
 
 __all__ = ["RawSimradFile"]
-
-logger = _init_logger(__name__)
 
 
 class SimradEOF(Exception):
@@ -265,11 +263,10 @@ class RawSimradFile(BufferedReader):
 
         #  check for invalid time data
         if (header["low_date"], header["high_date"]) == (0, 0):
-            logger.warning(
-                "Skipping %s datagram w/ timestamp of (0, 0) at %sL:%d",
-                header["type"],
-                str(self._tell_bytes()),
-                self.tell(),
+            warnings.warn(
+                f"Skipping {header['type']} datagram w/ timestamp of (0, 0) at "
+                "{str(self._tell_bytes())}L:{self.tell()}",
+                category=BytesWarning,
             )
             self.skip()
             return self._read_next_dgram()
@@ -277,11 +274,10 @@ class RawSimradFile(BufferedReader):
         #  basic sanity check on size
         if header["size"] < 16:
             #  size can't be smaller than the header size
-            logger.warning(
-                "Invalid datagram header: size: %d, type: %s, nt_date: %s.  dgram_size < 16",
-                header["size"],
-                header["type"],
-                str((header["low_date"], header["high_date"])),
+            warnings.warn(
+                f"Invalid datagram header: size: {header['size']}, type: {header['type']}, "
+                "nt_date: {str((header['low_date'], header['high_date']))}.  dgram_size < 16",
+                category=BytesWarning,
             )
 
             #  see if we can find the next datagram
@@ -303,12 +299,10 @@ class RawSimradFile(BufferedReader):
 
         #  and make sure it checks out
         if bytes_read < header["size"]:
-            logger.warning(
-                "Datagram %d (@%d) shorter than expected length:  %d < %d",
-                self.tell(),
-                old_file_pos,
-                bytes_read,
-                header["size"],
+            warnings.warn(
+                f"Datagram {self.tell()} (@{old_file_pos})"
+                " shorter than expected length:  {bytes_read} < {header['size']}",
+                category=BytesWarning,
             )
             self._find_next_datagram()
             return self._read_next_dgram()
@@ -324,14 +318,12 @@ class RawSimradFile(BufferedReader):
         #  make sure they match
         if header["size"] != dgram_size_check:
             # self._seek_bytes(old_file_pos, SEEK_SET)
-            logger.warning(
-                "Datagram failed size check:  %d != %d @ (%d, %d)",
-                header["size"],
-                dgram_size_check,
-                self._tell_bytes(),
-                self.tell(),
+            warnings.warn(
+                f"Datagram failed size check:  {header['size']} != {dgram_size_check} @ "
+                "({self._tell_bytes()}, {self.tell()})",
+                category=BytesWarning,
             )
-            logger.warning("Skipping to next datagram...")
+            warnings.warn("Skipping to next datagram...", category=BytesWarning)
             self._find_next_datagram()
 
             return self._read_next_dgram()
@@ -472,17 +464,19 @@ class RawSimradFile(BufferedReader):
 
     def _find_next_datagram(self):
         old_file_pos = self._tell_bytes()
-        logger.warning("Attempting to find next valid datagram...")
+        warnings.warn("Attempting to find next valid datagram...", category=BytesWarning)
 
         try:
             while self.peek()["type"][:3] not in list(self.DGRAM_TYPE_KEY.keys()):
                 self._seek_bytes(1, 1)
         except DatagramReadError:
-            logger.warning("No next datagram found. Ending reading of file.")
+            warnings.warn("No next datagram found. Ending reading of file.", category=BytesWarning)
             raise SimradEOF()
         else:
-            logger.warning("Found next datagram:  %s", self.peek())
-            logger.warning("Skipped ahead %d bytes", self._tell_bytes() - old_file_pos)
+            warnings.warn(f"Found next datagram:  {self.peek()}", category=BytesWarning)
+            warnings.warn(
+                f"Skipped ahead {self._tell_bytes() - old_file_pos} bytes", category=BytesWarning
+            )
 
     def tell(self):
         """
@@ -538,11 +532,10 @@ class RawSimradFile(BufferedReader):
         header = self.peek()
 
         if header["size"] < 16:
-            logger.warning(
-                "Invalid datagram header: size: %d, type: %s, nt_date: %s.  dgram_size < 16",
-                header["size"],
-                header["type"],
-                str((header["low_date"], header["high_date"])),
+            warnings.warn(
+                f"Invalid datagram header: size: {header['size']}, type: {header['type']}, "
+                "nt_date: {str((header['low_date'], header['high_date']))}.  dgram_size < 16",
+                category=BytesWarning,
             )
 
             self._find_next_datagram()
@@ -552,14 +545,12 @@ class RawSimradFile(BufferedReader):
             dgram_size_check = self._read_dgram_size()
 
             if header["size"] != dgram_size_check:
-                logger.warning(
-                    "Datagram failed size check:  %d != %d @ (%d, %d)",
-                    header["size"],
-                    dgram_size_check,
-                    self._tell_bytes(),
-                    self.tell(),
+                warnings.warn(
+                    f"Datagram failed size check:  {header['size']} != {dgram_size_check} @ "
+                    "({self._tell_bytes()}, {self.tell()})",
+                    category=BytesWarning,
                 )
-                logger.warning("Skipping to next datagram... (in skip)")
+                warnings.warn("Skipping to next datagram... (in skip)", category=UserWarning)
 
                 self._find_next_datagram()
 
@@ -589,7 +580,7 @@ class RawSimradFile(BufferedReader):
             dgram_size = self._read_dgram_size()
 
         except DatagramSizeError:
-            logger.info("Error reading the datagram")
+            print("Error reading the datagram")
             self._seek_bytes(old_file_pos, SEEK_SET)
             raise
 
@@ -614,7 +605,7 @@ class RawSimradFile(BufferedReader):
             try:
                 new_dgram = next(self)
             except Exception:
-                logger.debug("Caught EOF?")
+                print("Caught EOF?")
                 raise StopIteration
 
             yield new_dgram

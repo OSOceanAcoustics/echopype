@@ -497,9 +497,6 @@ def test_check_echodata_backscatter_size(
             }
         )
 
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=True)
-
     # Run Backscatter Size check
     cal_obj._check_echodata_backscatter_size()
 
@@ -513,9 +510,6 @@ def test_check_echodata_backscatter_size(
         "with the results stored directly in a Zarr store on disk, rather then in memory."
     )
     assert warning_message == caplog.records[0].message
-
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=False)
 
 
 @pytest.mark.integration

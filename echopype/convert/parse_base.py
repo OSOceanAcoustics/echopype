@@ -12,7 +12,6 @@ import zarr
 from dask.array.core import auto_chunks
 
 from ..utils.io import create_temp_zarr_store
-from ..utils.log import _init_logger
 from .utils.ek_raw_io import RawSimradFile, SimradEOF
 from .utils.ek_swap import calc_final_shapes
 
@@ -22,9 +21,6 @@ FILENAME_DATETIME_EK60 = (
 
 # Manufacturer-specific power conversion factor
 INDEX2POWER = 10.0 * np.log10(2.0) / 256.0
-
-logger = _init_logger(__name__)
-
 
 # --- Windows-safe path component sanitizer (also harmless on POSIX) ---
 _INVALID_FS_CHARS = r'[<>:"/\\|?*]'
@@ -128,9 +124,7 @@ class ParseEK(ParseBase):
                 self.config_datagram["timestamp"].tolist() / 1e9, datetime.UTC
             ).strftime("%Y-%b-%d %H:%M:%S")
 
-        logger.info(
-            f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}"
-        )
+        print(f"parsing file {os.path.basename(self.source_file)}, " f"time of first ping: {time}")
 
     @property
     def num_transducer_sectors(self) -> Dict[Any, int]:
@@ -698,7 +692,7 @@ class ParseEK(ParseBase):
 
             # TAG datagrams contain time-stamped annotations inserted via the recording software
             elif new_datagram["type"].startswith("TAG"):
-                logger.info("TAG datagram encountered.")
+                print("TAG datagram encountered.")
 
             # BOT datagrams contain sounder detected bottom depths from .bot files
             elif new_datagram["type"].startswith("BOT"):
@@ -717,9 +711,9 @@ class ParseEK(ParseBase):
             # DEP datagrams contain sounder detected bottom depths from .out files
             # as well as reflectivity data
             elif new_datagram["type"].startswith("DEP"):
-                logger.info("DEP datagram encountered.")
+                print("DEP datagram encountered.")
             else:
-                logger.info("Unknown datagram type: " + str(new_datagram["type"]))
+                print("Unknown datagram type: " + str(new_datagram["type"]))
 
     def _append_channel_ping_data(
         self, datagram, raw_type: Literal["transmit", "receive"] = "receive"

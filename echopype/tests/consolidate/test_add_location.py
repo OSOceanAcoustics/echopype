@@ -443,9 +443,6 @@ def test_add_location_lat_lon_0_NaN_warnings(
         ed["Platform"]["latitude"][0] = np.nan
         ed["Platform"]["longitude"][0] = 0
 
-    # Turn on logger verbosity
-    ep.utils.log.verbose(override=True)
-
     # Run add location with 0 and NaN lat/lon values
     ep.consolidate.add_location(ds=ds, echodata=ed, datagram_type=datagram_type)
 
@@ -453,5 +450,3 @@ def test_add_location_lat_lon_0_NaN_warnings(
     for warning in expected_warnings:
         assert any(warning in record.message for record in caplog.records)
 
-    # Turn off logger verbosity
-    ep.utils.log.verbose(override=False)

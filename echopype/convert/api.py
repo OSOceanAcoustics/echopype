@@ -14,13 +14,9 @@ if TYPE_CHECKING:
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
 from ..utils.coding import COMPRESSION_SETTINGS
-from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
-
-# Logging setup
-logger = _init_logger(__name__)
 
 
 def to_file(
@@ -76,15 +72,15 @@ def to_file(
 
     # Sequential or parallel conversion
     if exists and not overwrite:
-        logger.info(
+        print(
             f"{echodata.source_file} has already been converted to {engine}. "  # noqa
             f"File saving not executed."
         )
     else:
         if exists:
-            logger.info(f"overwriting {output_file}")
+            print(f"overwriting {output_file}")
         else:
-            logger.info(f"saving {output_file}")
+            print(f"saving {output_file}")
         _save_groups_to_file(
             echodata,
             output_path=io.sanitize_file_path(
