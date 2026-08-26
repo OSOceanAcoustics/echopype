@@ -117,7 +117,7 @@ def test_ek_use_platform_angles_output():
 
 
 @pytest.mark.unit
-def test_ek_use_beam_angles_output(caplog):
+def test_ek_use_beam_angles_output(recwarn):
     """
     Test `use_beam_angle` outputs for 2 sideways looking beams, 1 vertical looking beam, and 1
     beam that does not have normalized directions.
@@ -143,7 +143,10 @@ def test_ek_use_beam_angles_output(caplog):
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
 
     # Verify the correct warning
-    assert "Beam direction vector was not normalized" in caplog.text
+    assert any(
+        "Beam direction vector was not normalized" in str(record.message)
+        for record in recwarn
+    )
 
     # Compute and compare manual test values with function values
     fourth_value = (np.sqrt(3)/2) / np.sqrt(((np.sqrt(3)/2) ** 2) + 1)
@@ -151,7 +154,7 @@ def test_ek_use_beam_angles_output(caplog):
 
 
 @pytest.mark.unit
-def test_warning_zero_vector(caplog):
+def test_warning_zero_vector(recwarn):
     """
     Test that a warning is logged and NaN is returned for channels with zero beam direction vector.
     """
@@ -168,7 +171,9 @@ def test_warning_zero_vector(caplog):
     echo_range_scaling = ep.consolidate.ek_depth_utils.ek_use_beam_angles(beam_ds)
 
     # Verify the correct warning
-    assert "Some beam direction vectors are zero" in caplog.text
+    assert any(
+        "Some beam direction vectors are zero" in str(record.message) for record in recwarn
+    )
 
     # Check that channel 0 output is NaN and channel 1 output is 0
     assert np.isnan(echo_range_scaling.values[0])
@@ -221,7 +226,7 @@ def test_ek_depth_utils_dims(relpath, sonar_model, compute_Sv_kwargs, ek60_path,
 
 
 @pytest.mark.integration
-def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog, ek80_path):
+def test_ek_depth_utils_group_variable_NaNs_logger_warnings(recwarn, ek80_path):
     """
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
     `ek_use_beam_angles` for correct logger warnings when NaNs exist in group
@@ -269,11 +274,11 @@ def test_ek_depth_utils_group_variable_NaNs_logger_warnings(caplog, ek80_path):
             "NaNs. This will result in NaNs in the final `depth` array. Consider filling the "
             "NaNs and calling `.add_depth(...)` again."
         )
-        assert any(expected_warning in record.message for record in caplog.records)
+        assert any(expected_warning in str(record.message) for record in recwarn)
 
 
 @pytest.mark.integration
-def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog, ek80_path):
+def test_add_depth_tilt_depth_use_arg_logger_warnings(recwarn, ek80_path):
     """
     Tests warnings when `tilt` and `depth_offset` are being passed in when other
     `use_*` arguments are passed in as `True`.
@@ -306,7 +311,7 @@ def test_add_depth_tilt_depth_use_arg_logger_warnings(caplog, ek80_path):
         "When `tilt` is specified, beam/platform angle variables will not be used."
     )
     for warning in [depth_offset_warning, tilt_warning]:
-        assert any(warning in record.message for record in caplog.records)
+        assert any(warning in str(record.message) for record in recwarn)
 
 
 @pytest.mark.integration

@@ -123,7 +123,7 @@ def check_and_correct_reversed_time(
 
     if time_str in combined_group and exist_reversed_time(combined_group, time_str):
         warnings.warn(
-            f"{ed_group} {time_str} reversal detected; {time_str} will be corrected"  # noqa
+            f"{ed_group} {time_str} reversal detected; {time_str} will be corrected"
             " (see https://github.com/OSOceanAcoustics/echopype/pull/297)",
             category=UserWarning,
         )

@@ -422,7 +422,7 @@ def test_add_location_lat_lon_missing_all_NaN_errors(
     ],
 )
 def test_add_location_lat_lon_0_NaN_warnings(
-    ek80_path, raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_warnings, caplog  # noqa: E501
+    ek80_path, raw_path, sonar_model, datagram_type, parse_idx, compute_Sv_kwargs, expected_warnings, recwarn  # noqa: E501
 ):
     """Tests for lat lon 0 and NaN value warnings."""
     # Open raw and compute the Sv dataset
@@ -448,5 +448,5 @@ def test_add_location_lat_lon_0_NaN_warnings(
 
     # Check if the expected warnings are logged
     for warning in expected_warnings:
-        assert any(warning in record.message for record in caplog.records)
+        assert any(warning in str(record.message) for record in recwarn)
 

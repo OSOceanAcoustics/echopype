@@ -571,7 +571,7 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
     operation,
     skipna,
     range_var,
-    caplog,
+    recwarn,
 ):
     # Create subset dataset with 2 channels, 2 ping times, and 20 range samples:
 
@@ -597,7 +597,7 @@ def test_compute_MVBS_NASC_skipna_nan_and_non_nan_values(
                 "these values before calling your intended commongrid function."
             )
             expected_warning = f"The ```echo_range``` coordinate array contain NaNs. {aggregation_msg}"  # noqa: E501
-            assert any(expected_warning in record.message for record in caplog.records)
+            assert any(expected_warning in str(record.message) for record in recwarn)
 
     else:
         da = ep.commongrid.compute_NASC(subset_ds_Sv, range_bin="2m", skipna=skipna)["NASC"]

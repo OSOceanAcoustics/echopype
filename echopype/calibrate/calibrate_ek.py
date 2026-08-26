@@ -126,8 +126,7 @@ class CalibrateEK(CalibrateBase):
             except Exception as e:
                 warnings.warn(
                     "Could not compute tau_effective from transmit signal in power encoding mode; "
-                    "falling back to transmit_duration_nominal. Error: %s",
-                    repr(e),
+                    f"falling back to transmit_duration_nominal. Error: {e!r}",
                     category=RuntimeWarning,
                 )
                 tau_effective = beam["transmit_duration_nominal"].isel(ping_time=0)
@@ -595,8 +594,7 @@ class CalibrateEK80(CalibrateEK):
                 warnings.warn(
                     "Could not compute tau_effective "
                     "from transmit signal in complex encoding mode; "
-                    "falling back to transmit_duration_nominal. Error: %s",
-                    repr(e),
+                    f"falling back to transmit_duration_nominal. Error: {e!r}",
                     category=RuntimeWarning,
                 )
                 tau_effective = self.beam["transmit_duration_nominal"].isel(ping_time=0)

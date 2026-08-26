@@ -419,7 +419,7 @@ def test_check_echodata_backscatter_size(
     xml_path,
     waveform_mode,
     encode_mode,
-    caplog,
+    recwarn,
     azfp_path,
     ek60_path,
     ek80_path
@@ -509,7 +509,7 @@ def test_check_echodata_backscatter_size(
         "This will ensure that the computation is lazily evaluated, "
         "with the results stored directly in a Zarr store on disk, rather then in memory."
     )
-    assert warning_message == caplog.records[0].message
+    assert any(warning_message == str(record.message) for record in recwarn)
 
 
 @pytest.mark.integration

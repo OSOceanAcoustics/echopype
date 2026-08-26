@@ -94,7 +94,7 @@ def test_mask_functions_dimensions(ek60_path):
 
 
 @pytest.mark.integration
-def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
+def test_transient_mask_noise_func_error_and_warnings(recwarn, ek60_path):
     """Check if appropriate warnings and errors are raised for transient noise mask func input."""
     # Open raw, calibrate, and add depth
     ed = ep.open_raw(
@@ -129,7 +129,7 @@ def test_transient_mask_noise_func_error_and_warnings(caplog, ek60_path):
         "We plan to add the Fielding Transient Noise Filter in the future"
         "described here: https://github.com/OSOceanAcoustics/echopype/issues/1352"
     )
-    assert any(expected_warning in record.message for record in caplog.records)
+    assert any(expected_warning in str(record.message) for record in recwarn)
 
     # Check for func value error:
     with pytest.raises(ValueError, match="Input `func` is `nanmode`. `func` must be `nanmean` or `nanmedian`."):  # noqa: E501

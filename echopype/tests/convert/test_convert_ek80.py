@@ -547,7 +547,7 @@ def test_parse_missing_sound_velocity_profile(ek80_missing_sound_path):
 
 
 @pytest.mark.unit
-def test_duplicate_ping_times(caplog, ek80_dupe_ping_path):
+def test_duplicate_ping_times(recwarn, ek80_dupe_ping_path):
     """
     Tests that RAW file with duplicate ping times can be parsed and that the correct warning has been raised.
     """  # noqa: E501
@@ -561,11 +561,11 @@ def test_duplicate_ping_times(caplog, ek80_dupe_ping_path):
 
     # Check that no warning is logged since the data for all duplicate pings is unique
     not_expected_warning = ("All duplicate ping_time entries' will be removed, resulting in potential data loss.")  # noqa: E501
-    assert not any(not_expected_warning in record.message for record in caplog.records)
+    assert not any(not_expected_warning in str(record.message) for record in recwarn)
 
 
 @pytest.mark.unit
-def test_check_unique_ping_time_duplicates(caplog, ek80_dupe_ping_path):
+def test_check_unique_ping_time_duplicates(recwarn, ek80_dupe_ping_path):
     """
     Checks that `check_unique_ping_time_duplicates` raises a warning when the data for duplicate ping times is not unique.
     """  # noqa: E501
@@ -584,7 +584,7 @@ def test_check_unique_ping_time_duplicates(caplog, ek80_dupe_ping_path):
         f"{str(ds_data['ping_time'].values[0])} differ in data. All duplicate "
         "'ping_time' entries will be removed, which will result in data loss."
     )
-    assert any(expected_warning in record.message for record in caplog.records)
+    assert any(expected_warning in str(record.message) for record in recwarn)
 
 
 @pytest.mark.unit

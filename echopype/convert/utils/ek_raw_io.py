@@ -265,7 +265,7 @@ class RawSimradFile(BufferedReader):
         if (header["low_date"], header["high_date"]) == (0, 0):
             warnings.warn(
                 f"Skipping {header['type']} datagram w/ timestamp of (0, 0) at "
-                "{str(self._tell_bytes())}L:{self.tell()}",
+                f"{str(self._tell_bytes())}L:{self.tell()}",
                 category=BytesWarning,
             )
             self.skip()
@@ -276,7 +276,7 @@ class RawSimradFile(BufferedReader):
             #  size can't be smaller than the header size
             warnings.warn(
                 f"Invalid datagram header: size: {header['size']}, type: {header['type']}, "
-                "nt_date: {str((header['low_date'], header['high_date']))}.  dgram_size < 16",
+                f"nt_date: {str((header['low_date'], header['high_date']))}.  dgram_size < 16",
                 category=BytesWarning,
             )
 
@@ -301,7 +301,7 @@ class RawSimradFile(BufferedReader):
         if bytes_read < header["size"]:
             warnings.warn(
                 f"Datagram {self.tell()} (@{old_file_pos})"
-                " shorter than expected length:  {bytes_read} < {header['size']}",
+                f" shorter than expected length:  {bytes_read} < {header['size']}",
                 category=BytesWarning,
             )
             self._find_next_datagram()
@@ -320,7 +320,7 @@ class RawSimradFile(BufferedReader):
             # self._seek_bytes(old_file_pos, SEEK_SET)
             warnings.warn(
                 f"Datagram failed size check:  {header['size']} != {dgram_size_check} @ "
-                "({self._tell_bytes()}, {self.tell()})",
+                f"({self._tell_bytes()}, {self.tell()})",
                 category=BytesWarning,
             )
             warnings.warn("Skipping to next datagram...", category=BytesWarning)
@@ -534,7 +534,7 @@ class RawSimradFile(BufferedReader):
         if header["size"] < 16:
             warnings.warn(
                 f"Invalid datagram header: size: {header['size']}, type: {header['type']}, "
-                "nt_date: {str((header['low_date'], header['high_date']))}.  dgram_size < 16",
+                f"nt_date: {str((header['low_date'], header['high_date']))}.  dgram_size < 16",
                 category=BytesWarning,
             )
 
@@ -547,7 +547,7 @@ class RawSimradFile(BufferedReader):
             if header["size"] != dgram_size_check:
                 warnings.warn(
                     f"Datagram failed size check:  {header['size']} != {dgram_size_check} @ "
-                    "({self._tell_bytes()}, {self.tell()})",
+                    f"({self._tell_bytes()}, {self.tell()})",
                     category=BytesWarning,
                 )
                 warnings.warn("Skipping to next datagram... (in skip)", category=UserWarning)

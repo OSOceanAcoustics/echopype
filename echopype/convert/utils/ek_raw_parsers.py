@@ -278,7 +278,7 @@ class SimradBottomParser(_SimradDatagramParser):
             if len(data["depth"]) != data["transceiver_count"]:
                 warnings.warn(
                     f"# of depth values {len(data['depth'])} does not match transceiver "
-                    "count {data['transceiver_count']}",
+                    f"count {data['transceiver_count']}",
                     category=BytesWarning,
                 )
 
@@ -1435,7 +1435,7 @@ class SimradConfigParser(_SimradDatagramParser):
             except KeyError:
                 warnings.warn(
                     f"Unknown sounder_name:  {sounder_name}, "
-                    "(no one of {list(self._transducer_headers.keys())}) "
+                    f"(no one of {list(self._transducer_headers.keys())}) "
                     "will use ER60 transducer config fields as default",
                     category=UserWarning,
                 )
