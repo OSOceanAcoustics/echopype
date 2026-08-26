@@ -3,11 +3,12 @@ import xarray as xr
 
 from ..core import SONAR_MODELS
 from ..echodata import EchoData
-from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
+from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
+from .utils import check_input_args_combination
 
 CALIBRATOR = {
     "EK60": CalibrateEK60,

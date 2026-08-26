@@ -6,47 +6,11 @@ from typing import Optional, Tuple
 
 import numpy as np
 
+from ..calibrate.utils import check_input_args_combination
 from ..core import SONAR_MODELS
 from .echodata import EchoData
 
-
-def check_input_args_combination(
-    waveform_mode: str, encode_mode: str, pulse_compression: bool = None
-) -> None:
-    """
-    Checks that the ``waveform_mode`` and ``encode_mode`` have
-    the correct values and that the combination of input arguments are valid, without
-    considering the actual data.
-
-    Parameters
-    ----------
-    waveform_mode: str
-        Type of transmit waveform
-    encode_mode: str
-        Type of encoded return echo data
-    pulse_compression: bool
-        States whether pulse compression should be used
-    """
-
-    if waveform_mode not in ["CW", "BB"]:
-        raise ValueError("The input waveform_mode must be either 'CW' or 'BB'!")
-
-    if encode_mode not in ["complex", "power"]:
-        raise ValueError("The input encode_mode must be either 'complex' or 'power'!")
-
-    # BB has complex data only, but CW can have complex or power data
-    if (waveform_mode == "BB") and (encode_mode == "power"):
-        raise ValueError(
-            "Data from broadband ('BB') transmission must be recorded as complex samples"
-        )
-
-    # make sure that we have BB and complex inputs, if pulse compression is selected
-    if pulse_compression is not None:
-        if pulse_compression and ((waveform_mode != "BB") or (encode_mode != "complex")):
-            raise RuntimeError(
-                "Pulse compression can only be used with "
-                "waveform_mode='BB' and encode_mode='complex'"
-            )
+__all__ = ["check_input_args_combination", "retrieve_correct_beam_group"]
 
 
 def _retrieve_correct_beam_group_EK60(
