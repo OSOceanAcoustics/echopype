@@ -6,6 +6,7 @@ from fsspec.mapping import FSMap
 from typing_extensions import Literal
 
 from .convert.parse_ad2cp import ParseAd2cp
+from .convert.parse_bi500 import ParseBI500
 from .convert.parse_ek60 import ParseEK60
 from .convert.parse_ek80 import ParseEK80
 from .convert.parse_uls5 import ParseULS5
@@ -13,12 +14,15 @@ from .convert.parse_uls6 import ParseULS6
 from .convert.set_groups_ad2cp import SetGroupsAd2cp
 from .convert.set_groups_azfp import SetGroupsAZFP
 from .convert.set_groups_azfp6 import SetGroupsAZFP6
+from .convert.set_groups_bi500 import SetGroupsBI500
 from .convert.set_groups_ek60 import SetGroupsEK60
 from .convert.set_groups_ek80 import SetGroupsEK80
 
 if TYPE_CHECKING:
     # Please keep SonarModelsHint updated with the keys of the SONAR_MODELS dict
-    SonarModelsHint = Literal["AZFP", "AZFP6", "EK60", "ES70", "EK80", "ES80", "EA640", "AD2CP"]
+    SonarModelsHint = Literal[
+        "AZFP", "AZFP6", "EK60", "ES70", "EK80", "ES80", "EA640", "AD2CP", "BI500"
+    ]
     PathHint = Union[str, os.PathLike, FSMap]
     FileFormatHint = Literal[".nc", ".zarr"]
     EngineHint = Literal["netcdf4", "zarr"]
@@ -123,5 +127,15 @@ SONAR_MODELS: Dict["SonarModelsHint", Dict[str, Any]] = {
         "parsed2zarr": None,
         "set_groups": SetGroupsAd2cp,
         "family": "AD2CP",
+    },
+    "BI500": {
+        "validate_ext": validate_ext(""),
+        "xml": False,
+        "accepts_bot": False,
+        "accepts_idx": False,
+        "parser": ParseBI500,
+        "parsed2zarr": None,
+        "set_groups": SetGroupsBI500,
+        "family": "BI500",
     },
 }

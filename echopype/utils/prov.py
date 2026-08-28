@@ -240,7 +240,10 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
             def inner(*args, **kwargs):
                 dataobj = func(*args, **kwargs)
                 if is_echodata:
-                    ed = dataobj
+                    # Most functions return a single EchoData object.
+                    # BI500 open_raw returns (echodata, ds_cal).
+                    ed = dataobj[0] if isinstance(dataobj, tuple) else dataobj
+
                     if _check_valid_latlon(ed["Platform"]):
                         # The decorator is passed the exact, final level code, with sublevel
                         processing_level = PROCESSING_LEVELS[processing_level_code]
@@ -254,7 +257,8 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                             "will not be added."
                         )
 
-                    return ed
+                    # Return the original output so BI500 keeps both echodata and ds_cal.
+                    return dataobj
                 elif isinstance(dataobj, xr.Dataset):
                     ds = dataobj
                     if _check_valid_latlon(ds):
