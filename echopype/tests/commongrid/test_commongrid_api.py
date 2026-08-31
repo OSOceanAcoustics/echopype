@@ -7,6 +7,7 @@ import xarray as xr  # noqa: F401
 import echopype as ep
 from echopype.consolidate import add_location, add_depth
 from echopype.commongrid.utils import (
+    _log2lin,
     _parse_x_bin,
     _groupby_x_along_channels,
     get_distance_from_latlon,
@@ -111,49 +112,105 @@ def test__parse_x_bin(x_bin, x_label, expected_result):
         assert ep.commongrid.api._parse_x_bin(x_bin, x_label) == expected_result
 
 
+def _reference_binned_nanmean(sv_lin, x_vals, range_vals, x_interval, range_interval, channel_len):
+    """Brute force reference reduction to check ``_groupby_x_along_channels`` against."""
+    # xarray_reduce with isbin=True groups by pandas intervals, which are closed
+    # on the right, so both the x bins and the range bins here are (left, right]
+    expected = np.full((channel_len, len(x_interval) - 1, len(range_interval) - 1), np.nan)
+    for ch_idx in range(channel_len):
+        for x_idx in range(len(x_interval) - 1):
+            in_x = (x_vals > x_interval[x_idx]) & (x_vals <= x_interval[x_idx + 1])
+            if not in_x.any():
+                continue
+            for r_idx in range(len(range_interval) - 1):
+                in_range = (range_vals[ch_idx][in_x] > range_interval[r_idx]) & (
+                    range_vals[ch_idx][in_x] <= range_interval[r_idx + 1]
+                )
+                selected = sv_lin[ch_idx][in_x][in_range]
+                if selected.size == 0 or np.all(np.isnan(selected)):
+                    continue
+                expected[ch_idx, x_idx, r_idx] = np.nanmean(selected)
+    return expected
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ["range_var", "lat_lon"], [("depth", False), ("echo_range", False)]
+    ["range_var", "x_var"],
+    [
+        ("echo_range", "ping_time"),
+        ("depth", "ping_time"),
+        ("depth", "distance_nmi"),
+    ],
 )
-def test__groupby_x_along_channels(request, range_var, lat_lon):
+def test__groupby_x_along_channels(request, range_var, x_var, depth_offset):
     """Testing the underlying function of compute_MVBS and compute_NASC"""
     range_bin = 20
     ping_time_bin = "20s"
+    dist_bin = 0.5
     method = "map-reduce"
 
     flox_kwargs = {"reindex": True}
 
     # Retrieve the correct dataset
-    if range_var == "depth":
+    if x_var == "distance_nmi":
+        ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_latlon").pipe(
+            add_depth, depth_offset=depth_offset
+        )
+        # Mirror what compute_NASC does to build the distance coordinate
+        dist_nmi = get_distance_from_latlon(ds_Sv)
+        ds_Sv = ds_Sv.assign_coords({"distance_nmi": ("ping_time", dist_nmi)}).swap_dims(
+            {"ping_time": "distance_nmi"}
+        )
+        x_interval = np.arange(0, ds_Sv["distance_nmi"].max() + dist_bin, dist_bin)
+    elif range_var == "depth":
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_depth")
     else:
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular")
 
     # compute range interval
-    echo_range_max = ds_Sv[range_var].max()
-    range_interval = np.arange(0, echo_range_max + range_bin, range_bin)
+    range_max = ds_Sv[range_var].max()
+    range_interval = np.arange(0, range_max + range_bin, range_bin)
 
-    # create bin information needed for ping_time
-    d_index = (
-        ds_Sv["ping_time"]
-        .resample(ping_time=ping_time_bin, skipna=True)
-        .asfreq()
-        .indexes["ping_time"]
-    )
-    ping_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
+    if x_var == "ping_time":
+        # create bin information needed for ping_time
+        d_index = (
+            ds_Sv["ping_time"]
+            .resample(ping_time=ping_time_bin, skipna=True)
+            .asfreq()
+            .indexes["ping_time"]
+        )
+        x_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
 
     sv_mean = _groupby_x_along_channels(
         ds_Sv,
         range_interval,
-        x_interval=ping_interval,
-        x_var="ping_time",
+        x_interval=x_interval,
+        x_var=x_var,
         range_var=range_var,
         method=method,
         **flox_kwargs
     )
 
-    # Check that the range_var is in the dimension
-    assert f"{range_var}_bins" in sv_mean.dims
+    assert sv_mean.dims == ("channel", f"{x_var}_bins", f"{range_var}_bins")
+
+    assert sv_mean.shape == (
+        ds_Sv.sizes["channel"],
+        len(x_interval) - 1,
+        len(range_interval) - 1,
+    )
+
+    # average is done in linear domain, so the reference uses linear sv
+    dim_order = ("channel", x_var, "range_sample")
+    expected = _reference_binned_nanmean(
+        sv_lin=ds_Sv["Sv"].pipe(_log2lin).transpose(*dim_order).data,
+        x_vals=ds_Sv[x_var].data,
+        range_vals=ds_Sv[range_var].transpose(*dim_order).data,
+        x_interval=x_interval,
+        range_interval=range_interval,
+        channel_len=ds_Sv.sizes["channel"],
+    )
+    assert np.allclose(sv_mean.data, expected, rtol=1e-10, atol=0, equal_nan=True)
+
 
 # NASC Tests
 @pytest.mark.integration
