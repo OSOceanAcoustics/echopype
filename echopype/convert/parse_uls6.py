@@ -482,27 +482,28 @@ class ParseULS6(ParseAZFP):
             _, byte_code, byte_size, array_size = self._get_masked_data(field_code)
             val = unpack("<" + byte_code * array_size, raw.read(byte_size * array_size))
             header_byte_cnt += 2 + byte_size * array_size
+
             try:
                 field = HEADER_LOOKUP[field_code].lower()
-            except:  # Unknown field
+            except:
                 field = f"code_{hex(field_code)}"
                 warnings.warn(
                     f"Unknown code found in file: {hex(field_code)}, field stored as {field}",
                     category=UserWarning,
                 )
 
-            self.unpacked_data[field].append(*val if len(val) == 1 else [val])  # list(val)
+            self.unpacked_data[field].append(*val if len(val) == 1 else [val])
 
             if field_code == HEADER_CODES["LAST_HEADER_RECORD"]:
                 break
 
-            if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
-                warnings.warn(
-                    "Error reading header: {} != {}".format(
-                        header_byte_cnt, self.unpacked_data["header_bytes"][0]
-                    ),
-                    category=UserWarning,
-                )
+        if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
+            warnings.warn(
+                "Error reading header: {} != {}".format(
+                    header_byte_cnt, self.unpacked_data["header_bytes"][0]
+                ),
+                category=UserWarning,
+            )
             return False
 
         # TODO: this is a bit hacky, convert the parameters to a numpy array and make a extra dim?
