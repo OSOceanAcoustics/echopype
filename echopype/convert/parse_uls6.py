@@ -1,4 +1,3 @@
-import logging
 import os
 import warnings
 import xml.etree.ElementTree as ET
@@ -157,7 +156,6 @@ class ParseULS6(ParseAZFP):
         self.unpacked_data["num_prev_xml_bytes"] = xml_byte_size
 
         if int.from_bytes(raw.read(4), "little") != self.XML_END_FLAG:
-            logging.error("Error reading xml string")
             raise ValueError("Error reading xml string")
 
         xml_prev_byte_size = unpack("<I", raw.read(4))[0]  # read num bytes for prev record
@@ -334,10 +332,16 @@ class ParseULS6(ParseAZFP):
                     header_flag, num_data_bytes = unpack("<II", file.read(8))
 
                     if header_flag != self.DATA_END_FLAG:
-                        logging.error("Invalid flag detected, possibly corrupted data file.")
+                        warnings.warn(
+                            "Invalid flag detected, possibly corrupted data file.",
+                            category=UserWarning,
+                        )
                         break
                     if num_data_bytes != self.unpacked_data["num_data_bytes"][ping_num]:
-                        logging.error("Invalid data block size, possibly corrupted data file.")
+                        warnings.warn(
+                            "Invalid data block size, possibly corrupted data file.",
+                            category=UserWarning,
+                        )
                         break
                     # print(file.tell())
                 else:
@@ -466,7 +470,10 @@ class ParseULS6(ParseAZFP):
         # Read first 4 bytes which contain the first header record
         rc, val = unpack("<HH", raw.read(4))
         if rc != HEADER_CODES["FIRST_HEADER_RECORD"] or val != HEADER_CODES["START_FLAG"]:
-            logging.error(f"Invalid header block, is this an {self.sonar_type} file?")
+            warnings.warn(
+                f"Invalid header block, is this an {self.sonar_type} file?",
+                category=UserWarning,
+            )
             return False
         self.unpacked_data["first_header_record"].append(val)
 
@@ -481,7 +488,7 @@ class ParseULS6(ParseAZFP):
                 field = f"code_{hex(field_code)}"
                 warnings.warn(
                     f"Unknown code found in file: {hex(field_code)}, field stored as {field}",
-                    category=BytesWarning,
+                    category=UserWarning,
                 )
 
             self.unpacked_data[field].append(*val if len(val) == 1 else [val])  # list(val)
@@ -489,12 +496,13 @@ class ParseULS6(ParseAZFP):
             if field_code == HEADER_CODES["LAST_HEADER_RECORD"]:
                 break
 
-        if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
-            logging.error(
-                "Error reading header: {} != {}".format(
-                    header_byte_cnt, self.unpacked_data["header_bytes"][0]
+            if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
+                warnings.warn(
+                    "Error reading header: {} != {}".format(
+                        header_byte_cnt, self.unpacked_data["header_bytes"][0]
+                    ),
+                    category=UserWarning,
                 )
-            )
             return False
 
         # TODO: this is a bit hacky, convert the parameters to a numpy array and make a extra dim?

@@ -229,7 +229,7 @@ def test_ek_depth_utils_dims(relpath, sonar_model, compute_Sv_kwargs, ek60_path,
 def test_ek_depth_utils_group_variable_NaNs_logger_warnings(recwarn, ek80_path):
     """
     Tests `ek_use_platform_vertical_offsets`, `ek_use_platform_angles`, and
-    `ek_use_beam_angles` for correct logger warnings when NaNs exist in group
+    `ek_use_beam_angles` for correct warnings when NaNs exist in group
     variables.
     """
     raw_file = ek80_path / "ncei-wcsd/SH2106/EK80/Reduced_Hake-D20210701-T131621.raw"

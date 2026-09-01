@@ -187,7 +187,7 @@ class SimradDepthParser(_SimradDatagramParser):
                     "Data lengths mismatched:  "
                     f"d:{lengths[0]}, r:{lengths[1]}, u:{lengths[2]}, t:{lengths[3]} "
                     f"Using minimum value:  {min_indx}",
-                    category=BytesWarning,
+                    category=UserWarning,
                 )
                 data["transceiver_count"] = min_indx
 
@@ -279,7 +279,7 @@ class SimradBottomParser(_SimradDatagramParser):
                 warnings.warn(
                     f"# of depth values {len(data['depth'])} does not match transceiver "
                     f"count {data['transceiver_count']}",
-                    category=BytesWarning,
+                    category=UserWarning,
                 )
 
                 data["transceiver_count"] = len(data["depth"])
@@ -1794,7 +1794,7 @@ class SimradRawParser(_SimradDatagramParser):
                         f"Data 'count' = {data['count']}, "
                         f"but contains {len(data.get('power', []))} "
                         "power samples.  Ignoring power.",
-                        category=BytesWarning,
+                        category=UserWarning,
                     )
                     data["mode"] &= ~(1 << 0)
 
@@ -1803,14 +1803,14 @@ class SimradRawParser(_SimradDatagramParser):
                         f"Data 'count' = {data['count']}, "
                         f"but contains {len(data.get('angle', []))} "
                         "angle samples.  Ignoring angle.",
-                        category=BytesWarning,
+                        category=UserWarning,
                     )
                     data["mode"] &= ~(1 << 1)
 
                 if data["mode"] == 0:
                     warnings.warn(
                         f"Data 'count' = {data['count']}, but mode == 0.  " "Setting count to 0",
-                        category=BytesWarning,
+                        category=UserWarning,
                     )
                     data["count"] = 0
 

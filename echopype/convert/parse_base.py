@@ -2,6 +2,7 @@ import datetime
 import os
 import re
 import sys
+import warnings
 from collections import defaultdict
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 
@@ -713,7 +714,10 @@ class ParseEK(ParseBase):
             elif new_datagram["type"].startswith("DEP"):
                 print("DEP datagram encountered.")
             else:
-                print("Unknown datagram type: " + str(new_datagram["type"]))
+                warnings.warn(
+                    f"Unknown datagram type: {new_datagram['type']}",
+                    category=UserWarning,
+                )
 
     def _append_channel_ping_data(
         self, datagram, raw_type: Literal["transmit", "receive"] = "receive"
