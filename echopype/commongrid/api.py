@@ -2,7 +2,6 @@
 Functions for enhancing the spatial and temporal coherence of data.
 """
 
-import logging
 import warnings
 from typing import Literal
 
@@ -28,8 +27,6 @@ from .utils import (
     get_distance_from_latlon,
     ping_time_bin_parsing_and_conversion,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @add_processing_level("L3*")

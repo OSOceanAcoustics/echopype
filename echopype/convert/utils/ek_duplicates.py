@@ -1,9 +1,9 @@
-import logging
+import warnings
 
 import xarray as xr
 
 
-def check_unique_ping_time_duplicates(ds_data: xr.Dataset, logger: logging.Logger) -> None:
+def check_unique_ping_time_duplicates(ds_data: xr.Dataset) -> None:
     """
     Raises a warning if the data stored in duplicate pings is not unique.
 
@@ -11,8 +11,6 @@ def check_unique_ping_time_duplicates(ds_data: xr.Dataset, logger: logging.Logge
     ----------
     ds_data : xr.Dataset
         Single freq beam dataset being processed in the `SetGroupsEK80.set_beams` class function.
-    logger : logging.Logger
-        Warning logger initialized in `SetGroupsEK80` file.
     """
     # Group the dataset by the "ping_time" coordinate
     groups = ds_data.groupby("ping_time")
@@ -36,9 +34,10 @@ def check_unique_ping_time_duplicates(ds_data: xr.Dataset, logger: logging.Logge
             # Iterate over the remaining entries
             for i in range(1, data_array.sizes["ping_time"]):
                 if not ref_slice.equals(data_array.isel({"ping_time": i})):
-                    logger.warning(
+                    warnings.warn(
                         f"Duplicate slices in variable '{var}' corresponding to 'ping_time' "
                         f"{ping_time_val} differ in data. All duplicate 'ping_time' entries "
-                        "will be removed, which will result in data loss."
+                        "will be removed, which will result in data loss.",
+                        category=UserWarning,
                     )
                     break

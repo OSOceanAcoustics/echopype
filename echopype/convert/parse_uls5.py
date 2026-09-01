@@ -1,4 +1,5 @@
 import os
+import warnings
 import xml.etree.ElementTree as ET
 from datetime import datetime as dt
 from struct import unpack
@@ -6,7 +7,6 @@ from struct import unpack
 import fsspec
 import numpy as np
 
-from ..utils.log import _init_logger
 from ..utils.misc import camelcase2snakecase
 from .parse_azfp import ParseAZFP
 
@@ -58,8 +58,6 @@ HEADER_FIELDS = (
     ("ancillary", "u2", 5),  # Tilt-X, Y, Battery, Pressure, Temperature
     ("ad", "u2", 2),  # AD channel 6 and 7
 )
-
-logger = _init_logger(__name__)
 
 
 class ParseULS5(ParseAZFP):
@@ -322,8 +320,8 @@ class ParseULS5(ParseAZFP):
             int(self.unpacked_data["second"][0] + self.unpacked_data["hundredths"][0] / 100),
         )
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
-        pathstr, xml_name = os.path.split(self.xml_path)
-        logger.info(f"parsing file {filename} with {xml_name}, " f"time of first ping: {timestr}")
+        _, xml_name = os.path.split(self.xml_path)
+        print(f"parsing file {filename} with {xml_name}, " f"time of first ping: {timestr}")
 
     def _split_header(self, raw, ping_num, header_unpacked):
         """Splits the header information into a dictionary.
@@ -345,7 +343,7 @@ class ParseULS5(ParseAZFP):
         ):  # first field should match hard-coded FILE_TYPE from manufacturer
             check_eof = raw.read(1)
             if check_eof:
-                logger.error("Unknown file type")
+                warnings.warn("Unknown file type", category=UserWarning)
                 return False
         header_byte_cnt = 0
 

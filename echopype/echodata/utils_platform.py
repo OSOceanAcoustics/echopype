@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 
 
@@ -17,7 +19,7 @@ def _extvar_properties(ds, name):
         return False, False, None
 
 
-def _clip_by_time_dim(external_ds, ext_time_dim_name, ping_time):
+def clip_by_time_dim(external_ds, ext_time_dim_name, ping_time):
     """
     Clip incoming time to 1 less than min of EchoData["Sonar/Beam_group1"]["ping_time"]
     and 1 greater than max of EchoData["Sonar/Beam_group1"]["ping_time"].
@@ -52,14 +54,12 @@ def _clip_by_time_dim(external_ds, ext_time_dim_name, ping_time):
     )
 
 
-def get_mappings_expanded(logger, extra_platform_data, variable_mappings, platform):
+def get_mappings_expanded(extra_platform_data, variable_mappings, platform):
     """
     Generate a dictionary of mappings between Platform group variables and external variables.
 
     Parameters
     ----------
-    logger : logging.Logger
-        A logger object to log warnings and errors.
     extra_platform_data : xr.Dataset
         An `xr.Dataset` containing the additional platform data to be added
         to the `EchoData["Platform"]` group.
@@ -99,9 +99,10 @@ def get_mappings_expanded(logger, extra_platform_data, variable_mappings, platfo
 
     # Generate warning if mappings_expanded is empty
     if not mappings_expanded:
-        logger.warning(
+        warnings.warn(
             "No variables will be updated, "
-            "check variable_mappings to ensure variable names are correctly specified!"
+            "check variable_mappings to ensure variable names are correctly specified!",
+            category=UserWarning,
         )
 
     # If longitude or latitude are requested, verify that both are present
@@ -128,16 +129,18 @@ def get_mappings_expanded(logger, extra_platform_data, variable_mappings, platfo
     # Generate warnings regarding variables that will be updated
     vars_not_handled = set(variable_mappings.keys()).difference(mappings_expanded.keys())
     if len(vars_not_handled) > 0:
-        logger.warning(
-            f"The following requested variables will not be updated: {', '.join(vars_not_handled)}"  # noqa
+        warnings.warn(
+            f"The following requested variables will not be updated: {', '.join(vars_not_handled)}",  # noqa
+            category=UserWarning,
         )
 
     vars_notnan_replaced = [
         platform_var for platform_var, v in mappings_expanded.items() if v["platform_validvalues"]
     ]
     if len(vars_notnan_replaced) > 0:
-        logger.warning(
-            f"Some variables with valid data in the original Platform group will be overwritten: {', '.join(vars_notnan_replaced)}"  # noqa
+        warnings.warn(
+            f"Some variables with valid data in the original Platform group will be overwritten: {', '.join(vars_notnan_replaced)}",  # noqa
+            category=RuntimeWarning,
         )
 
     return mappings_expanded

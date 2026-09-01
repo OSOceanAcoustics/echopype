@@ -1,9 +1,9 @@
 import itertools
 import re
+import warnings
 from collections import ChainMap
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
-from warnings import warn
 
 import fsspec
 import numpy as np
@@ -12,11 +12,8 @@ import xarray as xr
 from xarray import DataTree
 
 from ..utils.io import validate_output_path
-from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs
 from .echodata import EchoData
-
-logger = _init_logger(__name__)
 
 POSSIBLE_TIME_DIMS = {"time1", "time2", "time3", "time4", "nmea_time", "ping_time", "filter_time"}
 APPEND_DIMS = {"filenames"}.union(POSSIBLE_TIME_DIMS)
@@ -93,7 +90,7 @@ def check_zarr_path(
             "different path or set overwrite=True."
         )
     elif exists and overwrite:
-        logger.info(f"overwriting {validated_path}")
+        print(f"overwriting {validated_path}")
 
         # remove zarr file
         fs.rm(validated_path, recursive=True)
@@ -947,14 +944,17 @@ def combine_echodata(
     >>> ed2 = echopype.open_raw(raw_file="EK60_file2.raw", sonar_model="EK60")
     >>> combined = echopype.combine_echodata(echodata_list=[ed1, ed2])
     """
-    warn(
+    warnings.warn(
         "Echopype will stop supporting the `combine_echodata` function in the v0.12.1 release.",
         category=DeprecationWarning,
     )
 
     # return empty EchoData object, if no EchoData objects are provided
     if echodata_list is None:
-        warn("No EchoData objects were provided, returning an empty EchoData object.")
+        warnings.warn(
+            "No EchoData objects were provided, returning an empty EchoData object.",
+            category=UserWarning,
+        )
         return EchoData()
 
     # Ensure the list of all EchoData objects to be combined are valid

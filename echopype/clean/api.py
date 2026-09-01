@@ -2,6 +2,7 @@
 Functions for reducing variabilities in backscatter data.
 """
 
+import warnings
 from functools import partial
 
 import numpy as np
@@ -9,7 +10,6 @@ import xarray as xr
 
 from ..commongrid.utils import _parse_x_bin
 from ..utils.compute import _lin2log, _log2lin
-from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
 from .transient_noise.transient_fielding import transient_noise_fielding
 from .transient_noise.transient_matecho import transient_noise_matecho
@@ -23,8 +23,6 @@ from .utils import (
     index_binning_pool_Sv,
     pool_Sv,
 )
-
-logger = _init_logger(__name__)
 
 
 def mask_transient_noise(
@@ -137,10 +135,11 @@ def mask_transient_noise(
     elif func == "nanmedian":
         # Warn when `func=nanmedian` since the sorting overhead makes it incredibly slow compared to
         # other non-sorting aggregations like `nanmean`.
-        logger.warning(
+        warnings.warn(
             "`func=nanmedian` is an incredibly slow operation due to the overhead sorting. "
             "We plan to add the Fielding Transient Noise Filter in the future"
-            "described here: https://github.com/OSOceanAcoustics/echopype/issues/1352"
+            "described here: https://github.com/OSOceanAcoustics/echopype/issues/1352",
+            category=ResourceWarning,
         )
         func = np.nanmedian
 

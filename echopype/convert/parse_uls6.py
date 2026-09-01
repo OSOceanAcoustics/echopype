@@ -1,4 +1,5 @@
 import os
+import warnings
 import xml.etree.ElementTree as ET
 from datetime import datetime as dt
 from io import BytesIO
@@ -7,7 +8,6 @@ from struct import unpack
 import fsspec
 import numpy as np
 
-from ..utils.log import _init_logger
 from ..utils.misc import camelcase2snakecase
 from .parse_azfp import ParseAZFP
 
@@ -80,9 +80,6 @@ OLDER_CODES = dict(
 )
 OLDER_HEADER_LOOKUP = {v: k for k, v in OLDER_CODES.items()}
 HEADER_LOOKUP = {**HEADER_LOOKUP, **OLDER_HEADER_LOOKUP}
-
-
-logger = _init_logger(__name__)
 
 
 class ParseULS6(ParseAZFP):
@@ -159,7 +156,6 @@ class ParseULS6(ParseAZFP):
         self.unpacked_data["num_prev_xml_bytes"] = xml_byte_size
 
         if int.from_bytes(raw.read(4), "little") != self.XML_END_FLAG:
-            logger.error("Error reading xml string")
             raise ValueError("Error reading xml string")
 
         xml_prev_byte_size = unpack("<I", raw.read(4))[0]  # read num bytes for prev record
@@ -336,10 +332,16 @@ class ParseULS6(ParseAZFP):
                     header_flag, num_data_bytes = unpack("<II", file.read(8))
 
                     if header_flag != self.DATA_END_FLAG:
-                        logger.error("Invalid flag detected, possibly corrupted data file.")
+                        warnings.warn(
+                            "Invalid flag detected, possibly corrupted data file.",
+                            category=UserWarning,
+                        )
                         break
                     if num_data_bytes != self.unpacked_data["num_data_bytes"][ping_num]:
-                        logger.error("Invalid data block size, possibly corrupted data file.")
+                        warnings.warn(
+                            "Invalid data block size, possibly corrupted data file.",
+                            category=UserWarning,
+                        )
                         break
                     # print(file.tell())
                 else:
@@ -394,7 +396,7 @@ class ParseULS6(ParseAZFP):
         )
 
         timestr = timestamp.strftime("%Y-%b-%d %H:%M:%S")
-        logger.info(f"parsing file {filename}, " f"time of first ping: {timestr}")
+        print(f"parsing file {filename}, " f"time of first ping: {timestr}")
 
     def _get_masked_data(self, rc):
         """
@@ -468,7 +470,10 @@ class ParseULS6(ParseAZFP):
         # Read first 4 bytes which contain the first header record
         rc, val = unpack("<HH", raw.read(4))
         if rc != HEADER_CODES["FIRST_HEADER_RECORD"] or val != HEADER_CODES["START_FLAG"]:
-            logger.error(f"Invalid header block, is this an {self.sonar_type} file?")
+            warnings.warn(
+                f"Invalid header block, is this an {self.sonar_type} file?",
+                category=UserWarning,
+            )
             return False
         self.unpacked_data["first_header_record"].append(val)
 
@@ -477,24 +482,27 @@ class ParseULS6(ParseAZFP):
             _, byte_code, byte_size, array_size = self._get_masked_data(field_code)
             val = unpack("<" + byte_code * array_size, raw.read(byte_size * array_size))
             header_byte_cnt += 2 + byte_size * array_size
+
             try:
                 field = HEADER_LOOKUP[field_code].lower()
-            except:  # Unknown field
+            except:
                 field = f"code_{hex(field_code)}"
-                logger.warning(
-                    f"Unknown code found in file: {hex(field_code)}, field stored as {field}"
+                warnings.warn(
+                    f"Unknown code found in file: {hex(field_code)}, field stored as {field}",
+                    category=UserWarning,
                 )
 
-            self.unpacked_data[field].append(*val if len(val) == 1 else [val])  # list(val)
+            self.unpacked_data[field].append(*val if len(val) == 1 else [val])
 
             if field_code == HEADER_CODES["LAST_HEADER_RECORD"]:
                 break
 
         if header_byte_cnt != self.unpacked_data["header_bytes"][0]:
-            logger.error(
+            warnings.warn(
                 "Error reading header: {} != {}".format(
                     header_byte_cnt, self.unpacked_data["header_bytes"][0]
-                )
+                ),
+                category=UserWarning,
             )
             return False
 

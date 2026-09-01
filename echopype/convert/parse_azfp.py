@@ -4,10 +4,7 @@ from struct import unpack
 
 import numpy as np
 
-from ..utils.log import _init_logger
 from .parse_base import ParseBase
-
-logger = _init_logger(__name__)
 
 # Common Sv_offset values for frequency > 38 kHz
 SV_OFFSET_HF = {

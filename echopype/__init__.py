@@ -7,10 +7,6 @@ from .convert.api import open_raw
 from .echodata.api import open_converted
 from .echodata.combine import combine_echodata
 from .utils.io import init_ep_dir
-from .utils.log import verbose
-
-# Turn off verbosity for echopype
-verbose(override=False)
 
 init_ep_dir()
 
@@ -26,5 +22,4 @@ __all__ = [
     "open_raw",
     "qc",
     "utils",
-    "verbose",
 ]

@@ -798,7 +798,7 @@ def test_convert_legacy_versions_ek80(legacy_datatree, legacy_datatree_filename)
 
 
 @pytest.mark.unit
-def test_echodata_delete(caplog, ek60_path):
+def test_echodata_delete(recwarn, ek60_path):
     """
     Check for correct removal behavior and no warnings captured in echodata delete.
     """
@@ -836,17 +836,11 @@ def test_echodata_delete(caplog, ek60_path):
     # Check that temp zarr path exists
     assert os.path.exists(temp_zarr_path)
 
-    # Turn on logger verbosity
-    echopype.utils.log.verbose(override=True)
-
     # Delete temp zarr in temp zarr path
     ed.__del__()
 
-    # Turn off logger verbosity
-    echopype.utils.log.verbose(override=False)
-
     # Check that no exceptions were wrapped by warnings
-    assert not any("Warning: Exception ignored in:" in record.message for record in caplog.records)
+    assert not any("Warning: Exception ignored in:" in str(record.message) for record in recwarn)
 
     # Check that it doesn't exist
     assert not os.path.exists(temp_zarr_path)

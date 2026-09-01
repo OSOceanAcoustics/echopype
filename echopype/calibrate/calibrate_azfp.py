@@ -1,15 +1,14 @@
+import warnings
+
 import numpy as np
 import xarray
 from scipy.interpolate import LinearNDInterpolator
 
 from ..echodata import EchoData
-from ..utils.log import _init_logger
 from .cal_params import get_cal_params_AZFP
 from .calibrate_ek import CalibrateBase
 from .env_params import get_env_params_AZFP
 from .range import compute_range_AZFP
-
-logger = _init_logger(__name__)
 
 # Common Sv_offset values for frequency > 38 kHz
 SV_OFFSET_HF = {
@@ -153,9 +152,10 @@ class CalibrateAZFP(CalibrateBase):
                 try:
                     Sv_offset.append(_calc_azfp_Sv_offset(freq, pulse_len * 1e6))
                 except ValueError:
-                    logger.warning(
+                    warnings.warn(
                         f"The Sv for {freq}Hz and pulse length {pulse_len}us "
-                        "is uncalibrated (Sv_offset=0.0)"
+                        "is uncalibrated (Sv_offset=0.0)",
+                        category=UserWarning,
                     )
                     Sv_offset.append(0.0)
 

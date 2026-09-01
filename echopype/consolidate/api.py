@@ -1,6 +1,7 @@
 import datetime
 import pathlib
 import sys
+import warnings
 from numbers import Number
 from pathlib import Path
 from typing import Optional, Union
@@ -14,7 +15,6 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.align import align_to_ping_time
 from ..utils.io import get_file_format, open_source
-from ..utils.log import _init_logger
 from ..utils.prov import add_processing_level
 from .ek_depth_utils import (
     ek_use_beam_angles,
@@ -23,8 +23,6 @@ from .ek_depth_utils import (
 )
 from .loc_utils import check_and_drop_loc_time_dim_duplicates, check_loc_vars_validity, sel_nmea
 from .split_beam_angle import get_angle_complex_samples, get_angle_power_samples
-
-logger = _init_logger(__name__)
 
 POSITION_VARIABLES = ["latitude", "longitude"]
 
@@ -137,13 +135,15 @@ def add_depth(
 
     # Log warnings when group variables are not used
     if depth_offset is not None and use_platform_vertical_offsets:
-        logger.warning(
+        warnings.warn(
             "When `depth_offset` is specified, platform vertical offset "
-            "variables will not be used."
+            "variables will not be used.",
+            category=UserWarning,
         )
     if tilt is not None and (use_beam_angles or use_platform_angles):
-        logger.warning(
-            "When `tilt` is specified, beam/platform angle variables will " "not be used."
+        warnings.warn(
+            "When `tilt` is specified, beam/platform angle variables will " "not be used.",
+            category=UserWarning,
         )
 
     if echodata:

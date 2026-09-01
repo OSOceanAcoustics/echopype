@@ -1,10 +1,11 @@
+import warnings
+
 import numpy as np
 import xarray as xr
 
 from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
-from ..utils.log import _init_logger
 from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
@@ -18,8 +19,6 @@ CALIBRATOR = {
     "ES80": CalibrateEK80,
     "EA640": CalibrateEK80,
 }
-
-logger = _init_logger(__name__)
 
 
 def _compute_cal(
@@ -44,14 +43,16 @@ def _compute_cal(
         check_input_args_combination(waveform_mode=waveform_mode, encode_mode=encode_mode)
     elif echodata.sonar_model in ("EK60", "AZFP", "AZFP6"):
         if waveform_mode is not None and waveform_mode != "CW":
-            logger.warning(
+            warnings.warn(
                 "This sonar model transmits only narrowband signals (waveform_mode='CW'). "
                 "Calibration will be in CW mode",
+                category=UserWarning,
             )
         if encode_mode is not None and encode_mode != "power":
-            logger.warning(
+            warnings.warn(
                 "This sonar model only record data as power or power/angle samples "
                 "(encode_mode='power'). Calibration will be done on the power samples.",
+                category=UserWarning,
             )
 
     # Check that assume_single_filter_time is correctly passed in.

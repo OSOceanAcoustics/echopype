@@ -214,7 +214,8 @@ class SetGroupsBase(abc.ABC):
                     lat.append(np.nan)
                     warnings.warn(
                         "At least one latitude entry is problematic and "
-                        f"are assigned None in the converted data: {str(ve)}"
+                        f"are assigned None in the converted data: {str(ve)}",
+                        category=RuntimeWarning,
                     )
                 try:
                     lon.append(x.longitude if hasattr(x, "longitude") else np.nan)
@@ -222,7 +223,8 @@ class SetGroupsBase(abc.ABC):
                     lon.append(np.nan)
                     warnings.warn(
                         f"At least one longitude entry is problematic and "
-                        f"are assigned None in the converted data: {str(ve)}"
+                        f"are assigned None in the converted data: {str(ve)}",
+                        category=RuntimeWarning,
                     )
         else:
             lat, lon = [np.nan], [np.nan]

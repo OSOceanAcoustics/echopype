@@ -6,11 +6,6 @@ from typing import Dict, Literal, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from ..utils.log import _init_logger
-
-logger = _init_logger(__name__)
-
-
 # String matcher for parser
 SEPARATOR = re.compile(r"#=+#\n")
 STATUS_CRUDE = re.compile(r"#\s*(?P<status>(.+))\s*#\n")  # noqa

@@ -9,6 +9,7 @@ import shutil
 import sys
 import tempfile
 import uuid
+import warnings
 from pathlib import Path, WindowsPath
 from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
@@ -22,7 +23,6 @@ from fsspec.implementations.local import LocalFileSystem
 from ..echodata import EchoData
 from ..echodata.api import open_converted
 from ..utils.coding import set_storage_encodings
-from ..utils.log import _init_logger
 
 if TYPE_CHECKING:
     from ..core import PathHint
@@ -35,7 +35,6 @@ SUPPORTED_ENGINES = {
     },
 }
 
-logger = _init_logger(__name__)
 
 # Get root echopype package name
 ECHOPYPE = __name__.split(".")[0]
@@ -238,13 +237,13 @@ def validate_output_path(
     file_ext = SUPPORTED_ENGINES[engine]["ext"]
 
     if save_path is None:
-        logger.warning("A directory or file path is not provided!")
+        warnings.warn("A directory or file path is not provided!", category=UserWarning)
 
         out_dir = ECHOPYPE_DIR / "temp_output"
         if not out_dir.exists():
             out_dir.mkdir(parents=True)
 
-        logger.warning(f"Resulting converted file(s) will be available at {str(out_dir)}")
+        print(f"Resulting converted file(s) will be available at {str(out_dir)}")
         out_path = str(out_dir / (Path(source_file).stem + file_ext))
     elif not isinstance(save_path, Path) and not isinstance(save_path, str):
         raise TypeError("save_path must be a string or Path")
@@ -285,8 +284,9 @@ def validate_output_path(
                 final_path = Path(save_path)
                 out_path = save_path
             if final_path.suffix != file_ext:
-                logger.warning(
-                    "Mismatch between specified engine and save_path found; forcing output format to engine."  # noqa
+                warnings.warn(
+                    "Mismatch between specified engine and save_path found; forcing output format to engine.",  # noqa
+                    category=UserWarning,
                 )
     return out_path
 
@@ -344,7 +344,10 @@ def check_file_permissions(FILE_DIR):
                 FILE_DIR = Path(FILE_DIR)
 
             if not FILE_DIR.exists():
-                logger.warning(f"{str(FILE_DIR)} does not exist. Attempting to create it.")
+                warnings.warn(
+                    f"{str(FILE_DIR)} does not exist. Attempting to create it.",
+                    category=UserWarning,
+                )
                 FILE_DIR.mkdir(exist_ok=True, parents=True)
             TEST_FILE = FILE_DIR.joinpath(Path(fname))
             TEST_FILE.write_text("testing\n")

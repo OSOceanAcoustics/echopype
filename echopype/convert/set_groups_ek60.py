@@ -5,14 +5,11 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_time_encodings
-from ..utils.log import _init_logger
 
 # fmt: off
 from .set_groups_base import SetGroupsBase
 
 # fmt: on
-
-logger = _init_logger(__name__)
 
 
 class SetGroupsEK60(SetGroupsBase):

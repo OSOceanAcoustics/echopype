@@ -5,9 +5,6 @@ import numpy as np
 import xarray as xr
 
 from ..echodata import EchoData
-from ..utils.log import _init_logger
-
-logger = _init_logger(__name__)
 
 
 def compute_invalid_check(lat_var: xr.DataArray, lon_var: xr.DataArray, validity_check: str):
@@ -105,7 +102,7 @@ def check_loc_vars_validity(
         if validity_check in ["missing", "all_nan"]:
             raise ValueError(output_message)
         elif validity_check in ["some_nan", "some_zero"]:
-            logger.warning(output_message)
+            warnings.warn(output_message, category=UserWarning)
 
 
 def check_and_drop_loc_time_dim_duplicates(

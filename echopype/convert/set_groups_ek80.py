@@ -1,3 +1,4 @@
+import warnings
 from collections import defaultdict
 from typing import List
 
@@ -5,11 +6,8 @@ import numpy as np
 import xarray as xr
 
 from ..utils.coding import set_time_encodings
-from ..utils.log import _init_logger
 from .set_groups_base import SetGroupsBase
 from .utils.ek_duplicates import check_unique_ping_time_duplicates
-
-logger = _init_logger(__name__)
 
 WIDE_BAND_TRANS = "WBT"
 PULSE_COMPRESS = "PC"
@@ -327,7 +325,10 @@ class SetGroupsEK80(SetGroupsBase):
             water_level = self.parser_obj.environment["water_level_draft"]
         else:
             water_level = np.nan
-            logger.info("WARNING: The water_level_draft was not in the file. Value set to NaN.")
+            warnings.warn(
+                "WARNING: The water_level_draft was not in the file. Value set to NaN.",
+                category=UserWarning,
+            )
 
         time1, msg_type, lat_nmea, lon_nmea = self._extract_NMEA_latlon()
         time2 = self.parser_obj.mru0.get("timestamp", None)
@@ -1162,7 +1163,7 @@ class SetGroupsEK80(SetGroupsBase):
         def _remove_duplicates(ds):
             ping_times = ds["ping_time"].values
             if len(ping_times) > len(np.unique(ping_times)):
-                check_unique_ping_time_duplicates(ds, logger)
+                check_unique_ping_time_duplicates(ds)
                 ds = ds.drop_duplicates(dim="ping_time")
             return ds
 

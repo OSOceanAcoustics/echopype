@@ -2,6 +2,7 @@ import datetime
 import functools
 import re
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -11,14 +12,10 @@ from _echopype_version import version as ECHOPYPE_VERSION
 from numpy.typing import NDArray
 from typing_extensions import Literal
 
-from .log import _init_logger
-
 ProcessType = Literal["conversion", "combination", "processing", "mask"]
 # Note that this PathHint is defined differently from the one in ..core
 PathHint = Union[str, Path]
 PathSequenceHint = Union[List[PathHint], Tuple[PathHint], NDArray[PathHint]]
-
-logger = _init_logger(__name__)
 
 
 def echopype_prov_attrs(process_type: ProcessType) -> Dict[str, str]:
@@ -70,15 +67,17 @@ def _sanitize_source_files(paths: Union[PathHint, PathSequenceHint]):
             elif isinstance(p, sequence_types):
                 paths_list += [str(pp) for pp in p if isinstance(pp, (str, Path))]
             else:
-                logger.warning(
+                warnings.warn(
                     "Unrecognized file path element type, path element will not be"
-                    f" written to (meta)source_file provenance attribute. {p}"
+                    f" written to (meta)source_file provenance attribute. {p}",
+                    category=UserWarning,
                 )
         return paths_list
     else:
-        logger.warning(
+        warnings.warn(
             "Unrecognized file path element type, path element will not be"
-            f" written to (meta)source_file provenance attribute. {paths}"
+            f" written to (meta)source_file provenance attribute. {paths}",
+            category=UserWarning,
         )
         return []
 
@@ -227,7 +226,7 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                         _attrs_dict(processing_level)
                     )
                 else:
-                    logger.info(
+                    print(
                         "EchoData object (converted raw file) does not contain "
                         "valid Platform location data. Processing level attributes "
                         "will not be added."
@@ -248,7 +247,7 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
                             _attrs_dict(processing_level)
                         )
                     else:
-                        logger.info(
+                        print(
                             "EchoData object (converted raw file) does not contain "
                             "valid Platform location data. Processing level attributes "
                             "will not be added."
@@ -289,7 +288,7 @@ def add_processing_level(processing_level_code: str, is_echodata: bool = False) 
 
                         ds = ds.assign_attrs(_attrs_dict(processing_level))
                     else:
-                        logger.info(
+                        print(
                             "xarray Dataset does not contain valid location data. "
                             "Processing level attributes will not be added."
                         )
