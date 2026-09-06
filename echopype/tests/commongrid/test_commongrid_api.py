@@ -7,6 +7,7 @@ import xarray as xr  # noqa: F401
 import echopype as ep
 from echopype.consolidate import add_location, add_depth
 from echopype.commongrid.utils import (
+    _convert_bins_to_interval_index,
     _log2lin,
     _parse_x_bin,
     _groupby_x_along_channels,
@@ -14,7 +15,10 @@ from echopype.commongrid.utils import (
     compute_raw_NASC,
     _weighted_mean_kernel,
 )
-from echopype.tests.commongrid.conftest import get_NASC_echoview
+from echopype.tests.commongrid.conftest import (
+    get_NASC_echoview,
+    _brute_nanmean_reduce_3d,
+)
 
 @pytest.fixture
 def ek80_path(test_path):
@@ -112,27 +116,6 @@ def test__parse_x_bin(x_bin, x_label, expected_result):
         assert ep.commongrid.api._parse_x_bin(x_bin, x_label) == expected_result
 
 
-def _reference_binned_nanmean(sv_lin, x_vals, range_vals, x_interval, range_interval, channel_len):
-    """Brute force reference reduction to check ``_groupby_x_along_channels`` against."""
-    # xarray_reduce with isbin=True groups by pandas intervals, which are closed
-    # on the right, so both the x bins and the range bins here are (left, right]
-    expected = np.full((channel_len, len(x_interval) - 1, len(range_interval) - 1), np.nan)
-    for ch_idx in range(channel_len):
-        for x_idx in range(len(x_interval) - 1):
-            in_x = (x_vals > x_interval[x_idx]) & (x_vals <= x_interval[x_idx + 1])
-            if not in_x.any():
-                continue
-            for r_idx in range(len(range_interval) - 1):
-                in_range = (range_vals[ch_idx][in_x] > range_interval[r_idx]) & (
-                    range_vals[ch_idx][in_x] <= range_interval[r_idx + 1]
-                )
-                selected = sv_lin[ch_idx][in_x][in_range]
-                if selected.size == 0 or np.all(np.isnan(selected)):
-                    continue
-                expected[ch_idx, x_idx, r_idx] = np.nanmean(selected)
-    return expected
-
-
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ["range_var", "x_var"],
@@ -161,7 +144,7 @@ def test__groupby_x_along_channels(request, range_var, x_var, depth_offset):
         ds_Sv = ds_Sv.assign_coords({"distance_nmi": ("ping_time", dist_nmi)}).swap_dims(
             {"ping_time": "distance_nmi"}
         )
-        x_interval = np.arange(0, ds_Sv["distance_nmi"].max() + dist_bin, dist_bin)
+        x_bins = np.arange(0, ds_Sv["distance_nmi"].max() + dist_bin, dist_bin)
     elif range_var == "depth":
         ds_Sv = request.getfixturevalue("ds_Sv_echo_range_regular_w_depth")
     else:
@@ -169,7 +152,7 @@ def test__groupby_x_along_channels(request, range_var, x_var, depth_offset):
 
     # compute range interval
     range_max = ds_Sv[range_var].max()
-    range_interval = np.arange(0, range_max + range_bin, range_bin)
+    range_bins = np.arange(0, range_max + range_bin, range_bin)
 
     if x_var == "ping_time":
         # create bin information needed for ping_time
@@ -179,7 +162,11 @@ def test__groupby_x_along_channels(request, range_var, x_var, depth_offset):
             .asfreq()
             .indexes["ping_time"]
         )
-        x_interval = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
+        x_bins = d_index.union([d_index[-1] + pd.Timedelta(ping_time_bin)])
+
+    # _brute_nanmean_reduce_3d bins as [a, b), matching closed="left"
+    x_interval = _convert_bins_to_interval_index(x_bins, closed="left")
+    range_interval = _convert_bins_to_interval_index(range_bins, closed="left")
 
     sv_mean = _groupby_x_along_channels(
         ds_Sv,
@@ -195,21 +182,34 @@ def test__groupby_x_along_channels(request, range_var, x_var, depth_offset):
 
     assert sv_mean.shape == (
         ds_Sv.sizes["channel"],
-        len(x_interval) - 1,
-        len(range_interval) - 1,
+        len(x_bins) - 1,
+        len(range_bins) - 1,
     )
 
     # average is done in linear domain, so the reference uses linear sv
-    dim_order = ("channel", x_var, "range_sample")
-    expected = _reference_binned_nanmean(
-        sv_lin=ds_Sv["Sv"].pipe(_log2lin).transpose(*dim_order).data,
-        x_vals=ds_Sv[x_var].data,
-        range_vals=ds_Sv[range_var].transpose(*dim_order).data,
-        x_interval=x_interval,
-        range_interval=range_interval,
+    expected = _brute_nanmean_reduce_3d(
+        sv=ds_Sv["Sv"].pipe(_log2lin),
+        ds_Sv=ds_Sv,
+        range_var=range_var,
+        x_var=x_var,
         channel_len=ds_Sv.sizes["channel"],
+        x_interval=x_bins,
+        range_interval=range_bins,
     )
     assert np.allclose(sv_mean.data, expected, rtol=1e-10, atol=0, equal_nan=True)
+
+
+@pytest.mark.unit
+def test__groupby_x_along_channels_requires_interval_index(ds_Sv_echo_range_regular):
+    """Plain bin edges leave the closed end implicit, so they are rejected."""
+    ds_Sv = ds_Sv_echo_range_regular
+    range_bins = np.arange(0, ds_Sv["echo_range"].max() + 20, 20)
+    x_bins = ds_Sv["ping_time"].resample(ping_time="20s").asfreq().indexes["ping_time"]
+
+    with pytest.raises(TypeError, match="must be a pandas IntervalIndex"):
+        _groupby_x_along_channels(
+            ds_Sv, range_bins, x_interval=x_bins, x_var="ping_time", range_var="echo_range"
+        )
 
 
 # NASC Tests
@@ -274,8 +274,8 @@ def test_compute_NASC(request, test_data_samples, compute_mvbs):
 
 @pytest.mark.unit
 def test_simple_NASC_Echoview_values(mock_Sv_dataset_NASC):
-    dist_interval = np.array([-5, 10])
-    range_interval = np.array([1, 5])
+    dist_interval = _convert_bins_to_interval_index([-5, 10], closed="left")
+    range_interval = _convert_bins_to_interval_index([1, 5], closed="left")
     raw_NASC = compute_raw_NASC(
         mock_Sv_dataset_NASC,
         range_interval,
