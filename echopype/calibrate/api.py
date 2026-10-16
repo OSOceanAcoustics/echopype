@@ -98,8 +98,8 @@ def _compute_cal(
 
     # If Ex80
     else:
-        # if only 1 filter_time exists
-        if len(echodata["Vendor_specific"]["filter_time"]) == 1:
+        # if only 1 or no filter_time exists
+        if len(echodata["Vendor_specific"]["filter_time"]) <= 1:
             cal_ds = _compute_cal_ds(echodata, slice_dict={})
 
         # if multiple filter_time exists
