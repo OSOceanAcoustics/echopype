@@ -1,8 +1,9 @@
 # Publish archives to PyPI and TestPyPI using GitHub Actions
 name: Publish to PyPI
 
-# Run on releases or manually
+# Validate packages on PRs, manual runs, and releases.
 on:
+  pull_request:
   release:
     types:
       - released
@@ -12,7 +13,7 @@ jobs:
   build-artifact:
     name: Build echopype package
     runs-on: ubuntu-latest
-    if: github.repository == 'echostack-org/echopype' || github.event_name == 'workflow_dispatch'
+    if: github.repository == 'echostack-org/echopype' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
     - name: Checkout
       uses: actions/checkout@v7
