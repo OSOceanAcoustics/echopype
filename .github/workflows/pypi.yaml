@@ -66,26 +66,25 @@ jobs:
       run: |
         ls -ltrh
         ls -ltrh dist
-    - name: Check built packages
+    - name: Check built wheel in a fresh environment
       run: |
-        python -m pip install --upgrade pip
-
-        echo "=== Testing wheel file ==="
-        python -m pip install dist/*.whl
-        python -c "import echopype; print(echopype.__version__)"
+        python -m venv "$RUNNER_TEMP/test-wheel"
+        "$RUNNER_TEMP/test-wheel/bin/python" -m pip install --upgrade pip
+        "$RUNNER_TEMP/test-wheel/bin/python" -m pip install dist/*.whl
+        "$RUNNER_TEMP/test-wheel/bin/python" -c "import echopype; print(echopype.__version__)"
         if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
-          EXPECTED="${GITHUB_REF_NAME#v}" python -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
+          EXPECTED="${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/test-wheel/bin/python" -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
         fi
-        echo "=== Done testing wheel file ==="
 
-        echo "=== Testing source tar file ==="
-        python -m pip uninstall --yes echopype
-        python -m pip install dist/*.tar.gz
-        python -c "import echopype; print(echopype.__version__)"
+    - name: Check built source distribution in a fresh environment
+      run: |
+        python -m venv "$RUNNER_TEMP/test-source"
+        "$RUNNER_TEMP/test-source/bin/python" -m pip install --upgrade pip
+        "$RUNNER_TEMP/test-source/bin/python" -m pip install dist/*.tar.gz
+        "$RUNNER_TEMP/test-source/bin/python" -c "import echopype; print(echopype.__version__)"
         if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
-          EXPECTED="${GITHUB_REF_NAME#v}" python -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
+          EXPECTED="${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/test-source/bin/python" -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
         fi
-        echo "=== Done testing source tar file ==="
 
     - name: Publish to Test PyPI
       if: github.event_name == 'release' && github.event.action == 'released'
