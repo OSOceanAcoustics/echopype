@@ -1,6 +1,6 @@
 import re
 import warnings
-from typing import Literal, Optional, Tuple, Union
+from typing import Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -14,8 +14,8 @@ from ..utils.compute import _lin2log, _log2lin
 
 def compute_raw_MVBS(
     ds_Sv: xr.Dataset,
-    range_interval: Union[pd.IntervalIndex, np.ndarray],
-    ping_interval: Union[pd.IntervalIndex, np.ndarray],
+    range_interval: pd.IntervalIndex,
+    ping_interval: pd.IntervalIndex,
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method="map-reduce",
     reindex=False,
@@ -34,10 +34,10 @@ def compute_raw_MVBS(
         at bare minimum.
         Or this can contain ``Sv`` and ``depth`` data with similar coordinates.
         ``frequency_nominal`` is supported as an alternative to ``channel``
-    range_interval: pd.IntervalIndex or np.ndarray
+    range_interval: pd.IntervalIndex
         1D array or interval index representing
         the bins required for ``range_var``
-    ping_interval : pd.IntervalIndex or np.ndarray
+    ping_interval : pd.IntervalIndex
         1D array or interval index representing
         the bins required for ``ping_time``.
     range_var: {'echo_range', 'depth'}, default 'echo_range'
@@ -94,8 +94,8 @@ def compute_raw_MVBS(
 
 def compute_raw_NASC(
     ds_Sv: xr.Dataset,
-    range_interval: Union[pd.IntervalIndex, np.ndarray],
-    dist_interval: Union[pd.IntervalIndex, np.ndarray],
+    range_interval: pd.IntervalIndex,
+    dist_interval: pd.IntervalIndex,
     method="map-reduce",
     skipna=True,
     **flox_kwargs,
@@ -108,10 +108,10 @@ def compute_raw_NASC(
     ds_Sv : xr.Dataset
         A Dataset containing ``Sv`` and ``depth`` data
         with coordinates ``channel``, ``distance_nmi``, and ``range_sample``.
-    range_interval: pd.IntervalIndex or np.ndarray
+    range_interval: pd.IntervalIndex
         1D array or interval index representing
         the bins required for ``range_var``.
-    dist_interval : pd.IntervalIndex or np.ndarray
+    dist_interval : pd.IntervalIndex
         1D array or interval index representing
         the bins required for ``distance_nmi``.
     method: str
@@ -452,7 +452,7 @@ def _get_reduced_positions(
     ds_Sv: xr.Dataset,
     ds_X: xr.Dataset,
     X: Literal["MVBS", "NASC"],
-    x_interval: Union[pd.IntervalIndex, np.ndarray],
+    x_interval: pd.IntervalIndex,
 ) -> xr.Dataset:
     """Helper function to get reduced positions
 
@@ -464,7 +464,7 @@ def _get_reduced_positions(
         The input X dataset, either ``ds_MVBS`` or ``ds_NASC``
     X : {'MVBS', 'NASC'}
         The type of X dataset
-    x_interval : pd.IntervalIndex or np.ndarray
+    x_interval : pd.IntervalIndex
         1D array or interval index representing
         the bins required for X dataset.
 
@@ -501,8 +501,8 @@ def _get_reduced_positions(
 
 def _groupby_x_along_channels(
     ds_Sv: xr.Dataset,
-    range_interval: Union[pd.IntervalIndex, np.ndarray],
-    x_interval: Union[pd.IntervalIndex, np.ndarray],
+    range_interval: pd.IntervalIndex,
+    x_interval: pd.IntervalIndex,
     x_var: Literal["ping_time", "distance_nmi"] = "ping_time",
     range_var: Literal["echo_range", "depth"] = "echo_range",
     method: str = "map-reduce",
@@ -531,10 +531,10 @@ def _groupby_x_along_channels(
         with coordinates ``channel``, ``distance_nmi``, and ``range_sample``.
 
         ``frequency_nominal`` is supported as an alternative to ``channel``
-    range_interval: pd.IntervalIndex or np.ndarray
+    range_interval: pd.IntervalIndex
         1D array or interval index representing
         the bins required for ``range_var``
-    x_interval : pd.IntervalIndex or np.ndarray
+    x_interval : pd.IntervalIndex
         1D array or interval index representing
         the bins required for ``ping_time`` or ``distance_nmi``.
     x_var : {'ping_time', 'distance_nmi'}, default 'ping_time'
@@ -580,6 +580,17 @@ def _groupby_x_along_channels(
     # either a MVBS or NASC computation
     if x_var not in ["ping_time", "distance_nmi"]:
         raise ValueError("x_var must be 'ping_time' or 'distance_nmi'")
+
+    # Bin edges must arrive as IntervalIndex so that the closed end is explicit.
+    # Passing plain arrays would leave the closure to flox, which bins as
+    # (left, right] and so silently disagrees with the closed='left' default of
+    # compute_MVBS and compute_NASC.
+    for name, interval in (("x_interval", x_interval), ("range_interval", range_interval)):
+        if not isinstance(interval, pd.IntervalIndex):
+            raise TypeError(
+                f"{name} must be a pandas IntervalIndex so the closed end is explicit. "
+                "Use _convert_bins_to_interval_index to convert bin edges."
+            )
 
     # Set correct range_var just in case
     if x_var == "distance_nmi" and range_var != "depth":
