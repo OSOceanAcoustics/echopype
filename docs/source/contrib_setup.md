@@ -36,7 +36,7 @@ suggest doing this with `conda` or `uv`.
 
   ```shell
   # Create and activate the development environment
-  conda create -c conda-forge -n echopype-dev --yes python=3.12
+  conda create -c conda-forge -n echopype-dev --yes python=3.13
   conda activate echopype-dev
 
   # Upgrade pip to support dependency groups
@@ -57,7 +57,7 @@ suggest doing this with `conda` or `uv`.
   ```shell
   # Create .venv and install echopype in editable mode
   # with the default development and testing dependencies.
-  # The ~/.python-version file in the repository sets which version of Python is installed (3.12 at the moment).
+  # The ~/.python-version file in the repository sets which version of Python is installed (3.13 at the moment).
   uv sync
   ```
 
@@ -90,7 +90,10 @@ See {ref}`contrib:test-data` for contributor instructions and
 
 Most tests use data directly from the local Pooch cache. A subset of integration
 tests also require local HTTP and S3-compatible services. To run the full test
-suite, start these services first.
+suite, start these services first. We use SeaweedFS 4.48 for S3 on
+`http://localhost:9000/` and an HTTP server on port 8080. Linux/macOS use
+the upstream SeaweedFS Docker image; Windows downloads the matching native
+release. The local test access key and secret are both `s3admin`.
 
 On Linux/macOS:
 

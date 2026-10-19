@@ -1,14 +1,18 @@
 # For local development only to spin up services to test against
 version: "3"
 services:
-  minio:
-    image: cormorack/minioci:latest
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    environment:
+      AWS_ACCESS_KEY_ID: s3admin
+      AWS_SECRET_ACCESS_KEY: s3admin
+      S3_BUCKET: data,data-output
     ports:
-      - 9000:9000
+      - 9000:8333
     networks:
       - echopypenetwork
     volumes:
-      - echopype_miniodata:/data
+      - echopype_s3data:/data
   httpserver:
     image: httpd:2.4
     ports:
@@ -19,4 +23,4 @@ networks:
   echopypenetwork:
 
 volumes:
-  echopype_miniodata:
+  echopype_s3data:

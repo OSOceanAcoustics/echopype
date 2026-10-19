@@ -3,7 +3,7 @@
 This module contain all the various tests for echopype conversion
 from a raw data to standard compliant zarr or netcdf file(s).
 
-**Note that in order to run this test, minio server is required for s3
+**Note that in order to run this test, an S3-compatible server is required for s3
 output tests.**
 """
 
@@ -68,9 +68,9 @@ def _create_path_str(test_folder, paths):
         "/",
         "/tmp.zarr",
         "/tmp.nc",
-        "s3://ooi-raw-data/dump/",
-        "s3://ooi-raw-data/dump/tmp.zarr",
-        "s3://ooi-raw-data/dump/tmp.nc",
+        "s3://data-output/dump/",
+        "s3://data-output/dump/tmp.zarr",
+        "s3://data-output/dump/tmp.nc",
     ],
     ids=[
         "None",
@@ -281,9 +281,9 @@ def test_convert_ek(
     ek_input_params,
     export_engine,
     output_save_path,
-    minio_bucket,
+    s3_storage_options,
 ):
-    common_storage_options = minio_bucket
+    common_storage_options = s3_storage_options
     output_storage_options = {}
     input_paths, sonar_model = ek_input_params
     
@@ -377,13 +377,13 @@ def test_convert_azfp(
     azfp_xml_paths,
     export_engine,
     output_save_path,
-    minio_bucket,
+    s3_storage_options,
     model="AZFP",
 ):
-    common_storage_options = minio_bucket
+    common_storage_options = s3_storage_options
     output_storage_options = {}
 
-    # S3 uses MinIO creds; HTTP must stream to avoid ranged reads on Windows CI
+    # S3 uses local test credentials; HTTP must stream to avoid ranged reads on Windows CI
     if azfp_input_paths.startswith("s3://"):
         input_storage_options = common_storage_options
     elif azfp_input_paths.startswith(("http://", "https://")):

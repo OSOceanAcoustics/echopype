@@ -1,7 +1,7 @@
 # .ci_helpers/setup-services-windows.py
 """
 Spin up local services for Windows CI without Docker:
-- Start a MinIO server on localhost:9000
+- Start a SeaweedFS server on localhost:9000
 - Seed S3 from the Pooch cache (unzipped test bundles)
 - Start a simple HTTP server on :8080 that exposes /data
 - Write PID files for clean teardown
@@ -19,29 +19,30 @@ import subprocess
 import sys
 import tempfile
 import time
+import zipfile
 from urllib.request import urlretrieve
 
 import fsspec
 import pooch
 
-MINIO_URL = (
-    "https://github.com/minio/minio/releases/download/"
-    "RELEASE.2025-09-07T16-13-09Z/"
-    "minio.windows-amd64.RELEASE.2025-09-07T16-13-09Z.exe"
+SEAWEEDFS_VERSION = "4.48"
+SEAWEEDFS_URL = (
+    "https://github.com/seaweedfs/seaweedfs/releases/download/"
+    f"{SEAWEEDFS_VERSION}/windows_amd64.zip"
 )
-MINIO_BIN = pathlib.Path(".ci_helpers") / "minio.exe"
+SEAWEEDFS_BIN = pathlib.Path(".ci_helpers") / f"seaweedfs-{SEAWEEDFS_VERSION}" / "weed.exe"
 STATE_DIR = pathlib.Path(".ci_helpers") / ".state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
-MINIO_PID = STATE_DIR / "minio.pid"
+S3_PID = STATE_DIR / "seaweedfs.pid"
 HTTP_PID = STATE_DIR / "http.pid"
 
 HTTP_ROOT = pathlib.Path(tempfile.gettempdir()) / "echopype-test-services"
 HTTP_DATA = HTTP_ROOT / "data"
 
 # Use localhost everywhere to match tests.
-MINIO_ENDPOINT = "http://localhost:9000/"
-MINIO_USER = "minioadmin"
-MINIO_PASS = "minioadmin"
+S3_ENDPOINT = "http://localhost:9000/"
+S3_USER = "s3admin"
+S3_PASS = "s3admin"
 
 
 def get_pooch_cache() -> pathlib.Path:
@@ -53,73 +54,87 @@ def get_pooch_cache() -> pathlib.Path:
     return path
 
 
-def ensure_minio_downloaded() -> None:
-    if MINIO_BIN.exists():
+def ensure_seaweedfs_downloaded() -> None:
+    if SEAWEEDFS_BIN.exists():
         return
-    MINIO_BIN.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading MinIO -> {MINIO_BIN}", flush=True)
-    urlretrieve(MINIO_URL, MINIO_BIN)
-    MINIO_BIN.chmod(0o755)
+    SEAWEEDFS_BIN.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading SeaweedFS -> {SEAWEEDFS_BIN}", flush=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = pathlib.Path(tmp) / "seaweedfs.zip"
+        urlretrieve(SEAWEEDFS_URL, archive)
+        with zipfile.ZipFile(archive) as release:
+            # Extract only the executable required by this helper.
+            SEAWEEDFS_BIN.write_bytes(release.read("weed.exe"))
+    SEAWEEDFS_BIN.chmod(0o755)
 
 
-def start_minio() -> None:
-    """Start MinIO on localhost:9000 and wait until ready."""
-    ensure_minio_downloaded()
-    data_dir = pathlib.Path(os.getenv("USERPROFILE", str(pathlib.Path.home()))) / "minio" / "data"
+def start_seaweedfs() -> None:
+    """Start SeaweedFS on localhost:9000 and wait until ready."""
+    ensure_seaweedfs_downloaded()
+    data_dir = (
+        pathlib.Path(os.getenv("USERPROFILE", str(pathlib.Path.home())))
+        / "echopype-seaweedfs"
+        / "data"
+    )
     data_dir.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
-    env["MINIO_ROOT_USER"] = MINIO_USER
-    env["MINIO_ROOT_PASSWORD"] = MINIO_PASS
+    env["AWS_ACCESS_KEY_ID"] = S3_USER
+    env["AWS_SECRET_ACCESS_KEY"] = S3_PASS
 
-    print(f"Starting MinIO on {MINIO_ENDPOINT} (data: {data_dir})", flush=True)
+    print(f"Starting SeaweedFS on {S3_ENDPOINT} (data: {data_dir})", flush=True)
     proc = subprocess.Popen(
         [
-            str(MINIO_BIN),
-            "server",
-            str(data_dir),
-            "--address=localhost:9000",
-            "--console-address=localhost:9001",
+            str(SEAWEEDFS_BIN),
+            "mini",
+            f"-dir={data_dir}",
+            "-ip=127.0.0.1",
+            "-ip.bind=127.0.0.1",
+            "-s3.port=9000",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,
     )
-    MINIO_PID.write_text(str(proc.pid))
+    S3_PID.write_text(str(proc.pid))
 
-    # Wait for readiness
-    import urllib.request
-
-    for _ in range(60):
+    # Wait for the authenticated S3 API, not just the process to start.
+    fs = fsspec.filesystem(
+        "s3",
+        client_kwargs=dict(endpoint_url=S3_ENDPOINT),
+        key=S3_USER,
+        secret=S3_PASS,
+    )
+    for attempt in range(60):
+        if proc.poll() is not None:
+            raise RuntimeError("SeaweedFS exited before the S3 endpoint became ready")
         try:
-            with urllib.request.urlopen(
-                MINIO_ENDPOINT + "minio/health/ready",
-                timeout=1,
-            ):
-                break
+            fs.ls("", refresh=True)
+            return
         except Exception:
+            if attempt == 59:
+                proc.terminate()
+                proc.wait(timeout=10)
+                S3_PID.unlink(missing_ok=True)
+                raise RuntimeError("SeaweedFS S3 did not become ready on :9000")
             time.sleep(1)
-    else:
-        raise RuntimeError("MinIO did not become ready on :9000")
 
 
 def seed_s3_from_pooch() -> None:
-    """Upload unzipped Pooch bundles into MinIO and prepare HTTP test data."""
+    """Upload unzipped Pooch bundles into SeaweedFS and prepare HTTP test data."""
     cache = get_pooch_cache()
 
-    # Seed S3 (MinIO)
+    # Seed S3 (SeaweedFS)
     fs = fsspec.filesystem(
         "s3",
-        client_kwargs=dict(endpoint_url=MINIO_ENDPOINT),
-        key=MINIO_USER,
-        secret=MINIO_PASS,
+        client_kwargs=dict(endpoint_url=S3_ENDPOINT),
+        key=S3_USER,
+        secret=S3_PASS,
     )
 
-    for base in ("data", "ooi-raw-data"):
-        try:
+    for base in ("data", "data-output"):
+        if not fs.exists(base):
             fs.mkdir(base)
-        except Exception:
-            pass
 
     for d in cache.iterdir():
         if d.suffix == ".zip":
@@ -169,7 +184,7 @@ def stop_pid_file(path: pathlib.Path) -> None:
         return
     try:
         if sys.platform.startswith("win"):
-            subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=False)
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False)
         else:
             os.kill(pid, 9)
     except Exception:
@@ -183,7 +198,7 @@ def stop_pid_file(path: pathlib.Path) -> None:
 def cmd_start(no_http: bool) -> None:
     # Ensure cache exists (prefetch step should have populated it)
     _ = get_pooch_cache()
-    start_minio()
+    start_seaweedfs()
     seed_s3_from_pooch()
     if not no_http:
         start_http_server()
@@ -192,7 +207,7 @@ def cmd_start(no_http: bool) -> None:
 
 def cmd_stop() -> None:
     stop_pid_file(HTTP_PID)
-    stop_pid_file(MINIO_PID)
+    stop_pid_file(S3_PID)
     shutil.rmtree(HTTP_ROOT, ignore_errors=True)
     print("Services stopped.", flush=True)
 

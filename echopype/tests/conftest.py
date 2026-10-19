@@ -210,11 +210,11 @@ def test_path():
 
 
 @pytest.fixture(scope="session")
-def minio_bucket():
+def s3_storage_options():
     return dict(
         client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-        key="minioadmin",
-        secret="minioadmin",
+        key="s3admin",
+        secret="s3admin",
     )
 
 # recap of the errors, and failures

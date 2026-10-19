@@ -58,7 +58,7 @@ def test_sanitize_file_path(file_path, should_fail, file_type):
         (os.path.join('folder', 'new_test.nc'), 'zarr'),
         (os.path.join('folder', 'path', 'new_test.nc'), 'netcdf4'),
         ('folder/', 'netcdf4'),
-        ('s3://ooi-raw-data/', 'netcdf4'),
+        ('s3://data-output/', 'netcdf4'),
         (Path('folder/'), 'netcdf4'),
         (Path('folder/new_test.nc'), 'netcdf4'),
         # Zarr tests
@@ -73,12 +73,12 @@ def test_sanitize_file_path(file_path, should_fail, file_type):
         ('https://example.com/test.zarr', 'zarr'),
         ('https://example.com/', 'zarr'),
         ('https://example.com/test.nc', 'netcdf4'),
-        ('s3://ooi-raw-data/new_test.zarr', 'zarr'),
-        ('s3://ooi-raw-data/new_test.nc', 'netcdf4'),
+        ('s3://data-output/new_test.zarr', 'zarr'),
+        ('s3://data-output/new_test.nc', 'netcdf4'),
     ],
 )
 @pytest.mark.integration
-def test_validate_output_path(save_path, engine, minio_bucket):
+def test_validate_output_path(save_path, engine, s3_storage_options):
     output_root_path = os.path.join('.', 'echopype', 'test_data', 'dump')
     source_file = 'test.raw'
     if engine == 'netcdf4':
@@ -96,11 +96,7 @@ def test_validate_output_path(save_path, engine, minio_bucket):
 
     output_storage_options = {}
     if save_path and save_path.startswith("s3://"):
-        output_storage_options = dict(
-            client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-            key="minioadmin",
-            secret="minioadmin",
-        )
+        output_storage_options = s3_storage_options
 
     try:
         output_path = validate_output_path(
@@ -125,7 +121,7 @@ def test_validate_output_path(save_path, engine, minio_bucket):
                 assert str(e) == 'Only local netcdf4 is supported.'
             else:
                 assert isinstance(e, PermissionError) is True
-        elif save_path == 's3://ooi-raw-data/new_test.nc':
+        elif save_path == 's3://data-output/new_test.nc':
             assert isinstance(e, ValueError) is True
             assert str(e) == 'Only local netcdf4 is supported.'
 

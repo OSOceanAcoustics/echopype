@@ -9,6 +9,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Dict, List
 
@@ -52,7 +53,7 @@ def parse_args():
         "--data-only",
         action="store_true",
         help="""Optional flag to only copy over data to http server,
-        and setup minio bucket and not deploy any services. NOTE: MUST HAVE SERVICES RUNNING!""",
+        and setup S3 buckets and not deploy any services. NOTE: MUST HAVE SERVICES RUNNING!""",
     )
     parser.add_argument(
         "--tear-down",
@@ -85,21 +86,28 @@ def run_commands(commands: List[Dict]) -> None:
 
 
 def load_s3(*args, **kwargs) -> None:
-    """Populate MinIO with test data from the Pooch cache (skip .zip files)."""
+    """Populate SeaweedFS with test data from the Pooch cache (skip .zip files)."""
     pooch_path = get_pooch_data_path()
     common_storage_options = dict(
         client_kwargs=dict(endpoint_url="http://localhost:9000/"),
-        key="minioadmin",
-        secret="minioadmin",
+        key="s3admin",
+        secret="s3admin",
     )
-    bucket_name = "echo-test-data"
     fs = fsspec.filesystem("s3", **common_storage_options)
-    test_data = "data"
+    # Probe the signed S3 API, not just the TCP port, before uploading data.
+    for attempt in range(60):
+        try:
+            fs.ls("", refresh=True)
+            break
+        except Exception:
+            if attempt == 59:
+                raise RuntimeError("SeaweedFS S3 did not become ready on :9000")
+            time.sleep(1)
 
-    if not fs.exists(test_data):
-        fs.mkdir(test_data)
-    if not fs.exists(bucket_name):
-        fs.mkdir(bucket_name)
+    test_data = "data"
+    for bucket_name in (test_data, "data-output"):
+        if not fs.exists(bucket_name):
+            fs.mkdir(bucket_name)
 
     for d in pooch_path.iterdir():
         if d.suffix == ".zip":  # skip zip archives to cut redundant I/O
@@ -160,14 +168,15 @@ if __name__ == "__main__":
                 commands.append(
                     {
                         "msg": "Pulling latest images ...",
-                        "cmd": ["docker-compose", "-f", COMPOSE_FILE, "pull"],
+                        "cmd": ["docker", "compose", "-f", COMPOSE_FILE, "pull"],
                     }
                 )
             commands.append(
                 {
                     "msg": "Bringing up services ...",
                     "cmd": [
-                        "docker-compose",
+                        "docker",
+                        "compose",
                         "-f",
                         COMPOSE_FILE,
                         "up",
@@ -183,7 +192,7 @@ if __name__ == "__main__":
 
         commands.append(
             {
-                "msg": "Setting up MinIO S3 bucket with Pooch test data ...",
+                "msg": "Setting up SeaweedFS S3 bucket with Pooch test data ...",
                 "cmd": load_s3,
             }
         )
@@ -197,7 +206,7 @@ if __name__ == "__main__":
         )
 
     if args.tear_down:
-        command = ["docker-compose", "-f", COMPOSE_FILE, "down", "--remove-orphans", "--volumes"]
+        command = ["docker", "compose", "-f", COMPOSE_FILE, "down", "--remove-orphans", "--volumes"]
         if args.images:
             command += ["--rmi", "all"]
         commands.append({"msg": "Stopping test services deployment ...", "cmd": command})

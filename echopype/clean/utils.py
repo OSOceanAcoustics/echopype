@@ -291,7 +291,7 @@ def index_binning_downsample_upsample_along_depth(
                 range_sample=chan_num_range_sample_indices,
                 boundary="pad",
             )
-            .mean(skipna=True)
+            .mean()
             .pipe(_lin2log)
         )
 

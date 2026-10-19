@@ -225,9 +225,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
     """
     da_sv = 10 ** (ds_Sv["Sv"] / 10)  # average should be done in linear domain
     da = 10 * np.log10(
-        da_sv.coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad").mean(
-            skipna=True
-        )
+        da_sv.coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad").mean()
     )
 
     # Attach attributes and coarsened echo_range
@@ -243,7 +241,7 @@ def compute_MVBS_index_binning(ds_Sv, range_sample_num=100, ping_num=100):
         .coarsen(  # binned echo_range (use first value in each average bin)
             ping_time=ping_num, range_sample=range_sample_num, boundary="pad"
         )
-        .min(skipna=True)
+        .min()
     )
     _set_MVBS_attrs(ds_MVBS)
     ds_MVBS["Sv"] = ds_MVBS["Sv"].assign_attrs(

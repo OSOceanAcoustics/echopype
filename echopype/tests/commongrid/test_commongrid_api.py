@@ -257,9 +257,7 @@ def test_compute_MVBS_index_binning(ds_Sv_echo_range_regular, regular_data_param
     # average should be done in linear domain
     da_sv = 10 ** (ds_Sv_echo_range_regular["Sv"] / 10)
     expected = 10 * np.log10(
-        da_sv.coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad").mean(
-            skipna=True
-        )
+        da_sv.coarsen(ping_time=ping_num, range_sample=range_sample_num, boundary="pad").mean()
     )
 
     # Test all values in MVBS
