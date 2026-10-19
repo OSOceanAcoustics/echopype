@@ -1,8 +1,9 @@
 # Publish archives to PyPI and TestPyPI using GitHub Actions
 name: Publish to PyPI
 
-# Run on releases or manually
+# Validate packages on PRs, manual runs, and releases.
 on:
+  pull_request:
   release:
     types:
       - released
@@ -12,7 +13,7 @@ jobs:
   build-artifact:
     name: Build echopype package
     runs-on: ubuntu-latest
-    if: github.repository == 'echostack-org/echopype' || github.event_name == 'workflow_dispatch'
+    if: github.repository == 'echostack-org/echopype' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
     - name: Checkout
       uses: actions/checkout@v7
@@ -27,15 +28,6 @@ jobs:
 
     - name: Install build frontend
       run: python -m pip install --upgrade pip build twine
-
-    # This step is only necessary for testing purposes and for TestPyPI
-    - name: Fix up version string for TestPyPI
-      if: ${{ !startsWith(github.ref, 'refs/tags') || github.event_name == 'workflow_dispatch' }}
-      run: |
-        # Change setuptools-scm local_scheme to "no-local-version" so the
-        # local part of the version isn't included, making the version string
-        # compatible with PyPI.
-        sed --in-place "s/node-and-date/no-local-version/g" pyproject.toml
 
     - name: Build source and wheel distributions
       run: |
@@ -66,26 +58,25 @@ jobs:
       run: |
         ls -ltrh
         ls -ltrh dist
-    - name: Check built packages
+    - name: Check built wheel in a fresh environment
       run: |
-        python -m pip install --upgrade pip
-
-        echo "=== Testing wheel file ==="
-        python -m pip install dist/*.whl
-        python -c "import echopype; print(echopype.__version__)"
+        python -m venv "$RUNNER_TEMP/test-wheel"
+        "$RUNNER_TEMP/test-wheel/bin/python" -m pip install --upgrade pip
+        "$RUNNER_TEMP/test-wheel/bin/python" -m pip install dist/*.whl
+        "$RUNNER_TEMP/test-wheel/bin/python" -c "import echopype; print(echopype.__version__)"
         if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
-          EXPECTED="${GITHUB_REF_NAME#v}" python -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
+          EXPECTED="${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/test-wheel/bin/python" -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
         fi
-        echo "=== Done testing wheel file ==="
 
-        echo "=== Testing source tar file ==="
-        python -m pip uninstall --yes echopype
-        python -m pip install dist/*.tar.gz
-        python -c "import echopype; print(echopype.__version__)"
+    - name: Check built source distribution in a fresh environment
+      run: |
+        python -m venv "$RUNNER_TEMP/test-source"
+        "$RUNNER_TEMP/test-source/bin/python" -m pip install --upgrade pip
+        "$RUNNER_TEMP/test-source/bin/python" -m pip install dist/*.tar.gz
+        "$RUNNER_TEMP/test-source/bin/python" -c "import echopype; print(echopype.__version__)"
         if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
-          EXPECTED="${GITHUB_REF_NAME#v}" python -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
+          EXPECTED="${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/test-source/bin/python" -c 'import os, importlib.metadata; assert importlib.metadata.version("echopype") == os.environ["EXPECTED"]'
         fi
-        echo "=== Done testing source tar file ==="
 
     - name: Publish to Test PyPI
       if: github.event_name == 'release' && github.event.action == 'released'
@@ -95,6 +86,30 @@ jobs:
         repository-url: https://test.pypi.org/legacy/
         verbose: true
         skip-existing: true
+
+    - name: Check installation from Test PyPI
+      if: github.event_name == 'release' && github.event.action == 'released'
+      run: |
+        export EXPECTED="${GITHUB_REF_NAME#v}"
+        python -m venv "$RUNNER_TEMP/testpypi"
+        TEST_PYTHON="$RUNNER_TEMP/testpypi/bin/python"
+        # Install dependencies from PyPI, then remove the local echopype package.
+        "$TEST_PYTHON" -m pip install dist/*.whl
+        "$TEST_PYTHON" -m pip uninstall --yes echopype
+
+        # Try once, then retry up to three times while TestPyPI updates.
+        for ATTEMPT in 1 2 3 4; do
+          if "$TEST_PYTHON" -m pip --isolated install \
+            --index-url https://test.pypi.org/simple/ \
+            --no-deps --no-cache-dir --only-binary=:all: "echopype==$EXPECTED"; then
+            break
+          fi
+          if [[ "$ATTEMPT" == "4" ]]; then
+            exit 1
+          fi
+          sleep 10
+        done
+        "$TEST_PYTHON" -c 'import os, importlib.metadata, echopype; actual = importlib.metadata.version("echopype"); print("Installed echopype:", actual); assert actual == os.environ["EXPECTED"], (actual, os.environ["EXPECTED"])'
 
   publish-pypi:
     name: Push echopype to production pypi
