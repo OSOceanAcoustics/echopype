@@ -332,34 +332,24 @@ def ds_Sv_echo_range_regular(regular_data_params, random_number_generator):
 
 
 @pytest.fixture
-def latlon_history_attr():
-    return (
-        "2023-08-31 12:00:00.000000+00:00. "
-        "Interpolated or propagated from Platform latitude/longitude."  # noqa
-    )
-
-
-@pytest.fixture
-def lat_attrs(latlon_history_attr):
+def lat_attrs():
     """Latitude attributes"""
     return {
         "long_name": "Platform latitude",
         "standard_name": "latitude",
         "units": "degrees_north",
         "valid_range": "(-90.0, 90.0)",
-        "history": latlon_history_attr,
     }
 
 
 @pytest.fixture
-def lon_attrs(latlon_history_attr):
+def lon_attrs():
     """Longitude attributes"""
     return {
         "long_name": "Platform longitude",
         "standard_name": "longitude",
         "units": "degrees_east",
         "valid_range": "(-180.0, 180.0)",
-        "history": latlon_history_attr,
     }
 
 

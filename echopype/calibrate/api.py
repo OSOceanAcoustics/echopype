@@ -6,7 +6,7 @@ import xarray as xr
 from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
-from ..utils.prov import echopype_prov_attrs, source_files_vars
+from ..utils.prov import add_history, echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
 
@@ -243,6 +243,9 @@ def _compute_cal(
         .assign_attrs(prov_dict)
     )
 
+    if "history" in echodata["Top-level"].attrs:
+        cal_ds.attrs["history"] = echodata["Top-level"].attrs["history"]
+
     # Add water_level to the created xr.Dataset
     if "water_level" in echodata["Platform"].data_vars.keys():
         cal_ds["water_level"] = echodata["Platform"].water_level
@@ -250,6 +253,7 @@ def _compute_cal(
     return cal_ds
 
 
+@add_history
 def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     """
     Compute volume backscattering strength (Sv) from raw data.
@@ -349,6 +353,7 @@ def compute_Sv(echodata: EchoData, **kwargs) -> xr.Dataset:
     return _compute_cal(cal_type="Sv", echodata=echodata, **kwargs)
 
 
+@add_history
 def compute_TS(echodata: EchoData, **kwargs):
     """
     Compute target strength (TS) from raw data.

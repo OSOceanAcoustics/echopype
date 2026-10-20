@@ -1,6 +1,4 @@
-import datetime
 import pathlib
-import sys
 import warnings
 from numbers import Number
 from pathlib import Path
@@ -15,7 +13,7 @@ from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.align import align_to_ping_time
 from ..utils.io import get_file_format, open_source
-from ..utils.prov import add_processing_level
+from ..utils.prov import add_history, add_processing_level
 from .ek_depth_utils import (
     ek_use_beam_angles,
     ek_use_platform_angles,
@@ -63,6 +61,7 @@ def swap_dims_channel_frequency(ds: Union[xr.Dataset, str, pathlib.Path]) -> xr.
         )
 
 
+@add_history
 @add_processing_level("L2A")
 def add_depth(
     ds: Union[xr.Dataset, str, pathlib.Path],
@@ -221,27 +220,10 @@ def add_depth(
     # Compute `depth`
     ds["depth"] = transducer_depth + (orientation_mult * ds["echo_range"] * echo_range_scaling)
 
-    # Add history attribute
-    used_platform_vertical_offsets = use_platform_vertical_offsets and not depth_offset
-    used_platform_angles = use_platform_angles and not tilt
-    used_beam_angles = use_beam_angles and not tilt
-    history_attr = (
-        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
-        if sys.version_info < (3, 11, 0)
-        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
-    )
-    history_attr = (
-        history_attr + f" Sv `echo_range`"
-        f"{', Echodata `Platform` Vertical Offsets' if (used_platform_vertical_offsets) else ''}"
-        f"{', Echodata `Platform` Angles' if (used_platform_angles) else ''}"
-        f"{', Echodata `%s` Angles' % (beam_group_name) if (used_beam_angles) else ''}"
-        "."
-    )
-    ds["depth"] = ds["depth"].assign_attrs({"history": history_attr})
-
     return ds
 
 
+@add_history
 @add_processing_level("L2A")
 def add_location(
     ds: Union[xr.Dataset, str, pathlib.Path],
@@ -352,25 +334,13 @@ def add_location(
             loc_var, time_dim_name, ds["ping_time"], "linear"
         )
 
-    # Most attributes are attached automatically via interpolation
-    # here we add the history
-    history_attr = (
-        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
-        if sys.version_info < (3, 11, 0)
-        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
-    )
-    history_attr = (
-        history_attr + f"Interpolated or propagated from Platform {lat_name}/{lon_name}."  # noqa
-    )
-    for da_name in POSITION_VARIABLES:
-        interp_ds[da_name] = interp_ds[da_name].assign_attrs({"history": history_attr})
-
     if time_dim_name in interp_ds:
         interp_ds = interp_ds.drop_vars(time_dim_name)
 
     return interp_ds
 
 
+@add_history
 def add_splitbeam_angle(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     echodata: Union[EchoData, str, pathlib.Path],
@@ -562,18 +532,5 @@ def add_splitbeam_angle(
         else:
             source_Sv.to_zarr(mode="a", **storage_options)
         source_Sv = open_source(source_Sv, "dataset", storage_options)
-
-    # Add history attribute
-    history_attr = (
-        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
-        if sys.version_info < (3, 11, 0)
-        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
-    )
-    history_attr = (
-        history_attr
-        + "Calculated using data stored in the Beam groups of the echodata object."  # noqa
-    )
-    for da_name in ["angle_alongship", "angle_athwartship"]:
-        source_Sv[da_name] = source_Sv[da_name].assign_attrs({"history": history_attr})
 
     return source_Sv
