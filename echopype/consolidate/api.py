@@ -12,8 +12,9 @@ from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from ..echodata.simrad import retrieve_correct_beam_group
 from ..utils.align import align_to_ping_time
+from ..utils.history import add_history
 from ..utils.io import get_file_format, open_source
-from ..utils.prov import add_history, add_processing_level
+from ..utils.prov import add_processing_level
 from .ek_depth_utils import (
     ek_use_beam_angles,
     ek_use_platform_angles,

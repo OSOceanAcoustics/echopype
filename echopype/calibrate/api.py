@@ -6,7 +6,8 @@ import xarray as xr
 from ..core import SONAR_MODELS
 from ..echodata import EchoData
 from ..echodata.simrad import check_input_args_combination, retrieve_correct_beam_group
-from ..utils.prov import add_history, echopype_prov_attrs, source_files_vars
+from ..utils.history import add_history
+from ..utils.prov import echopype_prov_attrs, source_files_vars
 from .calibrate_azfp import CalibrateAZFP
 from .calibrate_ek import CalibrateEK60, CalibrateEK80
 

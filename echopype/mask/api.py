@@ -18,9 +18,9 @@ from ..commongrid.utils import (
     _parse_x_bin,
     ping_time_bin_parsing_and_conversion,
 )
+from ..utils.history import add_history
 from ..utils.io import validate_source
 from ..utils.prov import (
-    add_history,
     add_processing_level,
     echopype_prov_attrs,
     insert_input_processing_level,

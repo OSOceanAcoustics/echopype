@@ -15,7 +15,8 @@ if TYPE_CHECKING:
 from ..echodata.echodata import XARRAY_ENGINE_MAP, EchoData
 from ..utils import io
 from ..utils.coding import COMPRESSION_SETTINGS
-from ..utils.prov import add_history, add_processing_level
+from ..utils.history import add_history
+from ..utils.prov import add_processing_level
 
 BEAM_SUBGROUP_DEFAULT = "Beam_group1"
 
