@@ -155,6 +155,62 @@ def test__groupby_x_along_channels(request, range_var, lat_lon):
     # Check that the range_var is in the dimension
     assert f"{range_var}_bins" in sv_mean.dims
 
+@pytest.mark.unit
+@pytest.mark.parametrize("freq_along_ping_time", [False, True])
+def test_compute_MVBS_preserves_frequency_nominal(
+    ds_Sv_echo_range_regular, freq_along_ping_time
+):
+    """frequency_nominal is kept, aligned to the output channel order, per channel."""
+    ds_Sv = ds_Sv_echo_range_regular.assign_coords(
+        channel=["55196-38-1", "55196-120-2", "55196-200-3", "55196-455-4"]
+    )
+    freq = np.array([38000.0, 120000.0, 200000.0, 455000.0])
+
+    if freq_along_ping_time:
+        # some datasets store frequency_nominal as (ping_time, channel)
+        ds_Sv["frequency_nominal"] = xr.DataArray(
+            np.tile(freq, (ds_Sv.sizes["ping_time"], 1)),
+            dims=["ping_time", "channel"],
+            coords={"ping_time": ds_Sv["ping_time"], "channel": ds_Sv["channel"]},
+        )
+    else:
+        ds_Sv["frequency_nominal"] = xr.DataArray(
+            freq, dims=["channel"], coords={"channel": ds_Sv["channel"]}
+        )
+
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv, range_bin="20m", ping_time_bin="20s")
+
+    assert "frequency_nominal" in ds_MVBS.variables
+
+    # one value per channel, regardless of how it was stored on the way in
+    assert ds_MVBS["frequency_nominal"].dims == ("channel",)
+    assert not np.isnan(ds_MVBS["frequency_nominal"].values).any()
+
+    expected = dict(zip(ds_Sv["channel"].values, freq))
+    for ch, actual in zip(ds_MVBS["channel"].values, ds_MVBS["frequency_nominal"].values):
+        assert actual == expected[ch]
+
+
+@pytest.mark.unit
+def test_compute_MVBS_preserves_channel_when_dims_swapped(ds_Sv_echo_range_regular):
+    """After swap_dims_channel_frequency, channel is a variable and must survive too."""
+    ds_Sv = ds_Sv_echo_range_regular
+    ds_Sv["frequency_nominal"] = xr.DataArray(
+        np.array([38000.0, 120000.0, 200000.0, 455000.0]),
+        dims=["channel"],
+        coords={"channel": ds_Sv["channel"]},
+    )
+    ds_Sv_swapped = ep.consolidate.swap_dims_channel_frequency(ds_Sv)
+
+    ds_MVBS = ep.commongrid.compute_MVBS(ds_Sv_swapped, range_bin="20m", ping_time_bin="20s")
+
+    assert "channel" in ds_MVBS.variables
+    assert ds_MVBS["channel"].dims == ("frequency_nominal",)
+
+    expected = ds_Sv_swapped["channel"].sel(frequency_nominal=ds_MVBS["frequency_nominal"])
+    assert np.array_equal(ds_MVBS["channel"].values, expected.values)
+
+
 # NASC Tests
 @pytest.mark.integration
 @pytest.mark.parametrize("compute_mvbs", [True, False])

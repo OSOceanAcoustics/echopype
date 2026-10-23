@@ -186,14 +186,33 @@ def compute_MVBS(
     prov_dict["processing_function"] = "commongrid.compute_MVBS"
     ds_MVBS = ds_MVBS.assign_attrs(prov_dict)
 
-    # Preserve the channel order returned by compute_raw_MVBS and align
-    # frequency_nominal to that order.
-    freq = ds_Sv["frequency_nominal"]
+    # Reattach the variables that label the primary dimension, aligned to the order
+    # returned by compute_raw_MVBS. That label is frequency_nominal normally, or
+    # channel once dimensions have been swapped, and either may be stored as a
+    # coordinate or as a data variable, so keep whichever role it had in ds_Sv.
+    for name in list(ds_Sv.coords) + list(ds_Sv.data_vars):
+        if name in ds_MVBS.variables:
+            continue
 
-    if "channel" in ds_MVBS.dims:
-        ds_MVBS["frequency_nominal"] = freq.sel(channel=ds_MVBS["channel"])
-    else:
-        ds_MVBS["frequency_nominal"] = freq
+        var = ds_Sv[name]
+        if dim_0 not in var.dims:
+            continue
+
+        # skip anything carrying range information, which is binned separately
+        if any(dim not in (dim_0, "ping_time") for dim in var.dims):
+            continue
+
+        var = var.sel({dim_0: ds_MVBS[dim_0]})
+
+        # these labels do not vary across pings, so reduce rather than carry the
+        # unbinned ping_time over, which would not align with the binned one
+        if "ping_time" in var.dims:
+            var = var.isel(ping_time=0, drop=True)
+
+        if name in ds_Sv.coords:
+            ds_MVBS = ds_MVBS.assign_coords({name: var})
+        else:
+            ds_MVBS[name] = var
 
     ds_MVBS = insert_input_processing_level(ds_MVBS, input_ds=ds_Sv)
 
