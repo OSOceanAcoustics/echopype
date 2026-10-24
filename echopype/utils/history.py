@@ -86,6 +86,6 @@ def add_history(func):
                 f"{func.__qualname__}: History decorator function cannot be used with a "
                 "function that does not return an xarray Dataset, DataArray, or EchoData object"
             )
-        return object
+        return (object, *dataobj[1:]) if isinstance(dataobj, tuple) else object
 
     return inner
