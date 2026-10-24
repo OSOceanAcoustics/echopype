@@ -1,7 +1,5 @@
-import datetime
 import operator as op
 import pathlib
-import sys
 from typing import Dict, List, Literal, Optional, Union
 
 import dask
@@ -20,8 +18,13 @@ from ..commongrid.utils import (
     _parse_x_bin,
     ping_time_bin_parsing_and_conversion,
 )
+from ..utils.history import add_history
 from ..utils.io import validate_source
-from ..utils.prov import add_processing_level, echopype_prov_attrs, insert_input_processing_level
+from ..utils.prov import (
+    add_processing_level,
+    echopype_prov_attrs,
+    insert_input_processing_level,
+)
 from .freq_diff import _check_freq_diff_source_Sv, _parse_freq_diff_eq
 
 # for schoals detection
@@ -275,15 +278,6 @@ def _variable_prov_attrs(
             round(float(masked_da.max().values), 2),
         ],
     }
-    # Add history attribute
-    history_attr = (
-        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
-        if sys.version_info < (3, 11, 0)
-        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
-    )
-    history_attr = f"{history_attr}. " "Created masked Sv dataarray."  # noqa
-    attrs = {**attrs, **{"history": history_attr}}
-
     # Add attributes from the mask DataArray, if present
     # Handle only a single mask. If not passed to apply_mask as a single DataArray,
     # will use the first mask of the list passed to  apply_mask
@@ -292,17 +286,12 @@ def _variable_prov_attrs(
         isinstance(source_mask, list) and isinstance(source_mask[0], xr.DataArray)
     ):
         use_mask = source_mask[0] if isinstance(source_mask, list) else source_mask
-        if len(use_mask.attrs) > 0:
-            mask_attrs = use_mask.attrs.copy()
-            if "history" in mask_attrs:
-                # concatenate the history string as new line
-                attrs["history"] += f"\n{mask_attrs['history']}"
-                mask_attrs.pop("history")
-            attrs = {**attrs, **mask_attrs}
+        attrs = {**attrs, **use_mask.attrs}
 
     return attrs
 
 
+@add_history
 @add_processing_level("L3*")
 def apply_mask(
     source_ds: Union[xr.Dataset, str, pathlib.Path],
@@ -464,6 +453,7 @@ def apply_mask(
     return output_ds
 
 
+@add_history
 def frequency_differencing(
     source_Sv: Union[xr.Dataset, str, pathlib.Path],
     storage_options: Optional[dict] = {},
@@ -653,24 +643,11 @@ def frequency_differencing(
             coords=template.coords,
         )
 
-    history_attr = (
-        f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
-        if sys.version_info < (3, 11, 0)
-        else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
-    )
-
-    xr_dataarray_attrs = {
-        "mask_type": "frequency differencing",
-        "history": f"{history_attr}. "
-        "Mask created by mask.frequency_differencing. "
-        f"Operation: Sv['{chanA}'] - Sv['{chanB}'] {operator} {diff}",
-    }
-
     # assign a name to DataArray
     da.name = "mask"
 
     # assign provenance attributes
-    da = da.assign_attrs(xr_dataarray_attrs)
+    da = da.assign_attrs({"mask_type": "frequency differencing"})
 
     return da
 

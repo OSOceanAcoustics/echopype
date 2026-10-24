@@ -25,6 +25,10 @@ def ek80_path(test_path):
 def azfp_path(test_path):
     return test_path["AZFP"]
 
+def _last_history_call(ds):
+    """Function-call part of the last entry in the dataset `history` attribute."""
+    return ds.attrs["history"].split("\n")[-1].split(": ", 1)[1].rstrip(";")
+
 def _build_ds_Sv(channel, range_sample, ping_time, sample_interval):
     return xr.Dataset(
         data_vars={
@@ -341,9 +345,10 @@ def test_add_depth_without_echodata():
     assert ds_Sv_depth["depth"].equals(-1 * ds_Sv["echo_range"] * np.cos(tilt / 180 * np.pi) + water_level)  # noqa: E501
 
     # Check history attribute
-    history_attribute = ds_Sv_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[32:]
-    assert history_attribute_without_time == ". `depth` calculated using: Sv `echo_range`."
+    assert ds_Sv_depth.attrs["history"].count("\n") == 0
+    assert _last_history_call(ds_Sv_depth) == (
+        "add_depth(ds=<Dataset>, depth_offset=10, tilt=15, downward=False)"
+    )
 
 
 @pytest.mark.integration
@@ -410,10 +415,9 @@ def test_add_depth_EK_with_platform_vertical_offsets(relpath, sonar_model, compu
     ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_platform_vertical_offsets=True)
 
     # Check history attribute
-    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[32:]
-    assert history_attribute_without_time == (
-        ". `depth` calculated using: Sv `echo_range`, Echodata `Platform` Vertical Offsets."
+    assert _last_history_call(ds_Sv_with_depth) == (
+        f"add_depth(ds=<Dataset>, echodata=EchoData({str(raw_file)!r}), "
+        "use_platform_vertical_offsets=True)"
     )
 
     # Compute transducer depth
@@ -455,10 +459,8 @@ def test_add_depth_EK_with_platform_angles(subpath, sonar_model, compute_Sv_kwar
     ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_platform_angles=True)
 
     # Check history attribute
-    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[32:]
-    assert history_attribute_without_time == (
-        ". `depth` calculated using: Sv `echo_range`, Echodata `Platform` Angles."
+    assert _last_history_call(ds_Sv_with_depth) == (
+        f"add_depth(ds=<Dataset>, echodata=EchoData({str(raw_file)!r}), use_platform_angles=True)"
     )
 
     # Compute transducer depth
@@ -502,10 +504,8 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
     ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
 
     # Check history attribute
-    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[32:]
-    assert history_attribute_without_time == (
-        ". `depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
+    assert _last_history_call(ds_Sv_with_depth) == (
+        f"add_depth(ds=<Dataset>, echodata=EchoData({str(raw_file)!r}), use_beam_angles=True)"
     )
 
     # Compute echo range scaling values
@@ -527,10 +527,8 @@ def test_add_depth_EK_with_beam_angles(subpath, sonar_model, compute_Sv_kwargs, 
     ds_Sv_with_depth = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
 
     # Check history attribute
-    history_attribute = ds_Sv_with_depth["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[32:]
-    assert history_attribute_without_time == (
-        ". `depth` calculated using: Sv `echo_range`, Echodata `Beam_group1` Angles."
+    assert _last_history_call(ds_Sv_with_depth) == (
+        f"add_depth(ds=<Dataset>, echodata=EchoData({str(raw_file)!r}), use_beam_angles=True)"
     )
 
     # Compute echo range scaling values
@@ -577,10 +575,8 @@ def test_add_depth_EK_with_beam_angles_with_different_beam_groups(
     ds_Sv = ep.consolidate.add_depth(ds_Sv, ed, use_beam_angles=True)
 
     # Check history attribute
-    history_attribute = ds_Sv["depth"].attrs["history"]
-    history_attribute_without_time = history_attribute[32:]
-    assert history_attribute_without_time == (
-        f". `depth` calculated using: Sv `echo_range`, Echodata `{expected_beam_group_name}` Angles."  # noqa: E501
+    assert _last_history_call(ds_Sv) == (
+        f"add_depth(ds=<Dataset>, echodata=EchoData({str(raw_file)!r}), use_beam_angles=True)"
     )
 
 

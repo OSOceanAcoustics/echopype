@@ -1,6 +1,4 @@
-import datetime
 import re
-import sys
 import warnings
 from html import escape
 from pathlib import Path
@@ -18,6 +16,7 @@ if TYPE_CHECKING:
 
 from ..echodata.utils_platform import clip_by_time_dim, get_mappings_expanded
 from ..utils.coding import sanitize_dtypes, set_time_encodings
+from ..utils.history import add_history
 from ..utils.prov import add_processing_level
 from .convention import sonarnetcdf_1
 from .widgets.utils import tree_repr
@@ -342,6 +341,7 @@ class EchoData:
         else:
             raise ValueError("Datatree not found!")
 
+    @add_history
     @add_processing_level("L1A")
     def update_platform(
         self,
@@ -409,16 +409,6 @@ class EchoData:
             obs_dim = list(extra_platform_data[time_dim].dims)[0]
             extra_platform_data = extra_platform_data.swap_dims({obs_dim: time_dim})
 
-        # History attribute to be included in each updated variable
-        history_attr = (
-            f"{datetime.datetime.utcnow()}+00:00. `depth` calculated using:"
-            if sys.version_info < (3, 11, 0)
-            else f"{datetime.datetime.now(datetime.UTC)}. `depth` calculated using:"
-        )
-        history_attr = f"{history_attr}. Added from external platform data"
-        if extra_platform_data_file_name:
-            history_attr += ", from file " + extra_platform_data_file_name
-
         platform = self["Platform"]
 
         # Retain only variable_mappings items where
@@ -458,7 +448,6 @@ class EchoData:
                 "long_name": "Timestamps from an external dataset",
                 "comment": "Time coordinate originated from a dataset "
                 "external to the sonar data files.",
-                "history": f"{history_attr}. From external {ext_time_dim} variable.",
             }
             platform[time_dim] = platform[time_dim].assign_attrs(**time_attrs)
 
@@ -471,9 +460,7 @@ class EchoData:
                 platform.update({platform_var: (time_dim, ext_ds[ext_var].data)})
 
                 # Assign attributes to newly created (replaced) variables
-                var_attrs = platform_var_attrs
-                var_attrs["history"] = f"{history_attr}. From external {ext_var} variable."
-                platform[platform_var] = platform[platform_var].assign_attrs(**var_attrs)
+                platform[platform_var] = platform[platform_var].assign_attrs(**platform_var_attrs)
 
         # Update scalar variables, if any
         scalar_vars = [
@@ -495,11 +482,8 @@ class EchoData:
                     }
                 )
             else:
-                # Replace the scalar value and add a history attribute
+                # Replace the scalar value
                 platform[platform_var].data = float(extra_platform_data[ext_var].data)
-            platform[platform_var] = platform[platform_var].assign_attrs(
-                **{"history": f"{history_attr}. From external {ext_var} variable."}
-            )
 
         # Drop pre-existing time dimensions that are no longer being used
         used_dims = {
